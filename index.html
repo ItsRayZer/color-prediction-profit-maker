@@ -951,10 +951,15 @@ box-shadow:0 4px 20px #8888;">
       </div>
     </div>
 
-    <!-- Quick Demo Data Auto-Fill Button -->
-    <button onclick="loadInitDemoData()" class="w-full py-2 rounded-xl bg-gradient-to-r from-amber-400/20 to-amber-500/20 border border-amber-400/40 text-amber-300 font-bold text-xs hover:bg-amber-400/30 active:scale-95 transition flex items-center justify-center gap-2">
-      <i class="fa-solid fa-bolt text-amber-400"></i> ⚡ Auto-Fill 10 Sample Results & Start AI
-    </button>
+    <!-- Quick Sync Buttons -->
+    <div class="grid grid-cols-2 gap-2">
+      <button onclick="fetchLiveAPIResults()" class="py-2 rounded-xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-400/40 text-emerald-300 font-bold text-xs hover:bg-emerald-400/30 active:scale-95 transition flex items-center justify-center gap-1.5">
+        <i class="fa-solid fa-rotate text-emerald-400"></i> 🌐 Sync Live Results
+      </button>
+      <button onclick="loadInitDemoData()" class="py-2 rounded-xl bg-gradient-to-r from-amber-400/20 to-amber-500/20 border border-amber-400/40 text-amber-300 font-bold text-xs hover:bg-amber-400/30 active:scale-95 transition flex items-center justify-center gap-1.5">
+        <i class="fa-solid fa-bolt text-amber-400"></i> ⚡ Sample Results
+      </button>
+    </div>
 
     <!-- Progress bar -->
     <div>
@@ -1177,43 +1182,50 @@ function computeRTState() {
 }
 
 function startRTEngine() {
-  setInterval(() => {
-    const { secsLeft, periodStr, clockStr } = computeRTState();
-    document.getElementById('realWorldClock').textContent = clockStr;
+  if (window._rtTimer) clearInterval(window._rtTimer);
+  window._rtTimer = setInterval(() => {
+    try {
+      const { secsLeft, periodStr, clockStr } = computeRTState();
+      const clockEl = document.getElementById('realWorldClock');
+      if (clockEl) clockEl.textContent = clockStr;
 
-    // Period rollover detection
-    if (lastPeriod && lastPeriod !== periodStr) {
-      onPeriodRollover(lastPeriod);
-      runAI(); // Fresh AI calculation immediately on every period rollover!
-    }
-    lastPeriod = periodStr;
-    S.currentPeriod = periodStr;
-    S.secondsLeft = (secsLeft === S.durationSeconds) ? 0 : secsLeft;
-    document.getElementById('currentPeriodDisplay').textContent = S.currentPeriod;
-    updateTimerUI();
-
-    // 5-second bet block
-    if (S.secondsLeft <= 5 && S.secondsLeft > 0 && !S.inBetBlock) {
-      S.inBetBlock = true;
-      showBetBlock(S.secondsLeft);
-    } else if (S.secondsLeft > 5 && S.inBetBlock) {
-      S.inBetBlock = false;
-    }
-    if (S.inBetBlock && S.secondsLeft > 0) {
-      updateBetBlock(S.secondsLeft);
-    }
-
-    // ── Live countdown bar for result prompt ──
-    const modal = document.getElementById('resultPromptModal');
-    if (modal && modal.style.display === 'flex') {
-      if (S.isEditingNoTimer || S.userPickedNum) {
-        const bar = document.getElementById('autoCloseBar');
-        const lbl = document.getElementById('autoCloseLabel');
-        if (bar) { bar.style.width = '100%'; bar.style.background = '#8b5cf6'; }
-        if (lbl) lbl.textContent = '✏️ Manual Entry / Editing — No time limit';
+      // Period rollover detection
+      if (lastPeriod && lastPeriod !== periodStr) {
+        onPeriodRollover(lastPeriod);
+        runAI(); // Fresh AI calculation immediately on every period rollover!
       }
+      lastPeriod = periodStr;
+      S.currentPeriod = periodStr;
+      S.secondsLeft = (secsLeft === S.durationSeconds) ? 0 : secsLeft;
+      const periodEl = document.getElementById('currentPeriodDisplay');
+      if (periodEl) periodEl.textContent = S.currentPeriod;
+      updateTimerUI();
+
+      // 5-second bet block
+      if (S.secondsLeft <= 5 && S.secondsLeft > 0 && !S.inBetBlock) {
+        S.inBetBlock = true;
+        showBetBlock(S.secondsLeft);
+      } else if (S.secondsLeft > 5 && S.inBetBlock) {
+        S.inBetBlock = false;
+      }
+      if (S.inBetBlock && S.secondsLeft > 0) {
+        updateBetBlock(S.secondsLeft);
+      }
+
+      // ── Live countdown bar for result prompt ──
+      const modal = document.getElementById('resultPromptModal');
+      if (modal && modal.style.display === 'flex') {
+        if (S.isEditingNoTimer || S.userPickedNum) {
+          const bar = document.getElementById('autoCloseBar');
+          const lbl = document.getElementById('autoCloseLabel');
+          if (bar) { bar.style.width = '100%'; bar.style.background = '#8b5cf6'; }
+          if (lbl) lbl.textContent = '✏️ Manual Entry / Editing — No time limit';
+        }
+      }
+    } catch (e) {
+      console.warn('RT Timer error:', e);
     }
-  }, 200);
+  }, 1000);
 }
 
 function updateTimerUI() {
@@ -2928,6 +2940,61 @@ function runInitBacktest() {
   document.getElementById('initTestLog').innerHTML = log.map(r =>
     `<span class="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black ${r.ok ? 'bg-emerald-500/30 text-emerald-300' : 'bg-rose-500/30 text-rose-300'}">${r.ok ? '✓' : '✗'}</span>`
   ).join('');
+}
+
+async function fetchLiveAPIResults(tfOverride) {
+  const tf = tfOverride || S.timeframe || '30s';
+  const tfCodeMap = { '30s':'30S', '1m':'1M', '3m':'3M', '5m':'5M' };
+  const tfCode = tfCodeMap[tf] || '30S';
+  const url = `https://draw.ar-lottery01.com/WinGo/WinGo_${tfCode}/GetHistoryIssuePage.json`;
+
+  try {
+    showToast(`🌐 Fetching live real-time WinGo ${tf} draw results...`, 'info');
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    
+    let list = [];
+    if (Array.isArray(data)) list = data;
+    else if (data && typeof data === 'object') {
+      list = data.list || data.data?.list || data.data || data.rows || data.records || [];
+    }
+
+    if (Array.isArray(list) && list.length > 0) {
+      const parsedHistory = list.slice(0, 10).reverse().map(row => {
+        const period = String(row.issueNumber || row.issue || row.period || row.expect || '');
+        const n = parseInt(row.number || row.openNumber || row.code || 0);
+        const size = row.size || (n >= 5 ? 'BIG' : 'SMALL');
+        const color = row.color || getColorForNum(n);
+        return { period, number: n, size, color };
+      });
+
+      if (parsedHistory.length > 0) {
+        if (!S.historyByTimeframe) S.historyByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
+        S.historyByTimeframe[tf] = parsedHistory;
+        S.history = parsedHistory;
+        S.isInitialized = true;
+        S.aiTestMode = true;
+
+        renderHistoryTable();
+        renderMiniBalls();
+        renderTrendChart();
+        runAI();
+        updateTestBanner();
+
+        const modal = document.getElementById('initModal');
+        if (modal) modal.style.display = 'none';
+
+        showToast(`⚡ Live Sync Complete! ${parsedHistory.length} real-time results loaded for WinGo ${tf}!`, 'success');
+        return true;
+      }
+    }
+  } catch (err) {
+    console.warn('Live API auto-fetch notice:', err.message);
+  }
+  return false;
+}
+
 function loadInitDemoData() {
   S.initEntries = [7, 3, 2, 9, 0, 5, 8, 1, 4, 6];
   renderInitBalls();

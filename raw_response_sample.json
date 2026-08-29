@@ -1,0 +1,83 @@
+{
+  "data": {
+    "list": [
+      {
+        "issueNumber": "20260829100052477",
+        "number": "5",
+        "color": "green,violet",
+        "premium": "5",
+        "sum": 0
+      },
+      {
+        "issueNumber": "20260829100052476",
+        "number": "9",
+        "color": "green",
+        "premium": "9",
+        "sum": 0
+      },
+      {
+        "issueNumber": "20260829100052475",
+        "number": "5",
+        "color": "green,violet",
+        "premium": "5",
+        "sum": 0
+      },
+      {
+        "issueNumber": "20260829100052474",
+        "number": "0",
+        "color": "red,violet",
+        "premium": "0",
+        "sum": 0
+      },
+      {
+        "issueNumber": "20260829100052473",
+        "number": "3",
+        "color": "green",
+        "premium": "3",
+        "sum": 0
+      },
+      {
+        "issueNumber": "20260829100052472",
+        "number": "9",
+        "color": "green",
+        "premium": "9",
+        "sum": 0
+      },
+      {
+        "issueNumber": "20260829100052471",
+        "number": "3",
+        "color": "green",
+        "premium": "3",
+        "sum": 0
+      },
+      {
+        "issueNumber": "20260829100052470",
+        "number": "1",
+        "color": "green",
+        "premium": "1",
+        "sum": 0
+      },
+      {
+        "issueNumber": "20260829100052469",
+        "number": "6",
+        "color": "red",
+        "premium": "6",
+        "sum": 0
+      },
+      {
+        "issueNumber": "20260829100052468",
+        "number": "8",
+        "color": "red",
+        "premium": "8",
+        "sum": 0
+      }
+    ],
+    "pageNo": 1,
+    "totalPage": 50,
+    "totalCount": 500
+  },
+  "code": 0,
+  "msg": "Succeed",
+  "msgCode": 0,
+  "serviceTime": 1788035907324
+}
