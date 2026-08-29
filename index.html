@@ -1,0 +1,3399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Dhani.win – WinGo Quant AI Terminal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            app: { bg: '#140c27', surface: '#1d1238', card: '#27194a', cardLight: '#382468' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      background: #0d071b;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    ::-webkit-scrollbar { width: 3px; } ::-webkit-scrollbar-thumb { background: #4a347c; border-radius: 4px; }
+
+    /* ── Ticket Card (yellow sawtooth) ── */
+    .ticket-card { background: linear-gradient(135deg,#fbc531,#e1b12c); position:relative; overflow:hidden; }
+    .ticket-card::before,.ticket-card::after {
+      content:''; position:absolute; width:18px; height:18px;
+      background:#0d071b; border-radius:50%; top:50%; transform:translateY(-50%);
+    }
+    .ticket-card::before { left:-9px; } .ticket-card::after { right:-9px; }
+
+    /* ── 3-D Balls ── */
+    .ball-3d {
+      box-shadow: inset -3px -3px 6px rgba(0,0,0,.45), inset 3px 3px 6px rgba(255,255,255,.35), 0 4px 8px rgba(0,0,0,.35);
+      transition: transform .12s;
+    }
+    .ball-3d:active { transform: scale(.88); }
+    .ball-green   { background: radial-gradient(circle at 35% 35%,#4ade80,#16a34a 65%,#14532d); }
+    .ball-red     { background: radial-gradient(circle at 35% 35%,#fb7185,#e11d48 65%,#881337); }
+    .ball-split-0 { background: linear-gradient(135deg,#e11d48 50%,#9333ea 50%); }
+    .ball-split-5 { background: linear-gradient(135deg,#16a34a 50%,#9333ea 50%); }
+
+    /* ── Clock digits ── */
+    .clock-digit { background:#fff; color:#e11d48; box-shadow:inset 0 -2px 0 rgba(0,0,0,.15),0 3px 6px rgba(0,0,0,.25); }
+
+    /* ── Floating HUD ── */
+    .floating-hud { animation: floatPulse 3.5s ease-in-out infinite; }
+    @keyframes floatPulse { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
+
+    /* ── Toast ── */
+    .toast-animate { animation: toastIn .3s cubic-bezier(.16,1,.3,1) forwards; }
+    @keyframes toastIn { from{transform:translateY(-20px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+    /* ── Bottom-sheet slide ── */
+    .sheet-enter  { animation: sheetIn .35s cubic-bezier(.16,1,.3,1) forwards; }
+    .sheet-leave  { animation: sheetOut .25s ease-in forwards; }
+    @keyframes sheetIn  { from{transform:translateY(100%)} to{transform:translateY(0)} }
+    @keyframes sheetOut { from{transform:translateY(0)} to{transform:translateY(100%)} }
+
+    /* ── 5-second BET BLOCK overlay (covers betting board only) ── */
+    #betBlockOverlay {
+      position: absolute; inset: 0; z-index: 20;
+      background: rgba(13,7,27,.88);
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      border-radius: 16px;
+      backdrop-filter: blur(4px);
+    }
+    .countdown-ring {
+      width: 110px; height: 110px;
+      border-radius: 50%;
+      background: conic-gradient(#f59e0b var(--prog,100%), #27194a 0);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 30px rgba(245,158,11,.4);
+    }
+    .countdown-inner { width:86px;height:86px;border-radius:50%;background:#0d071b;display:flex;align-items:center;justify-content:center; }
+
+    /* ── Prediction confidence bar ── */
+    .prob-bar { height:8px; border-radius:4px; overflow:hidden; background:rgba(255,255,255,.1); }
+    .prob-fill { height:100%; border-radius:4px; transition:width .4s ease; }
+
+    /* ── Confirmation popup bottom sheet ── */
+    #confirmSheet { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:448px; z-index:90; }
+    #confirmSheetInner { background:#1e1235; border-radius:24px 24px 0 0; padding:24px 20px 32px; }
+    .amount-btn { padding:10px 18px; border-radius:10px; font-weight:700; font-size:14px; transition:all .15s; cursor:pointer; }
+    .amount-btn.active { background:#f59e0b; color:#0d071b; }
+    .amount-btn.inactive { background:#27194a; color:#cbd5e1; }
+
+    /* ── Real result prompt modal ── */
+    #resultPromptModal { position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.85);display:none;align-items:flex-end;justify-content:center; }
+    #resultPromptInner { background:#1e1235;border-radius:24px 24px 0 0;padding:28px 20px 40px;width:100%;max-width:448px;max-height:90vh;overflow-y:auto; }
+
+    /* ── AI signal pill ── */
+    .ai-signal-pill { display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:30px;font-weight:800;font-size:13px; }
+    .ai-big    { background:rgba(245,158,11,.15);border:1px solid #f59e0b;color:#f59e0b; }
+    .ai-small  { background:rgba(56,189,248,.15);border:1px solid #38bdf8;color:#38bdf8; }
+    .ai-wait   { background:rgba(148,163,184,.1);border:1px solid #64748b;color:#94a3b8; }
+    .ai-caution{ background:rgba(244,63,94,.15);border:1px solid #f43f5e;color:#f43f5e; }
+
+    /* ── Number buttons in prompt ── */
+    .num-pick { width:52px;height:52px;border-radius:12px;font-weight:900;font-size:18px;cursor:pointer;transition:transform .1s,box-shadow .1s; }
+    .num-pick:active { transform:scale(.88); }
+    .num-pick.selected { box-shadow:0 0 0 3px #f59e0b, 0 0 12px rgba(245,158,11,.5); }
+  </style>
+</head>
+<body class="flex justify-center min-h-screen">
+
+<!-- ════════════════════════════════════════════════════════════
+     TOAST CONTAINER
+════════════════════════════════════════════════════════════ -->
+<div id="toastContainer" class="fixed top-3 z-[110] flex flex-col items-center w-full max-w-md px-4 pointer-events-none space-y-2"></div>
+
+<!-- bet block overlay is now INSIDE #bettingBoard wrapper below -->
+
+<!-- ════════════════════════════════════════════════════════════
+     MAIN APP CONTAINER
+════════════════════════════════════════════════════════════ -->
+<div class="w-full max-w-md bg-app-bg min-h-screen relative flex flex-col pb-28 shadow-2xl border-x border-purple-950/40 overflow-x-hidden">
+
+  <!-- ── TOP NAVBAR ── -->
+  <header class="flex items-center justify-between px-4 py-3 bg-app-surface sticky top-0 z-30 border-b border-purple-900/30">
+    <button onclick="toggleAIGlow()" class="w-8 h-8 flex items-center justify-center rounded-full bg-app-card text-amber-400 hover:text-white transition active:scale-95">
+      <i class="fa-solid fa-bolt-lightning text-xs"></i>
+    </button>
+    <div class="flex flex-col items-center cursor-pointer" onclick="toggleAIGlow()">
+      <div class="flex items-center gap-1">
+        <span class="text-xl font-black italic text-indigo-400">Dhani</span>
+        <span class="text-xl font-black italic text-amber-400">.win</span>
+        <span class="ml-1 text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">QUANT AI</span>
+      </div>
+      <div id="realWorldClock" class="text-[9px] font-mono text-purple-300 font-semibold">--:--:-- UTC+5:30</div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="toggleAutoBet()" id="autoBetToggleBtn" class="w-8 h-8 flex items-center justify-center rounded-full bg-app-card text-slate-300 hover:text-emerald-400 transition" title="Auto-Execution">
+        <i class="fa-solid fa-robot text-xs"></i>
+      </button>
+      <button onclick="openImportModal()" class="w-8 h-8 flex items-center justify-center rounded-full bg-app-card text-slate-300 hover:text-white transition" title="Data Import">
+        <i class="fa-solid fa-database text-xs"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- ── QUANT AI SIGNAL TERMINAL ── -->
+  <div id="quantBox" class="mx-4 mt-3 mb-2 p-3.5 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border border-amber-500/40 rounded-2xl shadow-xl">
+    <div class="flex items-center justify-between pb-2 border-b border-purple-800/40">
+      <div class="flex items-center gap-2">
+        <span id="aiReadyDot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+        <span class="text-[11px] font-black text-amber-400 uppercase tracking-wider">Markov + Kelly Engine</span>
+      </div>
+      <div id="circuitBreakerTag" class="text-[10px] px-2.5 py-0.5 rounded-full font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+        PROTECTION: SAFE
+      </div>
+    </div>
+
+    <!-- Signal row -->
+    <div class="mt-2.5 flex items-center justify-between">
+      <div>
+        <span class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold block">AI SIGNAL</span>
+        <div id="signalVerdict" class="text-xl font-black text-slate-400 mt-0.5">GATHERING DATA...</div>
+        <div class="mt-1.5 flex gap-2 flex-wrap">
+          <span id="aiSizePill" class="ai-signal-pill ai-wait"><i class="fa-solid fa-chart-bar text-[10px]"></i> —</span>
+          <span id="aiConfPill" class="ai-signal-pill ai-wait"><i class="fa-solid fa-percent text-[10px]"></i> —</span>
+        </div>
+      </div>
+      <div class="text-right">
+        <span class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold block">SUGGESTED STAKE</span>
+        <div id="signalStake" class="text-xl font-black text-emerald-400 font-mono mt-0.5">₹—</div>
+        <div class="text-[10px] text-slate-400 mt-0.5">Kelly-optimized</div>
+      </div>
+    </div>
+
+    <!-- Confidence bars -->
+    <div id="confidenceBars" class="mt-3 space-y-1.5">
+      <div class="flex items-center gap-2 text-[10px]">
+        <span class="w-10 text-amber-300 font-bold text-right">BIG</span>
+        <div class="prob-bar flex-1"><div id="bigBar" class="prob-fill bg-amber-400" style="width:50%"></div></div>
+        <span id="bigPct" class="w-8 text-amber-300 font-bold">50%</span>
+      </div>
+      <div class="flex items-center gap-2 text-[10px]">
+        <span class="w-10 text-sky-300 font-bold text-right">SMALL</span>
+        <div class="prob-bar flex-1"><div id="smallBar" class="prob-fill bg-sky-400" style="width:50%"></div></div>
+        <span id="smallPct" class="w-8 text-sky-300 font-bold">50%</span>
+      </div>
+    </div>
+
+    <!-- Telemetry strip -->
+    <div class="mt-2.5 pt-2 border-t border-purple-800/40 grid grid-cols-4 gap-1 text-[10px] text-center font-mono">
+      <div class="bg-purple-950/70 border border-purple-800/30 py-1.5 rounded-xl">
+        <span class="text-[8px] text-slate-400 block font-sans font-semibold">ROUNDS</span>
+        <b id="dataCountDisplay" class="text-amber-300">0</b>
+      </div>
+      <div class="bg-purple-950/70 border border-purple-800/30 py-1.5 rounded-xl">
+        <span class="text-[8px] text-slate-400 block font-sans font-semibold">ENTROPY</span>
+        <b id="entropyDisplay" class="text-slate-200">1.00</b>
+      </div>
+      <div class="bg-purple-950/70 border border-purple-800/30 py-1.5 rounded-xl">
+        <span class="text-[8px] text-slate-400 block font-sans font-semibold">WIN RATE</span>
+        <b id="winRateDisplay" class="text-emerald-400">—</b>
+      </div>
+      <div class="bg-purple-950/70 border border-purple-800/30 py-1.5 rounded-xl">
+        <span class="text-[8px] text-slate-400 block font-sans font-semibold">STREAK</span>
+        <b id="streakDisplay" class="text-rose-400">0/3</b>
+      </div>
+    </div>
+
+    <div class="mt-2 flex items-center justify-between px-2 py-1.5 bg-black/40 rounded-lg text-[10px] text-slate-300">
+      <span id="reasoningText" class="truncate italic font-medium">Enter at least 8 real results to unlock predictions...</span>
+      <span id="autoBetStatusTag" class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-bold border border-slate-700 ml-1 shrink-0">BOT: OFF</span>
+    </div>
+
+    <!-- Start Auto-Betting main button inside AI Box -->
+    <button id="autoBetBoxBtn" onclick="toggleAutoBet()" class="w-full mt-2.5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black text-xs shadow hover:brightness-110 active:scale-95 transition flex items-center justify-center gap-2">
+      <i class="fa-solid fa-play"></i> 🚀 Start Auto-Betting
+    </button>
+
+    <!-- Embedded AI Test Mode Status & Requirements Strip (Inside quantBox) -->
+    <div id="aiTestBoxStrip" class="mt-2.5 p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 flex flex-col gap-1.5 text-[10px]">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-1.5 font-black text-amber-300 uppercase tracking-wider text-[9.5px]">
+          <i class="fa-solid fa-flask text-amber-400"></i>
+          <span>AI Shadow Test Mode</span>
+          <span id="testProgressBadge" class="px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 font-bold border border-amber-400/40 text-[8.5px]">0 / 5 rounds</span>
+        </div>
+        <button onclick="exitTestMode()" class="text-[9px] text-slate-400 hover:text-white underline">Exit Test</button>
+      </div>
+
+      <!-- Test Requirements Checklist -->
+      <div class="grid grid-cols-3 gap-1 font-mono text-[9px] text-slate-300 pt-0.5">
+        <div class="flex items-center justify-between p-1 bg-black/40 rounded-lg">
+          <span>Rounds:</span>
+          <b id="reqRoundsVal" class="text-amber-300">0 / 6</b>
+        </div>
+        <div class="flex items-center justify-between p-1 bg-black/40 rounded-lg">
+          <span>Acc:</span>
+          <b id="reqAccVal" class="text-emerald-400">—</b>
+        </div>
+        <div class="flex items-center justify-between p-1 bg-black/40 rounded-lg">
+          <span>PnL:</span>
+          <b id="reqPnlVal" class="text-emerald-400">₹100</b>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between text-[9px] pt-0.5">
+        <span id="testStatusText" class="text-amber-300 font-bold italic">🧪 Testing pattern stability before live betting...</span>
+        <button id="startRealModeBtn" onclick="exitTestMode()" class="px-2.5 py-1 rounded bg-gradient-to-r from-emerald-400 to-teal-500 text-slate-950 font-black text-[9px] hover:brightness-110 shadow transition hidden">🚀 Start Real Mode</button>
+      </div>
+    </div>
+
+    <!-- Expandable AI Diagnostics Toggle -->
+    <button onclick="toggleAIDiagnostics()" class="w-full mt-2 py-1.5 px-3 bg-purple-950/80 hover:bg-purple-900/80 rounded-xl text-[10px] text-amber-300 font-bold flex items-center justify-between border border-purple-800/40 transition">
+      <span class="flex items-center gap-1.5"><i class="fa-solid fa-microchip text-amber-400"></i> AI Engine Diagnostics & Telemetry</span>
+      <i id="diagChevron" class="fa-solid fa-chevron-down text-[10px] transition-transform"></i>
+    </button>
+
+    <!-- Expandable Diagnostics Drawer -->
+    <div id="aiDiagnosticsDrawer" class="hidden mt-2 p-3 bg-black/70 rounded-2xl border border-purple-800/60 space-y-3 text-[10px]">
+      
+      <!-- 5 Engine Live Consensus breakdown -->
+      <div>
+        <div class="text-[9px] font-black text-amber-400 uppercase tracking-wider mb-1 flex items-center gap-1"><i class="fa-solid fa-network-wired text-amber-400"></i> 5-Engine Live Voting Breakdown</div>
+        <div class="grid grid-cols-2 gap-1.5 font-mono text-[9px]">
+          <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between">
+            <span class="text-slate-400">1. Sum % 10:</span> <b id="diagEngineSum" class="text-amber-300">—</b>
+          </div>
+          <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between">
+            <span class="text-slate-400">2. Dragon/Chop:</span> <b id="diagEngineTrend" class="text-amber-300">—</b>
+          </div>
+          <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between">
+            <span class="text-slate-400">3. DNA Empirical:</span> <b id="diagEngineDNA" class="text-amber-300">—</b>
+          </div>
+          <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between">
+            <span class="text-slate-400">4. Markov (2nd-Ord):</span> <b id="diagEngineMarkov" class="text-amber-300">—</b>
+          </div>
+          <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between">
+            <span class="text-slate-400">5. Rolling Rate:</span> <b id="diagEngineRolling" class="text-amber-300">—</b>
+          </div>
+          <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between">
+            <span class="text-slate-400">6. OpenRouter AI:</span> <b id="diagEngineOR" class="text-indigo-300">—</b>
+          </div>
+        </div>
+      </div>
+
+      <!-- Test Mode & Accuracy Telemetry -->
+      <div>
+        <div class="text-[9px] font-black text-emerald-400 uppercase tracking-wider mb-1 flex items-center gap-1"><i class="fa-solid fa-vial text-emerald-400"></i> AI Testing & Accuracy Telemetry</div>
+        <div class="grid grid-cols-3 gap-1.5 text-center font-mono text-[9px]">
+          <div class="p-1.5 bg-emerald-950/40 border border-emerald-500/30 rounded-lg">
+            <span class="text-slate-400 block text-[8px]">CORRECT</span>
+            <b id="diagCorrectCount" class="text-emerald-400">0</b>
+          </div>
+          <div class="p-1.5 bg-rose-950/40 border border-rose-500/30 rounded-lg">
+            <span class="text-slate-400 block text-[8px]">WRONG</span>
+            <b id="diagWrongCount" class="text-rose-400">0</b>
+          </div>
+          <div class="p-1.5 bg-purple-950/70 border border-purple-800/40 rounded-lg">
+            <span class="text-slate-400 block text-[8px]">ACCURACY</span>
+            <b id="diagAccPct" class="text-amber-300">—</b>
+          </div>
+        </div>
+      </div>
+
+      <!-- Circuit Breaker & Loss Guard Telemetry -->
+      <div>
+        <div class="text-[9px] font-black text-rose-400 uppercase tracking-wider mb-1 flex items-center gap-1"><i class="fa-solid fa-shield-halved text-rose-400"></i> Loss Guard & Circuit Breaker Math</div>
+        <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/40 space-y-1 font-mono text-[9px]">
+          <div class="flex justify-between"><span class="text-slate-400">Loss Streak:</span> <b id="diagLossStreak" class="text-rose-400">0/3 (SAFE)</b></div>
+          <div class="flex justify-between"><span class="text-slate-400">Circuit Breaker:</span> <b id="diagCircuitStatus" class="text-emerald-400 font-bold">PROTECTION SAFE</b></div>
+          <div class="flex justify-between"><span class="text-slate-400">Required Z-Score Threshold:</span> <b id="diagReqZ" class="text-amber-300">Z ≥ 1.64 (90% Conf)</b></div>
+          <div class="flex justify-between"><span class="text-slate-400">Entropy / Noise Index:</span> <b id="diagEntropyVal" class="text-slate-200">0.50 (Normal)</b></div>
+        </div>
+      </div>
+
+      <!-- Kelly Staking & Risk Formula -->
+      <div>
+        <div class="text-[9px] font-black text-indigo-300 uppercase tracking-wider mb-1 flex items-center gap-1"><i class="fa-solid fa-calculator text-indigo-300"></i> Half-Kelly Staking Engine</div>
+        <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/40 space-y-1 font-mono text-[9px]">
+          <div class="flex justify-between"><span class="text-slate-400">Payout Odds:</span> <b class="text-amber-300">1.92× (4% House Fee)</b></div>
+          <div class="flex justify-between"><span class="text-slate-400">Breakeven Win Rate:</span> <b class="text-slate-300">52.08%</b></div>
+          <div class="flex justify-between"><span class="text-slate-400">Model Win Probability:</span> <b id="diagProbVal" class="text-emerald-400">50.0%</b></div>
+          <div class="flex justify-between"><span class="text-slate-400">Calculated Stake:</span> <b id="diagStakeVal" class="text-amber-400">₹0.00 (5% max cap)</b></div>
+        </div>
+      </div>
+
+      <!-- Shadow Prediction Log -->
+      <div>
+        <div class="text-[9px] font-black text-amber-400 uppercase tracking-wider mb-1">Shadow Testing Predictions History</div>
+        <div id="diagTestHistoryLog" class="max-h-28 overflow-y-auto space-y-1 font-mono text-[9px]">
+          <div class="text-slate-500 italic text-[9px] p-1">No test rounds evaluated yet...</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <div class="mx-4 mt-2 p-4 bg-app-card rounded-2xl border border-purple-900/40 shadow-lg">
+    <div class="flex items-center justify-between">
+      <div>
+        <span class="text-[10px] uppercase font-bold tracking-wider text-purple-300 block">Wallet Balance</span>
+        <div class="flex items-center gap-2 mt-0.5">
+          <span class="text-2xl font-black text-white font-mono" id="balanceDisplay">₹100.00</span>
+          <button onclick="openBalanceModal()" class="text-slate-400 hover:text-amber-400 transition text-sm active:scale-95">
+            <i class="fa-solid fa-pen-to-square"></i>
+          </button>
+        </div>
+      </div>
+      <div class="text-right">
+        <div class="flex items-center gap-1 text-xs text-purple-300 justify-end">
+          <i class="fa-solid fa-shield-halved text-amber-400"></i>
+          <span class="font-bold">Vault Safe</span>
+        </div>
+        <div class="text-[10px] text-slate-400 font-mono mt-0.5" id="sessionPnlDisplay">PnL: <span class="text-emerald-400 font-bold">+₹0.00</span></div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3 mt-3">
+      <button class="py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 text-white font-bold text-xs shadow active:scale-95 transition flex items-center justify-center gap-1.5">
+        <i class="fa-solid fa-arrow-up-from-bracket text-xs"></i> Withdraw
+      </button>
+      <button onclick="openBalanceModal()" class="py-2.5 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 text-white font-bold text-xs shadow active:scale-95 transition flex items-center justify-center gap-1.5">
+        <i class="fa-solid fa-plus text-xs"></i> Deposit / Reset
+      </button>
+    </div>
+  </div>
+
+  <!-- ── TIMEFRAME SELECTOR ── -->
+  <div class="mx-4 mt-4 grid grid-cols-4 gap-2">
+    <button onclick="setTimeframe('30s')" id="tf-30s" class="py-2 px-1 rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 text-slate-950 font-black text-xs flex flex-col items-center shadow active:scale-95">
+      <i class="fa-regular fa-clock text-sm mb-0.5"></i>
+      <span class="text-[10px] leading-tight font-black">WinGo<br>30sec</span>
+    </button>
+    <button onclick="setTimeframe('1m')" id="tf-1m" class="py-2 px-1 rounded-xl bg-app-card text-purple-200 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition">
+      <i class="fa-regular fa-clock text-sm mb-0.5 opacity-70"></i>
+      <span class="text-[10px] leading-tight">WinGo<br>1 Min</span>
+    </button>
+    <button onclick="setTimeframe('3m')" id="tf-3m" class="py-2 px-1 rounded-xl bg-app-card text-purple-200 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition">
+      <i class="fa-regular fa-clock text-sm mb-0.5 opacity-70"></i>
+      <span class="text-[10px] leading-tight">WinGo<br>3 Min</span>
+    </button>
+    <button onclick="setTimeframe('5m')" id="tf-5m" class="py-2 px-1 rounded-xl bg-app-card text-purple-200 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition">
+      <i class="fa-regular fa-clock text-sm mb-0.5 opacity-70"></i>
+      <span class="text-[10px] leading-tight">WinGo<br>5 Min</span>
+    </button>
+  </div>
+
+  <!-- ── TICKET COUNTDOWN BANNER ── -->
+  <div class="mx-4 mt-4 ticket-card rounded-xl p-3.5 text-slate-900 shadow-xl">
+    <div class="flex items-center justify-between">
+      <div class="space-y-1.5">
+        <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-slate-900/30 text-[10px] font-black bg-amber-400/50">
+          <i class="fa-solid fa-trophy text-[9px]"></i>
+          <span id="ticketTfTitle">WinGo 30sec</span>
+        </div>
+        <div class="text-[10px] font-bold text-slate-800 uppercase tracking-tight">Recent Results:</div>
+        <div class="flex items-center gap-1.5 pt-0.5" id="recentMiniBalls"></div>
+      </div>
+      <div class="text-right space-y-1">
+        <span class="text-[9px] font-black uppercase tracking-wider text-slate-800 block">Time remaining</span>
+        <div class="flex items-center gap-1 justify-end font-mono">
+          <span class="clock-digit w-5 h-7 rounded flex items-center justify-center font-black text-sm" id="tMin1">0</span>
+          <span class="clock-digit w-5 h-7 rounded flex items-center justify-center font-black text-sm" id="tMin2">0</span>
+          <span class="font-black text-slate-900 text-sm">:</span>
+          <span class="clock-digit w-5 h-7 rounded flex items-center justify-center font-black text-sm" id="tSec1">0</span>
+          <span class="clock-digit w-5 h-7 rounded flex items-center justify-center font-black text-sm" id="tSec2">0</span>
+        </div>
+        <div class="text-[10px] font-mono font-black tracking-tight text-slate-900 bg-amber-300/60 px-1.5 py-0.5 rounded inline-block" id="currentPeriodDisplay">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── BETTING BOARD ── -->
+  <!-- Betting board wrapper – bet block overlay is absolute-positioned inside here -->
+  <div class="mx-4 mt-4 bg-app-card rounded-2xl border border-purple-900/30 shadow-lg" id="bettingBoardWrapper" style="position:relative;">
+
+  <!-- ── 5-SECOND BET BLOCK (covers only this card) ── -->
+  <div id="betBlockOverlay">
+    <div class="countdown-ring" style="--prog:100%">
+      <div class="countdown-inner">
+        <span id="blockCountNum" class="text-3xl font-black text-amber-400">5</span>
+      </div>
+    </div>
+    <p class="mt-3 text-base font-black text-rose-400 tracking-widest">BETTING CLOSED</p>
+    <p class="mt-1 text-xs text-slate-400 font-semibold">Awaiting round result...</p>
+  </div>
+
+  <div class="p-3.5 space-y-3.5" id="bettingBoard">
+
+    <!-- Color buttons -->
+    <div class="grid grid-cols-3 gap-2.5">
+      <button onclick="openBetSheet('GREEN','COLOR')"   class="py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 font-black text-xs text-white shadow active:scale-95 transition flex items-center justify-center gap-1">
+        <i class="fa-solid fa-circle text-[8px]"></i> Green (2X)
+      </button>
+      <button onclick="openBetSheet('VIOLET','COLOR')"  class="py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 font-black text-xs text-white shadow active:scale-95 transition flex items-center justify-center gap-1">
+        <i class="fa-solid fa-circle text-[8px]"></i> Violet (4.5X)
+      </button>
+      <button onclick="openBetSheet('RED','COLOR')"     class="py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 font-black text-xs text-white shadow active:scale-95 transition flex items-center justify-center gap-1">
+        <i class="fa-solid fa-circle text-[8px]"></i> Red (2X)
+      </button>
+    </div>
+
+    <!-- Number balls -->
+    <div class="grid grid-cols-5 gap-2.5 py-1">
+      <button onclick="openBetSheet('0','NUMBER')" class="ball-3d ball-split-0 w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">0</button>
+      <button onclick="openBetSheet('1','NUMBER')" class="ball-3d ball-green   w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">1</button>
+      <button onclick="openBetSheet('2','NUMBER')" class="ball-3d ball-red     w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">2</button>
+      <button onclick="openBetSheet('3','NUMBER')" class="ball-3d ball-green   w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">3</button>
+      <button onclick="openBetSheet('4','NUMBER')" class="ball-3d ball-red     w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">4</button>
+      <button onclick="openBetSheet('5','NUMBER')" class="ball-3d ball-split-5 w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">5</button>
+      <button onclick="openBetSheet('6','NUMBER')" class="ball-3d ball-red     w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">6</button>
+      <button onclick="openBetSheet('7','NUMBER')" class="ball-3d ball-green   w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">7</button>
+      <button onclick="openBetSheet('8','NUMBER')" class="ball-3d ball-red     w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">8</button>
+      <button onclick="openBetSheet('9','NUMBER')" class="ball-3d ball-green   w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">9</button>
+    </div>
+
+    <!-- Big / Small -->
+    <div class="grid grid-cols-2 gap-3 pt-1">
+      <button onclick="openBetSheet('BIG','SIZE')"   class="py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 font-black text-base text-white shadow active:scale-95 transition flex flex-col items-center">
+        <span>Big</span><span class="text-[9px] font-normal opacity-90">5 – 9 &nbsp;(1.96X)</span>
+      </button>
+      <button onclick="openBetSheet('SMALL','SIZE')" class="py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-sky-500 font-black text-base text-white shadow active:scale-95 transition flex flex-col items-center">
+        <span>Small</span><span class="text-[9px] font-normal opacity-90">0 – 4 &nbsp;(1.96X)</span>
+      </button>
+    </div>
+
+  </div><!-- end inner betting board -->
+  </div><!-- end bettingBoardWrapper -->
+
+  <!-- ── SUB TABS ── -->
+  <div class="mx-4 mt-5 space-y-3">
+    <div class="grid grid-cols-4 gap-1.5 text-xs">
+      <button id="subtab-history" onclick="switchSubTab('history')" class="py-2 rounded-xl bg-amber-400 text-slate-950 font-black shadow truncate">Game History</button>
+      <button id="subtab-chart"   onclick="switchSubTab('chart')"   class="py-2 rounded-xl bg-app-card text-purple-300 font-bold truncate">Trend Chart</button>
+      <button id="subtab-my"      onclick="switchSubTab('my')"      class="py-2 rounded-xl bg-app-card text-purple-300 font-bold truncate">My Bets (<span id="myBetsBadge">0</span>)</button>
+      <button id="subtab-ai"      onclick="switchSubTab('ai')"      class="py-2 rounded-xl bg-app-card text-indigo-300 font-bold truncate">🤖 AI Track</button>
+    </div>
+
+    <!-- History table -->
+    <div id="view-history" class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/30 shadow-lg">
+      <div class="grid grid-cols-12 py-2.5 px-3 bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black text-[10px]">
+        <div class="col-span-3">Period</div>
+        <div class="col-span-3 text-center">Real Output</div>
+        <div class="col-span-3 text-center">AI Signal</div>
+        <div class="col-span-3 text-right pr-1">Bet & Result</div>
+      </div>
+      <div id="gameHistoryRows" class="divide-y divide-purple-900/40 text-xs font-mono max-h-72 overflow-y-auto"></div>
+      <div class="flex items-center justify-between p-3 bg-app-surface border-t border-purple-900/40 text-xs text-purple-300">
+        <span id="rowCountBadge" class="text-[10px] font-bold">0 records</span>
+        <button onclick="downloadCSVReport()" class="text-amber-400 hover:text-amber-300 font-bold text-[11px] flex items-center gap-1">
+          <i class="fa-solid fa-download"></i> Export CSV
+        </button>
+      </div>
+    </div>
+
+    <!-- Chart – Number Road Map (like Dhaniwin) -->
+    <div id="view-chart" class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/30 shadow-lg hidden">
+
+      <!-- Stats header table -->
+      <div class="bg-gradient-to-r from-amber-400 to-amber-500 px-3 py-2">
+        <div class="grid grid-cols-12 text-[10px] font-black text-slate-900">
+          <div class="col-span-3">Statistic</div>
+          <div class="text-center">0</div><div class="text-center">1</div><div class="text-center">2</div>
+          <div class="text-center">3</div><div class="text-center">4</div><div class="text-center">5</div>
+          <div class="text-center">6</div><div class="text-center">7</div><div class="text-center">8</div>
+        </div>
+      </div>
+      <div id="chartStatsRows" class="divide-y divide-purple-900/30 px-3 text-[9px] font-mono"></div>
+
+      <!-- Column headers for road -->
+      <div class="grid gap-0 px-2 pt-2 pb-1" style="grid-template-columns:80px repeat(10,1fr) 28px 28px 28px">
+        <div class="text-[9px] text-slate-500 font-bold">Period</div>
+        <div class="text-[9px] text-center text-slate-400 font-bold">0</div>
+        <div class="text-[9px] text-center text-slate-400 font-bold">1</div>
+        <div class="text-[9px] text-center text-slate-400 font-bold">2</div>
+        <div class="text-[9px] text-center text-slate-400 font-bold">3</div>
+        <div class="text-[9px] text-center text-slate-400 font-bold">4</div>
+        <div class="text-[9px] text-center text-slate-400 font-bold">5</div>
+        <div class="text-[9px] text-center text-slate-400 font-bold">6</div>
+        <div class="text-[9px] text-center text-slate-400 font-bold">7</div>
+        <div class="text-[9px] text-center text-slate-400 font-bold">8</div>
+        <div class="text-[9px] text-center text-slate-400 font-bold">9</div>
+        <div class="text-[9px] text-center text-amber-400 font-bold">B/S</div>
+        <div class="text-[9px] text-center text-indigo-300 font-bold">AI</div>
+        <div class="text-[9px] text-center text-purple-300 font-bold">Bet</div>
+      </div>
+
+      <!-- Road rows (SVG canvas behind, rows on top) -->
+      <div class="relative px-2 pb-2 max-h-[420px] overflow-y-auto" id="numberRoadContainer">
+        <svg id="roadConnectorSvg" class="absolute inset-0 pointer-events-none" style="width:100%;height:100%;overflow:visible;"></svg>
+        <div id="numberRoadRows" class="relative z-10 space-y-0.5"></div>
+      </div>
+
+      <!-- Summary footer -->
+      <div class="grid grid-cols-3 gap-2 p-3 border-t border-purple-900/40 text-center text-xs font-mono">
+        <div class="p-2 bg-purple-950/60 rounded-xl"><span class="text-[9px] text-slate-400 block">BIG%</span><b id="chartBigPct" class="text-amber-400">50%</b></div>
+        <div class="p-2 bg-purple-950/60 rounded-xl"><span class="text-[9px] text-slate-400 block">SMALL%</span><b id="chartSmallPct" class="text-sky-400">50%</b></div>
+        <div class="p-2 bg-purple-950/60 rounded-xl"><span class="text-[9px] text-slate-400 block">WIN%</span><b id="chartWinRatio" class="text-emerald-400">—</b></div>
+      </div>
+    </div>
+
+    <!-- My bets -->
+    <div id="view-my" class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/30 shadow-lg hidden">
+      <div class="p-3 bg-purple-950 text-xs font-bold text-purple-200 border-b border-purple-800/40 flex justify-between items-center">
+        <span>Active & Resolved Bets</span>
+        <button onclick="clearMyBets()" class="text-rose-400 hover:text-rose-300 text-[10px]">Clear</button>
+      </div>
+      <div id="myBetsContainer" class="divide-y divide-purple-900/40 text-xs font-mono max-h-72 overflow-y-auto"></div>
+    </div>
+
+    <!-- AI Prediction Track Record View -->
+    <div id="view-ai" class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/30 shadow-lg hidden p-3 space-y-3">
+      <div class="flex items-center justify-between border-b border-purple-800/40 pb-2">
+        <span class="text-xs font-black text-indigo-300 flex items-center gap-1.5"><i class="fa-solid fa-robot text-amber-400"></i> AI Prediction Track Record & PnL</span>
+        <span class="text-[10px] text-slate-400 font-mono">If followed from Start</span>
+      </div>
+
+      <!-- AI Performance Summary Card -->
+      <div class="grid grid-cols-4 gap-1.5 text-center font-mono text-[9px]">
+        <div class="p-2 bg-purple-950/70 border border-purple-800/40 rounded-xl">
+          <span class="text-[8px] text-slate-400 block font-sans font-semibold">TOTAL SIGNALS</span>
+          <b id="aiTrackTotal" class="text-slate-200">0</b>
+        </div>
+        <div class="p-2 bg-emerald-950/50 border border-emerald-500/30 rounded-xl">
+          <span class="text-[8px] text-slate-400 block font-sans font-semibold">WINS / LOSSES</span>
+          <b id="aiTrackWinsLosses" class="text-emerald-400">0W / 0L</b>
+        </div>
+        <div class="p-2 bg-purple-950/70 border border-purple-800/40 rounded-xl">
+          <span class="text-[8px] text-slate-400 block font-sans font-semibold">WIN RATE</span>
+          <b id="aiTrackWinRate" class="text-amber-300">—</b>
+        </div>
+        <div class="p-2 bg-purple-950/70 border border-purple-800/40 rounded-xl">
+          <span class="text-[8px] text-slate-400 block font-sans font-semibold">AI PnL BALANCE</span>
+          <b id="aiTrackPnl" class="text-emerald-400">+₹0.00</b>
+        </div>
+      </div>
+
+      <!-- Table headers -->
+      <div class="grid grid-cols-12 text-[9px] font-black text-slate-400 border-b border-purple-900/40 pb-1 font-mono">
+        <div class="col-span-3">Period</div>
+        <div class="col-span-3 text-center">AI Signal</div>
+        <div class="col-span-3 text-center">Real Output</div>
+        <div class="col-span-3 text-right">Result & PnL</div>
+      </div>
+
+      <!-- Round by round AI prediction history log -->
+      <div id="aiTrackRowsContainer" class="divide-y divide-purple-900/30 text-[10px] font-mono max-h-80 overflow-y-auto"></div>
+    </div>
+  </div>
+
+</div><!-- end main app -->
+
+<!-- ════════════════════════════════════════════════════════════
+     BATCH RESULT MODAL (multiple missed periods at once)
+════════════════════════════════════════════════════════════ -->
+<div id="batchResultModal" style="position:fixed;inset:0;z-index:280;display:none;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.85);backdrop-filter:blur(4px);">
+  <div style="background:#1e1235;border-radius:24px 24px 0 0;padding:20px 18px 36px;width:100%;max-width:448px;max-height:88vh;overflow-y:auto;">
+    <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-4"></div>
+
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-2">
+        <div class="w-9 h-9 rounded-full bg-rose-500/20 border border-rose-400 flex items-center justify-center shrink-0">
+          <i class="fa-solid fa-list-check text-rose-400 text-sm"></i>
+        </div>
+        <div>
+          <p class="font-black text-white text-sm">Missing Results</p>
+          <p class="text-[11px] text-slate-400">Enter <span id="batchPendingCount" class="text-amber-300 font-bold">?</span> skipped periods at once — or skip all</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dynamic period pickers injected here -->
+    <div id="batchModalBody" class="space-y-0"></div>
+
+    <div class="grid grid-cols-2 gap-3 mt-4">
+      <button onclick="skipBatchResults()" class="py-3 rounded-2xl bg-slate-700 text-slate-300 font-bold text-xs active:scale-95 transition flex items-center justify-center gap-2">
+        <i class="fa-solid fa-forward-step"></i> Skip All
+      </button>
+      <button onclick="submitBatchResults()" class="py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-900 font-black text-sm active:scale-95 transition">
+        ✔ Save Filled
+      </button>
+    </div>
+    <p class="text-center text-[10px] text-slate-500 mt-3">Only new future rounds will be prompted from now</p>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     START BETTING PROMPT MODAL
+════════════════════════════════════════════════════════════ -->
+<div id="startBettingPromptModal" style="position:fixed;inset:0;z-index:320;display:none;align-items:center;justify-center:center;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);padding:20px;">
+  <div class="bg-gradient-to-b from-purple-950 via-slate-900 to-slate-950 border border-emerald-500/50 rounded-3xl p-6 w-full max-w-sm text-center shadow-2xl space-y-4">
+    <div class="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
+      <i class="fa-solid fa-rocket text-2xl text-emerald-400 animate-bounce"></i>
+    </div>
+    <div>
+      <h3 class="text-lg font-black text-white">High AI Accuracy Signal!</h3>
+      <p class="text-xs text-slate-300 mt-1">AI has edge confidence and safe streak protection. Start Auto-Betting now to automate entries and maximize profits?</p>
+    </div>
+    <div class="p-3 bg-black/40 rounded-2xl border border-purple-800/40 text-xs space-y-1">
+      <div class="flex justify-between text-slate-400"><span>AI Signal:</span> <b id="promptSignalVal" class="text-emerald-400 font-bold">BIG</b></div>
+      <div class="flex justify-between text-slate-400"><span>Suggested Stake:</span> <b id="promptStakeVal" class="text-amber-300 font-mono">₹10.00</b></div>
+      <div class="flex justify-between text-slate-400"><span>Loss Streak:</span> <b id="promptStreakVal" class="text-emerald-400">0/3 (SAFE)</b></div>
+    </div>
+    <div class="grid grid-cols-2 gap-3 pt-1">
+      <button onclick="dismissStartBettingPrompt()" class="py-3 rounded-2xl bg-slate-800 text-slate-400 font-bold text-xs hover:bg-slate-700 transition">Dismiss</button>
+      <button onclick="acceptStartBettingPrompt()" class="py-3 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-500 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition">🚀 Start Betting</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     WIN CELEBRATION POPUP (Dhaniwin gold style)
+════════════════════════════════════════════════════════════ -->
+<div id="winPopup" style="position:fixed;inset:0;z-index:300;display:none;align-items:center;justify-content:center;padding:20px;
+background:rgba(0,0,0,.75);backdrop-filter:blur(4px);">
+  <div id="winPopupCard" style="position:relative;width:100%;max-width:340px;border-radius:24px;
+background:linear-gradient(160deg,#ff9a00 0%,#e65c00 60%,#c0392b 100%);
+box-shadow:0 0 60px #f59e0b88,0 20px 60px rgba(0,0,0,.6);
+padding:20px 20px 24px;text-align:center;overflow:visible;">
+
+    <!-- Trophy badge -->
+    <div style="position:absolute;top:-44px;left:50%;transform:translateX(-50%);">
+      <div style="position:relative;">
+        <!-- Wings -->
+        <div style="position:absolute;top:12px;left:-30px;font-size:28px;opacity:.9;">🪶</div>
+        <div style="position:absolute;top:12px;right:-30px;font-size:28px;opacity:.9;transform:scaleX(-1);">🪶</div>
+        <!-- Medal -->
+        <div style="width:70px;height:70px;border-radius:50%;background:linear-gradient(135deg,#ffd700,#f59e0b);
+border:4px solid #fff8;display:flex;align-items:center;justify-content:center;
+box-shadow:0 4px 20px #f59e0b88;">
+          <span style="font-size:32px;">🚀</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Title -->
+    <div style="margin-top:36px;font-size:26px;font-weight:900;color:#fff;letter-spacing:.5px;text-shadow:0 2px 8px rgba(0,0,0,.4);">Congratulations!</div>
+
+    <!-- Lottery result badges -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:10px 0 14px;">
+      <span style="font-size:11px;color:#ffe08a;font-weight:700;">Lottery results</span>
+      <span id="winColorBadge" style="background:#9333ea;color:#fff;font-weight:900;font-size:12px;padding:4px 12px;border-radius:20px;">—</span>
+      <span style="background:#9333ea;color:#fff;font-size:12px;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:900;">i</span>
+      <span id="winSizeBadge" style="background:#9333ea;color:#fff;font-weight:900;font-size:12px;padding:4px 12px;border-radius:20px;">—</span>
+    </div>
+
+    <!-- Profit slip -->
+    <div style="background:#fff3;border-radius:16px;padding:14px 18px;margin:0 0 12px;border:2px dashed #fff5;">
+      <div style="font-size:12px;font-weight:700;color:#fff;opacity:.8;margin-bottom:4px;">Profit</div>
+      <div id="winAmountEl" style="font-size:30px;font-weight:900;color:#fff;letter-spacing:-1px;text-shadow:0 2px 8px rgba(0,0,0,.3);">+₹0.00</div>
+      <div style="border-top:1px dashed #fff4;margin:8px 0 6px;"></div>
+      <div id="winPeriodEl" style="font-size:10px;color:#ffe8a0;font-weight:600;">Period —</div>
+    </div>
+
+    <!-- AI badge -->
+    <div id="winAiBadge" style="font-size:11px;color:#ffe08a;margin-bottom:12px;font-weight:700;"></div>
+
+    <!-- Auto close -->
+    <div style="display:flex;align-items:center;gap:8px;justify-content:center;">
+      <div id="winCountdownBox" style="width:20px;height:20px;border-radius:4px;border:2px solid #fff8;background:#fff2;"></div>
+      <span id="winCountdownLabel" style="font-size:12px;color:#ffe8a0;font-weight:700;">5 seconds auto close</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     LOSS "SORRY" POPUP (silver style)
+════════════════════════════════════════════════════════════ -->
+<div id="lossPopup" style="position:fixed;inset:0;z-index:300;display:none;align-items:center;justify-content:center;padding:20px;
+background:rgba(0,0,0,.75);backdrop-filter:blur(4px);">
+  <div id="lossPopupCard" style="position:relative;width:100%;max-width:340px;border-radius:24px;
+background:linear-gradient(160deg,#d0d0d0 0%,#888 60%,#555 100%);
+box-shadow:0 0 40px #888a,0 20px 60px rgba(0,0,0,.6);
+padding:20px 20px 24px;text-align:center;overflow:visible;">
+
+    <!-- Shield badge -->
+    <div style="position:absolute;top:-44px;left:50%;transform:translateX(-50%);">
+      <div style="position:relative;">
+        <div style="position:absolute;top:12px;left:-28px;font-size:24px;opacity:.6;">🪶</div>
+        <div style="position:absolute;top:12px;right:-28px;font-size:24px;opacity:.6;transform:scaleX(-1);">🪶</div>
+        <div style="width:70px;height:70px;border-radius:50%;background:linear-gradient(135deg,#e0e0e0,#999);
+border:4px solid #fff6;display:flex;align-items:center;justify-content:center;
+box-shadow:0 4px 20px #8888;">
+          <span style="font-size:30px;">😔</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:36px;font-size:26px;font-weight:900;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.4);">Sorry!</div>
+
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:10px 0 14px;">
+      <span style="font-size:11px;color:#eee;font-weight:700;">Lottery results</span>
+      <span id="lossColorBadge" style="background:#444;color:#fff;font-weight:900;font-size:12px;padding:4px 12px;border-radius:20px;">—</span>
+      <span id="lossSizeBadge" style="background:#444;color:#fff;font-weight:900;font-size:12px;padding:4px 12px;border-radius:20px;">—</span>
+    </div>
+
+    <div style="background:#fff2;border-radius:16px;padding:14px 18px;margin:0 0 12px;border:2px dashed #fff3;">
+      <div style="font-size:12px;font-weight:700;color:#eee;opacity:.8;margin-bottom:4px;">Amount Lost</div>
+      <div id="lossAmountEl" style="font-size:30px;font-weight:900;color:#ff8a80;letter-spacing:-1px;">-₹0.00</div>
+      <div style="border-top:1px dashed #fff3;margin:8px 0 6px;"></div>
+      <div id="lossPeriodEl" style="font-size:10px;color:#ccc;font-weight:600;">Period —</div>
+      <div id="lossBalanceEl" style="font-size:11px;color:#aaa;margin-top:2px;">Balance: ₹—</div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:8px;justify-content:center;">
+      <div id="lossCountdownBox" style="width:20px;height:20px;border-radius:4px;border:2px solid #fff4;background:#fff1;"></div>
+      <span id="lossCountdownLabel" style="font-size:12px;color:#ddd;font-weight:700;">5 seconds auto close</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     FLOATING QUANT HUD
+════════════════════════════════════════════════════════════ -->
+<div class="fixed bottom-6 right-6 z-40 floating-hud cursor-pointer" onclick="toggleAIGlow()" title="AI Telemetry">
+  <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-amber-400 via-rose-400 to-emerald-400 p-0.5 shadow-2xl flex items-center justify-center">
+    <div class="w-full h-full rounded-full bg-app-bg flex flex-col items-center justify-center">
+      <i class="fa-solid fa-brain text-lg text-amber-400"></i>
+      <span class="text-[7px] font-black uppercase text-emerald-400">QUANT</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     CONFIRMATION BET SHEET (exact clone from screenshot)
+════════════════════════════════════════════════════════════ -->
+<div id="confirmSheetBackdrop" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[85] hidden" onclick="closeBetSheet()"></div>
+<div id="confirmSheet" class="hidden">
+  <div id="confirmSheetInner" class="sheet-enter">
+    <!-- Handle -->
+    <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-4"></div>
+
+    <!-- Header -->
+    <div class="text-center mb-5">
+      <p class="text-base font-black text-white" id="sheetTitle">WinGo 30sec</p>
+      <div id="sheetSelectionLabel" class="mt-2 py-2.5 rounded-xl bg-app-bg border border-purple-700 text-center font-bold text-sm text-white">Select Big</div>
+    </div>
+
+    <!-- AI Recommendation Banner -->
+    <div id="aiRecommendBanner" class="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 hidden">
+      <div class="flex items-center gap-2 text-xs">
+        <i class="fa-solid fa-robot text-amber-400 text-sm"></i>
+        <div>
+          <p class="font-black text-amber-300">AI RECOMMENDS: <span id="aiRecommendChoice">BIG</span></p>
+          <p class="text-slate-400 mt-0.5" id="aiRecommendReason">Markov Edge – 62% confidence</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Amount Row -->
+    <div class="mb-4">
+      <p class="text-xs text-slate-400 font-bold mb-2">Amount</p>
+      <div class="flex gap-2">
+        <button onclick="setAmount(1)"    id="amt-1"    class="amount-btn active flex-1">1</button>
+        <button onclick="setAmount(10)"   id="amt-10"   class="amount-btn inactive flex-1">10</button>
+        <button onclick="setAmount(100)"  id="amt-100"  class="amount-btn inactive flex-1">100</button>
+        <button onclick="setAmount(1000)" id="amt-1000" class="amount-btn inactive flex-1">1000</button>
+      </div>
+    </div>
+
+    <!-- Quantity Row -->
+    <div class="mb-4">
+      <p class="text-xs text-slate-400 font-bold mb-2">Quantity</p>
+      <div class="flex items-center gap-3">
+        <button onclick="changeQty(-1)" class="w-10 h-10 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-black text-xl active:scale-90 transition">−</button>
+        <div class="flex-1 py-2 rounded-xl bg-app-bg border border-purple-700 text-center font-black text-white" id="qtyDisplay">1</div>
+        <button onclick="changeQty(+1)" class="w-10 h-10 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xl active:scale-90 transition">+</button>
+      </div>
+    </div>
+
+    <!-- Multiplier Row -->
+    <div class="mb-5">
+      <div class="flex gap-1.5 overflow-x-auto pb-1">
+        <button onclick="setMultiplier(1)"   id="mul-1"   class="amount-btn active shrink-0">X1</button>
+        <button onclick="setMultiplier(5)"   id="mul-5"   class="amount-btn inactive shrink-0">X5</button>
+        <button onclick="setMultiplier(10)"  id="mul-10"  class="amount-btn inactive shrink-0">X10</button>
+        <button onclick="setMultiplier(20)"  id="mul-20"  class="amount-btn inactive shrink-0">X20</button>
+        <button onclick="setMultiplier(50)"  id="mul-50"  class="amount-btn inactive shrink-0">X50</button>
+        <button onclick="setMultiplier(100)" id="mul-100" class="amount-btn inactive shrink-0">X100</button>
+      </div>
+    </div>
+
+    <!-- Presale agree + action -->
+    <div class="flex items-center gap-2 mb-4">
+      <div class="w-6 h-6 rounded-full bg-amber-400 flex items-center justify-center shrink-0">
+        <i class="fa-solid fa-check text-slate-900 text-xs"></i>
+      </div>
+      <span class="text-xs text-slate-300">Agree <span class="text-amber-400 font-bold underline">Presale Rules</span></span>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <button onclick="closeBetSheet()" class="py-3.5 rounded-2xl bg-slate-700 text-white font-black text-sm active:scale-95 transition">Cancel</button>
+      <button onclick="confirmBet()" class="py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-900 font-black text-sm active:scale-95 transition" id="confirmBetBtn">
+        Total ₹<span id="totalAmountDisplay">1.00</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     REAL RESULT ENTRY MODAL
+     (Appears after each round closes – "what was the real output?")
+════════════════════════════════════════════════════════════ -->
+<div id="resultPromptModal" class="hidden">
+  <div id="resultPromptInner" class="sheet-enter">
+    <!-- Handle -->
+    <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-3"></div>
+
+    <!-- Auto-close countdown bar -->
+    <div class="mb-3">
+      <div class="flex justify-between items-center mb-1">
+        <span class="text-[10px] text-slate-500">Enter result from <span class="text-amber-300 font-bold">dhaniwin0.com</span></span>
+        <span id="autoCloseLabel" class="text-[10px] text-emerald-400 font-bold font-mono">Auto-close in 10s</span>
+      </div>
+      <div class="h-1.5 w-full rounded-full bg-purple-900/60 overflow-hidden">
+        <div id="autoCloseBar" class="h-full rounded-full transition-all duration-1000" style="width:100%;background:#10b981"></div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3 mb-3">
+      <div class="w-9 h-9 rounded-full bg-amber-400/20 border border-amber-400 flex items-center justify-center shrink-0">
+        <i class="fa-solid fa-bullseye text-amber-400 text-sm"></i>
+      </div>
+      <div>
+        <p class="font-black text-white text-sm">What was the result?</p>
+        <div class="flex items-center gap-2 mt-0.5">
+          <span class="text-[10px] text-slate-400 font-mono" id="resultPromptPeriod">Period: —</span>
+          <span id="queueCountBadge" class="text-[9px] px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pending bet summary -->
+    <div id="pendingBetInfo" class="mb-3 p-2.5 bg-app-card rounded-xl text-xs border border-purple-800/40 hidden">
+      <div class="flex justify-between items-center">
+        <span class="text-slate-400">Your bet:</span>
+        <span id="pendingBetSummary" class="font-black text-white">—</span>
+      </div>
+      <div class="flex justify-between items-center mt-1">
+        <span class="text-slate-400">AI signal was:</span>
+        <span id="pendingAiSignal" class="font-black text-amber-300">—</span>
+      </div>
+    </div>
+
+    <!-- Number picker grid -->
+    <div class="grid grid-cols-5 gap-2 mb-4">
+      <button id="rn-0" onclick="selectRealNum(0)" class="num-pick ball-3d ball-split-0 text-white">0</button>
+      <button id="rn-1" onclick="selectRealNum(1)" class="num-pick ball-3d ball-green   text-white">1</button>
+      <button id="rn-2" onclick="selectRealNum(2)" class="num-pick ball-3d ball-red     text-white">2</button>
+      <button id="rn-3" onclick="selectRealNum(3)" class="num-pick ball-3d ball-green   text-white">3</button>
+      <button id="rn-4" onclick="selectRealNum(4)" class="num-pick ball-3d ball-red     text-white">4</button>
+      <button id="rn-5" onclick="selectRealNum(5)" class="num-pick ball-3d ball-split-5 text-white">5</button>
+      <button id="rn-6" onclick="selectRealNum(6)" class="num-pick ball-3d ball-red     text-white">6</button>
+      <button id="rn-7" onclick="selectRealNum(7)" class="num-pick ball-3d ball-green   text-white">7</button>
+      <button id="rn-8" onclick="selectRealNum(8)" class="num-pick ball-3d ball-red     text-white">8</button>
+      <button id="rn-9" onclick="selectRealNum(9)" class="num-pick ball-3d ball-green   text-white">9</button>
+    </div>
+
+    <div class="text-center mb-3">
+      <p class="text-xs text-slate-400">Selected: <span id="selectedRealNumDisplay" class="font-black text-amber-400 text-sm">— (tap a ball)</span></p>
+    </div>
+
+    <button onclick="submitRealResult()" id="submitResultBtn"
+      class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-900 font-black text-sm active:scale-95 transition disabled:opacity-40"
+      disabled>
+      ✔ Confirm & Update AI
+    </button>
+    <button onclick="skipRealResult()" class="w-full mt-2 py-2 text-xs text-slate-500 hover:text-slate-300 font-bold transition">
+      Skip / I didn't bet this round
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     FRESH-START INITIALIZATION MODAL
+     (shown on very first open – collects last 10 real results)
+════════════════════════════════════════════════════════════ -->
+<div id="initModal" class="fixed inset-0 z-[300] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 hidden">
+  <div class="bg-app-card border border-purple-800/60 rounded-3xl w-full max-w-sm p-5 space-y-4 shadow-2xl overflow-y-auto max-h-[92vh]">
+    <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-1"></div>
+
+    <div class="flex items-center justify-between mb-2">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-indigo-500/20 border border-indigo-400 flex items-center justify-center shrink-0">
+          <i class="fa-solid fa-brain text-indigo-400"></i>
+        </div>
+        <div>
+          <p class="font-black text-white text-sm">Initialize AI Engine</p>
+          <p class="text-[10px] text-slate-400">Enter the last <span class="text-amber-300 font-bold">10 real results</span> to start AI predictions</p>
+        </div>
+      </div>
+      <button onclick="closeInitModal()" class="w-8 h-8 rounded-full bg-purple-900/60 text-slate-300 hover:text-white flex items-center justify-center shrink-0"><i class="fa-solid fa-xmark text-sm"></i></button>
+    </div>
+
+    <!-- Timeframe Picker inside Start Modal -->
+    <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/40 space-y-1.5">
+      <label class="text-[11px] text-slate-300 font-bold flex items-center justify-between">
+        <span>Select Betting Section:</span>
+        <b id="initTfBadge" class="text-amber-400 font-mono text-xs">WinGo 30s</b>
+      </label>
+      <div class="grid grid-cols-4 gap-2 text-xs">
+        <button id="initTfBtn-30s" onclick="setInitModalTimeframe('30s')" class="py-2 rounded-xl bg-amber-400 text-slate-950 font-black shadow transition">30s</button>
+        <button id="initTfBtn-1m"  onclick="setInitModalTimeframe('1m')"  class="py-2 rounded-xl bg-purple-900/60 text-purple-200 font-bold hover:bg-purple-800 transition">1m</button>
+        <button id="initTfBtn-3m"  onclick="setInitModalTimeframe('3m')"  class="py-2 rounded-xl bg-purple-900/60 text-purple-200 font-bold hover:bg-purple-800 transition">3m</button>
+        <button id="initTfBtn-5m"  onclick="setInitModalTimeframe('5m')"  class="py-2 rounded-xl bg-purple-900/60 text-purple-200 font-bold hover:bg-purple-800 transition">5m</button>
+      </div>
+    </div>
+
+    <!-- Quick Demo Data Auto-Fill Button -->
+    <button onclick="loadInitDemoData()" class="w-full py-2 rounded-xl bg-gradient-to-r from-amber-400/20 to-amber-500/20 border border-amber-400/40 text-amber-300 font-bold text-xs hover:bg-amber-400/30 active:scale-95 transition flex items-center justify-center gap-2">
+      <i class="fa-solid fa-bolt text-amber-400"></i> ⚡ Auto-Fill 10 Sample Results & Start AI
+    </button>
+
+    <!-- Progress bar -->
+    <div>
+      <div class="flex justify-between text-[10px] text-slate-400 mb-1">
+        <span>Data entered</span>
+        <span id="initProgressLabel">0 / 10</span>
+      </div>
+      <div class="h-2 bg-purple-900/60 rounded-full overflow-hidden">
+        <div id="initProgressBar" class="h-full bg-indigo-400 rounded-full transition-all" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- Entered balls display -->
+    <div id="initEnteredBalls" class="flex flex-wrap gap-2 min-h-[40px] p-2 bg-black/30 rounded-xl border border-purple-800/30">
+      <span class="text-[10px] text-slate-500 self-center" id="initBallsPlaceholder">Entered results will appear here (oldest → newest)...</span>
+    </div>
+
+    <!-- Number picker -->
+    <p class="text-xs text-slate-400 font-bold">Tap to add result (oldest first):</p>
+    <div class="grid grid-cols-5 gap-2">
+      <button onclick="initAddNum(0)" class="num-pick ball-3d ball-split-0 text-white">0</button>
+      <button onclick="initAddNum(1)" class="num-pick ball-3d ball-green   text-white">1</button>
+      <button onclick="initAddNum(2)" class="num-pick ball-3d ball-red     text-white">2</button>
+      <button onclick="initAddNum(3)" class="num-pick ball-3d ball-green   text-white">3</button>
+      <button onclick="initAddNum(4)" class="num-pick ball-3d ball-red     text-white">4</button>
+      <button onclick="initAddNum(5)" class="num-pick ball-3d ball-split-5 text-white">5</button>
+      <button onclick="initAddNum(6)" class="num-pick ball-3d ball-red     text-white">6</button>
+      <button onclick="initAddNum(7)" class="num-pick ball-3d ball-green   text-white">7</button>
+      <button onclick="initAddNum(8)" class="num-pick ball-3d ball-red     text-white">8</button>
+      <button onclick="initAddNum(9)" class="num-pick ball-3d ball-green   text-white">9</button>
+    </div>
+    <button onclick="initUndo()" class="w-full py-2 rounded-xl bg-slate-700 text-slate-300 font-bold text-xs active:scale-95 transition flex items-center justify-center gap-2">
+      <i class="fa-solid fa-delete-left"></i> Undo Last
+    </button>
+
+    <!-- AI Test result panel (live) -->
+    <div id="initTestPanel" class="hidden p-3 bg-purple-950/70 rounded-xl border border-purple-800/40 text-xs space-y-1">
+      <p class="font-black text-indigo-300 text-[11px] uppercase tracking-wider">🧪 AI Self-Test (Backtesting on entered data)</p>
+      <div class="flex gap-4 mt-1">
+        <div><span class="text-slate-400">Accuracy:</span> <b id="initAccuracy" class="text-emerald-400">—</b></div>
+        <div><span class="text-slate-400">Max Loss Streak:</span> <b id="initMaxLoss" class="text-rose-400">—</b></div>
+        <div><span class="text-slate-400">Verdict:</span> <b id="initVerdict" class="text-amber-400">—</b></div>
+      </div>
+      <div id="initTestLog" class="mt-2 flex gap-1 flex-wrap"></div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3 pt-1">
+      <button onclick="closeInitModal()" class="py-3 rounded-2xl bg-slate-700 text-white font-bold text-xs active:scale-95">Skip for now</button>
+      <button onclick="submitInitData()" id="initSubmitBtn" class="py-3 rounded-2xl bg-gradient-to-r from-indigo-400 to-purple-500 text-white font-black text-sm active:scale-95 transition disabled:opacity-40" disabled>
+        Start AI Prediction
+      </button>
+    </div>
+  </div>
+</div>
+      <button onclick="closeInitModal()" class="py-3 rounded-2xl bg-slate-700 text-white font-bold text-xs active:scale-95">Skip for now</button>
+      <button onclick="submitInitData()" id="initSubmitBtn" class="py-3 rounded-2xl bg-gradient-to-r from-indigo-400 to-purple-500 text-white font-black text-sm active:scale-95 transition disabled:opacity-40" disabled>
+        Start AI Prediction
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     BALANCE EDIT MODAL
+════════════════════════════════════════════════════════════ -->
+<div id="balanceModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-app-card border border-purple-800/60 rounded-2xl w-full max-w-xs p-5 space-y-4 shadow-2xl">
+    <div class="flex items-center justify-between border-b border-purple-800/40 pb-2">
+      <h3 class="text-sm font-bold text-white">Adjust Balance</h3>
+      <button onclick="closeBalanceModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div>
+      <label class="text-[11px] text-slate-400">Balance (₹):</label>
+      <div class="relative mt-1">
+        <span class="absolute left-3 top-2.5 text-amber-400 font-bold">₹</span>
+        <input type="number" id="newBalanceInput" step="10" class="w-full bg-app-bg border border-purple-700/80 rounded-xl py-2 pl-8 pr-3 font-bold text-white focus:outline-none focus:border-amber-400 font-mono">
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="closeBalanceModal()" class="flex-1 py-2 rounded-xl bg-purple-900/60 font-bold text-xs text-white">Cancel</button>
+      <button onclick="saveNewBalance()" class="flex-1 py-2 rounded-xl bg-emerald-500 font-bold text-white text-xs hover:bg-emerald-600 transition">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     IMPORT MODAL
+════════════════════════════════════════════════════════════ -->
+<div id="importModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+  <div class="bg-app-card border border-purple-800/60 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl text-slate-200">
+    <div class="flex items-center justify-between border-b border-purple-800/40 pb-3">
+      <h3 class="text-sm font-bold text-white flex items-center gap-2"><i class="fa-solid fa-file-csv text-amber-400"></i> Import History CSV</h3>
+      <button onclick="closeImportModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <p class="text-xs text-slate-400">CSV format: <code class="text-amber-300 text-[11px]">period,number,size</code></p>
+    <div class="p-3 bg-black/40 rounded-xl font-mono text-[11px] text-amber-300 border border-purple-900/50">
+      period,number,size<br>20260829100051633,7,BIG<br>20260829100051632,4,SMALL
+    </div>
+    <input type="file" id="csvFileInput" accept=".csv" class="w-full text-xs text-slate-400 file:mr-2 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-amber-400 file:text-slate-900 cursor-pointer">
+    <div class="flex gap-2 pt-2">
+      <button onclick="loadBenchmarkData()" class="flex-1 py-2 rounded-xl bg-purple-900 text-purple-200 font-bold text-xs">Load Demo</button>
+      <button onclick="parseUploadedCSV()" class="flex-1 py-2 rounded-xl bg-amber-400 text-slate-900 font-bold text-xs">Apply CSV</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     JAVASCRIPT ENGINE
+════════════════════════════════════════════════════════════ -->
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════════
+const PAYOUT_SIZE   = 1.92;               // Double payout with 4% fee (2 * 0.96 = 1.92x)
+const PAYOUT_COLOR  = 2.00;
+const PAYOUT_NUMBER = 9.00;
+const BREAKEVEN_P   = 1.0 / PAYOUT_SIZE;  // ~0.5208
+const NET_ODDS_B    = PAYOUT_SIZE - 1;     // 0.92
+const MAX_BET_PCT   = 0.05;               // 5% hard cap
+const MIN_DATA_TO_PREDICT = 8;
+const MIN_WIN_RATE  = 0.52;
+const MAX_LOSS_STREAK = 3;
+const COOLOFF_ROUNDS  = 6;
+
+
+// ═══════════════════════════════════════════════════════════════
+// GLOBAL STATE
+// ═══════════════════════════════════════════════════════════════
+const S = {
+  balance: 100,
+  initialBalance: 100,
+  timeframe: '30s',
+  durationSeconds: 30,
+  secondsLeft: 0,
+  currentPeriod: '',
+  history: [],         // real entered results
+  myBets: [],
+  lossStreak: 0,
+  winStreak: 0,
+  cooloffRounds: 0,
+  totalWins: 0,
+  totalBets: 0,
+  autoBetEnabled: false,
+  aiGlowing: false,
+
+  // Current round state
+  roundBet: null,
+  pendingResultPeriod: null,
+  selectedRealNum: null,
+
+  // Missing-period queue (up to 10 back)
+  missingQueue: [],        // periods not yet entered, oldest first
+  autoCloseTimer: null,    // setInterval id for 10-s auto-close
+  autoCloseSecs: 10,       // countdown remaining
+
+  // Init / test mode
+  isInitialized: false,    // false = show fresh-start modal
+  initEntries: [],         // numbers entered during init
+  aiTestMode: false,
+  aiTestResults: [],       // { period, predicted, actual, correct }
+  testBalance: 100,        // Starting virtual test balance ₹100 INR
+
+  // Sheet state
+  sheetChoice: null,
+  sheetType: null,
+  sheetAmount: 1,
+  sheetQty: 1,
+  sheetMultiplier: 1,
+
+  // AI state
+  aiReady: false,
+  aiSignal: { decision:'SKIP', target:null, stake:0, prob:0.5, entropy:1.0, reason:'Not enough data' },
+  aiPredictionMap: {},    // period -> { target, decision, prob, engines }
+  isEditingNoTimer: false,
+  promptDismissed: false,
+  historyByTimeframe: { '30s': [], '1m': [], '3m': [], '5m': [] },
+
+  // 5-sec block
+  inBetBlock: false,
+  lastKnownPeriod: null
+};
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+function getColorForNum(n) {
+  if (n===0) return 'RED_VIOLET';
+  if (n===5) return 'GREEN_VIOLET';
+  return (n%2===1) ? 'GREEN' : 'RED';
+}
+function getSizeForNum(n) { return n >= 5 ? 'BIG' : 'SMALL'; }
+
+// ═══════════════════════════════════════════════════════════════
+// REAL-WORLD CLOCK  (IST = UTC+5:30)
+// ═══════════════════════════════════════════════════════════════
+let lastPeriod = null;
+
+function computeRTState() {
+  const now   = new Date();
+  const istMs = now.getTime() + (5.5 * 3600 * 1000);
+  const ist   = new Date(istMs);
+
+  const h = ist.getUTCHours(), m = ist.getUTCMinutes(), se = ist.getUTCSeconds();
+  const totalSec = h*3600 + m*60 + se;
+  const dur = S.durationSeconds;
+  const periodIdx  = Math.floor(totalSec / dur) + 1;
+  const elapsed    = totalSec % dur;
+  const secsLeft   = dur - elapsed;
+
+  const y  = ist.getUTCFullYear();
+  const mo = String(ist.getUTCMonth()+1).padStart(2,'0');
+  const d  = String(ist.getUTCDate()).padStart(2,'0');
+  const tfCode = { '30s':'10005','1m':'10001','3m':'10003','5m':'10004' }[S.timeframe]||'10005';
+  const periodStr = `${y}${mo}${d}${tfCode}${String(periodIdx).padStart(5,'0')}`;
+
+  const hh = String(h).padStart(2,'0'), mm = String(m).padStart(2,'0'), ss = String(se).padStart(2,'0');
+  const clockStr = `${hh}:${mm}:${ss} UTC+5:30`;
+
+  return { secsLeft, periodStr, clockStr };
+}
+
+function startRTEngine() {
+  setInterval(() => {
+    const { secsLeft, periodStr, clockStr } = computeRTState();
+    document.getElementById('realWorldClock').textContent = clockStr;
+
+    // Period rollover detection
+    if (lastPeriod && lastPeriod !== periodStr) {
+      onPeriodRollover(lastPeriod);
+      runAI(); // Fresh AI calculation immediately on every period rollover!
+    }
+    lastPeriod = periodStr;
+    S.currentPeriod = periodStr;
+    S.secondsLeft = (secsLeft === S.durationSeconds) ? 0 : secsLeft;
+    document.getElementById('currentPeriodDisplay').textContent = S.currentPeriod;
+    updateTimerUI();
+
+    // 5-second bet block
+    if (S.secondsLeft <= 5 && S.secondsLeft > 0 && !S.inBetBlock) {
+      S.inBetBlock = true;
+      showBetBlock(S.secondsLeft);
+    } else if (S.secondsLeft > 5 && S.inBetBlock) {
+      S.inBetBlock = false;
+    }
+    if (S.inBetBlock && S.secondsLeft > 0) {
+      updateBetBlock(S.secondsLeft);
+    }
+
+    // ── Live countdown bar for result prompt ──
+    const modal = document.getElementById('resultPromptModal');
+    if (modal && modal.style.display === 'flex') {
+      if (S.isEditingNoTimer || S.userPickedNum) {
+        const bar = document.getElementById('autoCloseBar');
+        const lbl = document.getElementById('autoCloseLabel');
+        if (bar) { bar.style.width = '100%'; bar.style.background = '#8b5cf6'; }
+        if (lbl) lbl.textContent = '✏️ Manual Entry / Editing — No time limit';
+      }
+    }
+  }, 200);
+}
+
+function updateTimerUI() {
+  const secsVal = Math.max(0, parseInt(S.secondsLeft) || 0);
+  const mins = Math.floor(secsVal / 60);
+  const secs = secsVal % 60;
+  const ms = String(mins).padStart(2,'0');
+  const ss = String(secs).padStart(2,'0');
+  
+  const m1 = document.getElementById('tMin1');
+  const m2 = document.getElementById('tMin2');
+  const s1 = document.getElementById('tSec1');
+  const s2 = document.getElementById('tSec2');
+
+  if (m1) m1.textContent = ms[0];
+  if (m2) m2.textContent = ms[1];
+  if (s1) s1.textContent = ss[0];
+  if (s2) s2.textContent = ss[1];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 5-SECOND BET BLOCK
+// ═══════════════════════════════════════════════════════════════
+function showBetBlock(secs) {
+  closeBetSheet(true);
+  document.getElementById('betBlockOverlay').style.display = 'flex';
+}
+
+function updateBetBlock(secs) {
+  const n = Math.max(0, secs);
+  document.getElementById('blockCountNum').textContent = n;
+  const pct = (n / 5) * 100;
+  document.querySelector('.countdown-ring').style.setProperty('--prog', pct + '%');
+}
+
+function hideBetBlock() {
+  document.getElementById('betBlockOverlay').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PERIOD ROLLOVER → NEW ROUND
+// ═══════════════════════════════════════════════════════════════
+function onPeriodRollover(finishedPeriod) {
+  hideBetBlock();
+  S.inBetBlock = false;
+
+  // NEVER ask for missing/past period data automatically!
+  // Trigger start betting prompt in the new round ONLY IF recent AI predictions were ALL CORRECT
+  setTimeout(() => {
+    showStartBettingPrompt();
+  }, 1000);
+}
+
+  // Add to queue then serve
+  if (!S.missingQueue.includes(finishedPeriod)) {
+    S.missingQueue.push(finishedPeriod);
+    if (S.missingQueue.length > 10) S.missingQueue.shift();
+  }
+  serveNextFromQueue();
+}
+
+function serveNextFromQueue() {
+  if (S.missingQueue.length === 0) return;
+
+  // If more than 1 pending: show them ALL together in the batch modal
+  if (S.missingQueue.length > 1) {
+    showBatchModal();
+    return;
+  }
+
+  // Single pending: use the normal per-period prompt
+  const period = S.missingQueue[0];
+  S.pendingResultPeriod = period;
+  S.selectedRealNum = null;
+  showResultPrompt(period);
+}
+
+function updateQueueBadge() {
+  const el = document.getElementById('queueCountBadge');
+  if (!el) return;
+  const q = S.missingQueue.length;
+  el.textContent = q > 1 ? `(${q} pending)` : '';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// QUANT AI ENGINE  v3 — 5-Engine Consensus + OpenRouter Meta
+// ═══════════════════════════════════════════════════════════════
+
+// ── Platform constants (declared globally above) ──
+const OPENROUTER_KEY = localStorage.getItem('openrouter_key') || '';
+let _orPending = false;
+let _orSignal  = null;
+
+// ── Escalating Z-score thresholds (loss-streak depth) ──
+function requiredZScore(lossStreak) {
+  if (lossStreak === 0) return 1.64; // 90% confidence
+  if (lossStreak === 1) return 1.96; // 95%
+  return 2.58;                       // 99% — streak 2+
+}
+
+// ── Shannon entropy ──
+function calcEntropy(sizes) {
+  if (!sizes.length) return 1.0;
+  const p = sizes.filter(s => s === 'BIG').length / sizes.length;
+  const q = 1 - p;
+  if (p === 0 || q === 0) return 0;
+  return -(p * Math.log2(p) + q * Math.log2(q));
+}
+
+// ── Engine 1: Sum of last 2 numbers mod 10 ──
+function engineSum(hist) {
+  if (hist.length < 2) return { signal:'NEUTRAL', weight:0 };
+  const s = (hist[hist.length-1].number + hist[hist.length-2].number) % 10;
+  return { signal: s <= 4 ? 'SMALL' : 'BIG', weight: 20, engine:'Sum' };
+}
+
+// ── Engine 2: Trend / Dragon / Chop ──
+function engineTrend(hist) {
+  if (hist.length < 5) return { signal:'NEUTRAL', weight:0 };
+  const cur = hist[hist.length-1].size;
+  let streak = 1;
+  for (let k = 2; k <= 6 && k <= hist.length; k++) {
+    if (hist[hist.length-k].size === cur) streak++; else break;
+  }
+  if (streak >= 3)  return { signal: cur, weight:35, engine:'Dragon' };
+  if (streak === 1 && hist.length >= 3 &&
+      hist[hist.length-2].size !== hist[hist.length-3].size) {
+    return { signal: cur === 'BIG' ? 'SMALL' : 'BIG', weight:25, engine:'Chop' };
+  }
+  return { signal:'NEUTRAL', weight:0 };
+}
+
+// ── Engine 3: DNA Empirical (what follows each number historically) ──
+function engineDNA(hist) {
+  if (hist.length < 10) return { signal:'NEUTRAL', weight:0 };
+  const trigger = hist[hist.length-1].number;
+  let bigAfter = 0, smAfter = 0;
+  for (let i = 0; i < hist.length - 1; i++) {
+    if (hist[i].number === trigger) {
+      if (hist[i+1].size === 'BIG') bigAfter++;
+      else smAfter++;
+    }
+  }
+  const total = bigAfter + smAfter;
+  if (total < 3) return { signal:'NEUTRAL', weight:0 };
+  const bigRate = bigAfter / total;
+  if (bigRate >= 0.60) return { signal:'BIG',   weight:45, engine:'DNA' };
+  if (bigRate <= 0.40) return { signal:'SMALL', weight:45, engine:'DNA' };
+  return { signal:'NEUTRAL', weight:0 };
+}
+
+// ── Engine 4: 2nd-Order Markov ──
+function engineMarkov2(hist) {
+  if (hist.length < 5) return { signal:'NEUTRAL', weight:0, prob:0.5, count:0 };
+  const k1 = hist[hist.length-2].size;
+  const k2 = hist[hist.length-1].size;
+  const key = `${k1}_${k2}`;
+  let matches = 0, bigNext = 0;
+  for (let i = 2; i < hist.length - 1; i++) {
+    if (`${hist[i-2].size}_${hist[i-1].size}` === key) {
+      matches++;
+      if (hist[i].size === 'BIG') bigNext++;
+    }
+  }
+  if (matches < 3) return { signal:'NEUTRAL', weight:0, prob:0.5, count:matches };
+  const p = bigNext / matches;
+  if (Math.abs(p - 0.5) < 0.12) return { signal:'NEUTRAL', weight:0, prob:p, count:matches };
+  return { signal: p > 0.5 ? 'BIG' : 'SMALL', weight:40, prob:p, count:matches, engine:'Markov2' };
+}
+
+// ── Engine 5: Rolling imbalance rate ──
+function engineRolling(hist) {
+  const w10 = hist.slice(-10).filter(r => !r.gap);
+  const w20 = hist.slice(-20).filter(r => !r.gap);
+  if (w10.length < 8) return { signal:'NEUTRAL', weight:0 };
+  const rate10 = w10.filter(r => r.size === 'BIG').length / w10.length;
+  const rate20 = w20.length >= 15 ? w20.filter(r => r.size === 'BIG').length / w20.length : 0.5;
+  // Both windows agree on same skew
+  if (rate10 >= 0.70 && rate20 >= 0.60) return { signal:'BIG',   weight:25, engine:'Rolling' };
+  if (rate10 <= 0.30 && rate20 <= 0.40) return { signal:'SMALL', weight:25, engine:'Rolling' };
+  return { signal:'NEUTRAL', weight:0 };
+}
+
+// ── Adaptive Dynamic Engine Weight Tuning (Learns from LocalStorage sequences) ──
+function updateAdaptiveEngineWeights(hist) {
+  if (!S.engineWeights) S.engineWeights = { Sum:20, Trend:35, DNA:45, Markov:40, Rolling:25 };
+  const realHist = hist.filter(r => !r.gap);
+  if (realHist.length < 15) return S.engineWeights;
+
+  const testWindow = realHist.slice(-30);
+  const perf = { Sum: {c:0,t:0}, Trend: {c:0,t:0}, DNA: {c:0,t:0}, Markov: {c:0,t:0}, Rolling: {c:0,t:0} };
+
+  for (let i = 8; i < testWindow.length; i++) {
+    const subHist = testWindow.slice(0, i);
+    const actual  = testWindow[i].size;
+
+    const eS = engineSum(subHist);
+    const eT = engineTrend(subHist);
+    const eD = engineDNA(subHist);
+    const eM = engineMarkov2(subHist);
+    const eR = engineRolling(subHist);
+
+    if (eS.signal !== 'NEUTRAL') { perf.Sum.t++; if (eS.signal === actual) perf.Sum.c++; }
+    if (eT.signal !== 'NEUTRAL') { perf.Trend.t++; if (eT.signal === actual) perf.Trend.c++; }
+    if (eD.signal !== 'NEUTRAL') { perf.DNA.t++; if (eD.signal === actual) perf.DNA.c++; }
+    if (eM.signal !== 'NEUTRAL') { perf.Markov.t++; if (eM.signal === actual) perf.Markov.c++; }
+    if (eR.signal !== 'NEUTRAL') { perf.Rolling.t++; if (eR.signal === actual) perf.Rolling.c++; }
+  }
+
+  const base = { Sum:20, Trend:35, DNA:45, Markov:40, Rolling:25 };
+  Object.keys(perf).forEach(key => {
+    const p = perf[key];
+    if (p.t >= 4) {
+      const acc = p.c / p.t;
+      if (acc >= 0.58) S.engineWeights[key] = Math.min(65, Math.round(base[key] * (1 + (acc - 0.5) * 1.5)));
+      else if (acc <= 0.42) S.engineWeights[key] = Math.max(10, Math.round(base[key] * (acc / 0.5)));
+      else S.engineWeights[key] = base[key];
+    }
+  });
+
+  return S.engineWeights;
+}
+
+// ── Consensus combiner ──
+function generateConsensus(hist) {
+  const weights = updateAdaptiveEngineWeights(hist);
+  const eSum    = engineSum(hist);    if (eSum.signal !== 'NEUTRAL') eSum.weight = weights.Sum || 20;
+  const eTrend  = engineTrend(hist);  if (eTrend.signal !== 'NEUTRAL') eTrend.weight = weights.Trend || 35;
+  const eDNA    = engineDNA(hist);    if (eDNA.signal !== 'NEUTRAL') eDNA.weight = weights.DNA || 45;
+  const eMarkov = engineMarkov2(hist);if (eMarkov.signal !== 'NEUTRAL') eMarkov.weight = weights.Markov || 40;
+  const eRoll   = engineRolling(hist);if (eRoll.signal !== 'NEUTRAL') eRoll.weight = weights.Rolling || 25;
+
+  const engines = [eSum, eTrend, eDNA, eMarkov, eRoll];
+  if (_orSignal) engines.push(_orSignal); // add OpenRouter meta if available
+
+  let bigScore = 0, smScore = 0;
+  const reasons = [];
+  for (const e of engines) {
+    if (e.signal === 'BIG')   { bigScore += e.weight; if (e.engine) reasons.push(e.engine+'→B'); }
+    if (e.signal === 'SMALL') { smScore  += e.weight; if (e.engine) reasons.push(e.engine+'→S'); }
+  }
+
+  const diff = Math.abs(bigScore - smScore);
+  let leading = bigScore >= smScore ? 'BIG' : 'SMALL';
+  const leadScore = Math.max(bigScore, smScore);
+
+  // Fallback prediction if all engines neutral
+  if (leadScore === 0 && hist.length > 0) {
+    const lastNum = hist[hist.length-1].number;
+    leading = (lastNum % 2 === 1) ? 'BIG' : 'SMALL';
+    reasons.push('Parity→' + leading[0]);
+  }
+
+  // Compute probability from score ratio
+  const totalScore = bigScore + smScore || 20;
+  const rawRatio   = Math.max(bigScore, smScore) / totalScore;
+  const mappedProb = Math.min(0.72, Math.max(0.53, 0.50 + (rawRatio - 0.5) * 0.5 + (leadScore / 200)));
+
+  return { target: leading, prob: mappedProb, engines: reasons, scores: { big: bigScore, small: smScore }, leadScore };
+}
+
+// ── OpenRouter AI meta-signal (async, background) ──
+async function callOpenRouterAI(hist) {
+  if (_orPending) return;
+  const realHist = hist.filter(r => !r.gap).slice(-30);
+  if (realHist.length < 10) return;
+  _orPending = true;
+
+  const summary = realHist.slice(-15).map(r =>
+    `${r.period.slice(-4)}: ${r.number} (${r.size})`
+  ).join(', ');
+
+  const prompt = `You are a statistical prediction assistant for a lottery game where each round result is a number 0-9 classified as BIG (5-9) or SMALL (0-4).
+
+Last 15 results (oldest→newest): ${summary}
+
+Analyze patterns: streaks, alternation, number distribution, any Markov-like dependencies.
+Respond with ONLY one JSON object, no explanation:
+{"prediction": "BIG" or "SMALL" or "SKIP", "confidence": 0.50-0.75, "reason": "one short sentence"}`;
+
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENROUTER_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://dhani.win',
+        'X-Title': 'DhaniWin Quant AI'
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-flash-1.5',
+        messages: [{ role:'user', content: prompt }],
+        temperature: 0.1,
+        max_tokens: 120
+      })
+    });
+    const json = await res.json();
+    const text = json?.choices?.[0]?.message?.content || '';
+    const match = text.match(/\{[^}]+\}/);
+    if (match) {
+      const parsed = JSON.parse(match[0]);
+      if (parsed.prediction === 'BIG' || parsed.prediction === 'SMALL') {
+        const conf = Math.min(0.75, Math.max(0.50, parseFloat(parsed.confidence) || 0.55));
+        _orSignal = {
+          signal: parsed.prediction,
+          weight: Math.round((conf - 0.5) * 200), // 0→0 at 50%, 50 at 75%
+          engine: 'OpenRouter',
+          reason: parsed.reason
+        };
+        // Trigger a fresh AI run now that we have the OR signal
+        runAI();
+      } else {
+        _orSignal = null;
+      }
+    }
+  } catch(e) {
+    console.warn('OpenRouter error:', e.message);
+    _orSignal = null;
+  } finally {
+    _orPending = false;
+  }
+}
+
+function runAI() {
+  const realHist = S.history.filter(r => !r.gap);
+  const n    = realHist.length;
+  const winRate = S.totalBets > 0 ? S.totalWins / S.totalBets : 0;
+  const aiReady = n >= MIN_DATA_TO_PREDICT;
+
+  document.getElementById('dataCountDisplay').textContent = n;
+  document.getElementById('winRateDisplay').textContent   = S.totalBets > 0 ? `${(winRate*100).toFixed(0)}%` : '—';
+  document.getElementById('streakDisplay').textContent    = `${S.lossStreak}/3`;
+
+  if (!aiReady) {
+    S.aiReady  = false;
+    S.aiSignal = { decision:'SKIP', target:null, stake:0, prob:0.5, entropy:1.0,
+                   reason:`Need ${MIN_DATA_TO_PREDICT - n} more real results to activate AI` };
+    renderAIPanel(); return;
+  }
+
+  // ── Entropy filter ──
+  const sizes   = realHist.slice(-20).map(r => r.size);
+  const entropy = calcEntropy(sizes);
+  document.getElementById('entropyDisplay').textContent = entropy.toFixed(2);
+
+  // ── Circuit breaker ──
+  if (S.cooloffRounds > 0) {
+    S.aiSignal = { decision:'SKIP', target:null, stake:0, prob:0.5, entropy,
+                   reason:`🛡️ Circuit Breaker ACTIVE: ${S.cooloffRounds} round(s) remaining` };
+    S.aiReady = false;
+    renderAIPanel(); return;
+  }
+
+  // ── Fire OpenRouter in background (every 5 real results) ──
+  if (n % 5 === 0 && !_orPending) callOpenRouterAI(realHist);
+
+  // ── 5-engine consensus ──
+  const consensus = generateConsensus(realHist);
+  const { target, prob, engines: engineList, scores } = consensus;
+
+  const pWin = Math.max(prob, BREAKEVEN_P + 0.01);
+  const zScore = (pWin - 0.5) / Math.sqrt(0.25 / Math.max(n, 1));
+
+  // ── Balance trend ──
+  const resolvedBets = S.myBets.filter(b => b.status==='WON'||b.status==='LOST').slice(0,10);
+  let balanceTrend = 0;
+  if (resolvedBets.length >= 3) {
+    const pnls   = resolvedBets.map(b => b.status==='WON' ? (b.payout-b.stake) : -b.stake);
+    const half   = Math.floor(pnls.length/2);
+    const recent = pnls.slice(0,half).reduce((a,b)=>a+b,0);
+    const older  = pnls.slice(half).reduce((a,b)=>a+b,0);
+    balanceTrend = recent > older ? 1 : recent < older ? -1 : 0;
+  }
+
+  // ── Stop-loss guards ──
+  const stopLossTriggered = S.balance < S.initialBalance * 0.30;
+  const stopLossRecovery  = S.balance < S.initialBalance * 0.50;
+
+  // ── Half-Kelly staking with recovery & trend modifiers ──
+  const q      = 1 - pWin;
+  const fStar  = Math.max(0, (pWin * NET_ODDS_B - q) / NET_ODDS_B);
+  let fraction = fStar * 0.5; // Half-Kelly
+
+  // Loss recovery (soft Martingale — never full 2× to avoid ruin)
+  if (S.lossStreak === 1) fraction *= 1.20;
+  else if (S.lossStreak === 2) fraction *= 1.50;
+
+  // Balance trend modifier
+  if (balanceTrend ===  1) fraction *= 1.10; // rising
+  if (balanceTrend === -1) fraction *= 0.80; // falling
+
+  // Stop-loss overrides
+  if (stopLossTriggered)       fraction = 0.01;
+  else if (stopLossRecovery)   fraction = Math.min(fraction, 0.02);
+
+  // Win-streak boost
+  if (S.winStreak >= 3) fraction = Math.min(fraction * 1.20, 0.08);
+
+  fraction = Math.min(fraction, MAX_BET_PCT); // absolute cap
+  const stake = Math.max(1, Math.round(S.balance * fraction * 100) / 100);
+
+  // ── Build reason string ──
+  const orTag = _orSignal ? `🤖OR(${_orSignal.signal[0]}) ` : '';
+  let reason = '';
+  if (stopLossTriggered)     reason = '🛑 Stop-Loss: micro stake – protect balance';
+  else if (stopLossRecovery) reason = '⚠️ Recovery zone – reduced stake';
+  else if (S.lossStreak >= 2) reason = `♻️ Recovery ×${fraction.toFixed(2)*100|0}% (${S.lossStreak} loss streak, Z-req ${reqZ})`;
+  else if (S.winStreak >= 3)  reason = `🔥 Win streak ${S.winStreak}× – boosted stake`;
+  else if (balanceTrend === 1) reason = `📈 ${orTag}Rising balance – ${engineList?.join(' ')||''}  → ${target}`;
+  else reason = `${orTag}${engineList?.join(' + ')||'consensus'} → ${target} (p=${(pWin*100).toFixed(1)}%, Z=${zScore.toFixed(1)})`;
+
+  const isLowAcc = S.totalBets >= 5 && winRate < MIN_WIN_RATE;
+  const isTest   = S.aiTestMode || isLowAcc;
+
+  const decision = isTest ? 'SKIP' : 'BET';
+  const reasonFinal = isTest
+    ? `🧪 Test Mode in progress — Shadow prediction: ${target} (${(pWin*100).toFixed(0)}%). Testing accuracy before live betting.`
+    : reason;
+
+  S.aiSignal = { decision, target, stake, prob:pWin, entropy, reason: reasonFinal, balanceTrend,
+                 engines:engineList, scores, zScore, isTest };
+  S.aiReady  = aiReady && !isLowAcc;
+
+  // Store AI Prediction for current period (with isTest flag)
+  S.aiPredictionMap[S.currentPeriod] = { target, decision: isTest ? 'TEST' : 'BET', prob:pWin, engines:engineList, isTest };
+
+  // Update AI Diagnostics Drawer if currently open
+  updateAIDiagnosticsDrawer();
+
+  // ── AUTO-BETTING EXECUTION (only if NOT in test mode) ──
+  if (S.autoBetEnabled && !isTest && S.aiSignal.decision === 'BET' && S.aiSignal.target && S.aiSignal.stake > 0) {
+    if (!S.roundBet || S.roundBet.period !== S.currentPeriod) {
+      const autoStake = Math.min(S.aiSignal.stake, S.balance);
+      if (autoStake >= 1) {
+        S.balance = Math.max(0, S.balance - autoStake);
+        updateBalanceDisplay();
+        S.roundBet = {
+          id: Date.now(),
+          period: S.currentPeriod,
+          type: 'SIZE',
+          choice: S.aiSignal.target,
+          stake: autoStake,
+          status: 'PENDING',
+          aiSignal: S.aiSignal.target,
+          isAuto: true
+        };
+        S.myBets.unshift(S.roundBet);
+        renderMyBets();
+        showToast(`🤖 Auto-Bet placed: -₹${autoStake.toFixed(2)} on ${S.aiSignal.target}`, 'success');
+      }
+    }
+  }
+
+  // ── PROMPT POPUP: Suggest starting auto-betting when AI accuracy is strong & not in test mode ──
+  if (S.aiReady && !isTest && S.aiSignal.decision === 'BET' && S.lossStreak < 3 && !S.autoBetEnabled && !S.promptDismissed) {
+    showStartBettingPrompt();
+  }
+
+  renderAIPanel();
+}
+
+function renderAIPanel() {
+  const sig = S.aiSignal;
+  const ready = S.aiReady;
+
+  // Dot indicator
+  const dot = document.getElementById('aiReadyDot');
+  dot.className = `w-2 h-2 rounded-full ${ready && sig.decision==='BET' ? 'bg-emerald-400 animate-ping' : S.aiReady ? 'bg-amber-400' : 'bg-slate-500'}`;
+
+  // Verdict text (Show prediction even in test mode!)
+  const vEl = document.getElementById('signalVerdict');
+  if (!S.aiReady && S.history.length < MIN_DATA_TO_PREDICT) {
+    vEl.textContent  = 'GATHERING DATA...';
+    vEl.className    = 'text-xl font-black text-slate-400 mt-0.5';
+  } else if (S.cooloffRounds > 0) {
+    vEl.textContent  = 'SKIP THIS ROUND';
+    vEl.className    = 'text-xl font-black text-slate-400 mt-0.5';
+  } else if (sig.isTest && sig.target) {
+    vEl.textContent  = `🧪 TEST: PREDICT ${sig.target}`;
+    vEl.className    = `text-xl font-black mt-0.5 ${sig.target==='BIG' ? 'text-amber-300' : 'text-sky-300'}`;
+  } else if (sig.decision === 'BET' && sig.target) {
+    vEl.textContent  = `PREDICT: ${sig.target}`;
+    vEl.className    = `text-xl font-black mt-0.5 ${sig.target==='BIG' ? 'text-amber-400' : 'text-sky-400'}`;
+  } else if (sig.target) {
+    vEl.textContent  = `PREDICT: ${sig.target}`;
+    vEl.className    = `text-xl font-black mt-0.5 ${sig.target==='BIG' ? 'text-amber-400' : 'text-sky-400'}`;
+  } else {
+    vEl.textContent  = 'SKIP THIS ROUND';
+    vEl.className    = 'text-xl font-black text-slate-400 mt-0.5';
+  }
+
+  // Size pill
+  const sp = document.getElementById('aiSizePill');
+  if (sig.target) {
+    sp.className = `ai-signal-pill ${sig.target==='BIG' ? 'ai-big' : 'ai-small'}`;
+    sp.innerHTML = `<i class="fa-solid fa-chart-bar text-[10px]"></i> ${sig.target}`;
+  } else {
+    sp.className = 'ai-signal-pill ai-wait';
+    sp.innerHTML = `<i class="fa-solid fa-chart-bar text-[10px]"></i> —`;
+  }
+
+  // Confidence pill
+  const cp = document.getElementById('aiConfPill');
+  if (sig.prob) {
+    cp.className = `ai-signal-pill ${sig.prob >= 0.58 ? 'ai-big' : 'ai-wait'}`;
+    cp.innerHTML = `<i class="fa-solid fa-percent text-[10px]"></i> ${(sig.prob*100).toFixed(1)}%`;
+  } else {
+    cp.className = 'ai-signal-pill ai-wait';
+    cp.innerHTML = `<i class="fa-solid fa-percent text-[10px]"></i> —`;
+  }
+
+  // Stake
+  const skEl = document.getElementById('signalStake');
+  skEl.textContent = sig.stake > 0 ? `₹${sig.stake.toFixed(2)}` : '₹—';
+
+  // Bars
+  const bigP = Math.round(sig.prob * 100);
+  const smallP = 100 - bigP;
+  document.getElementById('bigBar').style.width    = (sig.decision==='BET' && sig.target==='BIG' ? bigP : 50) + '%';
+  document.getElementById('smallBar').style.width  = (sig.decision==='BET' && sig.target==='SMALL' ? bigP : 50) + '%';
+  document.getElementById('bigPct').textContent    = (sig.decision==='BET' ? (sig.target==='BIG' ? bigP : smallP) : 50) + '%';
+  document.getElementById('smallPct').textContent  = (sig.decision==='BET' ? (sig.target==='SMALL' ? bigP : smallP) : 50) + '%';
+
+  // Reasoning
+  document.getElementById('reasoningText').textContent = sig.reason;
+
+  // Circuit breaker tag
+  const cb = document.getElementById('circuitBreakerTag');
+  if (S.cooloffRounds > 0) {
+    cb.textContent = `PAUSED (${S.cooloffRounds}R)`;
+    cb.className   = 'text-[10px] px-2.5 py-0.5 rounded-full font-black bg-rose-500/20 text-rose-300 border border-rose-500/30';
+  } else if (S.lossStreak === 2) {
+    cb.textContent = '⚠️ ELEVATED RISK';
+    cb.className   = 'text-[10px] px-2.5 py-0.5 rounded-full font-black bg-amber-500/20 text-amber-300 border border-amber-500/30';
+  } else {
+    cb.textContent = 'PROTECTION: SAFE';
+    cb.className   = 'text-[10px] px-2.5 py-0.5 rounded-full font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BET CONFIRMATION SHEET (exact screenshot clone)
+// ═══════════════════════════════════════════════════════════════
+function openBetSheet(choice, type) {
+  if (S.inBetBlock) { showToast('Betting is closed for this round!', 'danger'); return; }
+  S.sheetChoice = choice;
+  S.sheetType   = type;
+  S.sheetAmount = 1;
+  S.sheetQty    = 1;
+  S.sheetMultiplier = 1;
+
+  // Labels
+  const tfLabel = { '30s':'WinGo 30sec','1m':'WinGo 1 Min','3m':'WinGo 3 Min','5m':'WinGo 5 Min' }[S.timeframe];
+  document.getElementById('sheetTitle').textContent = tfLabel;
+  document.getElementById('sheetSelectionLabel').textContent = `Select ${choice}`;
+
+  // AI Recommendation Banner
+  const banner = document.getElementById('aiRecommendBanner');
+  if (S.aiSignal.decision === 'BET') {
+    banner.classList.remove('hidden');
+    document.getElementById('aiRecommendChoice').textContent = S.aiSignal.target;
+    document.getElementById('aiRecommendReason').textContent = S.aiSignal.reason;
+    if (S.aiSignal.target === choice || (type==='SIZE' && S.aiSignal.target===choice)) {
+      banner.style.borderColor = '#10b981';
+      banner.style.background  = 'rgba(16,185,129,0.1)';
+    } else {
+      banner.style.borderColor = '#f59e0b50';
+      banner.style.background  = 'rgba(245,158,11,0.07)';
+    }
+  } else {
+    banner.classList.add('hidden');
+  }
+
+  refreshSheetButtons();
+  refreshTotalAmount();
+
+  document.getElementById('confirmSheetBackdrop').classList.remove('hidden');
+  document.getElementById('confirmSheet').classList.remove('hidden');
+}
+
+function closeBetSheet(force=false) {
+  document.getElementById('confirmSheetBackdrop').classList.add('hidden');
+  document.getElementById('confirmSheet').classList.add('hidden');
+}
+
+function setAmount(v) {
+  S.sheetAmount = v;
+  ['1','10','100','1000'].forEach(a => {
+    const btn = document.getElementById(`amt-${a}`);
+    btn.className = `amount-btn ${parseInt(a)===v ? 'active' : 'inactive'} flex-1`;
+  });
+  refreshTotalAmount();
+}
+
+function changeQty(delta) {
+  S.sheetQty = Math.max(1, S.sheetQty + delta);
+  document.getElementById('qtyDisplay').textContent = S.sheetQty;
+  refreshTotalAmount();
+}
+
+function setMultiplier(v) {
+  S.sheetMultiplier = v;
+  refreshSheetButtons();
+  refreshTotalAmount();
+}
+
+function refreshSheetButtons() {
+  [1,5,10,20,50,100].forEach(m => {
+    const b = document.getElementById(`mul-${m}`);
+    b.className = `amount-btn ${m===S.sheetMultiplier ? 'active' : 'inactive'} shrink-0`;
+  });
+}
+
+function refreshTotalAmount() {
+  const total = S.sheetAmount * S.sheetQty * S.sheetMultiplier;
+  document.getElementById('totalAmountDisplay').textContent = total.toFixed(2);
+}
+
+function getTotalStake() {
+  return S.sheetAmount * S.sheetQty * S.sheetMultiplier;
+}
+
+function confirmBet() {
+  const stake = getTotalStake();
+  if (stake > S.balance) { showToast('Insufficient balance!', 'danger'); return; }
+
+  // Deduct stake from balance IMMEDIATELY when bet is placed
+  S.balance = Math.max(0, S.balance - stake);
+  updateBalanceDisplay();
+
+  S.roundBet = {
+    id:       Date.now(),
+    period:   S.currentPeriod,
+    type:     S.sheetType,
+    choice:   S.sheetChoice,
+    stake:    stake,
+    status:   'PENDING',
+    aiSignal: S.aiSignal.target,
+    isBot:    false
+  };
+
+  S.myBets.unshift(S.roundBet);
+  renderMyBets();
+  closeBetSheet();
+  showToast(`🎯 Bet placed: -₹${stake.toFixed(2)} on ${S.sheetChoice}`, 'info');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// REAL RESULT PROMPT
+// ═══════════════════════════════════════════════════════════════
+function showResultPrompt(period, preSelectNum) {
+  S.selectedRealNum = null;
+  document.getElementById('selectedRealNumDisplay').textContent = '— (tap a ball)';
+  document.getElementById('submitResultBtn').disabled = true;
+
+  // Check if editing existing entry
+  const existing = S.history.find(r => r.period === period && !r.gap);
+  const isEdit = existing !== undefined;
+  S.isEditingNoTimer = isEdit || S.missingQueue.includes(period); // disable timer when editing/filling gap
+
+  const qLen = S.missingQueue.length;
+  const queueIdx = S.missingQueue.indexOf(period) + 1;
+  const qTag = qLen > 1 ? ` [${queueIdx}/${qLen}]` : '';
+  const editTag = isEdit ? ' ✏ EDIT' : '';
+  document.getElementById('resultPromptPeriod').textContent = `Period: ${period.slice(-6)}${qTag}${editTag}`;
+
+  // Show / hide queue badge
+  const qb = document.getElementById('queueCountBadge');
+  if (qb) qb.textContent = qLen > 1 ? `${qLen} periods pending` : '';
+
+  // Show pending bet info
+  const pbi = document.getElementById('pendingBetInfo');
+  if (S.roundBet && S.roundBet.period === period) {
+    pbi.classList.remove('hidden');
+    document.getElementById('pendingBetSummary').textContent = `${S.roundBet.choice} – ₹${S.roundBet.stake.toFixed(2)}`;
+    document.getElementById('pendingAiSignal').textContent   = S.aiSignal.target ? S.aiSignal.target : '—';
+  } else {
+    pbi.classList.add('hidden');
+  }
+
+  // Clear all num-pick selections
+  for (let i=0; i<=9; i++) {
+    const b = document.getElementById(`rn-${i}`);
+    if (b) b.classList.remove('selected');
+  }
+
+  // Pre-select existing value if editing
+  if (preSelectNum !== null && preSelectNum !== undefined) {
+    selectRealNum(preSelectNum);
+  }
+
+  document.getElementById('resultPromptModal').style.display = 'flex';
+  S.userPickedNum = S.isEditingNoTimer || (preSelectNum !== null && preSelectNum !== undefined);
+  if (S.isEditingNoTimer) {
+    const bar = document.getElementById('autoCloseBar');
+    const lbl = document.getElementById('autoCloseLabel');
+    if (bar) { bar.style.width = '100%'; bar.style.background = '#8b5cf6'; }
+    if (lbl) lbl.textContent = '✏️ Manual Entry / Editing — No time limit';
+  }
+}
+
+function clearAutoClose() {
+  if (S.autoCloseTimer) { clearInterval(S.autoCloseTimer); S.autoCloseTimer = null; }
+}
+
+function updateAutoCloseBar(secs, total) {
+  const bar = document.getElementById('autoCloseBar');
+  const lbl = document.getElementById('autoCloseLabel');
+  if (!bar || !lbl) return;
+  const pct = total > 0 ? Math.min(100, (secs / total) * 100) : 0;
+  bar.style.width = pct + '%';
+  bar.style.background = secs <= 5 ? '#f43f5e' : secs <= 10 ? '#f59e0b' : '#10b981';
+  lbl.textContent = secs > 0 ? `Auto-close in ${secs}s` : 'Closing...';
+}
+
+function selectRealNum(n) {
+  // Once user taps a ball, lock the auto-close so it stays open until they confirm
+  S.userPickedNum = true;
+  S.selectedRealNum = n;
+  for (let i=0; i<=9; i++) {
+    const b = document.getElementById(`rn-${i}`);
+    if (b) b.classList.toggle('selected', i===n);
+  }
+  document.getElementById('selectedRealNumDisplay').textContent = `${n}  ·  ${getColorForNum(n).replace('_',' + ')}  ·  ${getSizeForNum(n)}`;
+  document.getElementById('submitResultBtn').disabled = false;
+  // Update bar to show "waiting for confirm" state
+  const bar = document.getElementById('autoCloseBar');
+  const lbl = document.getElementById('autoCloseLabel');
+  if (bar) { bar.style.width = '100%'; bar.style.background = '#8b5cf6'; }
+  if (lbl) lbl.textContent = 'Tap Confirm ✔ to save';
+}
+
+function submitRealResult() {
+  const n = S.selectedRealNum;
+  if (n === null) return;
+
+  const size   = getSizeForNum(n);
+  const color  = getColorForNum(n);
+  const period = S.pendingResultPeriod || S.currentPeriod;
+
+  // Store in history — ALWAYS replace any existing entry for this period (edit or new)
+  S.history = S.history.filter(r => r.period !== period);
+  S.history.push({ period, number: n, size, color });
+  if (S.history.length > 100) S.history.shift();
+
+  // AI test-mode: record prediction accuracy & virtual ₹100 balance PnL
+  if (S.aiTestMode && S.aiSignal.target) {
+    const aiCorrect = (String(S.aiSignal.target).toUpperCase() === String(size).toUpperCase());
+    if (!S.testBalance) S.testBalance = 100;
+
+    // Simulated test wager of ₹10 per test round
+    const testStake = 10;
+    if (aiCorrect) {
+      S.testBalance += testStake * 0.92;
+      showWinPopup({ period, number: n, color, size, profit: testStake * 0.92, balance: S.testBalance, aiCorrect: true });
+    } else {
+      S.testBalance -= testStake;
+      showLossPopup({ period, number: n, color, size, lost: testStake, balance: S.testBalance });
+    }
+
+    S.aiTestResults.push({ period, predicted: S.aiSignal.target, actual: size, correct: aiCorrect });
+    
+    // Check 3 consecutive loss streak during test mode
+    const recentLosses = S.aiTestResults.slice(-3).filter(r => !r.correct).length;
+    if (S.aiTestResults.length >= 3 && recentLosses >= 3) {
+      // 3 consecutive losses: SWITCH METHOD & RESTART TEST MODE
+      S.engineWeights = { Sum:15, Trend:20, DNA:55, Markov:50, Rolling:20 }; // Switch weight priority
+      S.aiTestResults = [];
+      S.testBalance = 100;
+      showToast(`⚠️ 3 consecutive losses in test mode! AI switched consensus method & restarted 6-round test mode from ₹100.`, 'danger');
+    } else if (S.aiTestResults.length >= 6) {
+      // Check auto-exit condition: 6 test rounds, >= 52% accuracy AND positive test profit (+₹)
+      const correctCount = S.aiTestResults.filter(r => r.correct).length;
+      const accPct = Math.round(correctCount / S.aiTestResults.length * 100);
+      const testProfit = S.testBalance - 100;
+
+      if (accPct >= 52 && testProfit > 0) {
+        S.aiTestMode = false;
+        showToast(`🎉 Test Mode Complete (6/6 Rounds, ${accPct}% Acc, +₹${testProfit.toFixed(2)} Profit)! LIVE REAL BETTING ACTIVATED!`, 'success');
+        runAI();
+      }
+    }
+    updateTestBanner();
+  }
+
+  // Settle or re-settle any bet placed for this period (including edited past bets!)
+  const existingBet = S.myBets.find(b => b.period === period);
+  if (existingBet) {
+    const bet = existingBet;
+    let won = false;
+    let payout = 0;
+
+    const betChoiceUpper = String(bet.choice).toUpperCase();
+    const sizeUpper      = String(size).toUpperCase();
+
+    if (bet.type === 'SIZE') {
+      won = (betChoiceUpper === sizeUpper);
+      payout = won ? bet.stake * PAYOUT_SIZE : 0;
+    } else if (bet.type === 'NUMBER') {
+      won = (parseInt(bet.choice) === n);
+      payout = won ? bet.stake * PAYOUT_NUMBER : 0;
+    } else if (bet.type === 'COLOR') {
+      if (bet.choice === 'GREEN') {
+        if ([1,3,7,9].includes(n)) { won=true; payout=bet.stake*2; }
+        else if (n===5)             { won=true; payout=bet.stake*1.5; }
+      } else if (bet.choice === 'RED') {
+        if ([2,4,6,8].includes(n)) { won=true; payout=bet.stake*2; }
+        else if (n===0)             { won=true; payout=bet.stake*1.5; }
+      } else if (bet.choice === 'VIOLET') {
+        if (n===0||n===5)          { won=true; payout=bet.stake*4.5; }
+      }
+    }
+
+    const prevStatus = bet.status;
+    bet.status     = won ? 'WON' : 'LOST';
+    bet.payout     = payout;
+    bet.realNumber = n;
+
+    if (prevStatus !== 'WON' && won) {
+      // Result changed from LOST or PENDING to WON! Credit payout to balance
+      S.balance += payout;
+      S.totalWins++;
+      S.lossStreak = 0;
+      S.winStreak++;
+      showToast(`💰 Corrected Period ${period.slice(-4)}: WON! +₹${(payout - bet.stake).toFixed(2)} added to balance!`, 'success');
+      showWinPopup({
+        period, number: n, color, size,
+        profit: payout - bet.stake,
+        balance: S.balance,
+        aiCorrect: bet.aiSignal === size
+      });
+    } else if (prevStatus === 'WON' && !won) {
+      // Result changed from WON to LOST! Adjust balance back
+      S.balance = Math.max(0, S.balance - bet.payout);
+      S.totalWins = Math.max(0, S.totalWins - 1);
+      S.lossStreak++;
+      S.winStreak = 0;
+      showToast(`⚠️ Corrected Period ${period.slice(-4)}: LOST. Balance adjusted.`, 'danger');
+    } else if (prevStatus === 'PENDING') {
+      S.totalBets++;
+      if (won) {
+        S.totalWins++;
+        S.balance += payout;
+        S.lossStreak = 0;
+        S.winStreak++;
+        showWinPopup({ period, number: n, color, size, profit: payout - bet.stake, balance: S.balance, aiCorrect: bet.aiSignal === size });
+      } else {
+        S.lossStreak++; S.winStreak = 0;
+        showLossPopup({ period, number: n, color, size, lost: bet.stake, balance: S.balance });
+      }
+    }
+    if (S.roundBet && S.roundBet.period === period) S.roundBet = null;
+  } else {
+    showToast(`📊 Recorded: ${n} · ${color.replace('_', ' + ')} · ${size}`, 'info');
+  }
+
+  if (S.cooloffRounds > 0) S.cooloffRounds--;
+
+  // Sort history chronologically
+  S.history.sort((a,b) => String(a.period).localeCompare(String(b.period)));
+
+  // Reset editing flags
+  S.isEditingNoTimer = false;
+  S.userPickedNum = false;
+  document.getElementById('resultPromptModal').style.display = 'none';
+
+  // Refresh UI and recalculate AI predictions immediately
+  renderHistoryTable();
+  renderMiniBalls();
+  renderMyBets();
+  renderTrendChart();
+  updateBalanceDisplay();
+  runAI();
+
+  saveToLocalStorage();
+  showToast(`✏️ Result saved & AI prediction recalculated!`, 'success');
+
+  // Remove served period from queue, then serve next
+  S.missingQueue = S.missingQueue.filter(p => p !== period);
+  setTimeout(serveNextFromQueue, 600);
+}
+
+function skipRealResult() {
+  clearAutoClose();
+  S.userPickedNum = false;
+  const skippedPeriod = S.pendingResultPeriod;
+
+  // Record a null/gap so the AI knows there's missing data here
+  if (skippedPeriod) {
+    // Only push gap if not already recorded
+    const alreadyHas = S.history.find(r => r.period === skippedPeriod);
+    if (!alreadyHas) {
+      S.history.push({ period: skippedPeriod, number: null, size: null, color: null, gap: true });
+      if (S.history.length > 100) S.history.shift();
+    }
+  }
+
+  if (S.cooloffRounds > 0) S.cooloffRounds--;
+  runAI();
+  renderHistoryTable();
+  document.getElementById('resultPromptModal').style.display = 'none';
+
+  // Remove served period from queue, serve next
+  if (skippedPeriod) S.missingQueue = S.missingQueue.filter(p => p !== skippedPeriod);
+  setTimeout(serveNextFromQueue, 400);
+}
+
+// Open result prompt to fill a gap OR edit any history row
+function editHistoryRow(period) {
+  // Find the existing entry (could be gap or real)
+  const existing = S.history.find(r => r.period === period);
+  const preNum = (existing && !existing.gap) ? existing.number : null;
+
+  // Put it in the queue (front) so single-period prompt appears
+  if (!S.missingQueue.includes(period)) S.missingQueue.unshift(period);
+  S.pendingResultPeriod = period;
+  S.selectedRealNum = null;
+  showResultPrompt(period, preNum);
+}
+
+// Keep old alias for any lingering references
+function fillGap(period) { editHistoryRow(period); }
+
+// ═══════════════════════════════════════════════════════════════
+// RENDERING
+// ═══════════════════════════════════════════════════════════════
+function renderHistoryTable() {
+  const container = document.getElementById('gameHistoryRows');
+  if (!container) return;
+  const slice = S.history.slice(-20).reverse(); // Last 20 rounds
+
+  container.innerHTML = slice.map(row => {
+    if (row.gap) {
+      return `<div onclick="editHistoryRow('${row.period}')" class="grid grid-cols-12 py-2.5 px-3 items-center opacity-60 cursor-pointer hover:bg-amber-400/10 transition group text-[10px]">
+        <div class="col-span-3 text-amber-400 font-mono font-bold truncate">${String(row.period).slice(-6)}</div>
+        <div class="col-span-6 text-center text-amber-300/80 font-bold italic">⚠ Tap to fill skipped result</div>
+        <div class="col-span-3 text-right text-amber-400">✏️ Fill</div>
+      </div>`;
+    }
+
+    const numClass = (row.number===0||row.number===5) ? 'text-purple-400' : (row.number%2===1 ? 'text-emerald-400' : 'text-rose-400');
+    let colorBadge = row.color === 'RED' ? '🔴' : row.color === 'GREEN' ? '🟢' : '🟣';
+
+    // AI Prediction details (display for every round, including test mode predictions)
+    const aiPred = S.aiPredictionMap[row.period] || (S.myBets.find(b => b.period === row.period)?.aiSignal ? { target: S.myBets.find(b => b.period === row.period).aiSignal } : null);
+    let aiText = '<span class="text-slate-500 text-[9px]">—</span>';
+    if (aiPred && aiPred.target) {
+      const isCorrect = aiPred.target === row.size;
+      if (aiPred.isTest || aiPred.decision === 'TEST') {
+        aiText = `<span class="px-1.5 py-0.5 rounded font-black text-[9px] ${isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">🧪 TEST: ${aiPred.target}</span>`;
+      } else {
+        const decTag = aiPred.decision === 'SKIP' ? ' (SKIP)' : '';
+        aiText = `<span class="px-1.5 py-0.5 rounded font-black text-[9px] ${isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">${aiPred.target}${decTag}</span>`;
+      }
+    }
+
+    // Bet & Result details
+    const bet = S.myBets.find(b => b.period === row.period);
+    let betText = '<span class="text-slate-500 text-[9px]">No Bet</span>';
+    if (bet) {
+      if (bet.status === 'WON') {
+        betText = `<span class="px-1.5 py-0.5 rounded bg-emerald-400 text-slate-950 font-black text-[9px]">WON +₹${(bet.payout - bet.stake).toFixed(1)}</span>`;
+      } else if (bet.status === 'LOST') {
+        betText = `<span class="px-1.5 py-0.5 rounded bg-rose-500 text-white font-black text-[9px]">LOST -₹${bet.stake.toFixed(1)}</span>`;
+      } else {
+        betText = `<span class="px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-bold text-[9px] animate-pulse">PENDING</span>`;
+      }
+    }
+
+    return `<div onclick="editHistoryRow('${row.period}')" class="grid grid-cols-12 py-2.5 px-3 items-center cursor-pointer hover:bg-indigo-900/40 active:bg-indigo-900/60 transition group border-b border-purple-900/20 text-[10px]">
+      <div class="col-span-3 text-slate-300 font-mono truncate flex items-center gap-1">
+        <span>${String(row.period).slice(-6)}</span>
+        <span class="opacity-0 group-hover:opacity-100 text-amber-400 transition">✏️</span>
+      </div>
+      <div class="col-span-3 text-center font-black ${numClass}">
+        ${row.number} <span class="text-[9px] font-semibold text-slate-300">(${row.size})</span> ${colorBadge}
+      </div>
+      <div class="col-span-3 text-center">${aiText}</div>
+      <div class="col-span-3 text-right">${betText}</div>
+    </div>`;
+  }).join('');
+
+  const realCount = S.history.filter(r => !r.gap).length;
+  const badge = document.getElementById('rowCountBadge');
+  if (badge) badge.textContent = `${realCount} real records`;
+}
+
+function renderMiniBalls() {
+  const el = document.getElementById('recentMiniBalls');
+  // Only show non-gap rows
+  const slice = S.history.filter(r => !r.gap).slice(-5);
+  el.innerHTML = slice.map(r => {
+    let bg = 'ball-green';
+    if (r.number===0) bg='ball-split-0';
+    else if (r.number===5) bg='ball-split-5';
+    else if (r.number%2===0) bg='ball-red';
+    return `<div class="ball-3d ${bg} w-6 h-6 rounded-full flex items-center justify-center font-black text-[10px] text-white">${r.number}</div>`;
+  }).join('');
+}
+
+function renderMyBets() {
+  const el = document.getElementById('myBetsContainer');
+  document.getElementById('myBetsBadge').textContent = S.myBets.length;
+  if (!S.myBets.length) {
+    el.innerHTML = '<div class="p-6 text-center text-slate-400 text-xs">No bets recorded yet.</div>';
+    return;
+  }
+  el.innerHTML = S.myBets.slice(0, 20).map(bet => {
+    const isWin  = bet.status==='WON';
+    const isLoss = bet.status==='LOST';
+    const badge  = isWin
+      ? `<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">+₹${bet.payout.toFixed(2)}</span>`
+      : isLoss
+        ? `<span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">-₹${bet.stake.toFixed(2)}</span>`
+        : `<span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold animate-pulse">PENDING</span>`;
+    const realTag = bet.realNumber !== undefined ? ` | Real: ${bet.realNumber}` : '';
+    return `<div class="p-2.5 flex items-center justify-between">
+      <div>
+        <div class="font-bold text-white text-xs">${bet.choice} (${bet.type})</div>
+        <div class="text-[10px] text-slate-400">₹${bet.stake.toFixed(2)} · Period ${bet.period.slice(-4)}${realTag}</div>
+      </div>
+      <div>${badge}</div>
+    </div>`;
+  }).join('');
+}
+
+function updateBalanceDisplay() {
+  document.getElementById('balanceDisplay').textContent = `₹${S.balance.toFixed(2)}`;
+  const pnl = S.balance - S.initialBalance;
+  const pnlEl = document.getElementById('sessionPnlDisplay');
+  pnlEl.innerHTML = `PnL: <span class="${pnl>=0?'text-emerald-400':'text-rose-400'} font-bold">${pnl>=0?'+':''}₹${Math.abs(pnl).toFixed(2)}</span>`;
+}
+
+// ─────────────────────────────────────────────────────────
+// NUMBER ROAD MAP (Dhaniwin-style)
+// ─────────────────────────────────────────────────────────
+function renderNumberRoad() {
+  const realHist = S.history.filter(r => !r.gap).slice(-30).reverse(); // newest first
+  renderRoadStats(realHist);
+  renderRoadRows(realHist);
+
+  // Summary footer
+  const allReal = S.history.filter(r => !r.gap);
+  const bigC  = allReal.filter(r => r.size === 'BIG').length;
+  const total = allReal.length || 1;
+  document.getElementById('chartBigPct').textContent   = `${Math.round(bigC/total*100)}%`;
+  document.getElementById('chartSmallPct').textContent = `${Math.round((total-bigC)/total*100)}%`;
+  const resolved = S.myBets.filter(b => b.status==='WON' || b.status==='LOST');
+  const wonC = resolved.filter(b => b.status==='WON').length;
+  document.getElementById('chartWinRatio').textContent = resolved.length ? `${Math.round(wonC/resolved.length*100)}%` : '—';
+}
+
+function renderRoadStats(hist) {
+  const el = document.getElementById('chartStatsRows');
+  if (!el) return;
+  const nums = [0,1,2,3,4,5,6,7,8,9];
+  const pool = hist; // last 100 real results (we slice -30 above for display; use full for stats)
+  const fullReal = S.history.filter(r => !r.gap).slice(-100);
+  const N = fullReal.length;
+
+  // Count how many rounds ago each number last appeared ("Missing")
+  function missing(n) {
+    for (let i = 0; i < fullReal.length; i++) { if (fullReal[i].number === n) return i; }
+    return fullReal.length;
+  }
+  // Frequency
+  function freq(n) { return fullReal.filter(r => r.number === n).length; }
+  // Max consecutive
+  function maxConsec(n) {
+    let max = 0, cur = 0;
+    for (const r of fullReal) { if (r.number === n) { cur++; max = Math.max(max, cur); } else cur = 0; }
+    return max;
+  }
+  // Avg missing = avg gap between appearances
+  function avgMissing(n) {
+    const positions = fullReal.map((r,i) => r.number === n ? i : -1).filter(i => i >= 0);
+    if (positions.length < 2) return '—';
+    const gaps = [];
+    for (let i = 1; i < positions.length; i++) gaps.push(positions[i] - positions[i-1] - 1);
+    return Math.round(gaps.reduce((a,b) => a+b, 0) / gaps.length);
+  }
+
+  const rows = [
+    { label: 'Missing',     vals: nums.map(n => missing(n)),    colors: nums.map(n => missing(n) > 10 ? '#f59e0b' : '#94a3b8') },
+    { label: 'Avg missing', vals: nums.map(n => avgMissing(n)), colors: nums.map(() => '#94a3b8') },
+    { label: 'Frequency',   vals: nums.map(n => freq(n)),       colors: nums.map(n => freq(n) > N/10 ? '#10b981' : '#94a3b8') },
+    { label: 'Max consec',  vals: nums.map(n => maxConsec(n)),  colors: nums.map(n => maxConsec(n) >= 3 ? '#f43f5e' : '#94a3b8') },
+  ];
+
+  el.innerHTML = rows.map(row =>
+    `<div class="grid grid-cols-12 py-1 items-center">
+      <div class="col-span-3 text-slate-400 font-sans">${row.label}</div>
+      ${nums.map((n,i) => `<div class="text-center font-bold" style="color:${row.colors[i]}">${row.vals[i]}</div>`).join('')}
+    </div>`
+  ).join('');
+}
+
+function renderRoadRows(hist) {
+  const container = document.getElementById('numberRoadRows');
+  const svgEl     = document.getElementById('roadConnectorSvg');
+  if (!container) return;
+
+  // Build bet-lookup by period
+  const betMap = {};
+  S.myBets.forEach(b => { betMap[b.period] = b; });
+
+  // Build AI-prediction lookup: we store predictions on history entries when AI runs
+  // Use the bet's aiSignal field as approximation
+  const ballColors = ['ball-split-0','ball-green','ball-red','ball-green','ball-red','ball-split-5','ball-red','ball-green','ball-red','ball-green'];
+  const COLS = 'grid-template-columns:80px repeat(10,1fr) 28px 28px 28px';
+
+  container.innerHTML = hist.map((row, idx) => {
+    const bet = betMap[row.period];
+    const n   = row.number;
+
+    // 10 ball cells
+    const balls = [0,1,2,3,4,5,6,7,8,9].map(i => {
+      if (i === n) {
+        // Highlighted winning ball
+        return `<div class="flex items-center justify-center">
+          <div class="ball-3d ${ballColors[n]} w-5 h-5 rounded-full flex items-center justify-center font-black text-[9px] text-white">${n}</div>
+        </div>`;
+      }
+      // Dim circle
+      return `<div class="flex items-center justify-center">
+        <div class="w-5 h-5 rounded-full border border-purple-800/50 flex items-center justify-center text-[8px] text-slate-600 font-bold">${i}</div>
+      </div>`;
+    }).join('');
+
+    // B/S badge
+    const bsBadge = row.size === 'BIG'
+      ? `<div class="w-6 h-6 rounded-full bg-amber-400 flex items-center justify-center font-black text-[8px] text-slate-900">B</div>`
+      : `<div class="w-6 h-6 rounded-full bg-sky-400 flex items-center justify-center font-black text-[8px] text-slate-900">S</div>`;
+
+    // AI prediction badge (ALWAYS DISPLAYED for EVERY round, even skips)
+    const aiPred = S.aiPredictionMap[row.period] || (bet?.aiSignal ? { target: bet.aiSignal } : null);
+    let aiPredBadge = `<div class="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[7px] text-slate-500">—</div>`;
+    if (aiPred && aiPred.target) {
+      const correct = aiPred.target === row.size;
+      const targetLabel = aiPred.target === 'BIG' ? 'B' : 'S';
+      aiPredBadge = `<div class="w-6 h-6 rounded-full flex items-center justify-center font-black text-[7px] ${correct ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500' : 'bg-rose-500/30 text-rose-300 border border-rose-500'}">${targetLabel}</div>`;
+    }
+
+    // Bet result badge
+    let betBadge = `<div class="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center text-[7px] text-slate-500">—</div>`;
+    if (bet) {
+      if (bet.status === 'WON')  betBadge = `<div class="w-6 h-6 rounded-full bg-emerald-400 flex items-center justify-center font-black text-[8px] text-slate-900">W</div>`;
+      if (bet.status === 'LOST') betBadge = `<div class="w-6 h-6 rounded-full bg-rose-500 flex items-center justify-center font-black text-[8px] text-white">L</div>`;
+      if (bet.status === 'PENDING') betBadge = `<div class="w-6 h-6 rounded-full bg-amber-400/30 border border-amber-400 flex items-center justify-center text-[7px] text-amber-300 animate-pulse">?</div>`;
+    }
+
+    const periodShort = String(row.period).slice(-4);
+    return `<div id="road-row-${idx}" class="grid items-center py-0.5 border-b border-purple-900/20" style="${COLS}">
+      <div class="text-[9px] text-slate-400 font-mono truncate pr-1">${periodShort}</div>
+      ${balls}
+      <div class="flex items-center justify-center">${bsBadge}</div>
+      <div class="flex items-center justify-center">${aiPredBadge}</div>
+      <div class="flex items-center justify-center">${betBadge}</div>
+    </div>`;
+  }).join('');
+
+  // Draw SVG connector line between winning balls
+  drawConnectorLine(hist);
+}
+
+function drawConnectorLine(hist) {
+  const svg = document.getElementById('roadConnectorSvg');
+  const container = document.getElementById('numberRoadRows');
+  if (!svg || !container || hist.length < 2) { if (svg) svg.innerHTML = ''; return; }
+
+  // Give DOM a frame to paint, then measure
+  requestAnimationFrame(() => {
+    const points = [];
+    hist.forEach((row, idx) => {
+      const rowEl = document.getElementById(`road-row-${idx}`);
+      if (!rowEl) return;
+      // Each ball cell is column index (n+1) out of 13 cols
+      // col 0 = period label, cols 1-10 = numbers, cols 11-13 = badges
+      const cells = rowEl.querySelectorAll(':scope > div');
+      const ballCell = cells[row.number + 1]; // +1 for period col
+      if (!ballCell) return;
+      const ballEl = ballCell.querySelector('.ball-3d');
+      if (!ballEl) return;
+      const cRect = container.getBoundingClientRect();
+      const bRect = ballEl.getBoundingClientRect();
+      points.push({
+        x: bRect.left - cRect.left + bRect.width / 2,
+        y: bRect.top  - cRect.top  + bRect.height / 2
+      });
+    });
+
+    if (points.length < 2) { svg.innerHTML = ''; return; }
+    let d = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 1; i < points.length; i++) {
+      const prev = points[i-1], cur = points[i];
+      const mx = (prev.x + cur.x) / 2;
+      d += ` C ${mx} ${prev.y} ${mx} ${cur.y} ${cur.x} ${cur.y}`;
+    }
+    svg.innerHTML = `<path d="${d}" fill="none" stroke="#f43f5e" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.7"/>
+    ${points.map(p => `<circle cx="${p.x}" cy="${p.y}" r="2" fill="#f59e0b" opacity="0.8"/>`).join('')}`;
+  });
+}
+
+// Keep old renderTrendChart as alias so nothing breaks
+function renderTrendChart() { renderNumberRoad(); }
+
+// ═══════════════════════════════════════════════════════════════
+// CONTROLS
+// ═══════════════════════════════════════════════════════════════
+function setTimeframe(tf) {
+  // Save current history into timeframe bucket
+  if (!S.historyByTimeframe) {
+    S.historyByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
+  }
+  S.historyByTimeframe[S.timeframe] = [...S.history];
+
+  S.timeframe = tf;
+  S.durationSeconds = { '30s':30,'1m':60,'3m':180,'5m':300 }[tf]||30;
+
+  // Load history for target timeframe section
+  S.history = [...(S.historyByTimeframe[tf] || [])];
+
+  ['30s','1m','3m','5m'].forEach(t => {
+    const b = document.getElementById(`tf-${t}`);
+    if (b) {
+      b.className = t===tf
+        ? 'py-2 px-1 rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 text-slate-950 font-black text-xs flex flex-col items-center shadow active:scale-95'
+        : 'py-2 px-1 rounded-xl bg-app-card text-purple-200 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition';
+    }
+  });
+
+  document.getElementById('ticketTfTitle').textContent = `WinGo ${tf}`;
+  const { secsLeft, periodStr } = computeRTState();
+  lastPeriod = periodStr; S.currentPeriod = periodStr; S.secondsLeft = secsLeft;
+  document.getElementById('currentPeriodDisplay').textContent = S.currentPeriod;
+  updateTimerUI();
+
+  // If newly selected timeframe section has fewer than MIN_DATA_TO_PREDICT results, prompt for initial 10 results
+  if (S.history.length < MIN_DATA_TO_PREDICT) {
+    openInitModal();
+    showToast(`WinGo ${tf} section selected: Please enter initial 10 results for ${tf}`, 'info');
+  } else {
+    renderHistoryTable();
+    renderMiniBalls();
+    renderTrendChart();
+    runAI();
+    showToast(`Switched to WinGo ${tf} section (${S.history.length} records)`, 'info');
+  }
+}
+
+function toggleAIDiagnostics() {
+  const drawer = document.getElementById('aiDiagnosticsDrawer');
+  const chev   = document.getElementById('diagChevron');
+  if (!drawer) return;
+  const isHidden = drawer.classList.contains('hidden');
+  if (isHidden) {
+    drawer.classList.remove('hidden');
+    if (chev) chev.style.transform = 'rotate(180deg)';
+    updateAIDiagnosticsDrawer();
+  } else {
+    drawer.classList.add('hidden');
+    if (chev) chev.style.transform = 'rotate(0deg)';
+  }
+}
+
+function updateAIDiagnosticsDrawer() {
+  const drawer = document.getElementById('aiDiagnosticsDrawer');
+  if (!drawer || drawer.classList.contains('hidden')) return;
+
+  const sig = S.aiSignal;
+  const realHist = S.history.filter(r => !r.gap);
+  const eSum     = engineSum(realHist);
+  const eTrend   = engineTrend(realHist);
+  const eDNA     = engineDNA(realHist);
+  const eM2      = engineMarkov2(realHist);
+  const eRoll    = engineRolling(realHist);
+
+  const elSum   = document.getElementById('diagEngineSum');
+  const elTrend = document.getElementById('diagEngineTrend');
+  const elDNA   = document.getElementById('diagEngineDNA');
+  const elM2    = document.getElementById('diagEngineMarkov');
+  const elRoll  = document.getElementById('diagEngineRolling');
+  const elOR    = document.getElementById('diagEngineOR');
+
+  if (elSum)   elSum.textContent   = `${eSum.signal} (wt:${eSum.weight})`;
+  if (elTrend) elTrend.textContent = `${eTrend.signal} (wt:${eTrend.weight})`;
+  if (elDNA)   elDNA.textContent   = `${eDNA.signal} (wt:${eDNA.weight})`;
+  if (elM2)    elM2.textContent    = `${eM2.signal} (wt:${eM2.weight})`;
+  if (elRoll)  elRoll.textContent  = `${eRoll.signal} (wt:${eRoll.weight})`;
+  if (elOR)    elOR.textContent    = _orSignal ? `${_orSignal.signal} (wt:${_orSignal.weight})` : '—';
+
+  const totalTest   = S.aiTestResults.length;
+  const correctTest = S.aiTestResults.filter(r => r.correct).length;
+  const wrongTest   = totalTest - correctTest;
+  const accPct      = totalTest > 0 ? Math.round(correctTest / totalTest * 100) : 0;
+
+  const elCor = document.getElementById('diagCorrectCount');
+  const elWro = document.getElementById('diagWrongCount');
+  const elAcc = document.getElementById('diagAccPct');
+
+  if (elCor) elCor.textContent = correctTest;
+  if (elWro) elWro.textContent = wrongTest;
+  if (elAcc) elAcc.textContent = totalTest > 0 ? `${accPct}%` : '—';
+
+  const elStreak = document.getElementById('diagLossStreak');
+  if (elStreak) elStreak.textContent = `${S.lossStreak}/3 (${S.lossStreak>=3?'TRIPPED':'SAFE'})`;
+
+  const cbStatus = document.getElementById('diagCircuitStatus');
+  if (cbStatus) {
+    if (S.cooloffRounds > 0) {
+      cbStatus.textContent = `PAUSED (${S.cooloffRounds}R cool-off)`;
+      cbStatus.className   = 'text-rose-400 font-bold';
+    } else {
+      cbStatus.textContent = 'PROTECTION SAFE';
+      cbStatus.className   = 'text-emerald-400 font-bold';
+    }
+  }
+
+  const reqZ = requiredZScore(S.lossStreak);
+  const elZ  = document.getElementById('diagReqZ');
+  if (elZ) elZ.textContent = `Z ≥ ${reqZ.toFixed(2)} (${S.lossStreak===0?'90%':S.lossStreak===1?'95%':'99%'} Conf)`;
+
+  const elEnt = document.getElementById('diagEntropyVal');
+  if (elEnt) elEnt.textContent = `${(sig.entropy||1).toFixed(2)} (${sig.entropy>0.95?'HIGH NOISE':'NORMAL'})`;
+
+  const pWin = sig.prob || 0.5;
+  const elProb  = document.getElementById('diagProbVal');
+  const elStake = document.getElementById('diagStakeVal');
+  if (elProb)  elProb.textContent  = `${(pWin*100).toFixed(1)}%`;
+  if (elStake) elStake.textContent = sig.decision==='BET' ? `₹${sig.stake.toFixed(2)} (Half-Kelly)` : '₹0.00 (SKIP)';
+
+  const logEl = document.getElementById('diagTestHistoryLog');
+  if (logEl) {
+    if (S.aiTestResults.length === 0) {
+      logEl.innerHTML = '<div class="text-slate-500 italic text-[9px] p-1">No shadow test predictions evaluated yet...</div>';
+    } else {
+      logEl.innerHTML = S.aiTestResults.slice(-10).reverse().map(r =>
+        `<div class="flex items-center justify-between p-1 rounded ${r.correct?'bg-emerald-950/40 text-emerald-300':'bg-rose-950/40 text-rose-300'} border border-purple-900/30">
+          <span>Period ${String(r.period).slice(-4)}: Pred ${r.predicted} vs Real ${r.actual}</span>
+          <b class="font-black">${r.correct?'✓ CORRECT':'✗ WRONG'}</b>
+        </div>`
+      ).join('');
+    }
+  }
+}
+
+function toggleAutoBet() {
+  S.autoBetEnabled = !S.autoBetEnabled;
+  const btn = document.getElementById('autoBetToggleBtn');
+  const tag = document.getElementById('autoBetStatusTag');
+  if (S.autoBetEnabled) {
+    btn.classList.add('text-emerald-400');
+    tag.textContent = 'BOT: AUTO';
+    tag.className   = 'text-[9px] px-1.5 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40 ml-1 shrink-0';
+    showToast('AI Auto-Execution activated', 'success');
+  } else {
+    btn.classList.remove('text-emerald-400');
+    tag.textContent = 'BOT: OFF';
+    tag.className   = 'text-[9px] px-1.5 rounded bg-slate-800 text-slate-400 font-bold border border-slate-700 ml-1 shrink-0';
+    showToast('AI Auto-Execution deactivated', 'info');
+  }
+}
+
+function toggleAIGlow() {
+  S.aiGlowing = !S.aiGlowing;
+  document.getElementById('quantBox').classList.toggle('ring-2');
+  document.getElementById('quantBox').classList.toggle('ring-amber-400');
+}
+
+function switchSubTab(tab) {
+  ['history','chart','my','ai'].forEach(t => {
+    const btn = document.getElementById(`subtab-${t}`);
+    if (btn) {
+      btn.className = t===tab
+        ? 'py-2 rounded-xl bg-amber-400 text-slate-950 font-black shadow truncate'
+        : 'py-2 rounded-xl bg-app-card text-purple-300 font-bold truncate';
+    }
+    const view = document.getElementById(`view-${t}`);
+    if (view) {
+      t===tab ? view.classList.remove('hidden') : view.classList.add('hidden');
+    }
+  });
+  if (tab==='chart') setTimeout(renderNumberRoad, 50);
+  if (tab==='ai') renderAITrackRecord();
+}
+
+function renderAITrackRecord() {
+  const container = document.getElementById('aiTrackRowsContainer');
+  if (!container) return;
+
+  const realHist = S.history.filter(r => !r.gap);
+  if (!realHist.length) {
+    container.innerHTML = '<div class="text-center py-6 text-slate-500 text-xs italic">No AI prediction history recorded yet...</div>';
+    return;
+  }
+
+  let cumulativePnl = 0;
+  let totalSignals  = 0;
+  let wins          = 0;
+  let losses        = 0;
+  const flatStake   = 10; // ₹10 simulated bet per AI prediction
+
+  const rowsHtml = realHist.slice().reverse().map(row => {
+    const aiPred = S.aiPredictionMap[row.period];
+    if (!aiPred || !aiPred.target) {
+      return `<div class="grid grid-cols-12 py-1.5 items-center text-[10px]">
+        <div class="col-span-3 text-slate-500 font-mono">${row.period.slice(-4)}</div>
+        <div class="col-span-3 text-center text-slate-500">—</div>
+        <div class="col-span-3 text-center font-bold text-slate-300">${row.number} (${row.size})</div>
+        <div class="col-span-3 text-right text-slate-500">—</div>
+      </div>`;
+    }
+
+    totalSignals++;
+    const correct = (aiPred.target === row.size);
+    let pnlDelta = 0;
+    if (correct) {
+      wins++;
+      pnlDelta = flatStake * (PAYOUT_SIZE - 1); // +₹9.20
+    } else {
+      losses++;
+      pnlDelta = -flatStake; // -₹10.00
+    }
+    cumulativePnl += pnlDelta;
+
+    const targetBadge = aiPred.target === 'BIG'
+      ? `<span class="px-1.5 py-0.5 rounded font-black bg-amber-500/20 text-amber-300 border border-amber-500/30">BIG</span>`
+      : `<span class="px-1.5 py-0.5 rounded font-black bg-sky-500/20 text-sky-300 border border-sky-500/30">SMALL</span>`;
+
+    const resultBadge = correct
+      ? `<span class="text-emerald-400 font-black">✓ WIN (+₹${pnlDelta.toFixed(2)})</span>`
+      : `<span class="text-rose-400 font-black">✗ LOSS (-₹${Math.abs(pnlDelta).toFixed(2)})</span>`;
+
+    return `<div class="grid grid-cols-12 py-1.5 items-center text-[10px] border-b border-purple-900/20">
+      <div class="col-span-3 text-slate-400 font-mono">${row.period.slice(-4)}</div>
+      <div class="col-span-3 text-center">${targetBadge}</div>
+      <div class="col-span-3 text-center font-bold text-slate-200">${row.number} (${row.size})</div>
+      <div class="col-span-3 text-right">${resultBadge}</div>
+    </div>`;
+  }).join('');
+
+  container.innerHTML = rowsHtml;
+
+  // Update summary stats
+  const total = wins + losses;
+  const winRate = total > 0 ? Math.round(wins / total * 100) : 0;
+  const totEl = document.getElementById('aiTrackTotal');
+  const wlEl  = document.getElementById('aiTrackWinsLosses');
+  const wrEl  = document.getElementById('aiTrackWinRate');
+  const pnlEl = document.getElementById('aiTrackPnl');
+
+  if (totEl) totEl.textContent = totalSignals;
+  if (wlEl)  wlEl.textContent  = `${wins}W / ${losses}L`;
+  if (wrEl)  wrEl.textContent  = total > 0 ? `${winRate}%` : '—';
+  
+  if (pnlEl) {
+    const sign = cumulativePnl >= 0 ? '+' : '';
+    pnlEl.textContent = `${sign}₹${cumulativePnl.toFixed(2)}`;
+    pnlEl.className   = cumulativePnl >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
+  }
+}
+
+function clearMyBets() { S.myBets = []; renderMyBets(); showToast('Bets log cleared', 'info'); }
+
+// ── Balance Modal ──
+function openBalanceModal() {
+  document.getElementById('newBalanceInput').value = S.balance.toFixed(2);
+  document.getElementById('balanceModal').classList.remove('hidden');
+}
+function closeBalanceModal() { document.getElementById('balanceModal').classList.add('hidden'); }
+function saveNewBalance() {
+  const v = parseFloat(document.getElementById('newBalanceInput').value);
+  if (!isNaN(v) && v >= 0) { S.balance = v; S.initialBalance = v; updateBalanceDisplay(); runAI(); showToast(`Balance set to ₹${v.toFixed(2)}`, 'success'); }
+  closeBalanceModal();
+}
+
+// ── Import Modal ──
+function openImportModal() { document.getElementById('importModal').classList.remove('hidden'); }
+function closeImportModal() { document.getElementById('importModal').classList.add('hidden'); }
+
+function loadBenchmarkData() {
+  const demo = [
+    {period:'20260829100051624',number:0,size:'SMALL',color:'RED_VIOLET'},
+    {period:'20260829100051625',number:6,size:'BIG',  color:'RED'},
+    {period:'20260829100051626',number:7,size:'BIG',  color:'GREEN'},
+    {period:'20260829100051627',number:6,size:'BIG',  color:'RED'},
+    {period:'20260829100051628',number:1,size:'SMALL',color:'GREEN'},
+    {period:'20260829100051629',number:2,size:'SMALL',color:'RED'},
+    {period:'20260829100051630',number:5,size:'BIG',  color:'GREEN_VIOLET'},
+    {period:'20260829100051631',number:1,size:'SMALL',color:'GREEN'},
+    {period:'20260829100051632',number:4,size:'SMALL',color:'RED'},
+    {period:'20260829100051633',number:7,size:'BIG',  color:'GREEN'},
+  ];
+  S.history = demo;
+  renderHistoryTable(); renderMiniBalls(); renderTrendChart(); runAI();
+  closeImportModal();
+  showToast(`Loaded ${demo.length} demo records`, 'success');
+}
+
+function parseUploadedCSV() {
+  const f = document.getElementById('csvFileInput').files[0];
+  if (!f) { showToast('Please select a CSV file', 'danger'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.split('\n');
+    const parsed = [];
+    for (let i=1; i<lines.length; i++) {
+      const [period, numStr, sizeStr] = lines[i].trim().split(',');
+      if (period && numStr) {
+        const num = parseInt(numStr.trim());
+        const size = sizeStr ? sizeStr.trim().toUpperCase() : getSizeForNum(num);
+        parsed.push({ period:period.trim(), number:num, size, color:getColorForNum(num) });
+      }
+    }
+    if (parsed.length) {
+      S.history = parsed;
+      renderHistoryTable(); renderMiniBalls(); renderTrendChart(); runAI();
+      closeImportModal();
+      showToast(`Imported ${parsed.length} records`, 'success');
+    } else showToast('Failed to parse CSV', 'danger');
+  };
+  reader.readAsText(f);
+}
+
+function downloadCSVReport() {
+  if (!S.history.length) { showToast('No history to export', 'danger'); return; }
+  let csv = 'period,number,size,color\n';
+  S.history.forEach(r => csv += `${r.period},${r.number},${r.size},${r.color}\n`);
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURI(csv);
+  a.download = `WinGo_${S.timeframe}_${Date.now()}.csv`;
+  a.click();
+}
+
+// ── Toast ──
+function showToast(message, type='info') {
+  const c = document.getElementById('toastContainer');
+  if (!c) return;
+  const t = document.createElement('div');
+  const cls = type==='success' ? 'bg-emerald-950 border-emerald-500/50 text-emerald-200'
+             : type==='danger'  ? 'bg-rose-950 border-rose-500/50 text-rose-200'
+             : 'bg-slate-900 border-purple-800 text-purple-200';
+  const icon = type==='success' ? 'fa-circle-check text-emerald-400' : type==='danger' ? 'fa-triangle-exclamation text-rose-400' : 'fa-circle-info text-amber-400';
+  t.className = `toast-animate px-4 py-2 rounded-xl text-xs font-bold shadow-2xl border flex items-center gap-2 pointer-events-auto ${cls}`;
+  t.innerHTML = `<i class="fa-solid ${icon}"></i><span>${message}</span>`;
+  c.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; t.style.transform='translateY(-10px)'; t.style.transition='all .3s'; setTimeout(()=>t.remove(), 300); }, 2800);
+}
+
+// ── Refresh & Startup: Ask for Last 10 Results on load/refresh if gap detected ──
+function checkAndQueueSkippedPeriods() {
+  S.missingQueue = []; // Clear any legacy missing queue
+  if (!S.history || S.history.length < 5) {
+    openInitModal();
+    return;
+  }
+  const { periodStr } = computeRTState();
+  const newestHistPeriod = S.history[S.history.length - 1].period;
+  if (!newestHistPeriod) {
+    openInitModal();
+    return;
+  }
+
+  const lastNum = parseInt(newestHistPeriod.slice(-5));
+  const curNum  = parseInt(periodStr.slice(-5));
+  const prefix  = periodStr.slice(0, -5);
+  const lastPrefix = newestHistPeriod.slice(0, -5);
+
+  if (prefix !== lastPrefix || curNum > lastNum + 1) {
+    // If any gap occurred on refresh/load, prompt for last 10 real results to re-synchronize cleanly
+    openInitModal();
+    showToast(`🔄 Page refreshed / rounds elapsed: Please enter the latest 10 real results for WinGo ${S.timeframe}!`, 'info');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INITIALIZATION MODAL LOGIC
+// ═══════════════════════════════════════════════════════════════
+function openInitModal() {
+  S.initEntries = [];
+  renderInitBalls();
+  setInitModalTimeframe(S.timeframe || '30s');
+  document.getElementById('initModal').style.display = 'flex';
+}
+
+function setInitModalTimeframe(tf) {
+  S.timeframe = tf;
+  S.durationSeconds = { '30s':30,'1m':60,'3m':180,'5m':300 }[tf]||30;
+
+  // Highlight selected button in modal
+  ['30s','1m','3m','5m'].forEach(t => {
+    const btn = document.getElementById(`initTfBtn-${t}`);
+    if (btn) {
+      btn.className = t === tf
+        ? 'py-2 rounded-xl bg-amber-400 text-slate-950 font-black shadow transition'
+        : 'py-2 rounded-xl bg-purple-900/60 text-purple-200 font-bold hover:bg-purple-800 transition';
+    }
+  });
+
+  const badge = document.getElementById('initTfBadge');
+  if (badge) badge.textContent = `WinGo ${tf}`;
+
+  // Sync main timeframe UI header
+  ['30s','1m','3m','5m'].forEach(t => {
+    const b = document.getElementById(`tf-${t}`);
+    if (b) {
+      b.className = t===tf
+        ? 'py-2 px-1 rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 text-slate-950 font-black text-xs flex flex-col items-center shadow active:scale-95'
+        : 'py-2 px-1 rounded-xl bg-app-card text-purple-200 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition';
+    }
+  });
+
+  document.getElementById('ticketTfTitle').textContent = `WinGo ${tf}`;
+  const { secsLeft, periodStr } = computeRTState();
+  lastPeriod = periodStr; S.currentPeriod = periodStr; S.secondsLeft = secsLeft;
+  document.getElementById('currentPeriodDisplay').textContent = S.currentPeriod;
+  updateTimerUI();
+
+  // Load history if already present for this timeframe section
+  if (S.historyByTimeframe && S.historyByTimeframe[tf]) {
+    S.history = [...S.historyByTimeframe[tf]];
+  }
+}
+
+function closeInitModal() {
+  document.getElementById('initModal').style.display = 'none';
+  S.isInitialized = true;
+  if (S.history.length >= MIN_DATA_TO_PREDICT) {
+    S.aiTestMode = true;
+    updateTestBanner();
+  }
+  showToast('Add results after each round to improve predictions', 'info');
+}
+
+function initAddNum(n) {
+  if (S.initEntries.length >= 10) return;
+  S.initEntries.push(n);
+  renderInitBalls();
+  runInitBacktest();
+}
+
+function initUndo() {
+  S.initEntries.pop();
+  renderInitBalls();
+  runInitBacktest();
+}
+
+function renderInitBalls() {
+  const container = document.getElementById('initEnteredBalls');
+  const ph = document.getElementById('initBallsPlaceholder');
+  const count = S.initEntries.length;
+
+  document.getElementById('initProgressLabel').textContent = `${count} / 10`;
+  document.getElementById('initProgressBar').style.width = `${count * 10}%`;
+  document.getElementById('initSubmitBtn').disabled = count < 5;
+
+  if (count === 0) {
+    ph.style.display = 'block';
+    container.innerHTML = '<span class="text-[10px] text-slate-500 self-center" id="initBallsPlaceholder">Entered results will appear here (oldest → newest)...</span>';
+    return;
+  }
+
+  container.innerHTML = S.initEntries.map((n, idx) => {
+    let bg = 'ball-green';
+    if (n === 0) bg = 'ball-split-0';
+    else if (n === 5) bg = 'ball-split-5';
+    else if (n % 2 === 0) bg = 'ball-red';
+    return `<div class="ball-3d ${bg} w-8 h-8 rounded-full flex items-center justify-center font-black text-sm text-white relative">
+      ${n}
+      <span class="absolute -top-1.5 -right-1.5 text-[8px] w-4 h-4 rounded-full bg-slate-700 flex items-center justify-center font-bold">${idx+1}</span>
+    </div>`;
+  }).join('');
+}
+
+function runInitBacktest() {
+  const entries = S.initEntries;
+  if (entries.length < 5) {
+    document.getElementById('initTestPanel').classList.add('hidden');
+    return;
+  }
+  document.getElementById('initTestPanel').classList.remove('hidden');
+
+  // Build history from entries
+  const hist = entries.map((n, i) => ({ period: String(i), number: n, size: getSizeForNum(n), color: getColorForNum(n) }));
+
+  // Walk-forward backtest using our Markov engine
+  let correct = 0, total = 0, maxLoss = 0, curLoss = 0;
+  const log = [];
+  for (let i = 4; i < hist.length - 1; i++) {
+    const slice = hist.slice(0, i+1);
+    const actual = hist[i+1].size;
+    // Quick 1st-order Markov for test
+    const last = slice[slice.length-1].size;
+    let bigCt = 0, ct = 0;
+    for (let j = 0; j < slice.length - 1; j++) {
+      if (slice[j].size === last) { ct++; if (slice[j+1].size==='BIG') bigCt++; }
+    }
+    const pred = ct >= 2 ? (bigCt/ct >= 0.5 ? 'BIG' : 'SMALL') : last;
+    const ok = pred === actual;
+    if (ok) { correct++; curLoss = 0; } else { curLoss++; if (curLoss > maxLoss) maxLoss = curLoss; }
+    total++;
+    log.push({ pred, actual, ok });
+  }
+
+  const acc = total > 0 ? Math.round(correct / total * 100) : 0;
+  document.getElementById('initAccuracy').textContent = `${acc}%`;
+  document.getElementById('initMaxLoss').textContent  = maxLoss;
+  document.getElementById('initVerdict').textContent  = maxLoss < 3 && acc >= 52 ? '✅ Good to go!' : maxLoss >= 3 ? '⚠️ 3-loss risk detected' : '⏳ Need more data';
+  document.getElementById('initVerdict').style.color  = maxLoss < 3 && acc >= 52 ? '#10b981' : '#f59e0b';
+
+  // Visual log dots
+  document.getElementById('initTestLog').innerHTML = log.map(r =>
+    `<span class="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black ${r.ok ? 'bg-emerald-500/30 text-emerald-300' : 'bg-rose-500/30 text-rose-300'}">${r.ok ? '✓' : '✗'}</span>`
+  ).join('');
+function loadInitDemoData() {
+  S.initEntries = [7, 3, 2, 9, 0, 5, 8, 1, 4, 6];
+  renderInitBalls();
+  runInitBacktest();
+  submitInitData();
+}
+
+function submitInitData() {
+  if (S.initEntries.length < 5) return;
+
+  // Load entries into history for current timeframe
+  const baseTs = Date.now() - (S.initEntries.length * S.durationSeconds * 1000);
+  const tfHistory = S.initEntries.map((n, i) => ({
+    period: String(baseTs + i * S.durationSeconds * 1000),
+    number: n, size: getSizeForNum(n), color: getColorForNum(n)
+  }));
+
+  if (!S.historyByTimeframe) {
+    S.historyByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
+  }
+  S.historyByTimeframe[S.timeframe] = tfHistory;
+  S.history = tfHistory;
+
+  document.getElementById('initModal').style.display = 'none';
+  S.isInitialized = true;
+  S.aiTestMode = true; // Start in test mode
+  renderHistoryTable();
+  renderMiniBalls();
+  renderTrendChart();
+  runAI();
+  updateTestBanner();
+  showToast(`✅ ${S.initEntries.length} results loaded for WinGo ${S.timeframe}! AI in test mode.`, 'success');
+}
+
+function exitTestMode() {
+  S.aiTestMode = false;
+  runAI();
+  updateTestBanner();
+  saveToLocalStorage();
+  showToast('🚀 Real Mode Activated! Live AI predictions & betting active.', 'success');
+}
+
+// ── Check for skipped periods on startup ──
+function checkAndQueueSkippedPeriods() {
+  if (!S.history.length) return;
+  const { periodStr } = computeRTState();
+  const newestHistPeriod = S.history[S.history.length - 1].period;
+  if (!newestHistPeriod) return;
+
+  const lastNum = parseInt(newestHistPeriod.slice(-5));
+  const curNum  = parseInt(periodStr.slice(-5));
+  const prefix  = periodStr.slice(0, -5);
+  const lastPrefix = newestHistPeriod.slice(0, -5);
+
+  if (prefix === lastPrefix && curNum > lastNum + 1) {
+    const skippedCount = curNum - lastNum - 1;
+    for (let i = lastNum + 1; i < curNum; i++) {
+      const missedStr = `${prefix}${String(i).padStart(5, '0')}`;
+      if (!S.history.some(r => r.period === missedStr && !r.gap)) {
+        if (!S.missingQueue.includes(missedStr)) S.missingQueue.push(missedStr);
+      }
+    }
+    if (S.missingQueue.length > 0) {
+      showToast(`⚠️ ${skippedCount} skipped period(s) detected on load. Please enter results!`, 'info');
+      serveNextFromQueue();
+    }
+  }
+}
+
+// ── Embedded AI Test Mode Strip ──
+function updateTestBanner() {
+  const strip = document.getElementById('aiTestBoxStrip');
+  if (!strip) return;
+
+  if (!S.aiTestMode) {
+    strip.style.display = 'none';
+    return;
+  }
+
+  strip.style.display = 'flex';
+  if (!S.testBalance) S.testBalance = 100;
+
+  const total   = S.aiTestResults.length;
+  const correct = S.aiTestResults.filter(r => r.correct).length;
+  const acc     = total > 0 ? Math.round(correct / total * 100) : 0;
+  const testProfit = S.testBalance - 100;
+  const lastLoss = S.aiTestResults.slice(-3).filter(r => !r.correct).length;
+
+  const badge = document.getElementById('testProgressBadge');
+  if (badge) badge.textContent = `${total} / 6 test rounds`;
+
+  const reqRounds = document.getElementById('reqRoundsVal');
+  if (reqRounds) {
+    reqRounds.textContent = `${total} / 6 ${total >= 6 ? '✓' : ''}`;
+    reqRounds.className   = total >= 6 ? 'text-emerald-400 font-bold' : 'text-amber-300';
+  }
+
+  const reqAcc = document.getElementById('reqAccVal');
+  if (reqAcc) {
+    reqAcc.textContent = `${total > 0 ? acc + '%' : '—'} ${acc >= 52 && total >= 6 ? '✓' : ''}`;
+    reqAcc.className   = acc >= 52 ? 'text-emerald-400 font-bold' : 'text-amber-300';
+  }
+
+  const reqPnl = document.getElementById('reqPnlVal');
+  if (reqPnl) {
+    const sign = testProfit >= 0 ? '+' : '';
+    reqPnl.textContent = `₹${S.testBalance.toFixed(0)} (${sign}₹${testProfit.toFixed(1)})`;
+    reqPnl.className   = testProfit > 0 ? 'text-emerald-400 font-bold' : testProfit < 0 ? 'text-rose-400 font-bold' : 'text-amber-300';
+  }
+
+  const textEl = document.getElementById('testStatusText');
+  const btnEl  = document.getElementById('startRealModeBtn');
+
+  if (lastLoss >= 3 && total >= 3) {
+    if (textEl) {
+      textEl.textContent = '⚠️ 3 consecutive losses! Method switched, restarting 6 rounds from ₹100...';
+      textEl.className   = 'text-rose-400 font-bold italic';
+    }
+    if (btnEl) btnEl.classList.add('hidden');
+  } else if (total >= 6 && acc >= 52 && testProfit > 0) {
+    if (textEl) {
+      textEl.textContent = '✅ 6 Test rounds PASSED with +Profit! Live predictions safe to activate.';
+      textEl.className   = 'text-emerald-400 font-bold';
+    }
+    if (btnEl) btnEl.classList.remove('hidden');
+  } else {
+    const roundsLeft = Math.max(0, 6 - total);
+    if (textEl) {
+      textEl.textContent = `🧪 Testing with ₹100 virtual balance (${roundsLeft} rounds left & profit required)...`;
+      textEl.className   = 'text-amber-300 font-bold italic';
+    }
+    if (btnEl) btnEl.classList.add('hidden');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BATCH RESULT MODAL (multiple pending periods at once)
+// ═══════════════════════════════════════════════════════════════
+function showBatchModal() {
+  const queue = [...S.missingQueue]; // snapshot
+  const modal = document.getElementById('batchResultModal');
+  const body  = document.getElementById('batchModalBody');
+  if (!modal || !body) return;
+
+  // Build one picker row per queued period (oldest first)
+  const ballColors = ['ball-split-0','ball-green','ball-red','ball-green','ball-red',
+                      'ball-split-5','ball-red','ball-green','ball-red','ball-green'];
+
+  body.innerHTML = queue.map((period, qi) => {
+    const balls = [0,1,2,3,4,5,6,7,8,9].map(i =>
+      `<button onclick="batchPick(${qi},${i})" id="bp-${qi}-${i}"
+        class="num-pick ball-3d ${ballColors[i]} text-white w-8 h-8 text-[10px] font-black rounded-full transition">${i}</button>`
+    ).join('');
+    return `<div class="mb-4 p-3 bg-black/30 rounded-2xl border border-purple-800/30">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[10px] font-mono text-slate-400">Period ${String(period).slice(-6)}</span>
+        <span id="bpSel-${qi}" class="text-[10px] font-bold text-amber-300">— not selected—</span>
+      </div>
+      <div class="grid grid-cols-5 gap-1.5">${balls}</div>
+    </div>`;
+  }).join('');
+
+  // Store the queue snapshot on the modal for submitBatchResults
+  modal._queue = queue;
+  modal._picks = {}; // qi -> number
+
+  document.getElementById('batchPendingCount').textContent = queue.length;
+  modal.style.display = 'flex';
+}
+
+function batchPick(qi, n) {
+  const modal = document.getElementById('batchResultModal');
+  if (!modal) return;
+  modal._picks[qi] = n;
+  // Highlight selected ball, dim others in this row
+  for (let i = 0; i <= 9; i++) {
+    const btn = document.getElementById(`bp-${qi}-${i}`);
+    if (!btn) continue;
+    btn.style.opacity = i === n ? '1' : '0.35';
+    btn.style.transform = i === n ? 'scale(1.15)' : 'scale(1)';
+  }
+  const lbl = document.getElementById(`bpSel-${qi}`);
+  if (lbl) lbl.textContent = `✔ ${n} · ${getSizeForNum(n)}`;
+}
+
+function submitBatchResults() {
+  const modal = document.getElementById('batchResultModal');
+  if (!modal || !modal._queue) return;
+  const queue = modal._queue;
+  const picks = modal._picks || {};
+
+  // Record all picks, leave un-picked as gaps
+  queue.forEach((period, qi) => {
+    if (picks[qi] !== undefined) {
+      const n = picks[qi];
+      S.history = S.history.filter(r => r.period !== period || !r.gap); // remove old gap
+      S.history.push({ period, number: n, size: getSizeForNum(n), color: getColorForNum(n) });
+    } else {
+      // Mark as gap only if not already in history
+      if (!S.history.find(r => r.period === period)) {
+        S.history.push({ period, number: null, size: null, color: null, gap: true });
+      }
+    }
+    if (S.history.length > 100) S.history.shift();
+  });
+
+  // Clear the queue — only new future periods will be asked
+  S.missingQueue = [];
+  modal.style.display = 'none';
+  renderHistoryTable(); renderMiniBalls(); runAI(); updateBalanceDisplay();
+  showToast(`✅ Saved ${Object.keys(picks).length}/${queue.length} results`, 'success');
+}
+
+function skipBatchResults() {
+  // Dismiss without recording — clear queue so we never ask these again
+  const modal = document.getElementById('batchResultModal');
+  S.missingQueue = [];
+  if (modal) modal.style.display = 'none';
+  showToast('⏭️ Skipped — only new periods will be asked', 'info');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WIN / LOSS POPUP
+// ═══════════════════════════════════════════════════════════════
+let _popupTimer = null;
+
+function showWinPopup({ period, number, color, size, profit, balance, aiCorrect }) {
+  const el = document.getElementById('winPopup');
+  if (!el) return;
+  const colorLabel = color.replace('_', '-');
+  document.getElementById('winColorBadge').textContent = colorLabel;
+  document.getElementById('winSizeBadge').textContent  = size;
+  document.getElementById('winAmountEl').textContent   = `+₹${profit.toFixed(2)}`;
+  document.getElementById('winPeriodEl').textContent   = `Period ${String(period).slice(-6)} · Num: ${number} · Bal: ₹${balance.toFixed(2)}`;
+  document.getElementById('winAiBadge').textContent    = aiCorrect ? '🤖 AI predicted correctly!' : '📊 No AI signal this round';
+  el.style.display = 'flex';
+  // 5-second countdown
+  let t = 5;
+  clearTimeout(_popupTimer);
+  const tick = () => {
+    document.getElementById('winCountdownLabel').textContent = `${t} seconds auto close`;
+    if (t <= 0) { el.style.display = 'none'; return; }
+    t--; _popupTimer = setTimeout(tick, 1000);
+  };
+  tick();
+  // Tap anywhere to close
+  el.onclick = () => { clearTimeout(_popupTimer); el.style.display = 'none'; };
+}
+
+function showLossPopup({ period, number, color, size, lost, balance }) {
+  const el = document.getElementById('lossPopup');
+  if (!el) return;
+  const colorLabel = color.replace('_', '-');
+  document.getElementById('lossColorBadge').textContent = colorLabel;
+  document.getElementById('lossSizeBadge').textContent  = size;
+  document.getElementById('lossAmountEl').textContent   = `-₹${lost.toFixed(2)}`;
+  document.getElementById('lossPeriodEl').textContent   = `Period ${String(period).slice(-6)} · Num: ${number}`;
+  document.getElementById('lossBalanceEl').textContent  = `Balance: ₹${balance.toFixed(2)}`;
+  el.style.display = 'flex';
+  let t = 5;
+  clearTimeout(_popupTimer);
+  const tick = () => {
+    document.getElementById('lossCountdownLabel').textContent = `${t} seconds auto close`;
+    if (t <= 0) { el.style.display = 'none'; return; }
+    t--; _popupTimer = setTimeout(tick, 1000);
+  };
+  tick();
+  el.onclick = () => { clearTimeout(_popupTimer); el.style.display = 'none'; };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTO-BETTING CONTROLS & PROMPTS
+// ═══════════════════════════════════════════════════════════════
+function toggleAutoBet() {
+  S.autoBetEnabled = !S.autoBetEnabled;
+  updateAutoBetUI();
+  if (S.autoBetEnabled) {
+    showToast('🚀 Auto-Betting Activated! AI will execute bets automatically.', 'success');
+    runAI(); // execute immediately if signal ready
+  } else {
+    showToast('🛑 Auto-Betting Deactivated.', 'info');
+  }
+}
+
+function updateAutoBetUI() {
+  const btnHeader = document.getElementById('autoBetToggleBtn');
+  const btnBox    = document.getElementById('autoBetBoxBtn');
+  const tagBox    = document.getElementById('autoBetStatusTag');
+
+  if (S.autoBetEnabled) {
+    if (btnHeader) btnHeader.className = "w-8 h-8 flex items-center justify-center rounded-full bg-emerald-500 text-slate-950 font-black shadow animate-pulse";
+    if (btnBox) {
+      btnBox.className = "w-full mt-2.5 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 text-white font-black text-xs shadow animate-pulse hover:brightness-110 active:scale-95 transition flex items-center justify-center gap-2";
+      btnBox.innerHTML = '<i class="fa-solid fa-stop"></i> 🛑 Stop Auto-Betting (ACTIVE)';
+    }
+    if (tagBox) {
+      tagBox.className = "text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/40 ml-1 shrink-0";
+      tagBox.textContent = "BOT: ON";
+    }
+  } else {
+    if (btnHeader) btnHeader.className = "w-8 h-8 flex items-center justify-center rounded-full bg-app-card text-slate-300 hover:text-emerald-400 transition";
+    if (btnBox) {
+      btnBox.className = "w-full mt-2.5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black text-xs shadow hover:brightness-110 active:scale-95 transition flex items-center justify-center gap-2";
+      btnBox.innerHTML = '<i class="fa-solid fa-play"></i> 🚀 Start Auto-Betting';
+    }
+    if (tagBox) {
+      tagBox.className = "text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-bold border border-slate-700 ml-1 shrink-0";
+      tagBox.textContent = "BOT: OFF";
+    }
+  }
+}
+
+function showStartBettingPrompt() {
+  const modal = document.getElementById('startBettingPromptModal');
+  if (!modal || S.autoBetEnabled || S.promptDismissed || S.aiTestMode) return;
+
+  const realHist = S.history.filter(r => !r.gap);
+  if (realHist.length < MIN_DATA_TO_PREDICT) return;
+
+  // STRICT RULE: ONLY SHOW PROMPT IF ALL RECENT PREDICTIONS ARE CORRECT!
+  // DONT SHOW IF PREDICTIONS ARE WRONG!
+  const recentResults = S.aiTestResults.slice(-3);
+  if (recentResults.length >= 2) {
+    const allCorrect = recentResults.every(r => r.correct);
+    if (!allCorrect) return; // Hide prompt if any recent prediction was wrong
+  } else {
+    if (S.lossStreak > 0) return; // Hide prompt if currently on a loss
+  }
+
+  const { periodStr } = computeRTState();
+  const newestHistPeriod = realHist[realHist.length - 1].period;
+  if (!newestHistPeriod) return;
+
+  const lastNum = parseInt(newestHistPeriod.slice(-5));
+  const curNum  = parseInt(periodStr.slice(-5));
+  const prefix  = periodStr.slice(0, -5);
+  const lastPrefix = newestHistPeriod.slice(0, -5);
+
+  if (prefix !== lastPrefix || (curNum - lastNum) > 2) return;
+
+  const sigEl = document.getElementById('promptSignalVal');
+  const stkEl = document.getElementById('promptStakeVal');
+  const strEl = document.getElementById('promptStreakVal');
+
+  if (sigEl) sigEl.textContent = S.aiSignal.target || 'BIG';
+  if (stkEl) stkEl.textContent = `₹${(S.aiSignal.stake || 10).toFixed(2)}`;
+  if (strEl) strEl.textContent = `${S.lossStreak}/3 (SAFE)`;
+
+  modal.style.display = 'flex';
+
+  // 10-second auto-close timer for start betting prompt
+  if (S.startBetPromptTimer) clearTimeout(S.startBetPromptTimer);
+  S.startBetPromptTimer = setTimeout(() => {
+    modal.style.display = 'none';
+  }, 10000);
+}
+
+function dismissStartBettingPrompt() {
+  S.promptDismissed = true;
+  const modal = document.getElementById('startBettingPromptModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function acceptStartBettingPrompt() {
+  S.promptDismissed = true;
+  const modal = document.getElementById('startBettingPromptModal');
+  if (modal) modal.style.display = 'none';
+  if (!S.autoBetEnabled) toggleAutoBet();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LOCALSTORAGE PERSISTENCE
+// ═══════════════════════════════════════════════════════════════
+const LS_KEY = 'dhaniwin_quant_state_v1';
+
+function saveToLocalStorage() {
+  try {
+    if (!S.historyByTimeframe) S.historyByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
+    S.historyByTimeframe[S.timeframe] = [...S.history];
+
+    const payload = {
+      historyByTimeframe: S.historyByTimeframe,
+      balance: S.balance,
+      initialBalance: S.initialBalance,
+      myBets: S.myBets,
+      aiPredictionMap: S.aiPredictionMap,
+      aiTestResults: S.aiTestResults,
+      engineWeights: S.engineWeights || {},
+      timeframe: S.timeframe,
+      isInitialized: S.isInitialized,
+      aiTestMode: S.aiTestMode
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(payload));
+  } catch (e) {
+    console.warn('LocalStorage save error:', e.message);
+  }
+}
+
+function loadFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (data && data.historyByTimeframe) {
+      S.historyByTimeframe = data.historyByTimeframe || { '30s': [], '1m': [], '3m': [], '5m': [] };
+      S.balance           = data.balance ?? 100;
+      S.initialBalance    = data.initialBalance ?? 100;
+      S.myBets            = data.myBets || [];
+      S.aiPredictionMap   = data.aiPredictionMap || {};
+      S.aiTestResults     = data.aiTestResults || [];
+      S.engineWeights     = data.engineWeights || { Sum:20, Trend:35, DNA:45, Markov:40, Rolling:25 };
+      S.timeframe         = data.timeframe || '30s';
+      S.isInitialized     = data.isInitialized ?? false;
+      S.aiTestMode        = data.aiTestMode ?? true;
+      S.history           = [...(S.historyByTimeframe[S.timeframe] || [])];
+      return true;
+    }
+  } catch (e) {
+    console.warn('LocalStorage load error:', e.message);
+  }
+  return false;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BOOTSTRAP
+// ═══════════════════════════════════════════════════════════════
+window.onload = () => {
+  const loaded = loadFromLocalStorage();
+  updateBalanceDisplay();
+  renderMyBets();
+  startRTEngine();
+
+  // Validate freshness of loaded history against live real-time period
+  let isFresh = false;
+  if (loaded && S.history && S.history.length >= MIN_DATA_TO_PREDICT) {
+    const { periodStr } = computeRTState();
+    const newestHistPeriod = S.history[S.history.length - 1]?.period;
+    if (newestHistPeriod) {
+      const lastNum = parseInt(newestHistPeriod.slice(-5));
+      const curNum  = parseInt(periodStr.slice(-5));
+      const prefix  = periodStr.slice(0, -5);
+      const lastPrefix = newestHistPeriod.slice(0, -5);
+      // History is fresh if it belongs to current date/timeframe and is within 3 periods of live period
+      if (prefix === lastPrefix && (curNum - lastNum) >= 0 && (curNum - lastNum) <= 3) {
+        isFresh = true;
+      }
+    }
+  }
+
+  if (isFresh) {
+    renderHistoryTable();
+    renderMiniBalls();
+    renderTrendChart();
+    runAI();
+    updateTestBanner();
+    showToast(`💾 Restored active history from LocalStorage!`, 'success');
+  } else {
+    // History is missing or stale -> reset history and open 10-result initialization modal!
+    S.history = [];
+    if (S.historyByTimeframe) S.historyByTimeframe[S.timeframe] = [];
+    runAI();
+    openInitModal();
+    showToast(`✨ Fresh session started: Please enter the latest 10 real results for WinGo ${S.timeframe}!`, 'info');
+  }
+};
+window.onresize = renderTrendChart;
+</script>
+</body>
+</html>
