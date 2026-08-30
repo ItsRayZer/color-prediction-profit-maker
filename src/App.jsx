@@ -54,12 +54,45 @@ export default function App() {
   // Dynamic Prediction Calculations
   const prediction = analyzePrediction(history);
 
+  // Real-time IST Clock & Countdown Timer
+  const [secondsLeft, setSecondsLeft] = useState(30);
+  const [currentPeriod, setCurrentPeriod] = useState('');
+  const [clockStr, setClockStr] = useState('');
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = new Date();
+      const istMs = now.getTime() + (5.5 * 3600 * 1000);
+      const ist = new Date(istMs);
+
+      const h = ist.getUTCHours(), m = ist.getUTCMinutes(), se = ist.getUTCSeconds();
+      const totalSec = h * 3600 + m * 60 + se;
+      const dur = 30; // 30s period
+      const periodIdx = Math.floor(totalSec / dur) + 1;
+      const elapsed = totalSec % dur;
+      const secsLeft = dur - elapsed;
+
+      const y = ist.getUTCFullYear();
+      const mo = String(ist.getUTCMonth() + 1).padStart(2, '0');
+      const d = String(ist.getUTCDate()).padStart(2, '0');
+      const periodStr = `${y}${mo}${d}10005${String(periodIdx).padStart(5, '0')}`;
+
+      const hh = String(h).padStart(2, '0');
+      const mm = String(m).padStart(2, '0');
+      const ss = String(se).padStart(2, '0');
+
+      setSecondsLeft(secsLeft);
+      setCurrentPeriod(periodStr);
+      setClockStr(`${hh}:${mm}:${ss} IST`);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Auto Simulator Effect
   useEffect(() => {
     let interval = null;
     if (isSimulating) {
       interval = setInterval(() => {
-        // Generate simulated draw result
         const num = Math.floor(Math.random() * 10);
         let color = 'red';
         if (num === 0) color = 'red-violet';
@@ -77,34 +110,33 @@ export default function App() {
           timestamp: new Date().toLocaleTimeString()
         };
 
-        // Check bet outcome
         const actualColor = mapColor(color);
         const isWin = (actualColor === prediction.color);
 
-        // Update Bankroll & Staking via Engine
-        const betResult = calculateNextBet({
-          bankroll,
-          baseBet,
-          currentBet,
-          consecutiveLosses,
-          lastOutcome: isWin ? 'WIN' : 'LOSS',
-          stakingStrategy,
-          maxRecoveryLevel: 3,
-          stopLossLimit,
-          takeProfitLimit,
-          initialBankroll: 1000
+        setBankroll(prevBank => {
+          const betResult = calculateNextBet({
+            bankroll: prevBank,
+            baseBet,
+            currentBet,
+            consecutiveLosses,
+            lastOutcome: isWin ? 'WIN' : 'LOSS',
+            stakingStrategy,
+            maxRecoveryLevel: 3,
+            stopLossLimit,
+            takeProfitLimit,
+            initialBankroll: 1000
+          });
+          const payout = isWin ? currentBet * 0.96 : -currentBet;
+          setCurrentBet(betResult.nextBet);
+          setConsecutiveLosses(betResult.consecutiveLosses);
+          return Math.max(0, Math.round(prevBank + payout));
         });
-
-        const payout = isWin ? currentBet * 0.96 : -currentBet;
-        setBankroll(prev => Math.max(0, Math.round(prev + payout)));
-        setCurrentBet(betResult.nextBet);
-        setConsecutiveLosses(betResult.consecutiveLosses);
 
         setHistory(prev => [...prev, newRound]);
       }, 3000);
     }
     return () => clearInterval(interval);
-  }, [isSimulating, history, bankroll, baseBet, currentBet, consecutiveLosses, stakingStrategy, stopLossLimit, takeProfitLimit, prediction.color]);
+  }, [isSimulating, baseBet, currentBet, consecutiveLosses, stakingStrategy, stopLossLimit, takeProfitLimit, prediction.color]);
 
   // Add Manual Entry Result
   const handleAddManualResult = (numberInput) => {
@@ -167,6 +199,9 @@ export default function App() {
     reader.readAsText(file);
   };
 
+  const formattedMins = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
+  const formattedSecs = String(secondsLeft % 60).padStart(2, '0');
+
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
       
@@ -186,8 +221,18 @@ export default function App() {
           </div>
         </div>
 
-        {/* Bankroll & Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        {/* Time Remaining Widget & Bankroll Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+          <div style={{ textAlign: 'center', background: 'rgba(255,255,255,0.05)', padding: '8px 16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '600' }}>
+              TIME LEFT ({currentPeriod ? currentPeriod.slice(-5) : '—'})
+            </div>
+            <div style={{ fontSize: '20px', fontWeight: '900', fontFamily: 'var(--font-mono)', color: secondsLeft <= 5 ? '#ef4444' : '#f59e0b' }}>
+              {formattedMins}:{formattedSecs}
+            </div>
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{clockStr}</div>
+          </div>
+
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Current Bankroll</div>
             <div style={{ fontSize: '22px', fontWeight: '700', fontFamily: 'var(--font-mono)', color: bankroll >= 1000 ? '#10b981' : '#ef4444' }}>

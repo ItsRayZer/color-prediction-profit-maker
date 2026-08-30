@@ -116,14 +116,14 @@
 <!-- ════════════════════════════════════════════════════════════
      TOAST CONTAINER
 ════════════════════════════════════════════════════════════ -->
-<div id="toastContainer" class="fixed top-3 z-[110] flex flex-col items-center w-full max-w-md px-4 pointer-events-none space-y-2"></div>
+<div id="toastContainer" class="fixed top-3 left-1/2 -translate-x-1/2 z-[110] flex flex-col items-center w-full max-w-md px-4 pointer-events-none space-y-2"></div>
 
 <!-- bet block overlay is now INSIDE #bettingBoard wrapper below -->
 
 <!-- ════════════════════════════════════════════════════════════
      MAIN APP CONTAINER
 ════════════════════════════════════════════════════════════ -->
-<div class="w-full max-w-md bg-app-bg min-h-screen relative flex flex-col pb-28 shadow-2xl border-x border-purple-950/40 overflow-x-hidden">
+<div class="w-full max-w-md mx-auto bg-app-bg min-h-screen relative flex flex-col pb-28 shadow-2xl border-x border-purple-950/40 overflow-x-hidden">
 
   <!-- ── TOP NAVBAR ── -->
   <header class="flex items-center justify-between px-4 py-3 bg-app-surface sticky top-0 z-30 border-b border-purple-900/30">
@@ -1014,13 +1014,6 @@ box-shadow:0 4px 20px #8888;">
     </div>
   </div>
 </div>
-      <button onclick="closeInitModal()" class="py-3 rounded-2xl bg-slate-700 text-white font-bold text-xs active:scale-95">Skip for now</button>
-      <button onclick="submitInitData()" id="initSubmitBtn" class="py-3 rounded-2xl bg-gradient-to-r from-indigo-400 to-purple-500 text-white font-black text-sm active:scale-95 transition disabled:opacity-40" disabled>
-        Start AI Prediction
-      </button>
-    </div>
-  </div>
-</div>
 
 <!-- ════════════════════════════════════════════════════════════
      BALANCE EDIT MODAL
@@ -1196,7 +1189,7 @@ function startRTEngine() {
       }
       lastPeriod = periodStr;
       S.currentPeriod = periodStr;
-      S.secondsLeft = (secsLeft === S.durationSeconds) ? 0 : secsLeft;
+      S.secondsLeft = secsLeft;
       const periodEl = document.getElementById('currentPeriodDisplay');
       if (periodEl) periodEl.textContent = S.currentPeriod;
       updateTimerUI();
@@ -1277,7 +1270,6 @@ function onPeriodRollover(finishedPeriod) {
   setTimeout(() => {
     showStartBettingPrompt();
   }, 1000);
-}
 
   // Add to queue then serve
   if (!S.missingQueue.includes(finishedPeriod)) {
@@ -2572,22 +2564,6 @@ function updateAIDiagnosticsDrawer() {
   }
 }
 
-function toggleAutoBet() {
-  S.autoBetEnabled = !S.autoBetEnabled;
-  const btn = document.getElementById('autoBetToggleBtn');
-  const tag = document.getElementById('autoBetStatusTag');
-  if (S.autoBetEnabled) {
-    btn.classList.add('text-emerald-400');
-    tag.textContent = 'BOT: AUTO';
-    tag.className   = 'text-[9px] px-1.5 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40 ml-1 shrink-0';
-    showToast('AI Auto-Execution activated', 'success');
-  } else {
-    btn.classList.remove('text-emerald-400');
-    tag.textContent = 'BOT: OFF';
-    tag.className   = 'text-[9px] px-1.5 rounded bg-slate-800 text-slate-400 font-bold border border-slate-700 ml-1 shrink-0';
-    showToast('AI Auto-Execution deactivated', 'info');
-  }
-}
 
 function toggleAIGlow() {
   S.aiGlowing = !S.aiGlowing;
@@ -2775,31 +2751,7 @@ function showToast(message, type='info') {
   setTimeout(() => { t.style.opacity='0'; t.style.transform='translateY(-10px)'; t.style.transition='all .3s'; setTimeout(()=>t.remove(), 300); }, 2800);
 }
 
-// ── Refresh & Startup: Ask for Last 10 Results on load/refresh if gap detected ──
-function checkAndQueueSkippedPeriods() {
-  S.missingQueue = []; // Clear any legacy missing queue
-  if (!S.history || S.history.length < 5) {
-    openInitModal();
-    return;
-  }
-  const { periodStr } = computeRTState();
-  const newestHistPeriod = S.history[S.history.length - 1].period;
-  if (!newestHistPeriod) {
-    openInitModal();
-    return;
-  }
 
-  const lastNum = parseInt(newestHistPeriod.slice(-5));
-  const curNum  = parseInt(periodStr.slice(-5));
-  const prefix  = periodStr.slice(0, -5);
-  const lastPrefix = newestHistPeriod.slice(0, -5);
-
-  if (prefix !== lastPrefix || curNum > lastNum + 1) {
-    // If any gap occurred on refresh/load, prompt for last 10 real results to re-synchronize cleanly
-    openInitModal();
-    showToast(`🔄 Page refreshed / rounds elapsed: Please enter the latest 10 real results for WinGo ${S.timeframe}!`, 'info');
-  }
-}
 
 // ═══════════════════════════════════════════════════════════════
 // INITIALIZATION MODAL LOGIC
@@ -2946,51 +2898,64 @@ async function fetchLiveAPIResults(tfOverride) {
   const tf = tfOverride || S.timeframe || '30s';
   const tfCodeMap = { '30s':'30S', '1m':'1M', '3m':'3M', '5m':'5M' };
   const tfCode = tfCodeMap[tf] || '30S';
-  const url = `https://draw.ar-lottery01.com/WinGo/WinGo_${tfCode}/GetHistoryIssuePage.json`;
+  const targetUrl = `https://draw.ar-lottery01.com/WinGo/WinGo_${tfCode}/GetHistoryIssuePage.json`;
 
-  try {
-    showToast(`🌐 Fetching live real-time WinGo ${tf} draw results...`, 'info');
-    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    
-    let list = [];
-    if (Array.isArray(data)) list = data;
-    else if (data && typeof data === 'object') {
-      list = data.list || data.data?.list || data.data || data.rows || data.records || [];
-    }
+  const urlsToTry = [
+    targetUrl,
+    `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`
+  ];
 
-    if (Array.isArray(list) && list.length > 0) {
-      const parsedHistory = list.slice(0, 10).reverse().map(row => {
-        const period = String(row.issueNumber || row.issue || row.period || row.expect || '');
-        const n = parseInt(row.number || row.openNumber || row.code || 0);
-        const size = row.size || (n >= 5 ? 'BIG' : 'SMALL');
-        const color = row.color || getColorForNum(n);
-        return { period, number: n, size, color };
-      });
-
-      if (parsedHistory.length > 0) {
-        if (!S.historyByTimeframe) S.historyByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
-        S.historyByTimeframe[tf] = parsedHistory;
-        S.history = parsedHistory;
-        S.isInitialized = true;
-        S.aiTestMode = true;
-
-        renderHistoryTable();
-        renderMiniBalls();
-        renderTrendChart();
-        runAI();
-        updateTestBanner();
-
-        const modal = document.getElementById('initModal');
-        if (modal) modal.style.display = 'none';
-
-        showToast(`⚡ Live Sync Complete! ${parsedHistory.length} real-time results loaded for WinGo ${tf}!`, 'success');
-        return true;
+  for (const url of urlsToTry) {
+    try {
+      showToast(`🌐 Fetching live real-time WinGo ${tf} draw results...`, 'info');
+      // Abort after 4 seconds so we never hang forever
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: controller.signal });
+      clearTimeout(timer);
+      if (!res.ok) continue;
+      const data = await res.json();
+      
+      let list = [];
+      if (Array.isArray(data)) list = data;
+      else if (data && typeof data === 'object') {
+        list = data.list || data.data?.list || data.data || data.rows || data.records || [];
       }
+
+      if (Array.isArray(list) && list.length > 0) {
+        const parsedHistory = list.slice(0, 10).reverse().map(row => {
+          const period = String(row.issueNumber || row.issue || row.period || row.expect || '');
+          const n = parseInt(row.number || row.openNumber || row.code || 0);
+          const size = row.size || (n >= 5 ? 'BIG' : 'SMALL');
+          const color = row.color || getColorForNum(n);
+          return { period, number: n, size, color };
+        });
+
+        if (parsedHistory.length > 0) {
+          if (!S.historyByTimeframe) S.historyByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
+          S.historyByTimeframe[tf] = parsedHistory;
+          S.history = parsedHistory;
+          S.isInitialized = true;
+          S.aiTestMode = true;
+
+          renderHistoryTable();
+          renderMiniBalls();
+          renderTrendChart();
+          runAI();
+          updateTestBanner();
+          saveToLocalStorage();
+
+          const modal = document.getElementById('initModal');
+          if (modal) modal.style.display = 'none';
+
+          showToast(`⚡ Live Sync Complete! ${parsedHistory.length} real-time results loaded for WinGo ${tf}!`, 'success');
+          return true;
+        }
+      }
+    } catch (err) {
+      console.warn('Live API try notice:', err.message);
     }
-  } catch (err) {
-    console.warn('Live API auto-fetch notice:', err.message);
   }
   return false;
 }
@@ -3005,12 +2970,20 @@ function loadInitDemoData() {
 function submitInitData() {
   if (S.initEntries.length < 5) return;
 
-  // Load entries into history for current timeframe
-  const baseTs = Date.now() - (S.initEntries.length * S.durationSeconds * 1000);
-  const tfHistory = S.initEntries.map((n, i) => ({
-    period: String(baseTs + i * S.durationSeconds * 1000),
-    number: n, size: getSizeForNum(n), color: getColorForNum(n)
-  }));
+  const { periodStr } = computeRTState();
+  const curNum = parseInt(periodStr.slice(-5));
+  const prefix = periodStr.slice(0, -5);
+
+  const tfHistory = S.initEntries.map((n, i) => {
+    const pIdx = curNum - S.initEntries.length + i;
+    const pStr = `${prefix}${String(Math.max(1, pIdx)).padStart(5, '0')}`;
+    return {
+      period: pStr,
+      number: n,
+      size: getSizeForNum(n),
+      color: getColorForNum(n)
+    };
+  });
 
   if (!S.historyByTimeframe) {
     S.historyByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
@@ -3018,15 +2991,16 @@ function submitInitData() {
   S.historyByTimeframe[S.timeframe] = tfHistory;
   S.history = tfHistory;
 
-  document.getElementById('initModal').style.display = 'none';
+  const modal = document.getElementById('initModal');
+  if (modal) modal.style.display = 'none';
   S.isInitialized = true;
-  S.aiTestMode = true; // Start in test mode
+  S.aiTestMode = true;
   renderHistoryTable();
   renderMiniBalls();
   renderTrendChart();
   runAI();
   updateTestBanner();
-  showToast(`✅ ${S.initEntries.length} results loaded for WinGo ${S.timeframe}! AI in test mode.`, 'success');
+  saveToLocalStorage();
 }
 
 function exitTestMode() {
@@ -3422,42 +3396,50 @@ function loadFromLocalStorage() {
 // BOOTSTRAP
 // ═══════════════════════════════════════════════════════════════
 window.onload = () => {
+  // ── 1. Load from LocalStorage ──
   const loaded = loadFromLocalStorage();
   updateBalanceDisplay();
   renderMyBets();
+
+  // ── 2. Start real-time engine (timer ticks, period tracking) ──
   startRTEngine();
 
-  // Validate freshness of loaded history against live real-time period
+  // ── 3. Check if saved history is still fresh ──
   let isFresh = false;
   if (loaded && S.history && S.history.length >= MIN_DATA_TO_PREDICT) {
-    const { periodStr } = computeRTState();
-    const newestHistPeriod = S.history[S.history.length - 1]?.period;
-    if (newestHistPeriod) {
-      const lastNum = parseInt(newestHistPeriod.slice(-5));
-      const curNum  = parseInt(periodStr.slice(-5));
-      const prefix  = periodStr.slice(0, -5);
-      const lastPrefix = newestHistPeriod.slice(0, -5);
-      // History is fresh if it belongs to current date/timeframe and is within 3 periods of live period
-      if (prefix === lastPrefix && (curNum - lastNum) >= 0 && (curNum - lastNum) <= 3) {
-        isFresh = true;
+    try {
+      const { periodStr } = computeRTState();
+      const newestHistPeriod = S.history[S.history.length - 1]?.period;
+      if (newestHistPeriod) {
+        const lastNum = parseInt(newestHistPeriod.slice(-5));
+        const curNum  = parseInt(periodStr.slice(-5));
+        const prefix  = periodStr.slice(0, -5);
+        const lastPrefix = newestHistPeriod.slice(0, -5);
+        if (prefix === lastPrefix && (curNum - lastNum) >= 0 && (curNum - lastNum) <= 5) {
+          isFresh = true;
+        }
       }
-    }
+    } catch(e) {}
   }
 
   if (isFresh) {
+    // Fresh saved data – show immediately
     renderHistoryTable();
     renderMiniBalls();
     renderTrendChart();
     runAI();
     updateTestBanner();
-    showToast(`💾 Restored active history from LocalStorage!`, 'success');
+    showToast('💾 Restored active history from LocalStorage!', 'success');
+    // Try background sync after 1 second without blocking UI
+    setTimeout(() => fetchLiveAPIResults().catch(() => {}), 1000);
   } else {
-    // History is missing or stale -> reset history and open 10-result initialization modal!
-    S.history = [];
-    if (S.historyByTimeframe) S.historyByTimeframe[S.timeframe] = [];
-    runAI();
-    openInitModal();
-    showToast(`✨ Fresh session started: Please enter the latest 10 real results for WinGo ${S.timeframe}!`, 'info');
+    // ── 4. Load demo data IMMEDIATELY so app is usable right away ──
+    loadInitDemoData();
+    showToast('✨ Sample data loaded! Tap 🌐 Sync anytime for live results.', 'info');
+    // ── 5. Then try live sync in background (won't freeze UI) ──
+    setTimeout(() => {
+      fetchLiveAPIResults().catch(() => {});
+    }, 800);
   }
 };
 window.onresize = renderTrendChart;

@@ -151,3 +151,64 @@ export function runQuantEngine({ history, balance, lossStreak, cooloffRounds }) 
     reason: 'Sub-threshold Edge (EV ≤ 0)'
   };
 }
+
+export function mapColor(color) {
+  if (!color) return 'green';
+  const c = String(color).toLowerCase();
+  if (c.includes('green')) return 'green';
+  if (c.includes('red')) return 'red';
+  return 'green';
+}
+
+export function analyzePrediction(history) {
+  if (!history || history.length === 0) {
+    return {
+      color: 'green',
+      confidence: 50,
+      reasoning: 'Initial data gathering phase',
+      greenProb: 50,
+      redProb: 50
+    };
+  }
+
+  const recent = history.slice(-20);
+  const greenCount = recent.filter(r => r.color && r.color.includes('green')).length;
+  const redCount = recent.filter(r => r.color && r.color.includes('red')).length;
+  const total = recent.length;
+
+  let greenProb = Math.round((greenCount / total) * 100);
+  let redProb = 100 - greenProb;
+
+  const lastColor = history[history.length - 1]?.color || 'green';
+  let streak = 1;
+  for (let i = history.length - 2; i >= 0; i--) {
+    if (history[i]?.color === lastColor) streak++;
+    else break;
+  }
+
+  let predictedColor = greenProb >= redProb ? 'green' : 'red';
+  let confidence = Math.max(greenProb, redProb);
+  let reasoning = `Base frequency analysis (${greenCount}G / ${redCount}R in last ${total} rounds)`;
+
+  if (streak >= 3) {
+    const isGreenStreak = lastColor.includes('green');
+    predictedColor = isGreenStreak ? 'red' : 'green';
+    confidence = Math.min(85, 55 + streak * 5);
+    reasoning = `Streak reversal signal after ${streak} consecutive ${lastColor.toUpperCase()} rounds`;
+    if (predictedColor === 'green') {
+      greenProb = confidence;
+      redProb = 100 - confidence;
+    } else {
+      redProb = confidence;
+      greenProb = 100 - confidence;
+    }
+  }
+
+  return {
+    color: predictedColor,
+    confidence,
+    reasoning,
+    greenProb,
+    redProb
+  };
+}
