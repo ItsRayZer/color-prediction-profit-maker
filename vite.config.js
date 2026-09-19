@@ -6,12 +6,16 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: true,
+    cors: true,
     proxy: {
       '/api-wingo': {
         target: 'https://draw.ar-lottery01.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api-wingo/, ''),
-        secure: false
+        secure: false,
+        headers: {
+          'Access-Control-Allow-Origin': '*'
+        }
       }
     }
   }

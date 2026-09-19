@@ -1383,7 +1383,16 @@ box-shadow:0 4px 20px #8888;">
 </div>
 
 <!-- ════════════════════════════════════════════════════════════
-     JAVASCRIPT ENGINE
+     MODULAR ENGINES & TIMEFRAME SYSTEMS
+════════════════════════════════════════════════════════════ -->
+<script src="./algorithms/quant_algorithm.js"></script>
+<script src="./systems/wingo_30s.js"></script>
+<script src="./systems/wingo_1m.js"></script>
+<script src="./systems/wingo_3m.js"></script>
+<script src="./systems/wingo_5m.js"></script>
+
+<!-- ════════════════════════════════════════════════════════════
+     JAVASCRIPT APPLICATION ORCHESTRATOR
 ════════════════════════════════════════════════════════════ -->
 <script>
 // ═══════════════════════════════════════════════════════════════
@@ -1492,48 +1501,46 @@ try {
 } catch (e) {}
 window._serverTimeOffset = _savedOffset;
 
-function computeRTState() {
-  const durMap = { '30s': 30, '1m': 60, '3m': 180, '5m': 300 };
-  const tfCodeMap = { '30s': '10005', '1m': '10001', '3m': '10002', '5m': '10003' };
-
+function getActiveSystem() {
   const tf = S.timeframe || '30s';
-  const dur = durMap[tf] || 30;
+  if (window.WIN_GO_SYSTEMS && window.WIN_GO_SYSTEMS[tf]) {
+    return window.WIN_GO_SYSTEMS[tf];
+  }
+  if (tf === '1m') return window.WinGo1mSystem;
+  if (tf === '3m') return window.WinGo3mSystem;
+  if (tf === '5m') return window.WinGo5mSystem;
+  return window.WinGo30sSystem;
+}
+
+function computeRTState() {
+  const sys = getActiveSystem();
+  const dur = sys ? sys.duration : 30;
   S.durationSeconds = dur;
 
-  // Use calibrated server authority time (corrects local PC/device clock drift)
-  const serverOffset = (typeof window._serverTimeOffset === 'number' && !isNaN(window._serverTimeOffset)) ? window._serverTimeOffset : 0;
-  const nowMs       = Date.now() + serverOffset;
-  const nowUtc      = new Date(nowMs);
-  const totalSecUtc = nowUtc.getUTCHours() * 3600 + nowUtc.getUTCMinutes() * 60 + nowUtc.getUTCSeconds();
-  const periodIdx   = Math.floor(totalSecUtc / dur) + 1;
-  const elapsed     = totalSecUtc % dur;
-  // Official WinGo countdown: dur-1 down to 0 (e.g. 59 down to 0 for 1m, 29 down to 0 for 30s)
-  const secsLeft    = Math.max(0, (dur - 1) - elapsed);
+  const nowUtc = new Date();
+  const state = sys ? sys.computeRealTimeState(nowUtc) : {
+    secsLeft: Math.max(0, dur - 1 - (nowUtc.getUTCSeconds() % dur)),
+    periodStr: ''
+  };
 
-  const y      = nowUtc.getUTCFullYear();
-  const mo     = String(nowUtc.getUTCMonth() + 1).padStart(2, '0');
-  const d      = String(nowUtc.getUTCDate()).padStart(2, '0');
-  const tfCode = tfCodeMap[tf] || '10005';
-  const periodStr = `${y}${mo}${d}${tfCode}${String(periodIdx).padStart(4, '0')}`;
-
-  const istMs  = nowMs + (5.5 * 3600 * 1000);
+  const istMs  = nowUtc.getTime() + (5.5 * 3600 * 1000);
   const ist    = new Date(istMs);
   const hh     = String(ist.getUTCHours()).padStart(2, '0');
   const mm     = String(ist.getUTCMinutes()).padStart(2, '0');
   const ss     = String(ist.getUTCSeconds()).padStart(2, '0');
   const clockStr = `${hh}:${mm}:${ss} IST`;
 
-  return { secsLeft, periodStr, clockStr, dur };
+  return { secsLeft: state.secsLeft, periodStr: state.periodStr, clockStr, dur };
 }
 
 function startRTEngine() {
   if (window._rtTimer) clearInterval(window._rtTimer);
   
-  // Continuous real-time live server synchronization every 2.5s
+  // Continuous real-time live server synchronization every 3 seconds
   if (window._livePollTimer) clearInterval(window._livePollTimer);
   window._livePollTimer = setInterval(() => {
     fetchLiveAPIResults(S.timeframe).catch(() => {});
-  }, 2500);
+  }, 3000);
 
   window._rtTimer = setInterval(() => {
     try {
@@ -1564,10 +1571,10 @@ function startRTEngine() {
         updateBetBlock(S.secondsLeft);
       }
 
-      // 2. Period rollover detection — isolated in its own try/catch block so an AI error never stops the timer
+      // 2. Period rollover detection
       if (lastPeriod && lastPeriod !== periodStr) {
         const finishedPeriod = lastPeriod;
-        lastPeriod = periodStr; // Always update lastPeriod immediately to avoid loop lock
+        lastPeriod = periodStr; // Update lastPeriod immediately
         try {
           if (finishedPeriod && S.aiSignal && S.aiSignal.target && (!S.aiPredictionMap || !S.aiPredictionMap[finishedPeriod])) {
             if (!S.aiPredictionMap) S.aiPredictionMap = {};
@@ -1582,15 +1589,16 @@ function startRTEngine() {
           onPeriodRollover(finishedPeriod);
           runAI();
         } catch (aiErr) {
-          console.warn('Rollover AI error (non-fatal):', aiErr);
+          console.warn('Rollover notice:', aiErr);
         }
       } else {
         lastPeriod = periodStr;
       }
 
-      // Fast sync trigger right around rollover (secsLeft === 0 or dur - 1)
+      // Fast sync trigger right around rollover
       if (secsLeft === 0 || secsLeft === dur - 1) {
-        setTimeout(() => fetchLiveAPIResults(S.timeframe).catch(() => {}), 600);
+        setTimeout(() => fetchLiveAPIResults(S.timeframe).catch(() => {}), 800);
+        setTimeout(() => fetchLiveAPIResults(S.timeframe).catch(() => {}), 2500);
       }
 
       // ── Live countdown bar for result prompt ──
@@ -1604,9 +1612,9 @@ function startRTEngine() {
         }
       }
     } catch (e) {
-      console.warn('RT Timer error:', e);
+      console.warn('RT Timer notice:', e);
     }
-  }, 200);
+  }, 500);
 }
 
 function updateTimerUI() {
@@ -1644,18 +1652,24 @@ function updateTimerUI() {
 // ═══════════════════════════════════════════════════════════════
 function showBetBlock(secs) {
   closeBetSheet(true);
-  document.getElementById('betBlockOverlay').style.display = 'flex';
+  const overlay = document.getElementById('betBlockOverlay');
+  if (overlay) overlay.style.display = 'flex';
 }
 
 function updateBetBlock(secs) {
   const n = Math.max(0, secs);
-  document.getElementById('blockCountNum').textContent = n;
-  const pct = (n / 5) * 100;
-  document.querySelector('.countdown-ring').style.setProperty('--prog', pct + '%');
+  const blockNum = document.getElementById('blockCountNum');
+  if (blockNum) blockNum.textContent = n;
+  const ring = document.querySelector('.countdown-ring');
+  if (ring) {
+    const pct = (n / 5) * 100;
+    ring.style.setProperty('--prog', pct + '%');
+  }
 }
 
 function hideBetBlock() {
-  document.getElementById('betBlockOverlay').style.display = 'none';
+  const overlay = document.getElementById('betBlockOverlay');
+  if (overlay) overlay.style.display = 'none';
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1667,53 +1681,9 @@ function onPeriodRollover(finishedPeriod) {
 
   if (!finishedPeriod) return;
 
-  if (!S.missingQueue.includes(finishedPeriod)) {
-    S.missingQueue.push(finishedPeriod);
-    if (S.missingQueue.length > 10) S.missingQueue.shift();
-  }
-  serveNextFromQueue();
-}
-
-async function serveNextFromQueue() {
-  if (S.missingQueue.length === 0) return;
-
-  const queue = [...S.missingQueue];
-  S.missingQueue = [];
-
-  for (const period of queue) {
-    await autoSyncOrGeneratePeriodResult(period);
-  }
-}
-
-async function autoSyncOrGeneratePeriodResult(finishedPeriod) {
-  if (!finishedPeriod) return;
-  if (S.history.some(r => r.period === finishedPeriod && !r.gap)) return;
-
-  // Retry live fetch up to 3 times (servers typically publish draw results within 1-2.5s)
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const synced = await fetchLiveAPIResults();
-      if (synced && S.history.some(r => r.period === finishedPeriod && !r.gap)) {
-        return;
-      }
-    } catch (e) {
-      console.warn(`Live API sync attempt ${attempt + 1} notice:`, e);
-    }
-    await new Promise(res => setTimeout(res, 1200));
-    if (S.history.some(r => r.period === finishedPeriod && !r.gap)) return;
-  }
-
-  if (S.history.some(r => r.period === finishedPeriod && !r.gap)) return;
-
-  let num;
-  if (finishedPeriod && finishedPeriod.length >= 4) {
-    const periodDigits = parseInt(finishedPeriod.slice(-4), 10);
-    num = (periodDigits * 7 + 3) % 10;
-  } else {
-    num = Math.floor(Math.random() * 10);
-  }
-
-  saveRealResult(finishedPeriod, num);
+  // Immediately poll for the finished period's real live result
+  fetchLiveAPIResults(S.timeframe).catch(() => {});
+  setTimeout(() => fetchLiveAPIResults(S.timeframe).catch(() => {}), 2000);
 }
 
 function updateQueueBadge() {
@@ -1972,102 +1942,76 @@ function runAI() {
   document.getElementById('winRateDisplay').textContent   = S.totalBets > 0 ? `${(winRate*100).toFixed(0)}%` : '—';
   document.getElementById('streakDisplay').textContent    = `${S.lossStreak}/3`;
 
-  if (!aiReady) {
+  // Background OpenRouter trigger (every 5 real results)
+  if (n >= 5 && n % 5 === 0 && !_orPending && typeof callOpenRouterAI === 'function') {
+    callOpenRouterAI(realHist);
+  }
+
+  // Delegate to modular QuantAlgorithm
+  let outcome;
+  if (window.QuantAlgorithm && typeof window.QuantAlgorithm.predictNextBet === 'function') {
+    outcome = window.QuantAlgorithm.predictNextBet(S, _orSignal ? [_orSignal] : []);
+    if (outcome.adaptiveWeights) S.engineWeights = outcome.adaptiveWeights;
+  } else {
+    outcome = {
+      ready: aiReady,
+      decision: aiReady ? 'BET' : 'SKIP',
+      target: realHist.length > 0 ? (realHist[realHist.length-1].size === 'BIG' ? 'SMALL' : 'BIG') : null,
+      stake: 1,
+      prob: 0.55,
+      entropy: 0.9,
+      reason: 'AI Quant Engine',
+      engines: ['Quant'],
+      scores: { big: 50, small: 50 }
+    };
+  }
+
+  const entropyDisplay = document.getElementById('entropyDisplay');
+  if (entropyDisplay) entropyDisplay.textContent = (outcome.entropy || 1.0).toFixed(2);
+
+  if (!outcome.ready) {
     S.aiReady  = false;
-    S.aiSignal = { decision:'SKIP', target:null, stake:0, prob:0.5, entropy:1.0,
-                   reason:`Need ${MIN_DATA_TO_PREDICT - n} more real results to activate AI` };
-    renderAIPanel(); return;
+    S.aiSignal = { decision: 'SKIP', target: null, stake: 0, prob: 0.5, entropy: outcome.entropy, reason: outcome.reason };
+    renderAIPanel();
+    return;
   }
-
-  // ── Entropy filter ──
-  const sizes   = realHist.slice(-20).map(r => r.size);
-  const entropy = calcEntropy(sizes);
-  document.getElementById('entropyDisplay').textContent = entropy.toFixed(2);
-
-  // ── Circuit breaker ──
-  if (S.cooloffRounds > 0) {
-    S.aiSignal = { decision:'SKIP', target:null, stake:0, prob:0.5, entropy,
-                   reason:`🛡️ Circuit Breaker ACTIVE: ${S.cooloffRounds} round(s) remaining` };
-    S.aiReady = false;
-    renderAIPanel(); return;
-  }
-
-  // ── Fire OpenRouter in background (every 5 real results) ──
-  if (n % 5 === 0 && !_orPending) callOpenRouterAI(realHist);
-
-  // ── 5-engine consensus ──
-  const consensus = generateConsensus(realHist);
-  const { target, prob, engines: engineList, scores } = consensus;
-
-  const pWin = Math.max(prob, BREAKEVEN_P + 0.01);
-  const zScore = (pWin - 0.5) / Math.sqrt(0.25 / Math.max(n, 1));
-  const reqZ = requiredZScore(S.lossStreak);
-
-  // ── Balance trend ──
-  const resolvedBets = S.myBets.filter(b => b.status==='WON'||b.status==='LOST').slice(0,10);
-  let balanceTrend = 0;
-  if (resolvedBets.length >= 3) {
-    const pnls   = resolvedBets.map(b => b.status==='WON' ? (b.payout-b.stake) : -b.stake);
-    const half   = Math.floor(pnls.length/2);
-    const recent = pnls.slice(0,half).reduce((a,b)=>a+b,0);
-    const older  = pnls.slice(half).reduce((a,b)=>a+b,0);
-    balanceTrend = recent > older ? 1 : recent < older ? -1 : 0;
-  }
-
-  // ── Stop-loss guards ──
-  const stopLossTriggered = S.balance < S.initialBalance * 0.30;
-  const stopLossRecovery  = S.balance < S.initialBalance * 0.50;
-
-  // ── Half-Kelly staking with recovery & trend modifiers ──
-  const q      = 1 - pWin;
-  const fStar  = Math.max(0, (pWin * NET_ODDS_B - q) / NET_ODDS_B);
-  let fraction = fStar * 0.5; // Half-Kelly
-
-  // Loss recovery (soft Martingale — never full 2× to avoid ruin)
-  if (S.lossStreak === 1) fraction *= 1.20;
-  else if (S.lossStreak === 2) fraction *= 1.50;
-
-  // Balance trend modifier
-  if (balanceTrend ===  1) fraction *= 1.10; // rising
-  if (balanceTrend === -1) fraction *= 0.80; // falling
-
-  // Stop-loss overrides
-  if (stopLossTriggered)       fraction = 0.01;
-  else if (stopLossRecovery)   fraction = Math.min(fraction, 0.02);
-
-  // Win-streak boost
-  if (S.winStreak >= 3) fraction = Math.min(fraction * 1.20, 0.08);
-
-  fraction = Math.min(fraction, MAX_BET_PCT); // absolute cap
-  const stake = Math.max(1, Math.round(S.balance * fraction * 100) / 100);
-
-  // ── Build reason string ──
-  const orTag = _orSignal ? `🤖OR(${_orSignal.signal[0]}) ` : '';
-  let reason = '';
-  if (stopLossTriggered)     reason = '🛑 Stop-Loss: micro stake – protect balance';
-  else if (stopLossRecovery) reason = '⚠️ Recovery zone – reduced stake';
-  else if (S.lossStreak >= 2) reason = `♻️ Recovery ×${fraction.toFixed(2)*100|0}% (${S.lossStreak} loss streak, Z-req ${reqZ})`;
-  else if (S.winStreak >= 3)  reason = `🔥 Win streak ${S.winStreak}× – boosted stake`;
-  else if (balanceTrend === 1) reason = `📈 ${orTag}Rising balance – ${engineList?.join(' ')||''}  → ${target}`;
-  else reason = `${orTag}${engineList?.join(' + ')||'consensus'} → ${target} (p=${(pWin*100).toFixed(1)}%, Z=${zScore.toFixed(1)})`;
 
   const isLowAcc = S.totalBets >= 5 && winRate < MIN_WIN_RATE;
   const isTest   = S.aiTestMode || isLowAcc;
-
-  const decision = isTest ? 'SKIP' : 'BET';
+  const decision = isTest ? 'SKIP' : outcome.decision;
+  const orTag    = _orSignal ? `🤖OR(${_orSignal.signal[0]}) ` : '';
   const reasonFinal = isTest
-    ? `🧪 Test Mode in progress — Shadow prediction: ${target} (${(pWin*100).toFixed(0)}%). Testing accuracy before live betting.`
-    : reason;
+    ? `🧪 Test Mode in progress — Shadow prediction: ${outcome.target} (${(outcome.prob*100).toFixed(0)}%). Testing accuracy before live betting.`
+    : (orTag + outcome.reason);
 
-  S.aiSignal = { decision, target, stake, prob:pWin, entropy, reason: reasonFinal, balanceTrend,
-                 engines:engineList, scores, zScore, isTest };
-  S.aiReady  = aiReady && !isLowAcc;
+  S.aiSignal = {
+    decision,
+    target: outcome.target,
+    stake: outcome.stake,
+    prob: outcome.prob,
+    entropy: outcome.entropy,
+    reason: reasonFinal,
+    engines: outcome.engines || [],
+    scores: outcome.scores,
+    zScore: outcome.zScore,
+    isTest
+  };
+  S.aiReady = !isLowAcc;
 
   // Store AI Prediction for current period (with isTest flag)
-  S.aiPredictionMap[S.currentPeriod] = { target, decision: isTest ? 'TEST' : 'BET', prob:pWin, engines:engineList, isTest };
+  if (S.currentPeriod) {
+    S.aiPredictionMap[S.currentPeriod] = {
+      target: outcome.target,
+      decision: isTest ? 'TEST' : 'BET',
+      prob: outcome.prob,
+      engines: outcome.engines || [],
+      isTest
+    };
+  }
 
   // Update AI Diagnostics Drawer if currently open
   updateAIDiagnosticsDrawer();
+  renderAIPanel();
 
   // ── AUTO-BETTING EXECUTION (Martingale Bot) ──
   if (S.autoBetEnabled && S.aiSignal.target) {
@@ -2404,10 +2348,10 @@ function saveRealResult(period, numberInput) {
   const size   = getSizeForNum(n);
   const color  = getColorForNum(n);
 
-  // Store in history — ALWAYS replace any existing entry for this period (edit or new)
   S.history = S.history.filter(r => r.period !== period);
   S.history.push({ period, number: n, size, color });
-  if (S.history.length > 100) S.history.shift();
+  S.history.sort((a, b) => String(a.period).localeCompare(String(b.period)));
+  if (S.history.length > 100) S.history = S.history.slice(-100);
 
   if (!S.historyByTimeframe) S.historyByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
   S.historyByTimeframe[S.timeframe] = [...S.history];
@@ -3059,12 +3003,12 @@ function toggleAIDiagnostics() {
 
 function updateAIDiagnosticsDrawer() {
   const sig = S.aiSignal;
-  const realHist = S.history.filter(r => !r.gap);
-  const eSum     = engineSum(realHist);
-  const eTrend   = engineTrend(realHist);
-  const eDNA     = engineDNA(realHist);
-  const eM2      = engineMarkov2(realHist);
-  const eRoll    = engineRolling(realHist);
+  const QA = window.QuantAlgorithm || {};
+  const eSum     = (QA.engineSum || engineSum)(realHist);
+  const eTrend   = (QA.engineTrend || engineTrend)(realHist);
+  const eDNA     = (QA.engineDNA || engineDNA)(realHist);
+  const eM2      = (QA.engineMarkov2 || engineMarkov2)(realHist);
+  const eRoll    = (QA.engineRolling || engineRolling)(realHist);
 
   const elSum   = document.getElementById('diagEngineSum');
   const elTrend = document.getElementById('diagEngineTrend');
@@ -3789,36 +3733,31 @@ function runInitBacktest() {
 
 async function fetchLiveAPIResults(tfOverride) {
   const tf = tfOverride || S.timeframe || '30s';
-  const tfCodeMap = { '30s':'30S', '1m':'1M', '3m':'3M', '5m':'5M' };
-  const tfCode = tfCodeMap[tf] || '30S';
-  const targetUrl = `https://draw.ar-lottery01.com/WinGo/WinGo_${tfCode}/GetHistoryIssuePage.json`;
+  const sys = (window.WIN_GO_SYSTEMS && window.WIN_GO_SYSTEMS[tf]) || window.WinGo30sSystem;
+  const targetUrl = sys ? sys.apiEndpoint : `https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json`;
+  const proxyPath = sys ? sys.proxyPath : `/api-wingo/WinGo/WinGo_30S/GetHistoryIssuePage.json`;
 
+  const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null')
+    ? window.location.origin : 'http://localhost:5173';
+
+  const r = Date.now();
   const urlsToTry = [
-    `/api-wingo/WinGo/WinGo_${tfCode}/GetHistoryIssuePage.json`,
-    `http://localhost:5173/api-wingo/WinGo/WinGo_${tfCode}/GetHistoryIssuePage.json`,
-    `http://127.0.0.1:5173/api-wingo/WinGo/WinGo_${tfCode}/GetHistoryIssuePage.json`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
-    targetUrl
+    `${origin}${proxyPath}?r=${r}`,
+    `http://localhost:5173${proxyPath}?r=${r}`,
+    `http://127.0.0.1:5173${proxyPath}?r=${r}`,
+    `http://localhost:5174${proxyPath}?r=${r}`,
+    `http://127.0.0.1:5174${proxyPath}?r=${r}`,
+    `${targetUrl}?r=${r}`
   ];
 
   async function fetchSingle(url) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 3500);
+    const timer = setTimeout(() => controller.abort(), 4000);
     try {
-      const tReq = Date.now();
       const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: controller.signal });
       clearTimeout(timer);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
-      
-      // Real-time server authority time synchronization
-      if (data && data.serviceTime) {
-        const sTime = Number(data.serviceTime);
-        if (!isNaN(sTime) && sTime > 0 && Math.abs(sTime - tReq) < 86400000) {
-          window._serverTimeOffset = sTime - tReq;
-          try { localStorage.setItem('wingo_server_offset', String(window._serverTimeOffset)); } catch (e) {}
-        }
-      }
 
       let list = [];
       if (Array.isArray(data)) list = data;
@@ -3836,13 +3775,17 @@ async function fetchLiveAPIResults(tfOverride) {
   try {
     const list = await Promise.any(urlsToTry.map(u => fetchSingle(u)));
     if (Array.isArray(list) && list.length > 0) {
-      const parsedList = list.slice(0, 50).reverse().map(row => {
+      let parsedList = list.slice(0, 50).reverse().map(row => {
         const period = String(row.issueNumber || row.issue || row.period || row.expect || '');
         const n = parseInt(row.number || row.openNumber || row.code || 0, 10);
         const size = row.size || (n >= 5 ? 'BIG' : 'SMALL');
         const color = row.color || getColorForNum(n);
         return { period, number: n, size, color };
       }).filter(r => r.period && !isNaN(r.number));
+
+      if (sys && typeof sys.filterHistory === 'function') {
+        parsedList = sys.filterHistory(parsedList);
+      }
 
       if (parsedList.length > 0) {
         if (!S.historyByTimeframe) S.historyByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
@@ -3889,6 +3832,7 @@ async function fetchLiveAPIResults(tfOverride) {
             renderMiniBalls();
             renderTrendChart();
             renderPatternAnalytics();
+            runAI();
             saveToLocalStorage();
           }
         } else {
