@@ -527,43 +527,67 @@
     for (let p = 1; p <= 8; p++) {
       experts.push({
         name: `Cycle-${p}`,
-        predict: () => (n >= p ? seq[n - p] : null),
+        predict: (customSeq) => {
+          const s = customSeq || seq;
+          const len = s.length;
+          return len >= p ? s[len - p] : null;
+        },
         weight: 1.0
       });
     }
 
     // Repeat-last & Alternate
-    experts.push({ name: 'Repeat-last', predict: () => seq[n - 1], weight: 1.0 });
-    experts.push({ name: 'Alternate',   predict: () => opposite(seq[n - 1]), weight: 1.0 });
+    experts.push({
+      name: 'Repeat-last',
+      predict: (customSeq) => {
+        const s = customSeq || seq;
+        return s.length > 0 ? s[s.length - 1] : null;
+      },
+      weight: 1.0
+    });
+    experts.push({
+      name: 'Alternate',
+      predict: (customSeq) => {
+        const s = customSeq || seq;
+        return s.length > 0 ? opposite(s[s.length - 1]) : null;
+      },
+      weight: 1.0
+    });
 
     // Majority-5, Majority-12, All-time-majority
     experts.push({
       name: 'Majority-5',
-      predict: () => {
-        const slice = seq.slice(-5);
-        const b = slice.filter(s => s === 'B').length;
-        const s = slice.length - b;
-        return b === s ? seq[n - 1] : (b > s ? 'B' : 'S');
+      predict: (customSeq) => {
+        const s = customSeq || seq;
+        if (!s.length) return null;
+        const slice = s.slice(-5);
+        const b = slice.filter(x => x === 'B').length;
+        const cS = slice.length - b;
+        return b === cS ? s[s.length - 1] : (b > cS ? 'B' : 'S');
       },
       weight: 1.0
     });
 
     experts.push({
       name: 'Majority-12',
-      predict: () => {
-        const slice = seq.slice(-12);
-        const b = slice.filter(s => s === 'B').length;
-        const s = slice.length - b;
-        return b === s ? seq[n - 1] : (b > s ? 'B' : 'S');
+      predict: (customSeq) => {
+        const s = customSeq || seq;
+        if (!s.length) return null;
+        const slice = s.slice(-12);
+        const b = slice.filter(x => x === 'B').length;
+        const cS = slice.length - b;
+        return b === cS ? s[s.length - 1] : (b > cS ? 'B' : 'S');
       },
       weight: 1.0
     });
 
     experts.push({
       name: 'All-time-majority',
-      predict: () => {
-        const b = seq.filter(s => s === 'B').length;
-        return b >= (seq.length - b) ? 'B' : 'S';
+      predict: (customSeq) => {
+        const s = customSeq || seq;
+        if (!s.length) return null;
+        const b = s.filter(x => x === 'B').length;
+        return b >= (s.length - b) ? 'B' : 'S';
       },
       weight: 1.0
     });
@@ -572,13 +596,15 @@
     for (let order = 1; order <= 3; order++) {
       experts.push({
         name: `Markov-${order}`,
-        predict: () => {
-          if (n <= order) return null;
-          const ctx = seq.slice(-order).join('_');
+        predict: (customSeq) => {
+          const s = customSeq || seq;
+          const len = s.length;
+          if (len <= order) return null;
+          const ctx = s.slice(-order).join('_');
           let bCount = 0, sCount = 0;
-          for (let i = order; i < n; i++) {
-            if (seq.slice(i - order, i).join('_') === ctx) {
-              if (seq[i] === 'B') bCount++;
+          for (let i = order; i < len; i++) {
+            if (s.slice(i - order, i).join('_') === ctx) {
+              if (s[i] === 'B') bCount++;
               else sCount++;
             }
           }
@@ -593,8 +619,10 @@
     const parityExperts = [
       {
         name: 'Parity-5',
-        predict: () => {
-          const slice = pseq.slice(-5);
+        predict: (customPSeq) => {
+          const p = customPSeq || pseq;
+          if (!p.length) return null;
+          const slice = p.slice(-5);
           const o = slice.filter(x => x === 'O').length;
           return o >= (slice.length - o) ? 'O' : 'E';
         },
@@ -602,8 +630,10 @@
       },
       {
         name: 'Parity-12',
-        predict: () => {
-          const slice = pseq.slice(-12);
+        predict: (customPSeq) => {
+          const p = customPSeq || pseq;
+          if (!p.length) return null;
+          const slice = p.slice(-12);
           const o = slice.filter(x => x === 'O').length;
           return o >= (slice.length - o) ? 'O' : 'E';
         },
@@ -614,13 +644,15 @@
     for (let order = 1; order <= 3; order++) {
       parityExperts.push({
         name: `ParMarkov-${order}`,
-        predict: () => {
-          if (pseq.length <= order) return null;
-          const ctx = pseq.slice(-order).join('_');
+        predict: (customPSeq) => {
+          const p = customPSeq || pseq;
+          const len = p.length;
+          if (len <= order) return null;
+          const ctx = p.slice(-order).join('_');
           let oCount = 0, eCount = 0;
-          for (let i = order; i < pseq.length; i++) {
-            if (pseq.slice(i - order, i).join('_') === ctx) {
-              if (pseq[i] === 'O') oCount++;
+          for (let i = order; i < len; i++) {
+            if (p.slice(i - order, i).join('_') === ctx) {
+              if (p[i] === 'O') oCount++;
               else eCount++;
             }
           }
@@ -631,14 +663,14 @@
       });
     }
 
-    // Evaluate recent accuracy of each expert over last 10 rounds to tune weights
-    const recentWindow = Math.min(10, n - 1);
+    // Evaluate recent rolling accuracy of each expert over last 12 rounds to tune weights online
+    const recentWindow = Math.min(12, n - 1);
     experts.forEach(exp => {
       let correct = 0, total = 0;
       for (let i = n - recentWindow; i < n; i++) {
         const subSeq = seq.slice(0, i);
         if (subSeq.length >= 2) {
-          const p = exp.predict.call({ predict: exp.predict }, subSeq);
+          const p = exp.predict(subSeq);
           if (p !== null) {
             total++;
             if (p === seq[i]) correct++;
@@ -647,21 +679,51 @@
       }
       const acc = total > 0 ? correct / total : 0.5;
       exp.recentAcc = acc;
-      exp.weight = Math.max(0.05, 1.0 * (1 + (acc - 0.5) * 1.5));
+      // Dynamic reinforcement learning: weights scale exponentially with out-of-sample accuracy
+      exp.weight = Math.max(0.05, 1.0 * (1 + (acc - 0.5) * 2.2));
     });
 
-    // Pattern bonus multiplier: if an active pattern matches an expert, boost by confidence * 3.0
+    // Also tune parity experts online
+    parityExperts.forEach(exp => {
+      let correct = 0, total = 0;
+      for (let i = pseq.length - recentWindow; i < pseq.length; i++) {
+        const subP = pseq.slice(0, i);
+        if (subP.length >= 2) {
+          const p = exp.predict(subP);
+          if (p !== null) {
+            total++;
+            if (p === pseq[i]) correct++;
+          }
+        }
+      }
+      const acc = total > 0 ? correct / total : 0.5;
+      exp.recentAcc = acc;
+      exp.weight = Math.max(0.05, 1.0 * (1 + (acc - 0.5) * 2.2));
+    });
+
+    // Pattern bonus multiplier: if an active candidate pattern matches, dynamically boost matching experts
     let patternBonusApplied = null;
-    if (activePattern && activePattern.confidence) {
+    if (activePattern) {
       const matchName = activePattern.code === 'P1-STREAK' ? 'Cycle-1' :
                         activePattern.code === 'P2-ALT' ? 'Alternate' :
                         activePattern.code === 'P4-DOUBLE' ? 'Cycle-4' : null;
       if (matchName) {
         const targetExp = experts.find(e => e.name === matchName);
         if (targetExp) {
-          targetExp.weight += activePattern.confidence * 3.0;
+          const conf = activePattern.confidence || 0.8;
+          targetExp.weight += conf * 3.0;
           patternBonusApplied = `${targetExp.name} boosted by ${activePattern.code}`;
         }
+      }
+      // If candidate pattern predicted direction is known, boost aligned experts
+      const patBias = activePattern.nextPredicted || activePattern.predictedNext || (activePattern.probabilityB >= 0.5 ? 'B' : (activePattern.probabilityS >= 0.5 ? 'S' : null));
+      if (patBias) {
+        experts.forEach(e => {
+          if (e.predict() === patBias) {
+            const edge = (activePattern.outOfSampleAccuracy ? (activePattern.outOfSampleAccuracy - 0.5) : 0.2);
+            e.weight += Math.max(0.2, edge * 2.5);
+          }
+        });
       }
     }
 
