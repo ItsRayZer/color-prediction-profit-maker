@@ -467,12 +467,19 @@
 
       <!-- ── PRO HERO TELEMETRY CARD (ACTIVE PERIOD, TIMER, AI SIGNAL, STAKE, TREND RIBBON) ── -->
       <div class="p-3.5 bg-app-card rounded-2xl border border-purple-900/40 shadow-xl space-y-3">
-        <div class="flex items-center justify-between border-b border-purple-900/30 pb-2">
-          <div class="flex items-center gap-2">
-            <span class="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-black text-[10px] border border-amber-400/30 uppercase tracking-wide">
+        <div class="flex items-center justify-between border-b border-purple-900/30 pb-2 flex-wrap gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-black text-[10px] border border-amber-400/30 uppercase tracking-wide">
               <i class="fa-solid fa-trophy mr-1"></i> <span id="smartTfBadge">WinGo 30sec</span>
             </span>
-            <span class="text-[10px] text-slate-400 font-mono">Live High-Precision Pro Terminal</span>
+            <!-- Pro Timeframe Switcher Tabs (30s, 1m, 3m, 5m) -->
+            <div class="flex items-center bg-black/50 p-0.5 rounded-xl border border-purple-800/40 gap-1">
+              <button onclick="setTimeframe('30s')" id="proTf-30s" class="px-3 py-1 rounded-lg font-black text-[10px] transition active:scale-95 bg-amber-400 text-slate-950 shadow">30s</button>
+              <button onclick="setTimeframe('1m')" id="proTf-1m" class="px-3 py-1 rounded-lg font-bold text-[10px] transition active:scale-95 text-slate-400 hover:text-white">1m</button>
+              <button onclick="setTimeframe('3m')" id="proTf-3m" class="px-3 py-1 rounded-lg font-bold text-[10px] transition active:scale-95 text-slate-400 hover:text-white">3m</button>
+              <button onclick="setTimeframe('5m')" id="proTf-5m" class="px-3 py-1 rounded-lg font-bold text-[10px] transition active:scale-95 text-slate-400 hover:text-white">5m</button>
+            </div>
+            <span class="text-[9.5px] text-slate-400 font-mono hidden sm:inline">Live Pro Terminal</span>
           </div>
           <div id="smartRiskSummary" class="text-[9.5px] font-mono text-slate-400 flex items-center gap-2">
             <span id="smartRiskBadge" class="px-2 py-0.5 rounded bg-purple-950 text-slate-300 border border-purple-800/40">Risk: Auto-Stop at ₹0</span>
@@ -1480,10 +1487,16 @@ function getSizeForNum(n) { return n >= 5 ? 'BIG' : 'SMALL'; }
 let lastPeriod = null;
 
 function computeRTState() {
+  const durMap = { '30s': 30, '1m': 60, '3m': 180, '5m': 300 };
+  const tfCodeMap = { '30s': '10005', '1m': '10001', '3m': '10002', '5m': '10003' };
+
+  const tf = S.timeframe || '30s';
+  const dur = durMap[tf] || 30;
+  S.durationSeconds = dur;
+
   const nowMs       = Date.now();
   const nowUtc      = new Date(nowMs);
   const totalSecUtc = nowUtc.getUTCHours() * 3600 + nowUtc.getUTCMinutes() * 60 + nowUtc.getUTCSeconds();
-  const dur         = S.durationSeconds || 30;
   const periodIdx   = Math.floor(totalSecUtc / dur) + 1;
   const elapsed     = totalSecUtc % dur;
   const secsLeft    = dur - elapsed;
@@ -1491,7 +1504,7 @@ function computeRTState() {
   const y      = nowUtc.getUTCFullYear();
   const mo     = String(nowUtc.getUTCMonth() + 1).padStart(2, '0');
   const d      = String(nowUtc.getUTCDate()).padStart(2, '0');
-  const tfCode = { '30s': '10005', '1m': '10001', '3m': '10003', '5m': '10004' }[S.timeframe] || '10005';
+  const tfCode = tfCodeMap[tf] || '10005';
   const periodStr = `${y}${mo}${d}${tfCode}${String(periodIdx).padStart(4, '0')}`;
 
   const istMs  = nowMs + (5.5 * 3600 * 1000);
@@ -1501,7 +1514,7 @@ function computeRTState() {
   const ss     = String(ist.getUTCSeconds()).padStart(2, '0');
   const clockStr = `${hh}:${mm}:${ss} IST`;
 
-  return { secsLeft, periodStr, clockStr };
+  return { secsLeft, periodStr, clockStr, dur };
 }
 
 function startRTEngine() {
@@ -1515,7 +1528,7 @@ function startRTEngine() {
 
   window._rtTimer = setInterval(() => {
     try {
-      const { secsLeft, periodStr, clockStr } = computeRTState();
+      const { secsLeft, periodStr, clockStr, dur } = computeRTState();
       const clockEl = document.getElementById('realWorldClock');
       if (clockEl) clockEl.textContent = clockStr;
 
@@ -1555,8 +1568,8 @@ function startRTEngine() {
         updateBetBlock(S.secondsLeft);
       }
 
-      // Fast sync trigger right around rollover (secsLeft === 1 or 29)
-      if (secsLeft === 1 || secsLeft === 29) {
+      // Fast sync trigger right around rollover (secsLeft === 1 or dur - 1)
+      if (secsLeft === 1 || secsLeft === dur - 1) {
         setTimeout(() => fetchLiveAPIResults().catch(() => {}), 800);
       }
 
@@ -2939,6 +2952,9 @@ function setTimeframe(tf) {
   if (!S.aiPredictionMapByTimeframe) S.aiPredictionMapByTimeframe = { '30s': {}, '1m': {}, '3m': {}, '5m': {} };
   if (!S.myBetsByTimeframe) S.myBetsByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
 
+  const durMap = { '30s': 30, '1m': 60, '3m': 180, '5m': 300 };
+  const tfCodeMap = { '30s': '10005', '1m': '10001', '3m': '10002', '5m': '10003' };
+
   // 1. Save current session state before switching
   S.historyByTimeframe[S.timeframe] = [...S.history];
   S.aiPredictionMapByTimeframe[S.timeframe] = { ...S.aiPredictionMap };
@@ -2946,18 +2962,28 @@ function setTimeframe(tf) {
 
   // 2. Switch active timeframe
   S.timeframe = tf;
-  S.durationSeconds = { '30s':30, '1m':60, '3m':180, '5m':300 }[tf] || 30;
+  S.durationSeconds = durMap[tf] || 30;
 
-  // 3. Load isolated session state for target timeframe
+  // 3. Load isolated session state for target timeframe (strictly filtered by period code)
+  const expectedCode = tfCodeMap[tf];
+  if (S.historyByTimeframe[tf]) {
+    S.historyByTimeframe[tf] = S.historyByTimeframe[tf].filter(r => !r.period || String(r.period).includes(expectedCode));
+  }
   S.history = [...(S.historyByTimeframe[tf] || [])];
   S.aiPredictionMap = { ...(S.aiPredictionMapByTimeframe[tf] || {}) };
   S.myBets = [...(S.myBetsByTimeframe[tf] || [])];
 
-  // 4. Update UI buttons
+  // 4. Update UI buttons (both Pro header tabs & normal buttons)
   ['30s','1m','3m','5m'].forEach(t => {
-    const b = document.getElementById(`tf-${t}`);
-    if (b) {
-      b.className = t === tf
+    const b1 = document.getElementById(`proTf-${t}`);
+    if (b1) {
+      b1.className = t === tf
+        ? 'px-3 py-1 rounded-lg font-black text-[10px] transition active:scale-95 bg-amber-400 text-slate-950 shadow'
+        : 'px-3 py-1 rounded-lg font-bold text-[10px] transition active:scale-95 text-slate-400 hover:text-white';
+    }
+    const b2 = document.getElementById(`tf-${t}`);
+    if (b2) {
+      b2.className = t === tf
         ? 'py-2 px-1 rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 text-slate-950 font-black text-xs flex flex-col items-center shadow active:scale-95'
         : 'py-2 px-1 rounded-xl bg-app-card text-purple-200 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition';
     }
@@ -2991,9 +3017,9 @@ function setTimeframe(tf) {
   renderPatternAnalytics();
   runAI();
 
-  showToast(`⚡ Switched to WinGo ${tf} session. Fetching live data...`, 'info');
+  showToast(`⚡ WinGo ${tf} session active. Fetching live draws...`, 'info');
 
-  // 7. Immediately fetch real live results for this timeframe!
+  // 7. Immediately fetch real live results for this timeframe (NO manual entry prompts)!
   fetchLiveAPIResults(tf).then(ok => {
     if (ok) {
       showToast(`✅ WinGo ${tf} live data updated! (${S.history.length} records)`, 'success');
@@ -3605,10 +3631,8 @@ function showToast(message, type='info') {
 // INITIALIZATION MODAL LOGIC
 // ═══════════════════════════════════════════════════════════════
 function openInitModal() {
-  S.initEntries = [];
-  renderInitBalls();
-  setInitModalTimeframe(S.timeframe || '30s');
-  document.getElementById('initModal').style.display = 'flex';
+  // Fully removed manual data adding — automatically fetch live results
+  fetchLiveAPIResults(S.timeframe);
 }
 
 function setInitModalTimeframe(tf) {
@@ -3848,10 +3872,7 @@ async function fetchLiveAPIResults(tfOverride) {
 }
 
 function loadInitDemoData() {
-  S.initEntries = [7, 3, 2, 9, 0, 5, 8, 1, 4, 6];
-  renderInitBalls();
-  runInitBacktest();
-  submitInitData();
+  fetchLiveAPIResults(S.timeframe);
 }
 
 function submitInitData() {
@@ -4484,6 +4505,8 @@ function saveToLocalStorage() {
 
     const payload = {
       historyByTimeframe: S.historyByTimeframe,
+      aiPredictionMapByTimeframe: S.aiPredictionMapByTimeframe || {},
+      myBetsByTimeframe: S.myBetsByTimeframe || {},
       balance: S.balance,
       initialBalance: S.initialBalance,
       myBets: S.myBets,
@@ -4519,21 +4542,36 @@ function loadFromLocalStorage() {
     if (!raw) return false;
     const data = JSON.parse(raw);
     if (data && data.historyByTimeframe) {
-      S.historyByTimeframe = data.historyByTimeframe || { '30s': [], '1m': [], '3m': [], '5m': [] };
+      S.historyByTimeframe        = data.historyByTimeframe || { '30s': [], '1m': [], '3m': [], '5m': [] };
+      S.aiPredictionMapByTimeframe = data.aiPredictionMapByTimeframe || { '30s': {}, '1m': {}, '3m': {}, '5m': {} };
+      S.myBetsByTimeframe         = data.myBetsByTimeframe || { '30s': [], '1m': [], '3m': [], '5m': [] };
+
       S.balance           = data.balance ?? 100;
       S.initialBalance    = data.initialBalance ?? 100;
-      S.myBets            = data.myBets || [];
-      S.aiPredictionMap   = data.aiPredictionMap || {};
+      S.timeframe         = data.timeframe || '30s';
+
+      const durMap = { '30s': 30, '1m': 60, '3m': 180, '5m': 300 };
+      const tfCodeMap = { '30s': '10005', '1m': '10001', '3m': '10002', '5m': '10003' };
+      S.durationSeconds   = durMap[S.timeframe] || 30;
+
+      // Filter out cross-contaminated records so each session has clean, separate history
+      const expectedCode = tfCodeMap[S.timeframe];
+      if (S.historyByTimeframe[S.timeframe]) {
+        S.historyByTimeframe[S.timeframe] = S.historyByTimeframe[S.timeframe].filter(r => !r.period || String(r.period).includes(expectedCode));
+      }
+
+      S.history           = [...(S.historyByTimeframe[S.timeframe] || [])];
+      S.aiPredictionMap   = { ...(S.aiPredictionMapByTimeframe[S.timeframe] || data.aiPredictionMap || {}) };
+      S.myBets            = [...(S.myBetsByTimeframe[S.timeframe] || data.myBets || [])];
+
       S.aiTestResults     = data.aiTestResults || [];
       S.engineWeights     = data.engineWeights || { Sum:20, Trend:35, DNA:45, Markov:40, Rolling:25 };
-      S.timeframe         = data.timeframe || '30s';
       S.isInitialized     = data.isInitialized ?? false;
       S.aiTestMode        = data.aiTestMode ?? true;
       S.proMode           = data.proMode ?? true;
       S.takeProfitAmount  = data.takeProfitAmount ?? null;
       S.stopLossAmount    = data.stopLossAmount ?? null;
       S.stopMinBalance    = data.stopMinBalance ?? 0;
-      S.history           = [...(S.historyByTimeframe[S.timeframe] || [])];
       S.totalBets         = data.totalBets || 0;
       S.totalWins         = data.totalWins || 0;
       // Restore Martingale state
