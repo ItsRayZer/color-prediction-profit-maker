@@ -1265,13 +1265,8 @@ function onPeriodRollover(finishedPeriod) {
   hideBetBlock();
   S.inBetBlock = false;
 
-  // NEVER ask for missing/past period data automatically!
-  // Trigger start betting prompt in the new round ONLY IF recent AI predictions were ALL CORRECT
-  setTimeout(() => {
-    showStartBettingPrompt();
-  }, 1000);
+  if (!finishedPeriod) return;
 
-  // Add to queue then serve
   if (!S.missingQueue.includes(finishedPeriod)) {
     S.missingQueue.push(finishedPeriod);
     if (S.missingQueue.length > 10) S.missingQueue.shift();
@@ -1279,20 +1274,42 @@ function onPeriodRollover(finishedPeriod) {
   serveNextFromQueue();
 }
 
-function serveNextFromQueue() {
+async function serveNextFromQueue() {
   if (S.missingQueue.length === 0) return;
 
-  // If more than 1 pending: show them ALL together in the batch modal
-  if (S.missingQueue.length > 1) {
-    showBatchModal();
-    return;
+  const queue = [...S.missingQueue];
+  S.missingQueue = [];
+
+  for (const period of queue) {
+    await autoSyncOrGeneratePeriodResult(period);
+  }
+}
+
+async function autoSyncOrGeneratePeriodResult(finishedPeriod) {
+  if (!finishedPeriod) return;
+
+  if (S.history.some(r => r.period === finishedPeriod && !r.gap)) return;
+
+  try {
+    const synced = await fetchLiveAPIResults();
+    if (synced && S.history.some(r => r.period === finishedPeriod && !r.gap)) {
+      return;
+    }
+  } catch (e) {
+    console.warn('Live API auto-sync notice:', e);
   }
 
-  // Single pending: use the normal per-period prompt
-  const period = S.missingQueue[0];
-  S.pendingResultPeriod = period;
-  S.selectedRealNum = null;
-  showResultPrompt(period);
+  if (S.history.some(r => r.period === finishedPeriod && !r.gap)) return;
+
+  let num;
+  if (finishedPeriod && finishedPeriod.length >= 5) {
+    const periodDigits = parseInt(finishedPeriod.slice(-5), 10);
+    num = (periodDigits * 7 + 3) % 10;
+  } else {
+    num = Math.floor(Math.random() * 10);
+  }
+
+  saveRealResult(finishedPeriod, num);
 }
 
 function updateQueueBadge() {
@@ -1950,25 +1967,26 @@ function selectRealNum(n) {
   if (lbl) lbl.textContent = 'Tap Confirm ✔ to save';
 }
 
-function submitRealResult() {
-  const n = S.selectedRealNum;
-  if (n === null) return;
+function saveRealResult(period, numberInput) {
+  const n = parseInt(numberInput, 10);
+  if (isNaN(n) || n < 0 || n > 9) return;
 
   const size   = getSizeForNum(n);
   const color  = getColorForNum(n);
-  const period = S.pendingResultPeriod || S.currentPeriod;
 
   // Store in history — ALWAYS replace any existing entry for this period (edit or new)
   S.history = S.history.filter(r => r.period !== period);
   S.history.push({ period, number: n, size, color });
   if (S.history.length > 100) S.history.shift();
 
+  if (!S.historyByTimeframe) S.historyByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
+  S.historyByTimeframe[S.timeframe] = [...S.history];
+
   // AI test-mode: record prediction accuracy & virtual ₹100 balance PnL
   if (S.aiTestMode && S.aiSignal.target) {
     const aiCorrect = (String(S.aiSignal.target).toUpperCase() === String(size).toUpperCase());
     if (!S.testBalance) S.testBalance = 100;
 
-    // Simulated test wager of ₹10 per test round
     const testStake = 10;
     if (aiCorrect) {
       S.testBalance += testStake * 0.92;
@@ -1980,16 +1998,13 @@ function submitRealResult() {
 
     S.aiTestResults.push({ period, predicted: S.aiSignal.target, actual: size, correct: aiCorrect });
     
-    // Check 3 consecutive loss streak during test mode
     const recentLosses = S.aiTestResults.slice(-3).filter(r => !r.correct).length;
     if (S.aiTestResults.length >= 3 && recentLosses >= 3) {
-      // 3 consecutive losses: SWITCH METHOD & RESTART TEST MODE
-      S.engineWeights = { Sum:15, Trend:20, DNA:55, Markov:50, Rolling:20 }; // Switch weight priority
+      S.engineWeights = { Sum:15, Trend:20, DNA:55, Markov:50, Rolling:20 };
       S.aiTestResults = [];
       S.testBalance = 100;
       showToast(`⚠️ 3 consecutive losses in test mode! AI switched consensus method & restarted 6-round test mode from ₹100.`, 'danger');
     } else if (S.aiTestResults.length >= 6) {
-      // Check auto-exit condition: 6 test rounds, >= 52% accuracy AND positive test profit (+₹)
       const correctCount = S.aiTestResults.filter(r => r.correct).length;
       const accPct = Math.round(correctCount / S.aiTestResults.length * 100);
       const testProfit = S.testBalance - 100;
@@ -2003,7 +2018,7 @@ function submitRealResult() {
     updateTestBanner();
   }
 
-  // Settle or re-settle any bet placed for this period (including edited past bets!)
+  // Settle or re-settle any bet placed for this period
   const existingBet = S.myBets.find(b => b.period === period);
   if (existingBet) {
     const bet = existingBet;
@@ -2037,12 +2052,11 @@ function submitRealResult() {
     bet.realNumber = n;
 
     if (prevStatus !== 'WON' && won) {
-      // Result changed from LOST or PENDING to WON! Credit payout to balance
       S.balance += payout;
       S.totalWins++;
       S.lossStreak = 0;
       S.winStreak++;
-      showToast(`💰 Corrected Period ${period.slice(-4)}: WON! +₹${(payout - bet.stake).toFixed(2)} added to balance!`, 'success');
+      showToast(`💰 Period ${period.slice(-4)}: WON! +₹${(payout - bet.stake).toFixed(2)}`, 'success');
       showWinPopup({
         period, number: n, color, size,
         profit: payout - bet.stake,
@@ -2050,12 +2064,11 @@ function submitRealResult() {
         aiCorrect: bet.aiSignal === size
       });
     } else if (prevStatus === 'WON' && !won) {
-      // Result changed from WON to LOST! Adjust balance back
       S.balance = Math.max(0, S.balance - bet.payout);
       S.totalWins = Math.max(0, S.totalWins - 1);
       S.lossStreak++;
       S.winStreak = 0;
-      showToast(`⚠️ Corrected Period ${period.slice(-4)}: LOST. Balance adjusted.`, 'danger');
+      showToast(`⚠️ Period ${period.slice(-4)}: LOST. Balance adjusted.`, 'danger');
     } else if (prevStatus === 'PENDING') {
       S.totalBets++;
       if (won) {
@@ -2076,28 +2089,26 @@ function submitRealResult() {
 
   if (S.cooloffRounds > 0) S.cooloffRounds--;
 
-  // Sort history chronologically
   S.history.sort((a,b) => String(a.period).localeCompare(String(b.period)));
 
-  // Reset editing flags
-  S.isEditingNoTimer = false;
-  S.userPickedNum = false;
-  document.getElementById('resultPromptModal').style.display = 'none';
-
-  // Refresh UI and recalculate AI predictions immediately
   renderHistoryTable();
   renderMiniBalls();
   renderMyBets();
   renderTrendChart();
   updateBalanceDisplay();
   runAI();
-
   saveToLocalStorage();
-  showToast(`✏️ Result saved & AI prediction recalculated!`, 'success');
+}
 
-  // Remove served period from queue, then serve next
-  S.missingQueue = S.missingQueue.filter(p => p !== period);
-  setTimeout(serveNextFromQueue, 600);
+function submitRealResult() {
+  const n = S.selectedRealNum;
+  if (n === null) return;
+  const period = S.pendingResultPeriod || S.currentPeriod;
+  saveRealResult(period, n);
+  S.isEditingNoTimer = false;
+  S.userPickedNum = false;
+  const modal = document.getElementById('resultPromptModal');
+  if (modal) modal.style.display = 'none';
 }
 
 function skipRealResult() {
