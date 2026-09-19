@@ -1538,32 +1538,18 @@ function startRTEngine() {
   window._rtTimer = setInterval(() => {
     try {
       const { secsLeft, periodStr, clockStr, dur } = computeRTState();
-      const clockEl = document.getElementById('realWorldClock');
-      if (clockEl) clockEl.textContent = clockStr;
-
-      // Period rollover detection (instantaneous, 200ms reactive loop)
-      if (lastPeriod && lastPeriod !== periodStr) {
-        // Snapshot prediction for the finished period before recalculating for new period
-        if (lastPeriod && S.aiSignal && S.aiSignal.target && (!S.aiPredictionMap || !S.aiPredictionMap[lastPeriod])) {
-          if (!S.aiPredictionMap) S.aiPredictionMap = {};
-          S.aiPredictionMap[lastPeriod] = {
-            target: S.aiSignal.target,
-            decision: S.aiSignal.decision || 'BET',
-            prob: S.aiSignal.prob || 0.55,
-            engines: S.aiSignal.engines || [],
-            isTest: S.aiSignal.isTest || S.aiTestMode
-          };
-        }
-        onPeriodRollover(lastPeriod);
-        runAI(); // Fresh AI calculation immediately on every period rollover!
-      }
-      lastPeriod = periodStr;
+      
+      // 1. ALWAYS update clock, period, and timer UI immediately & unconditionally
       S.currentPeriod = periodStr;
       S.secondsLeft = secsLeft;
+
+      const clockEl = document.getElementById('realWorldClock');
+      if (clockEl) clockEl.textContent = clockStr;
       const periodEl = document.getElementById('currentPeriodDisplay');
       if (periodEl) periodEl.textContent = S.currentPeriod;
       const smartPEl = document.getElementById('smartPeriodDisplay');
       if (smartPEl) smartPEl.textContent = S.currentPeriod ? S.currentPeriod.slice(-5) : '—';
+      
       updateTimerUI();
 
       // 5-second bet block: lock down when 5 seconds or less remaining (5, 4, 3, 2, 1, 0)
@@ -1576,6 +1562,30 @@ function startRTEngine() {
       }
       if (S.inBetBlock) {
         updateBetBlock(S.secondsLeft);
+      }
+
+      // 2. Period rollover detection — isolated in its own try/catch block so an AI error never stops the timer
+      if (lastPeriod && lastPeriod !== periodStr) {
+        const finishedPeriod = lastPeriod;
+        lastPeriod = periodStr; // Always update lastPeriod immediately to avoid loop lock
+        try {
+          if (finishedPeriod && S.aiSignal && S.aiSignal.target && (!S.aiPredictionMap || !S.aiPredictionMap[finishedPeriod])) {
+            if (!S.aiPredictionMap) S.aiPredictionMap = {};
+            S.aiPredictionMap[finishedPeriod] = {
+              target: S.aiSignal.target,
+              decision: S.aiSignal.decision || 'BET',
+              prob: S.aiSignal.prob || 0.55,
+              engines: S.aiSignal.engines || [],
+              isTest: S.aiSignal.isTest || S.aiTestMode
+            };
+          }
+          onPeriodRollover(finishedPeriod);
+          runAI();
+        } catch (aiErr) {
+          console.warn('Rollover AI error (non-fatal):', aiErr);
+        }
+      } else {
+        lastPeriod = periodStr;
       }
 
       // Fast sync trigger right around rollover (secsLeft === 0 or dur - 1)
@@ -1991,6 +2001,7 @@ function runAI() {
 
   const pWin = Math.max(prob, BREAKEVEN_P + 0.01);
   const zScore = (pWin - 0.5) / Math.sqrt(0.25 / Math.max(n, 1));
+  const reqZ = requiredZScore(S.lossStreak);
 
   // ── Balance trend ──
   const resolvedBets = S.myBets.filter(b => b.status==='WON'||b.status==='LOST').slice(0,10);
