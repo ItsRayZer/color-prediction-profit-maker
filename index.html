@@ -198,9 +198,9 @@
 </header>
 
 <!-- ════════════════════════════════════════════════════════════
-     MAIN DESKTOP GRID (Sleek 2-Column Split, Left Aside for Normal Mode)
+     MAIN DESKTOP GRID (3 Equal Columns: Live History | Trend & Num Road | Analysis Hub)
 ════════════════════════════════════════════════════════════ -->
-<div id="mainDesktopGrid" class="relative z-10 flex flex-col lg:grid lg:grid-cols-[1fr_430px] w-full" style="min-height:calc(100vh - 54px)">
+<div id="mainDesktopGrid" class="relative z-10 flex flex-col lg:grid lg:grid-cols-3 w-full" style="min-height:calc(100vh - 54px)">
 
   <!-- ╔══════════════════════════════════════════════════════════
        LEFT PANEL — Manual Betting & Legacy Terminal (Normal Mode Only)
@@ -466,217 +466,212 @@
   </aside>
 
   <!-- ╔══════════════════════════════════════════════════════════
-       CENTER PANEL — SMART HERO + REAL HISTORY & TREND ROAD MAP
+       COLUMN 1: LIVE REAL HISTORY FEED & REPEATED COLOR/DIGIT AUDIT
   ══════════════════════════════════════════════════════════╗ -->
-  <main class="overflow-y-auto overflow-x-hidden bg-[#0a0615]" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
-    <div class="p-3 space-y-3">
-
-      <!-- ── LIVE TERMINAL & ROAD MAP ── -->
-
-      <!-- ── COMPACT PRO HERO WINGO WINDOW (TOP MIDDLE) ── -->
-      <div class="p-2.5 bg-app-card/90 backdrop-blur-xl rounded-2xl border border-purple-900/40 shadow-lg space-y-2">
-        <div class="flex items-center justify-between border-b border-purple-900/30 pb-1.5 flex-wrap gap-2">
-          <div class="flex items-center gap-2 flex-wrap">
-            <span class="px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-black text-[9.5px] border border-amber-400/30 uppercase tracking-wide">
-              <i class="fa-solid fa-trophy mr-1"></i> <span id="smartTfBadge">WinGo 30sec</span>
-            </span>
-            <!-- Pro Timeframe Switcher Tabs (30s, 1m, 3m, 5m) -->
-            <div class="flex items-center bg-black/60 p-0.5 rounded-lg border border-purple-800/40 gap-0.5">
-              <button onclick="setTimeframe('30s')" id="proTf-30s" class="px-2.5 py-0.5 rounded-md font-black text-[9px] transition active:scale-95 bg-amber-400 text-slate-950 shadow">30s</button>
-              <button onclick="setTimeframe('1m')" id="proTf-1m" class="px-2.5 py-0.5 rounded-md font-bold text-[9px] transition active:scale-95 text-slate-400 hover:text-white">1m</button>
-              <button onclick="setTimeframe('3m')" id="proTf-3m" class="px-2.5 py-0.5 rounded-md font-bold text-[9px] transition active:scale-95 text-slate-400 hover:text-white">3m</button>
-              <button onclick="setTimeframe('5m')" id="proTf-5m" class="px-2.5 py-0.5 rounded-md font-bold text-[9px] transition active:scale-95 text-slate-400 hover:text-white">5m</button>
-            </div>
-          </div>
-          <div class="flex items-center gap-2 text-[9px] font-mono text-slate-400">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span class="text-emerald-300 font-bold">Synchronized</span>
-          </div>
+  <section class="overflow-y-auto overflow-x-hidden p-3 space-y-3 bg-[#0a0615] lg:border-r border-purple-900/30" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
+    
+    <!-- 1. LIVE REAL HISTORY FEED -->
+    <div class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-xl flex flex-col">
+      <div class="p-2.5 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border-b border-purple-900/40 flex items-center justify-between">
+        <div class="flex items-center gap-1.5">
+          <i class="fa-solid fa-list-check text-amber-400 text-xs"></i>
+          <span class="font-black text-xs text-white">Live Real History</span>
+          <span id="historyLiveStatusBadge" class="text-[8.5px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">Auto-Synced</span>
         </div>
-
-        <!-- Compact Core Row: Active Period | Big Countdown + Sync | AI Target Signal -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center font-mono items-center">
-          <!-- 1. Active Period -->
-          <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/30 flex flex-col justify-center">
-            <span class="text-[8px] text-slate-400 block font-sans uppercase font-bold tracking-wider">Active Period</span>
-            <b id="smartPeriodDisplay" class="text-amber-400 text-base font-mono font-black tracking-tight mt-0.5">—</b>
-          </div>
-
-          <!-- 2. Countdown Time & Instant Calibration -->
-          <div class="p-2 bg-gradient-to-b from-purple-950/90 to-slate-900/90 rounded-xl border border-amber-400/30 flex flex-col justify-center shadow-inner">
-            <div class="flex items-center justify-between px-1">
-              <span class="text-[8px] text-amber-300/80 font-sans uppercase font-bold">Time Left</span>
-              <span id="timerOffsetBadge" class="px-1 py-0.2 bg-amber-400/20 text-amber-300 rounded font-black text-[8px] border border-amber-400/30">+0s</span>
-            </div>
-            <div id="smartTimerDisplay" class="text-2xl font-black text-amber-300 font-mono tracking-widest leading-none my-0.5">00:00</div>
-            <div class="flex items-center justify-center gap-0.5 mt-0.5 font-mono text-[8px] flex-wrap">
-              <button onclick="adjustTimerOffset(-3)" class="px-1 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95">-3s</button>
-              <button onclick="adjustTimerOffset(-2)" class="px-1 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95">-2s</button>
-              <button onclick="adjustTimerOffset(-1)" class="px-1 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95">-1s</button>
-              <button onclick="adjustTimerOffset(1)" class="px-1 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95">+1s</button>
-              <button onclick="adjustTimerOffset(5)" class="px-1 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95">+5s</button>
-              <button onclick="adjustTimerOffset(10)" class="px-1 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95">+10s</button>
-              <button id="timerPauseBtn" onclick="toggleTimerPause()" class="px-1.5 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95" title="Pause / Resume">⏸</button>
-              <button onclick="resetTimerOffset()" class="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded border border-slate-700/40 font-bold transition active:scale-95" title="Reset offset">↺</button>
-            </div>
-          </div>
-
-          <!-- 3. AI Signal Target -->
-          <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/30 flex flex-col justify-center">
-            <span class="text-[8px] text-slate-400 block font-sans uppercase font-bold tracking-wider">AI Signal Target</span>
-            <div id="smartAiSignal" class="text-base font-black text-white mt-0.5">WAITING...</div>
-            <span id="smartAiEngineTag" class="text-[8px] text-emerald-400 font-mono mt-0.5">5-Engine Consensus</span>
-          </div>
-        </div>
-
-        <!-- Mini Trend Ribbon (Compact) -->
-        <div class="bg-purple-950/40 rounded-xl p-1.5 border border-purple-900/30 flex items-center justify-between gap-2">
-          <div class="flex items-center gap-1 text-[8.5px] text-slate-400 font-bold shrink-0">
-            <i class="fa-solid fa-chart-line text-amber-400"></i>
-            <span class="hidden sm:inline">Recent 20:</span>
-            <span id="smartBigSmallRatio" class="text-amber-300 font-mono">B:—% | S:—%</span>
-          </div>
-          <div id="smartTrendStrip" class="flex items-center gap-1 overflow-x-auto pb-0.5">
-            <span class="text-slate-500 text-[8px] italic">Loading trend...</span>
-          </div>
-        </div>
-
-        <!-- Hidden container preserving legacy IDs for background script safe calls -->
-        <div class="hidden">
-          <b id="smartNextStake">₹1.00</b>
-          <b id="smartSessionPnl">+₹0.00</b>
-          <b id="smartMartingaleLvl">Lvl 0</b>
-          <button id="smartQuickBotBtn"></button>
-          <div id="smartRiskSummary"><span id="smartRiskBadge"></span></div>
-        </div>
+        <span class="text-[9px] text-slate-400 font-mono">Real Game Draws</span>
       </div>
-
-      <!-- ── REAL HISTORY + TREND GRAPH & NUMBER ROAD MAP (SIDE BY SIDE) ── -->
-      <div class="grid grid-cols-1 xl:grid-cols-2 gap-3 items-start">
-        
-        <!-- SIDE 1: LIVE REAL HISTORY FEED -->
-        <div class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-xl flex flex-col">
-          <div class="p-2.5 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border-b border-purple-900/40 flex items-center justify-between">
-            <div class="flex items-center gap-1.5">
-              <i class="fa-solid fa-list-check text-amber-400 text-xs"></i>
-              <span class="font-black text-xs text-white">Live Real History</span>
-              <span id="historyLiveStatusBadge" class="text-[8.5px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">Auto-Synced</span>
-            </div>
-            <span class="text-[9px] text-slate-400 font-mono">Real Game Draws</span>
-          </div>
-          <div class="grid grid-cols-12 py-1.5 px-3 bg-purple-950/80 text-slate-300 font-bold text-[9px] border-b border-purple-900/30 font-mono">
-            <div class="col-span-3">Period</div>
-            <div class="col-span-3 text-center">Result &amp; Color</div>
-            <div class="col-span-3 text-center">AI Signal</div>
-            <div class="col-span-3 text-right pr-1">Status</div>
-          </div>
-          <div id="smartHistoryRows" class="divide-y divide-purple-900/30 text-[9.5px] font-mono max-h-[560px] overflow-y-auto" style="scrollbar-width:thin;scrollbar-color:#4c1d95 transparent;"></div>
-          <!-- Hidden fallback hook for any legacy calls -->
-          <div id="gameHistoryRows" class="hidden"></div>
-          <div class="flex items-center justify-between p-2 bg-app-surface border-t border-purple-900/40 text-[9px] text-purple-300 font-mono">
-            <span id="rowCountBadge" class="font-bold text-slate-400">0 records</span>
-            <button onclick="downloadCSVReport()" class="text-amber-400 hover:text-amber-300 font-bold text-[9.5px] flex items-center gap-1 active:scale-95 transition">
-              <i class="fa-solid fa-download"></i> Export CSV
-            </button>
-          </div>
-        </div>
-
-        <!-- SIDE 2: TREND GRAPH & NUMBER ROAD MAP -->
-        <div class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-xl flex flex-col">
-          <div class="p-2.5 bg-gradient-to-r from-amber-500/20 via-purple-950 to-slate-900 border-b border-purple-900/40 flex items-center justify-between">
-            <div class="flex items-center gap-1.5">
-              <i class="fa-solid fa-chart-line text-amber-400 text-xs"></i>
-              <span class="font-black text-xs text-white">Trend Graph &amp; Number Road</span>
-              <span class="text-[8.5px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30 font-mono">0-9 Connected</span>
-            </div>
-            <span class="text-[9px] text-slate-400 font-mono">Pattern Matrix</span>
-          </div>
-
-          <!-- Statistic Header Row -->
-          <div class="bg-gradient-to-r from-amber-400 to-amber-500 px-3 py-1">
-            <div class="grid grid-cols-12 text-[9px] font-black text-slate-900">
-              <div class="col-span-3">Statistic</div>
-              <div class="text-center">0</div><div class="text-center">1</div><div class="text-center">2</div>
-              <div class="text-center">3</div><div class="text-center">4</div><div class="text-center">5</div>
-              <div class="text-center">6</div><div class="text-center">7</div><div class="text-center">8</div>
-              <div class="text-center">9</div>
-            </div>
-          </div>
-          <div id="chartStatsRows" class="divide-y divide-purple-900/30 px-3 text-[8.5px] font-mono bg-purple-950/40"></div>
-
-          <!-- Grid Columns -->
-          <div class="grid gap-0 px-2 pt-1.5 pb-1 bg-purple-950/60 border-t border-purple-900/30" style="grid-template-columns:60px repeat(10,1fr) 26px 26px 26px">
-            <div class="text-[8.5px] text-slate-400 font-bold font-mono">Period</div>
-            <div class="text-[8.5px] text-center text-slate-300 font-bold">0</div>
-            <div class="text-[8.5px] text-center text-slate-300 font-bold">1</div>
-            <div class="text-[8.5px] text-center text-slate-300 font-bold">2</div>
-            <div class="text-[8.5px] text-center text-slate-300 font-bold">3</div>
-            <div class="text-[8.5px] text-center text-slate-300 font-bold">4</div>
-            <div class="text-[8.5px] text-center text-slate-300 font-bold">5</div>
-            <div class="text-[8.5px] text-center text-slate-300 font-bold">6</div>
-            <div class="text-[8.5px] text-center text-slate-300 font-bold">7</div>
-            <div class="text-[8.5px] text-center text-slate-300 font-bold">8</div>
-            <div class="text-[8.5px] text-center text-slate-300 font-bold">9</div>
-            <div class="text-[8.5px] text-center text-amber-400 font-bold">B/S</div>
-            <div class="text-[8.5px] text-center text-indigo-300 font-bold">AI</div>
-            <div class="text-[8.5px] text-center text-purple-300 font-bold">Bet</div>
-          </div>
-
-          <!-- SVG Connector & 0-9 Road Grid -->
-          <div class="relative px-2 pb-2 max-h-[460px] overflow-y-auto" id="numberRoadContainer" style="scrollbar-width:thin;scrollbar-color:#4c1d95 transparent;">
-            <svg id="roadConnectorSvg" class="absolute inset-0 pointer-events-none" style="width:100%;height:100%;overflow:visible;"></svg>
-            <div id="numberRoadRows" class="relative z-10 space-y-0.5"></div>
-          </div>
-
-          <!-- Summary Stats Footer -->
-          <div class="grid grid-cols-3 gap-2 p-2 border-t border-purple-900/40 text-center text-[9px] font-mono bg-purple-950/30">
-            <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block font-sans">BIG RATIO</span><b id="chartBigPct" class="text-amber-400">50%</b></div>
-            <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block font-sans">SMALL RATIO</span><b id="chartSmallPct" class="text-sky-400">50%</b></div>
-            <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block font-sans">WIN ACCURACY</span><b id="chartWinRatio" class="text-emerald-400">—</b></div>
-          </div>
-        </div>
+      <div class="grid grid-cols-12 py-1.5 px-3 bg-purple-950/80 text-slate-300 font-bold text-[9px] border-b border-purple-900/30 font-mono">
+        <div class="col-span-3">Period</div>
+        <div class="col-span-3 text-center">Result &amp; Color</div>
+        <div class="col-span-3 text-center">AI Signal</div>
+        <div class="col-span-3 text-right pr-1">Status</div>
       </div>
-
-      <!-- ── ADVANCED FEATURES: REPEATED COLOR, DIGITS & FREQUENCY AUDIT ── -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
-        
-        <!-- Feature 1: Number Frequency Audit (0-9) -->
-        <div class="bg-app-card rounded-2xl p-3 border border-purple-900/40 shadow-xl space-y-2">
-          <div class="flex items-center justify-between pb-1.5 border-b border-purple-900/30">
-            <div class="flex items-center gap-1.5">
-              <i class="fa-solid fa-chart-pie text-emerald-400 text-xs"></i>
-              <span class="text-[10px] font-black uppercase tracking-wider text-white">Number Frequency Audit (0-9)</span>
-            </div>
-            <span class="text-[8px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono border border-emerald-500/30">Distribution</span>
-          </div>
-          <div id="auditNumberDistGrid" class="grid grid-cols-5 gap-1.5 text-center font-mono">
-            <!-- Injected by renderPatternAnalytics() -->
-          </div>
-        </div>
-
-        <!-- Feature 2: Repeated Color & Streak Intelligence -->
-        <div class="bg-app-card rounded-2xl p-3 border border-purple-900/40 shadow-xl space-y-2">
-          <div class="flex items-center justify-between pb-1.5 border-b border-purple-900/30">
-            <div class="flex items-center gap-1.5">
-              <i class="fa-solid fa-palette text-amber-400 text-xs"></i>
-              <span class="text-[10px] font-black uppercase tracking-wider text-white">Repeated Color &amp; Digit Analysis</span>
-            </div>
-            <span class="text-[8px] px-1.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-mono border border-amber-400/30">Pattern Edge</span>
-          </div>
-          <div id="repeatedColorDigitAudit" class="grid grid-cols-2 gap-1.5 font-mono text-[9px]">
-            <!-- Injected by renderPatternAnalytics() -->
-          </div>
-        </div>
+      <div id="smartHistoryRows" class="divide-y divide-purple-900/30 text-[9.5px] font-mono max-h-[520px] overflow-y-auto" style="scrollbar-width:thin;scrollbar-color:#4c1d95 transparent;"></div>
+      <!-- Hidden fallback hook for any legacy calls -->
+      <div id="gameHistoryRows" class="hidden"></div>
+      <div class="flex items-center justify-between p-2 bg-app-surface border-t border-purple-900/40 text-[9px] text-purple-300 font-mono">
+        <span id="rowCountBadge" class="font-bold text-slate-400">0 records</span>
+        <button onclick="downloadCSVReport()" class="text-amber-400 hover:text-amber-300 font-bold text-[9.5px] flex items-center gap-1 active:scale-95 transition">
+          <i class="fa-solid fa-download"></i> Export CSV
+        </button>
       </div>
-
     </div>
-  </main>
 
+    <!-- 2. REPEATED COLOR & DIGIT ANALYSIS -->
+    <div class="bg-app-card rounded-2xl p-3 border border-purple-900/40 shadow-xl space-y-2">
+      <div class="flex items-center justify-between pb-1.5 border-b border-purple-900/30">
+        <div class="flex items-center gap-1.5">
+          <i class="fa-solid fa-palette text-amber-400 text-xs"></i>
+          <span class="text-[10px] font-black uppercase tracking-wider text-white">Repeated Color &amp; Digit Analysis</span>
+        </div>
+        <span class="text-[8px] px-1.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-mono border border-amber-400/30">Pattern Edge</span>
+      </div>
+      <div id="repeatedColorDigitAudit" class="grid grid-cols-2 gap-1.5 font-mono text-[9px]">
+        <!-- Injected by renderPatternAnalytics() -->
+      </div>
+    </div>
+
+    <!-- 3. NUMBER FREQUENCY AUDIT (0-9) -->
+    <div class="bg-app-card rounded-2xl p-3 border border-purple-900/40 shadow-xl space-y-2">
+      <div class="flex items-center justify-between pb-1.5 border-b border-purple-900/30">
+        <div class="flex items-center gap-1.5">
+          <i class="fa-solid fa-chart-pie text-emerald-400 text-xs"></i>
+          <span class="text-[10px] font-black uppercase tracking-wider text-white">Number Frequency Audit (0-9)</span>
+        </div>
+        <span class="text-[8px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono border border-emerald-500/30">Distribution</span>
+      </div>
+      <div id="auditNumberDistGrid" class="grid grid-cols-5 gap-1.5 text-center font-mono">
+        <!-- Injected by renderPatternAnalytics() -->
+      </div>
+    </div>
+
+  </section>
 
   <!-- ╔══════════════════════════════════════════════════════════
-       RIGHT PANEL — Apple Minimalist Liquid Glass Telemetry Hub
+       COLUMN 2: TOP MIDDLE WINGO HERO + TREND GRAPH & NUMBER ROAD MAP
   ══════════════════════════════════════════════════════════╗ -->
-  <aside class="lg:border-l border-white/10 overflow-y-auto overflow-x-hidden bg-black/20 backdrop-blur-3xl" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.2) transparent;">
+  <main class="overflow-y-auto overflow-x-hidden p-3 space-y-3 bg-[#0a0615] lg:border-r border-purple-900/30" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
+    
+    <!-- ── COMPACT PRO HERO WINGO WINDOW (TOP MIDDLE ONLY) ── -->
+    <div class="p-2 bg-app-card/90 backdrop-blur-xl rounded-xl border border-purple-900/40 shadow-md space-y-1.5">
+      <div class="flex items-center justify-between border-b border-purple-900/30 pb-1 flex-wrap gap-1.5">
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-300 font-black text-[9px] border border-amber-400/30 uppercase tracking-wide">
+            <i class="fa-solid fa-trophy mr-1 text-[8.5px]"></i> <span id="smartTfBadge">WinGo 30sec</span>
+          </span>
+          <!-- Pro Timeframe Switcher Tabs (30s, 1m, 3m, 5m) -->
+          <div class="flex items-center bg-black/60 p-0.5 rounded-lg border border-purple-800/40 gap-0.5">
+            <button onclick="setTimeframe('30s')" id="proTf-30s" class="px-2 py-0.5 rounded font-black text-[8.5px] transition active:scale-95 bg-amber-400 text-slate-950 shadow">30s</button>
+            <button onclick="setTimeframe('1m')" id="proTf-1m" class="px-2 py-0.5 rounded font-bold text-[8.5px] transition active:scale-95 text-slate-400 hover:text-white">1m</button>
+            <button onclick="setTimeframe('3m')" id="proTf-3m" class="px-2 py-0.5 rounded font-bold text-[8.5px] transition active:scale-95 text-slate-400 hover:text-white">3m</button>
+            <button onclick="setTimeframe('5m')" id="proTf-5m" class="px-2 py-0.5 rounded font-bold text-[8.5px] transition active:scale-95 text-slate-400 hover:text-white">5m</button>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5 text-[8.5px] font-mono text-slate-400">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="text-emerald-300 font-semibold">Live</span>
+        </div>
+      </div>
+
+      <!-- Compact Core Row: Active Period | Countdown + Instant Calibration | AI Target Signal -->
+      <div class="grid grid-cols-3 gap-1.5 text-center font-mono items-center">
+        <!-- 1. Active Period -->
+        <div class="p-1.5 bg-purple-950/60 rounded-lg border border-purple-800/30 flex flex-col justify-center">
+          <span class="text-[7.5px] text-slate-400 block font-sans uppercase font-bold tracking-wider">Active Period</span>
+          <b id="smartPeriodDisplay" class="text-amber-400 text-sm font-mono font-black tracking-tight mt-0.5">—</b>
+        </div>
+
+        <!-- 2. Countdown Time & Instant Calibration -->
+        <div class="p-1.5 bg-gradient-to-b from-purple-950/90 to-slate-900/90 rounded-lg border border-amber-400/30 flex flex-col justify-center shadow-inner">
+          <div class="flex items-center justify-between px-1">
+            <span class="text-[7.5px] text-amber-300/80 font-sans uppercase font-bold">Time Left</span>
+            <span id="timerOffsetBadge" class="px-1 py-0 bg-amber-400/20 text-amber-300 rounded font-black text-[7.5px] border border-amber-400/30">+0s</span>
+          </div>
+          <div class="flex items-center justify-center gap-1.5 my-0.5">
+            <button onclick="adjustTimerOffset(-1)" class="w-4 h-4 flex items-center justify-center bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 text-[9px] font-bold" title="-1s">-</button>
+            <div id="smartTimerDisplay" class="text-lg font-black text-amber-300 font-mono tracking-widest leading-none">00:00</div>
+            <button onclick="adjustTimerOffset(1)" class="w-4 h-4 flex items-center justify-center bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 text-[9px] font-bold" title="+1s">+</button>
+          </div>
+          <div class="flex items-center justify-center gap-1 font-mono text-[7.5px]">
+            <button onclick="adjustTimerOffset(-2)" class="px-1 bg-purple-900/50 hover:bg-purple-800 text-slate-300 rounded">-2s</button>
+            <button onclick="adjustTimerOffset(2)" class="px-1 bg-purple-900/50 hover:bg-purple-800 text-slate-300 rounded">+2s</button>
+            <button onclick="adjustTimerOffset(5)" class="px-1 bg-purple-900/50 hover:bg-purple-800 text-slate-300 rounded">+5s</button>
+            <button id="timerPauseBtn" onclick="toggleTimerPause()" class="px-1 bg-purple-900/50 hover:bg-purple-800 text-slate-300 rounded" title="Pause / Resume">⏸</button>
+            <button onclick="resetTimerOffset()" class="px-1 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded" title="Reset offset">↺</button>
+          </div>
+        </div>
+
+        <!-- 3. AI Signal Target -->
+        <div class="p-1.5 bg-purple-950/60 rounded-lg border border-purple-800/30 flex flex-col justify-center">
+          <span class="text-[7.5px] text-slate-400 block font-sans uppercase font-bold tracking-wider">AI Target</span>
+          <div id="smartAiSignal" class="text-xs font-black text-white mt-0.5 leading-tight">WAITING...</div>
+          <span id="smartAiEngineTag" class="text-[7.5px] text-emerald-400 font-mono mt-0.5">5-Engine Consensus</span>
+        </div>
+      </div>
+
+      <!-- Mini Trend Ribbon (Compact single strip) -->
+      <div class="bg-purple-950/40 rounded-lg px-2 py-1 border border-purple-900/30 flex items-center justify-between gap-2 text-[8px]">
+        <div class="flex items-center gap-1 text-slate-400 font-bold shrink-0">
+          <i class="fa-solid fa-chart-line text-amber-400 text-[8.5px]"></i>
+          <span class="hidden sm:inline">Recent:</span>
+          <span id="smartBigSmallRatio" class="text-amber-300 font-mono">B:—% | S:—%</span>
+        </div>
+        <div id="smartTrendStrip" class="flex items-center gap-1 overflow-x-auto pb-0">
+          <span class="text-slate-500 text-[8px] italic">Loading trend...</span>
+        </div>
+      </div>
+
+      <!-- Hidden container preserving legacy IDs for background script safe calls -->
+      <div class="hidden">
+        <b id="smartNextStake">₹1.00</b>
+        <b id="smartSessionPnl">+₹0.00</b>
+        <b id="smartMartingaleLvl">Lvl 0</b>
+        <button id="smartQuickBotBtn"></button>
+        <div id="smartRiskSummary"><span id="smartRiskBadge"></span></div>
+      </div>
+    </div>
+
+    <!-- ── TREND GRAPH & NUMBER ROAD MAP ── -->
+    <div class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-xl flex flex-col">
+      <div class="p-2.5 bg-gradient-to-r from-amber-500/20 via-purple-950 to-slate-900 border-b border-purple-900/40 flex items-center justify-between">
+        <div class="flex items-center gap-1.5">
+          <i class="fa-solid fa-chart-line text-amber-400 text-xs"></i>
+          <span class="font-black text-xs text-white">Trend Graph &amp; Number Road</span>
+          <span class="text-[8.5px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30 font-mono">0-9 Connected</span>
+        </div>
+        <span class="text-[9px] text-slate-400 font-mono">Pattern Matrix</span>
+      </div>
+
+      <!-- Statistic Header Row -->
+      <div class="bg-gradient-to-r from-amber-400 to-amber-500 px-3 py-1">
+        <div class="grid grid-cols-12 text-[9px] font-black text-slate-900">
+          <div class="col-span-3">Statistic</div>
+          <div class="text-center">0</div><div class="text-center">1</div><div class="text-center">2</div>
+          <div class="text-center">3</div><div class="text-center">4</div><div class="text-center">5</div>
+          <div class="text-center">6</div><div class="text-center">7</div><div class="text-center">8</div>
+          <div class="text-center">9</div>
+        </div>
+      </div>
+      <div id="chartStatsRows" class="divide-y divide-purple-900/30 px-3 text-[8.5px] font-mono bg-purple-950/40"></div>
+
+      <!-- Grid Columns -->
+      <div class="grid gap-0 px-2 pt-1.5 pb-1 bg-purple-950/60 border-t border-purple-900/30" style="grid-template-columns:60px repeat(10,1fr) 26px 26px 26px">
+        <div class="text-[8.5px] text-slate-400 font-bold font-mono">Period</div>
+        <div class="text-[8.5px] text-center text-slate-300 font-bold">0</div>
+        <div class="text-[8.5px] text-center text-slate-300 font-bold">1</div>
+        <div class="text-[8.5px] text-center text-slate-300 font-bold">2</div>
+        <div class="text-[8.5px] text-center text-slate-300 font-bold">3</div>
+        <div class="text-[8.5px] text-center text-slate-300 font-bold">4</div>
+        <div class="text-[8.5px] text-center text-slate-300 font-bold">5</div>
+        <div class="text-[8.5px] text-center text-slate-300 font-bold">6</div>
+        <div class="text-[8.5px] text-center text-slate-300 font-bold">7</div>
+        <div class="text-[8.5px] text-center text-slate-300 font-bold">8</div>
+        <div class="text-[8.5px] text-center text-slate-300 font-bold">9</div>
+        <div class="text-[8.5px] text-center text-amber-400 font-bold">B/S</div>
+        <div class="text-[8.5px] text-center text-indigo-300 font-bold">AI</div>
+        <div class="text-[8.5px] text-center text-purple-300 font-bold">Bet</div>
+      </div>
+
+      <!-- SVG Connector & 0-9 Road Grid -->
+      <div class="relative px-2 pb-2 max-h-[460px] overflow-y-auto" id="numberRoadContainer" style="scrollbar-width:thin;scrollbar-color:#4c1d95 transparent;">
+        <svg id="roadConnectorSvg" class="absolute inset-0 pointer-events-none" style="width:100%;height:100%;overflow:visible;"></svg>
+        <div id="numberRoadRows" class="relative z-10 space-y-0.5"></div>
+      </div>
+
+      <!-- Summary Stats Footer -->
+      <div class="grid grid-cols-3 gap-2 p-2 border-t border-purple-900/40 text-center text-[9px] font-mono bg-purple-950/30">
+        <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block font-sans">BIG RATIO</span><b id="chartBigPct" class="text-amber-400">50%</b></div>
+        <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block font-sans">SMALL RATIO</span><b id="chartSmallPct" class="text-sky-400">50%</b></div>
+        <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block font-sans">WIN ACCURACY</span><b id="chartWinRatio" class="text-emerald-400">—</b></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ╔══════════════════════════════════════════════════════════
+       COLUMN 3: RIGHT PANEL — GAME HISTORY & PATTERN INTELLIGENCE HUB
+  ══════════════════════════════════════════════════════════╗ -->
+  <aside class="overflow-y-auto overflow-x-hidden bg-black/20 backdrop-blur-3xl" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.2) transparent;">
     <div class="p-3.5 space-y-3.5">
 
       <!-- ── 1. LIVE PATTERN RADAR & ACTIVE EDGE SIGNAL ── -->
@@ -3317,8 +3312,8 @@ function setTimeframe(tf) {
     const b1 = document.getElementById(`proTf-${t}`);
     if (b1) {
       b1.className = t === tf
-        ? 'px-3 py-1 rounded-lg font-black text-[10px] transition active:scale-95 bg-amber-400 text-slate-950 shadow'
-        : 'px-3 py-1 rounded-lg font-bold text-[10px] transition active:scale-95 text-slate-400 hover:text-white';
+        ? 'px-2 py-0.5 rounded font-black text-[8.5px] transition active:scale-95 bg-amber-400 text-slate-950 shadow'
+        : 'px-2 py-0.5 rounded font-bold text-[8.5px] transition active:scale-95 text-slate-400 hover:text-white';
     }
     const b2 = document.getElementById(`tf-${t}`);
     if (b2) {
@@ -4049,9 +4044,9 @@ function applyProModeUI() {
 
   if (mainGrid) {
     if (isPro) {
-      mainGrid.className = 'relative z-10 flex flex-col lg:grid lg:grid-cols-[1fr_430px] w-full';
+      mainGrid.className = 'relative z-10 flex flex-col lg:grid lg:grid-cols-3 w-full';
     } else {
-      mainGrid.className = 'relative z-10 flex flex-col lg:grid lg:grid-cols-[380px_1fr_430px] w-full';
+      mainGrid.className = 'relative z-10 flex flex-col lg:grid lg:grid-cols-[340px_1fr_1fr] w-full';
     }
   }
 
