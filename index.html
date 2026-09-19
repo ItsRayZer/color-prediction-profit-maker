@@ -198,14 +198,14 @@
 </header>
 
 <!-- ════════════════════════════════════════════════════════════
-     MAIN 3-COLUMN DESKTOP GRID (Effective wide ratio without gap)
+     MAIN DESKTOP GRID (Sleek 2-Column Split, Left Aside for Normal Mode)
 ════════════════════════════════════════════════════════════ -->
-<div class="relative z-10 flex flex-col lg:grid lg:grid-cols-[380px_1fr_420px] w-full" style="min-height:calc(100vh - 54px)">
+<div id="mainDesktopGrid" class="relative z-10 flex flex-col lg:grid lg:grid-cols-[1fr_430px] w-full" style="min-height:calc(100vh - 54px)">
 
   <!-- ╔══════════════════════════════════════════════════════════
-       LEFT PANEL — AI Terminal + Timer + Betting Board
+       LEFT PANEL — Manual Betting & Legacy Terminal (Normal Mode Only)
   ══════════════════════════════════════════════════════════╗ -->
-  <aside class="lg:border-r border-purple-900/30 overflow-y-auto overflow-x-hidden bg-app-bg" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
+  <aside id="leftAsidePanel" class="hidden lg:border-r border-purple-900/30 overflow-y-auto overflow-x-hidden bg-app-bg" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
     <div class="p-3 space-y-3">
 
       <!-- ── QUANT AI SIGNAL TERMINAL ── -->
@@ -473,120 +473,109 @@
 
       <!-- ── LIVE TERMINAL & ROAD MAP ── -->
 
-      <!-- ── PRO HERO TELEMETRY CARD (ACTIVE PERIOD, TIMER, AI SIGNAL, STAKE, TREND RIBBON) ── -->
-      <div class="p-3.5 bg-app-card rounded-2xl border border-purple-900/40 shadow-xl space-y-3">
-        <div class="flex items-center justify-between border-b border-purple-900/30 pb-2 flex-wrap gap-2">
+      <!-- ── COMPACT PRO HERO WINGO WINDOW (TOP MIDDLE) ── -->
+      <div class="p-2.5 bg-app-card/90 backdrop-blur-xl rounded-2xl border border-purple-900/40 shadow-lg space-y-2">
+        <div class="flex items-center justify-between border-b border-purple-900/30 pb-1.5 flex-wrap gap-2">
           <div class="flex items-center gap-2 flex-wrap">
-            <span class="px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-black text-[10px] border border-amber-400/30 uppercase tracking-wide">
+            <span class="px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-black text-[9.5px] border border-amber-400/30 uppercase tracking-wide">
               <i class="fa-solid fa-trophy mr-1"></i> <span id="smartTfBadge">WinGo 30sec</span>
             </span>
             <!-- Pro Timeframe Switcher Tabs (30s, 1m, 3m, 5m) -->
-            <div class="flex items-center bg-black/50 p-0.5 rounded-xl border border-purple-800/40 gap-1">
-              <button onclick="setTimeframe('30s')" id="proTf-30s" class="px-3 py-1 rounded-lg font-black text-[10px] transition active:scale-95 bg-amber-400 text-slate-950 shadow">30s</button>
-              <button onclick="setTimeframe('1m')" id="proTf-1m" class="px-3 py-1 rounded-lg font-bold text-[10px] transition active:scale-95 text-slate-400 hover:text-white">1m</button>
-              <button onclick="setTimeframe('3m')" id="proTf-3m" class="px-3 py-1 rounded-lg font-bold text-[10px] transition active:scale-95 text-slate-400 hover:text-white">3m</button>
-              <button onclick="setTimeframe('5m')" id="proTf-5m" class="px-3 py-1 rounded-lg font-bold text-[10px] transition active:scale-95 text-slate-400 hover:text-white">5m</button>
+            <div class="flex items-center bg-black/60 p-0.5 rounded-lg border border-purple-800/40 gap-0.5">
+              <button onclick="setTimeframe('30s')" id="proTf-30s" class="px-2.5 py-0.5 rounded-md font-black text-[9px] transition active:scale-95 bg-amber-400 text-slate-950 shadow">30s</button>
+              <button onclick="setTimeframe('1m')" id="proTf-1m" class="px-2.5 py-0.5 rounded-md font-bold text-[9px] transition active:scale-95 text-slate-400 hover:text-white">1m</button>
+              <button onclick="setTimeframe('3m')" id="proTf-3m" class="px-2.5 py-0.5 rounded-md font-bold text-[9px] transition active:scale-95 text-slate-400 hover:text-white">3m</button>
+              <button onclick="setTimeframe('5m')" id="proTf-5m" class="px-2.5 py-0.5 rounded-md font-bold text-[9px] transition active:scale-95 text-slate-400 hover:text-white">5m</button>
             </div>
-            <span class="text-[9.5px] text-slate-400 font-mono hidden sm:inline">Live Pro Terminal</span>
           </div>
-          <div id="smartRiskSummary" class="text-[9.5px] font-mono text-slate-400 flex items-center gap-2">
-            <span id="smartRiskBadge" class="px-2 py-0.5 rounded bg-purple-950 text-slate-300 border border-purple-800/40">Risk: Auto-Stop at ₹0</span>
+          <div class="flex items-center gap-2 text-[9px] font-mono text-slate-400">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="text-emerald-300 font-bold">Synchronized</span>
           </div>
         </div>
 
-        <!-- Big Showcase Row: ACTIVE PERIOD | COUNTDOWN TIME | AI SIGNAL -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-center font-mono">
+        <!-- Compact Core Row: Active Period | Big Countdown + Sync | AI Target Signal -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center font-mono items-center">
           <!-- 1. Active Period -->
-          <div class="p-3 bg-purple-950/60 rounded-xl border border-purple-800/30 flex flex-col justify-center">
-            <span class="text-[9px] text-slate-400 block font-sans uppercase font-bold tracking-wider">Active Period</span>
-            <b id="smartPeriodDisplay" class="text-amber-400 text-xl font-mono font-black tracking-tight mt-0.5">—</b>
-            <span class="text-[9px] text-slate-500 font-sans mt-0.5">Selected period round</span>
+          <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/30 flex flex-col justify-center">
+            <span class="text-[8px] text-slate-400 block font-sans uppercase font-bold tracking-wider">Active Period</span>
+            <b id="smartPeriodDisplay" class="text-amber-400 text-base font-mono font-black tracking-tight mt-0.5">—</b>
           </div>
 
-          <!-- 2. Big Countdown Time -->
-          <div class="p-3 bg-gradient-to-b from-purple-950/80 to-slate-900/90 rounded-xl border border-amber-400/30 flex flex-col justify-center shadow-inner">
-            <span class="text-[9px] text-amber-300/80 block font-sans uppercase font-black tracking-wider">Time Remaining</span>
-            <div id="smartTimerDisplay" class="text-3xl font-black text-amber-300 font-mono tracking-widest mt-0.5">00:00</div>
-            <div class="flex items-center justify-center gap-1 mt-1 font-mono text-[9px] flex-wrap">
-              <button onclick="adjustTimerOffset(-3)" class="px-1.5 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95" title="Subtract 3s">-3s</button>
-              <button onclick="adjustTimerOffset(-2)" class="px-1.5 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95" title="Subtract 2s">-2s</button>
-              <button onclick="adjustTimerOffset(-1)" class="px-1.5 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95" title="Subtract 1s">-1s</button>
-              <span id="timerOffsetBadge" class="px-1.5 py-0.5 bg-amber-400/20 text-amber-300 rounded font-black border border-amber-400/30" title="Current Timer Calibrated Offset">+0s</span>
-              <button onclick="adjustTimerOffset(1)" class="px-1.5 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95" title="Add 1s">+1s</button>
-              <button onclick="adjustTimerOffset(5)" class="px-1.5 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95" title="Add 5s">+5s</button>
-              <button onclick="adjustTimerOffset(10)" class="px-1.5 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95" title="Add 10s">+10s</button>
-              <button id="timerPauseBtn" onclick="toggleTimerPause()" class="px-1.5 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95" title="Pause / Resume timer">⏸</button>
-              <button onclick="resetTimerOffset()" class="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded border border-slate-700/40 font-bold transition active:scale-95" title="Reset offset to 0s">↺</button>
+          <!-- 2. Countdown Time & Instant Calibration -->
+          <div class="p-2 bg-gradient-to-b from-purple-950/90 to-slate-900/90 rounded-xl border border-amber-400/30 flex flex-col justify-center shadow-inner">
+            <div class="flex items-center justify-between px-1">
+              <span class="text-[8px] text-amber-300/80 font-sans uppercase font-bold">Time Left</span>
+              <span id="timerOffsetBadge" class="px-1 py-0.2 bg-amber-400/20 text-amber-300 rounded font-black text-[8px] border border-amber-400/30">+0s</span>
             </div>
-            <span class="text-[8px] text-slate-400 font-sans mt-0.5">Live Sync: -/+ seconds, Pause, or ↺ Reset</span>
+            <div id="smartTimerDisplay" class="text-2xl font-black text-amber-300 font-mono tracking-widest leading-none my-0.5">00:00</div>
+            <div class="flex items-center justify-center gap-0.5 mt-0.5 font-mono text-[8px] flex-wrap">
+              <button onclick="adjustTimerOffset(-3)" class="px-1 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95">-3s</button>
+              <button onclick="adjustTimerOffset(-2)" class="px-1 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95">-2s</button>
+              <button onclick="adjustTimerOffset(-1)" class="px-1 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95">-1s</button>
+              <button onclick="adjustTimerOffset(1)" class="px-1 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95">+1s</button>
+              <button onclick="adjustTimerOffset(5)" class="px-1 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95">+5s</button>
+              <button onclick="adjustTimerOffset(10)" class="px-1 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95">+10s</button>
+              <button id="timerPauseBtn" onclick="toggleTimerPause()" class="px-1.5 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95" title="Pause / Resume">⏸</button>
+              <button onclick="resetTimerOffset()" class="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded border border-slate-700/40 font-bold transition active:scale-95" title="Reset offset">↺</button>
+            </div>
           </div>
 
-          <!-- 3. Big AI Signal -->
-          <div class="p-3 bg-purple-950/60 rounded-xl border border-purple-800/30 flex flex-col justify-center">
-            <span class="text-[9px] text-slate-400 block font-sans uppercase font-bold tracking-wider">AI Signal Target</span>
-            <div id="smartAiSignal" class="text-xl font-black text-white mt-0.5">WAITING...</div>
-            <span id="smartAiEngineTag" class="text-[9px] text-emerald-400 font-mono mt-0.5">5-Engine Consensus</span>
+          <!-- 3. AI Signal Target -->
+          <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/30 flex flex-col justify-center">
+            <span class="text-[8px] text-slate-400 block font-sans uppercase font-bold tracking-wider">AI Signal Target</span>
+            <div id="smartAiSignal" class="text-base font-black text-white mt-0.5">WAITING...</div>
+            <span id="smartAiEngineTag" class="text-[8px] text-emerald-400 font-mono mt-0.5">5-Engine Consensus</span>
           </div>
         </div>
 
-        <!-- Secondary Metric Chips: Next Stake | Session PnL | Martingale Level | Quick Bot Action -->
-        <div class="grid grid-cols-4 gap-2 text-center font-mono text-[10px] pt-1 border-t border-purple-900/30">
-          <div class="p-2 bg-slate-900/70 rounded-xl border border-purple-900/30">
-            <span class="text-[8.5px] text-slate-400 block font-sans">TEST / BOT STAKE</span>
-            <b id="smartNextStake" class="text-emerald-400 text-xs font-black">₹1.00</b>
+        <!-- Mini Trend Ribbon (Compact) -->
+        <div class="bg-purple-950/40 rounded-xl p-1.5 border border-purple-900/30 flex items-center justify-between gap-2">
+          <div class="flex items-center gap-1 text-[8.5px] text-slate-400 font-bold shrink-0">
+            <i class="fa-solid fa-chart-line text-amber-400"></i>
+            <span class="hidden sm:inline">Recent 20:</span>
+            <span id="smartBigSmallRatio" class="text-amber-300 font-mono">B:—% | S:—%</span>
           </div>
-          <div class="p-2 bg-slate-900/70 rounded-xl border border-purple-900/30">
-            <span class="text-[8.5px] text-slate-400 block font-sans">SESSION PNL</span>
-            <b id="smartSessionPnl" class="text-emerald-400 text-xs font-black">+₹0.00</b>
+          <div id="smartTrendStrip" class="flex items-center gap-1 overflow-x-auto pb-0.5">
+            <span class="text-slate-500 text-[8px] italic">Loading trend...</span>
           </div>
-          <div class="p-2 bg-slate-900/70 rounded-xl border border-purple-900/30">
-            <span class="text-[8.5px] text-slate-400 block font-sans">MARTINGALE LVL</span>
-            <b id="smartMartingaleLvl" class="text-amber-400 text-xs font-black">Lvl 0</b>
-          </div>
-          <button onclick="toggleAutoBet()" id="smartQuickBotBtn" class="p-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black text-[10px] shadow hover:brightness-110 active:scale-95 transition flex flex-col items-center justify-center">
-            <span>🚀 TEST BOT</span>
-          </button>
         </div>
 
-        <!-- Integrated Trend Ribbon (Last 20 Results Mini Road) -->
-        <div class="bg-purple-950/40 rounded-xl p-2.5 border border-purple-900/30">
-          <div class="flex items-center justify-between text-[9px] text-slate-400 mb-1.5 font-bold">
-            <span><i class="fa-solid fa-chart-line text-amber-400 mr-1"></i> TREND ROAD MAP (Recent 20 Rounds)</span>
-            <div class="flex gap-2">
-              <span id="smartBigSmallRatio" class="text-amber-300 font-mono">BIG: —% | SMALL: —%</span>
-            </div>
-          </div>
-          <div id="smartTrendStrip" class="flex items-center gap-1.5 overflow-x-auto pb-1">
-            <span class="text-slate-500 text-[9px] italic">Loading trend road...</span>
-          </div>
+        <!-- Hidden container preserving legacy IDs for background script safe calls -->
+        <div class="hidden">
+          <b id="smartNextStake">₹1.00</b>
+          <b id="smartSessionPnl">+₹0.00</b>
+          <b id="smartMartingaleLvl">Lvl 0</b>
+          <button id="smartQuickBotBtn"></button>
+          <div id="smartRiskSummary"><span id="smartRiskBadge"></span></div>
         </div>
       </div>
 
-      <!-- ── UNIFIED SIDE-BY-SIDE VIEW: REAL HISTORY (LEFT) + TREND ROAD MAP (RIGHT) ── -->
+      <!-- ── REAL HISTORY + TREND GRAPH & NUMBER ROAD MAP (SIDE BY SIDE) ── -->
       <div class="grid grid-cols-1 xl:grid-cols-2 gap-3 items-start">
         
-        <!-- SIDE 1: SMART REAL HISTORY FEED -->
+        <!-- SIDE 1: LIVE REAL HISTORY FEED -->
         <div class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-xl flex flex-col">
-          <div class="p-3 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border-b border-purple-900/40 flex items-center justify-between">
-            <div class="flex items-center gap-2">
+          <div class="p-2.5 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border-b border-purple-900/40 flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
               <i class="fa-solid fa-list-check text-amber-400 text-xs"></i>
               <span class="font-black text-xs text-white">Live Real History</span>
-              <span id="historyLiveStatusBadge" class="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">Auto-Synced</span>
+              <span id="historyLiveStatusBadge" class="text-[8.5px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">Auto-Synced</span>
             </div>
-            <span class="text-[9.5px] text-slate-400 font-mono">Single Num + Color + AI Signals</span>
+            <span class="text-[9px] text-slate-400 font-mono">Real Game Draws</span>
           </div>
-          <div class="grid grid-cols-12 py-2 px-3 bg-purple-950/80 text-slate-300 font-bold text-[9.5px] border-b border-purple-900/30 font-mono">
+          <div class="grid grid-cols-12 py-1.5 px-3 bg-purple-950/80 text-slate-300 font-bold text-[9px] border-b border-purple-900/30 font-mono">
             <div class="col-span-3">Period</div>
             <div class="col-span-3 text-center">Result &amp; Color</div>
             <div class="col-span-3 text-center">AI Signal</div>
-            <div class="col-span-3 text-right pr-1">Bet</div>
+            <div class="col-span-3 text-right pr-1">Status</div>
           </div>
-          <div id="smartHistoryRows" class="divide-y divide-purple-900/30 text-[10px] font-mono max-h-[640px] overflow-y-auto" style="scrollbar-width:thin;scrollbar-color:#4c1d95 transparent;"></div>
+          <div id="smartHistoryRows" class="divide-y divide-purple-900/30 text-[9.5px] font-mono max-h-[560px] overflow-y-auto" style="scrollbar-width:thin;scrollbar-color:#4c1d95 transparent;"></div>
           <!-- Hidden fallback hook for any legacy calls -->
           <div id="gameHistoryRows" class="hidden"></div>
-          <div class="flex items-center justify-between p-2.5 bg-app-surface border-t border-purple-900/40 text-xs text-purple-300 font-mono">
-            <span id="rowCountBadge" class="text-[10px] font-bold text-slate-400">0 records</span>
-            <button onclick="downloadCSVReport()" class="text-amber-400 hover:text-amber-300 font-bold text-[10.5px] flex items-center gap-1 active:scale-95 transition">
+          <div class="flex items-center justify-between p-2 bg-app-surface border-t border-purple-900/40 text-[9px] text-purple-300 font-mono">
+            <span id="rowCountBadge" class="font-bold text-slate-400">0 records</span>
+            <button onclick="downloadCSVReport()" class="text-amber-400 hover:text-amber-300 font-bold text-[9.5px] flex items-center gap-1 active:scale-95 transition">
               <i class="fa-solid fa-download"></i> Export CSV
             </button>
           </div>
@@ -594,18 +583,18 @@
 
         <!-- SIDE 2: TREND GRAPH & NUMBER ROAD MAP -->
         <div class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-xl flex flex-col">
-          <div class="p-3 bg-gradient-to-r from-amber-500/20 via-purple-950 to-slate-900 border-b border-purple-900/40 flex items-center justify-between">
-            <div class="flex items-center gap-2">
+          <div class="p-2.5 bg-gradient-to-r from-amber-500/20 via-purple-950 to-slate-900 border-b border-purple-900/40 flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
               <i class="fa-solid fa-chart-line text-amber-400 text-xs"></i>
               <span class="font-black text-xs text-white">Trend Graph &amp; Number Road</span>
-              <span class="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30 font-mono">0-9 Connected</span>
+              <span class="text-[8.5px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30 font-mono">0-9 Connected</span>
             </div>
-            <span class="text-[9.5px] text-slate-400 font-mono">Dhaniwin Pattern Matrix</span>
+            <span class="text-[9px] text-slate-400 font-mono">Pattern Matrix</span>
           </div>
 
           <!-- Statistic Header Row -->
-          <div class="bg-gradient-to-r from-amber-400 to-amber-500 px-3 py-1.5">
-            <div class="grid grid-cols-12 text-[9.5px] font-black text-slate-900">
+          <div class="bg-gradient-to-r from-amber-400 to-amber-500 px-3 py-1">
+            <div class="grid grid-cols-12 text-[9px] font-black text-slate-900">
               <div class="col-span-3">Statistic</div>
               <div class="text-center">0</div><div class="text-center">1</div><div class="text-center">2</div>
               <div class="text-center">3</div><div class="text-center">4</div><div class="text-center">5</div>
@@ -613,39 +602,72 @@
               <div class="text-center">9</div>
             </div>
           </div>
-          <div id="chartStatsRows" class="divide-y divide-purple-900/30 px-3 text-[9px] font-mono bg-purple-950/40"></div>
+          <div id="chartStatsRows" class="divide-y divide-purple-900/30 px-3 text-[8.5px] font-mono bg-purple-950/40"></div>
 
           <!-- Grid Columns -->
-          <div class="grid gap-0 px-2 pt-2 pb-1 bg-purple-950/60 border-t border-purple-900/30" style="grid-template-columns:60px repeat(10,1fr) 26px 26px 26px">
-            <div class="text-[9px] text-slate-400 font-bold font-mono">Period</div>
-            <div class="text-[9px] text-center text-slate-300 font-bold">0</div>
-            <div class="text-[9px] text-center text-slate-300 font-bold">1</div>
-            <div class="text-[9px] text-center text-slate-300 font-bold">2</div>
-            <div class="text-[9px] text-center text-slate-300 font-bold">3</div>
-            <div class="text-[9px] text-center text-slate-300 font-bold">4</div>
-            <div class="text-[9px] text-center text-slate-300 font-bold">5</div>
-            <div class="text-[9px] text-center text-slate-300 font-bold">6</div>
-            <div class="text-[9px] text-center text-slate-300 font-bold">7</div>
-            <div class="text-[9px] text-center text-slate-300 font-bold">8</div>
-            <div class="text-[9px] text-center text-slate-300 font-bold">9</div>
-            <div class="text-[9px] text-center text-amber-400 font-bold">B/S</div>
-            <div class="text-[9px] text-center text-indigo-300 font-bold">AI</div>
-            <div class="text-[9px] text-center text-purple-300 font-bold">Bet</div>
+          <div class="grid gap-0 px-2 pt-1.5 pb-1 bg-purple-950/60 border-t border-purple-900/30" style="grid-template-columns:60px repeat(10,1fr) 26px 26px 26px">
+            <div class="text-[8.5px] text-slate-400 font-bold font-mono">Period</div>
+            <div class="text-[8.5px] text-center text-slate-300 font-bold">0</div>
+            <div class="text-[8.5px] text-center text-slate-300 font-bold">1</div>
+            <div class="text-[8.5px] text-center text-slate-300 font-bold">2</div>
+            <div class="text-[8.5px] text-center text-slate-300 font-bold">3</div>
+            <div class="text-[8.5px] text-center text-slate-300 font-bold">4</div>
+            <div class="text-[8.5px] text-center text-slate-300 font-bold">5</div>
+            <div class="text-[8.5px] text-center text-slate-300 font-bold">6</div>
+            <div class="text-[8.5px] text-center text-slate-300 font-bold">7</div>
+            <div class="text-[8.5px] text-center text-slate-300 font-bold">8</div>
+            <div class="text-[8.5px] text-center text-slate-300 font-bold">9</div>
+            <div class="text-[8.5px] text-center text-amber-400 font-bold">B/S</div>
+            <div class="text-[8.5px] text-center text-indigo-300 font-bold">AI</div>
+            <div class="text-[8.5px] text-center text-purple-300 font-bold">Bet</div>
           </div>
 
           <!-- SVG Connector & 0-9 Road Grid -->
-          <div class="relative px-2 pb-2 max-h-[530px] overflow-y-auto" id="numberRoadContainer" style="scrollbar-width:thin;scrollbar-color:#4c1d95 transparent;">
+          <div class="relative px-2 pb-2 max-h-[460px] overflow-y-auto" id="numberRoadContainer" style="scrollbar-width:thin;scrollbar-color:#4c1d95 transparent;">
             <svg id="roadConnectorSvg" class="absolute inset-0 pointer-events-none" style="width:100%;height:100%;overflow:visible;"></svg>
             <div id="numberRoadRows" class="relative z-10 space-y-0.5"></div>
           </div>
 
           <!-- Summary Stats Footer -->
-          <div class="grid grid-cols-3 gap-2 p-2.5 border-t border-purple-900/40 text-center text-xs font-mono bg-purple-950/30">
-            <div class="p-1.5 bg-purple-950/70 rounded-xl border border-purple-800/30"><span class="text-[8.5px] text-slate-400 block font-sans">BIG RATIO</span><b id="chartBigPct" class="text-amber-400">50%</b></div>
-            <div class="p-1.5 bg-purple-950/70 rounded-xl border border-purple-800/30"><span class="text-[8.5px] text-slate-400 block font-sans">SMALL RATIO</span><b id="chartSmallPct" class="text-sky-400">50%</b></div>
-            <div class="p-1.5 bg-purple-950/70 rounded-xl border border-purple-800/30"><span class="text-[8.5px] text-slate-400 block font-sans">WIN ACCURACY</span><b id="chartWinRatio" class="text-emerald-400">—</b></div>
+          <div class="grid grid-cols-3 gap-2 p-2 border-t border-purple-900/40 text-center text-[9px] font-mono bg-purple-950/30">
+            <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block font-sans">BIG RATIO</span><b id="chartBigPct" class="text-amber-400">50%</b></div>
+            <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block font-sans">SMALL RATIO</span><b id="chartSmallPct" class="text-sky-400">50%</b></div>
+            <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block font-sans">WIN ACCURACY</span><b id="chartWinRatio" class="text-emerald-400">—</b></div>
           </div>
         </div>
+      </div>
+
+      <!-- ── ADVANCED FEATURES: REPEATED COLOR, DIGITS & FREQUENCY AUDIT ── -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
+        
+        <!-- Feature 1: Number Frequency Audit (0-9) -->
+        <div class="bg-app-card rounded-2xl p-3 border border-purple-900/40 shadow-xl space-y-2">
+          <div class="flex items-center justify-between pb-1.5 border-b border-purple-900/30">
+            <div class="flex items-center gap-1.5">
+              <i class="fa-solid fa-chart-pie text-emerald-400 text-xs"></i>
+              <span class="text-[10px] font-black uppercase tracking-wider text-white">Number Frequency Audit (0-9)</span>
+            </div>
+            <span class="text-[8px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono border border-emerald-500/30">Distribution</span>
+          </div>
+          <div id="auditNumberDistGrid" class="grid grid-cols-5 gap-1.5 text-center font-mono">
+            <!-- Injected by renderPatternAnalytics() -->
+          </div>
+        </div>
+
+        <!-- Feature 2: Repeated Color & Streak Intelligence -->
+        <div class="bg-app-card rounded-2xl p-3 border border-purple-900/40 shadow-xl space-y-2">
+          <div class="flex items-center justify-between pb-1.5 border-b border-purple-900/30">
+            <div class="flex items-center gap-1.5">
+              <i class="fa-solid fa-palette text-amber-400 text-xs"></i>
+              <span class="text-[10px] font-black uppercase tracking-wider text-white">Repeated Color &amp; Digit Analysis</span>
+            </div>
+            <span class="text-[8px] px-1.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-mono border border-amber-400/30">Pattern Edge</span>
+          </div>
+          <div id="repeatedColorDigitAudit" class="grid grid-cols-2 gap-1.5 font-mono text-[9px]">
+            <!-- Injected by renderPatternAnalytics() -->
+          </div>
+        </div>
+      </div>
 
     </div>
   </main>
@@ -693,13 +715,8 @@
             <span class="text-[10px] font-black uppercase tracking-wider text-white">Game History &amp; Analysis</span>
             <span class="text-[8px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">v5 Engine</span>
           </div>
-          <div class="flex items-center gap-1">
-            <div class="flex items-center bg-black/60 p-0.5 rounded-lg border border-purple-800/40 gap-0.5">
-              <button onclick="selectAnalysisTf('30s')" id="ghTf-30s" class="px-2 py-0.5 rounded-md font-black text-[9px] transition active:scale-95 bg-amber-400 text-slate-950 shadow">30s</button>
-              <button onclick="selectAnalysisTf('1m')" id="ghTf-1m" class="px-2 py-0.5 rounded-md font-bold text-[9px] transition active:scale-95 text-slate-400 hover:text-white">1m</button>
-              <button onclick="selectAnalysisTf('3m')" id="ghTf-3m" class="px-2 py-0.5 rounded-md font-bold text-[9px] transition active:scale-95 text-slate-400 hover:text-white">3m</button>
-              <button onclick="selectAnalysisTf('5m')" id="ghTf-5m" class="px-2 py-0.5 rounded-md font-bold text-[9px] transition active:scale-95 text-slate-400 hover:text-white">5m</button>
-            </div>
+          <div class="flex items-center gap-1.5">
+            <span id="ghActiveTfBadge" class="text-[9px] px-2 py-0.5 rounded-md bg-amber-400 text-slate-950 font-black border border-amber-400/50 shadow">30s</span>
             <button onclick="exportGameAnalysisJSON()" class="px-1.5 py-0.5 rounded-lg bg-purple-950/70 text-purple-200 text-[9px] font-mono border border-purple-800/40 active:scale-95 transition" title="Export JSON"><i class="fa-solid fa-file-code text-amber-400"></i></button>
             <button onclick="exportGameAnalysisCSV()" class="px-1.5 py-0.5 rounded-lg bg-purple-950/70 text-purple-200 text-[9px] font-mono border border-purple-800/40 active:scale-95 transition" title="Export CSV"><i class="fa-solid fa-file-csv text-emerald-400"></i></button>
           </div>
@@ -754,7 +771,7 @@
         </div>
       </div>
 
-      <!-- ── 2. DETECTED PATTERN LIBRARY & REPEAT CODES (PLACED IN RIGHT EMPTY SPACE) ── -->
+      <!-- ── 2. DETECTED PATTERN LIBRARY & REPEAT CODES ── -->
       <div class="liquid-glass-card p-3.5 space-y-2.5">
         <div class="flex items-center justify-between pb-2 border-b border-white/10">
           <div class="flex items-center gap-2">
@@ -769,22 +786,7 @@
         </div>
       </div>
 
-      <!-- ── 3. NUMBER & COLOR FREQUENCY AUDIT (0-9) (PLACED IN RIGHT EMPTY SPACE) ── -->
-      <div class="liquid-glass-card p-3.5 space-y-2.5">
-        <div class="flex items-center justify-between pb-2 border-b border-white/10">
-          <div class="flex items-center gap-2">
-            <i class="fa-solid fa-chart-pie text-emerald-400 text-xs"></i>
-            <span class="text-[10px] font-black uppercase tracking-wider text-white">Number Frequency Audit (0-9)</span>
-          </div>
-          <span class="text-[8.5px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 font-mono border border-emerald-500/20">Distribution</span>
-        </div>
-
-        <div id="auditNumberDistGrid" class="grid grid-cols-5 gap-1.5 text-center font-mono">
-          <!-- Injected by renderPatternAnalytics() -->
-        </div>
-      </div>
-
-      <!-- ── 4. 5-ENGINE CONSENSUS & AI ACCURACY AUDIT ── -->
+      <!-- ── 3. 5-ENGINE CONSENSUS & AI ACCURACY AUDIT ── -->
       <div class="liquid-glass-card p-3.5 space-y-2.5">
         <div class="flex items-center justify-between pb-2 border-b border-white/10">
           <div class="flex items-center gap-2">
@@ -812,74 +814,23 @@
         </div>
       </div>
 
-      <!-- ── 5. MARTINGALE RECOVERY LADDER & SENTINEL ── -->
-      <div class="liquid-glass-card p-3.5 space-y-2.5">
-        <div class="flex items-center justify-between pb-2 border-b border-white/10">
-          <div class="flex items-center gap-2">
-            <i class="fa-solid fa-shield-halved text-rose-400 text-xs"></i>
-            <span class="text-[10px] font-black uppercase tracking-wider text-white">Loss Sentinel &amp; Staking</span>
-          </div>
-          <span id="diagCircuitStatus" class="text-[8.5px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono border border-emerald-500/20 font-bold">PROTECTION SAFE</span>
-        </div>
-
-        <!-- 4-Level Visual Recovery Ladder -->
-        <div>
-          <span class="text-[8.5px] text-slate-400 uppercase font-bold tracking-wider block mb-1.5">Martingale Recovery Ladder</span>
-          <div class="grid grid-cols-4 gap-1 text-center font-mono text-[9px]">
-            <div id="mgLadderL0" class="p-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300">
-              <span class="block text-[7.5px] text-slate-400">L0 (Base)</span>
-              <b class="text-[10px]">1.0×</b>
-            </div>
-            <div id="mgLadderL1" class="p-1.5 rounded-lg bg-white/[0.03] border border-white/5 text-slate-400">
-              <span class="block text-[7.5px] text-slate-400">L1</span>
-              <b class="text-[10px]">2.0×</b>
-            </div>
-            <div id="mgLadderL2" class="p-1.5 rounded-lg bg-white/[0.03] border border-white/5 text-slate-400">
-              <span class="block text-[7.5px] text-slate-400">L2</span>
-              <b class="text-[10px]">4.0×</b>
-            </div>
-            <div id="mgLadderL3" class="p-1.5 rounded-lg bg-white/[0.03] border border-white/5 text-slate-400">
-              <span class="block text-[7.5px] text-slate-400">L3</span>
-              <b class="text-[10px]">8.0×</b>
-            </div>
-          </div>
-        </div>
-
-        <div class="p-2 rounded-xl bg-white/[0.02] border border-white/5 space-y-1 font-mono text-[9px]">
-          <div class="flex justify-between"><span class="text-slate-400">Consecutive Loss:</span> <b id="diagLossStreak" class="text-rose-400">0/3 (SAFE)</b></div>
-          <div class="flex justify-between"><span class="text-slate-400">Payout Net Ratio:</span> <b class="text-amber-300">1.96× (+96% win profit)</b></div>
-          <div class="flex justify-between"><span class="text-slate-400">Current Next Stake:</span> <b id="diagStakeVal" class="text-emerald-400 font-bold">₹1.00</b></div>
-          <div class="flex justify-between"><span class="text-slate-400">Entropy / Noise:</span> <b id="diagEntropyVal" class="text-slate-200">0.50 (Normal)</b></div>
-        </div>
-      </div>
-
-      <!-- ── 6. SESSION TELEMETRY & CONTROLS ── -->
-      <div class="liquid-glass-card p-3.5 space-y-2.5">
-        <div class="flex items-center justify-between pb-2 border-b border-white/10">
-          <div class="flex items-center gap-2">
-            <i class="fa-solid fa-chart-line text-emerald-400 text-xs"></i>
-            <span class="text-[10px] font-black uppercase tracking-wider text-white">Live Session Telemetry</span>
-          </div>
-          <span class="text-[8.5px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 font-mono border border-emerald-500/20">Synchronized</span>
-        </div>
-
-        <div class="space-y-1.5 text-[10px] font-mono">
-          <div class="flex justify-between items-center"><span class="text-slate-400">Total Rounds Evaluated:</span><b id="statsTotalRounds" class="text-white">0</b></div>
-          <div class="flex justify-between items-center"><span class="text-slate-400">Total Bets Executed:</span><b id="statsTotalBets" class="text-white">0</b></div>
-          <div class="flex justify-between items-center"><span class="text-slate-400">Wins / Losses:</span><b id="statsWinsLosses" class="text-emerald-400">0 / 0</b></div>
-          <div class="flex justify-between items-center"><span class="text-slate-400">Overall Win Rate:</span><b id="statsWinRate" class="text-amber-300 font-bold">—</b></div>
-          <div class="flex justify-between items-center"><span class="text-slate-400">Net Session PnL:</span><b id="statsSessionPnl" class="text-emerald-400 font-black">+₹0.00</b></div>
-          <div class="flex justify-between items-center"><span class="text-slate-400">Active Martingale Level:</span><b id="statsMgLevel" class="text-amber-300">0</b></div>
-        </div>
-
-        <div class="mt-2 pt-2 border-t border-white/10 flex gap-2">
-          <button onclick="downloadCSVReport()" class="flex-1 py-2 rounded-xl bg-white/5 border border-white/10 text-white font-bold text-[10px] hover:bg-white/10 hover:border-white/20 transition flex items-center justify-center gap-1.5 active:scale-95">
-            <i class="fa-solid fa-download text-indigo-400"></i> CSV Export
-          </button>
-          <button onclick="fetchLiveAPIResults()" class="flex-1 py-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 font-bold text-[10px] hover:bg-emerald-500/30 transition flex items-center justify-center gap-1.5 active:scale-95">
-            <i class="fa-solid fa-rotate text-emerald-400"></i> Sync Live
-          </button>
-        </div>
+      <!-- ── BACKWARD-COMPATIBILITY HIDDEN REPOSITORY ── -->
+      <!-- Preserves legacy script element IDs safely so background helpers never crash -->
+      <div class="hidden" aria-hidden="true">
+        <div id="mgLadderL0"></div>
+        <div id="mgLadderL1"></div>
+        <div id="mgLadderL2"></div>
+        <div id="mgLadderL3"></div>
+        <div id="diagCircuitStatus"></div>
+        <div id="diagLossStreak"></div>
+        <div id="diagStakeVal"></div>
+        <div id="diagEntropyVal"></div>
+        <div id="statsTotalRounds"></div>
+        <div id="statsTotalBets"></div>
+        <div id="statsWinsLosses"></div>
+        <div id="statsWinRate"></div>
+        <div id="statsSessionPnl"></div>
+        <div id="statsMgLevel"></div>
       </div>
 
       <!-- Hidden drawer toggle for mobile -->
@@ -3403,16 +3354,10 @@ function setTimeframe(tf) {
   renderBSPattern();
   renderSmartView();
   renderPatternAnalytics();
-  runAI();
   // Sync analysis panel TF and update it
   currentAnalysisTf = tf;
-  // Sync button highlights for right-panel TF buttons
-  ['30s','1m','3m','5m'].forEach(t => {
-    const b = document.getElementById(`ghTf-${t}`);
-    if (b) b.className = (t === tf)
-      ? 'px-2 py-0.5 rounded-md font-black text-[9px] transition active:scale-95 bg-amber-400 text-slate-950 shadow'
-      : 'px-2 py-0.5 rounded-md font-bold text-[9px] transition active:scale-95 text-slate-400 hover:text-white';
-  });
+  const ghBadge = document.getElementById('ghActiveTfBadge');
+  if (ghBadge) ghBadge.textContent = tf;
   if (typeof renderGameHistoryAnalysisTab === 'function') renderGameHistoryAnalysisTab(tf);
 
   showToast(`⚡ WinGo ${tf} session active. Fetching live draws...`, 'info');
@@ -3588,21 +3533,12 @@ function switchCenterView(view) {
 
 function selectAnalysisTf(tf) {
   currentAnalysisTf = tf;
-  // Sync the main timeframe buttons if clicking a different TF in analysis
-  // (also triggers full setTimeframe switch so data and UI are in sync)
   if (tf !== S.timeframe) {
     setTimeframe(tf);
-    return; // setTimeframe already calls renderGameHistoryAnalysisTab
+    return;
   }
-  // Update right-panel TF button highlights (compact style)
-  ['30s','1m','3m','5m'].forEach(t => {
-    const b = document.getElementById(`ghTf-${t}`);
-    if (b) {
-      b.className = (t === tf)
-        ? 'px-2 py-0.5 rounded-md font-black text-[9px] transition active:scale-95 bg-amber-400 text-slate-950 shadow'
-        : 'px-2 py-0.5 rounded-md font-bold text-[9px] transition active:scale-95 text-slate-400 hover:text-white';
-    }
-  });
+  const ghBadge = document.getElementById('ghActiveTfBadge');
+  if (ghBadge) ghBadge.textContent = tf;
   renderGameHistoryAnalysisTab(tf);
 }
 
@@ -4095,11 +4031,29 @@ function applyProModeUI() {
   }
 
   // Toggle elements for Pro Mode vs Normal Mode:
-  // In Pro Mode: DO NOT show number balls and manual betting buttons!
-  // In Normal Mode: Show old normal UI with ticket and manual betting board.
+  // In Pro Mode: Sleek 2-column layout (Left aside panel hidden)
+  // In Normal Mode: Show old manual betting board on the left
+  const leftAside = document.getElementById('leftAsidePanel');
+  const mainGrid = document.getElementById('mainDesktopGrid');
   const ticketCard = document.getElementById('ticketCard');
   const bettingBoard = document.getElementById('bettingBoardWrapper');
   const proModeLeft = document.getElementById('proModeLeftControl');
+
+  if (leftAside) {
+    if (isPro) {
+      leftAside.classList.add('hidden');
+    } else {
+      leftAside.classList.remove('hidden');
+    }
+  }
+
+  if (mainGrid) {
+    if (isPro) {
+      mainGrid.className = 'relative z-10 flex flex-col lg:grid lg:grid-cols-[1fr_430px] w-full';
+    } else {
+      mainGrid.className = 'relative z-10 flex flex-col lg:grid lg:grid-cols-[380px_1fr_430px] w-full';
+    }
+  }
 
   if (ticketCard) ticketCard.style.display = isPro ? 'none' : 'block';
   if (bettingBoard) bettingBoard.style.display = isPro ? 'none' : 'block';
@@ -4396,12 +4350,73 @@ function renderPatternAnalytics() {
       const pct = Math.round(c / (realHist.length || 1) * 100);
       const isHot = c / maxC > 0.7;
       const numC = (n===0||n===5) ? 'text-purple-300' : (n%2===1 ? 'text-emerald-300' : 'text-rose-300');
-      return `<div class="p-1.5 rounded-xl bg-white/[0.03] border ${isHot ? 'border-amber-400/60 shadow-lg' : 'border-white/5'} flex flex-col items-center">
+      return `<div class="p-1.5 rounded-xl bg-purple-950/60 border ${isHot ? 'border-amber-400/60 shadow-lg' : 'border-purple-800/30'} flex flex-col items-center">
         <b class="${numC} text-xs font-black">${n}</b>
-        <span class="text-slate-300 text-[9px] font-bold mt-0.5">${c}×</span>
-        <span class="text-slate-500 text-[7.5px] font-mono">${pct}%</span>
+        <span class="text-slate-200 text-[9px] font-bold mt-0.5">${c}×</span>
+        <span class="text-slate-400 text-[7.5px] font-mono">${pct}%</span>
       </div>`;
     }).join('');
+  }
+
+  // ── 4. Repeated Color & Consecutive Digit Analysis ──
+  const colorDigitEl = document.getElementById('repeatedColorDigitAudit');
+  if (colorDigitEl) {
+    const total = realHist.length || 1;
+    let greenCount = 0, redCount = 0, violetCount = 0;
+    let maxGreenStreak = 0, maxRedStreak = 0;
+    let curGreen = 0, curRed = 0;
+    let consecPairs = 0; // identical consecutive numbers e.g. 7-7, 3-3
+
+    for (let i = 0; i < realHist.length; i++) {
+      const r = realHist[i];
+      const col = (r.color || '').toUpperCase();
+      const num = Number(r.number);
+
+      if (col.includes('GREEN') || [1,3,7,9].includes(num) || num === 5) greenCount++;
+      if (col.includes('RED') || [2,4,6,8].includes(num) || num === 0) redCount++;
+      if (num === 0 || num === 5 || col.includes('VIOLET')) violetCount++;
+
+      // Streaks
+      if (col.includes('GREEN') || [1,3,7,9].includes(num)) {
+        curGreen++; curRed = 0;
+        if (curGreen > maxGreenStreak) maxGreenStreak = curGreen;
+      } else if (col.includes('RED') || [2,4,6,8].includes(num)) {
+        curRed++; curGreen = 0;
+        if (curRed > maxRedStreak) maxRedStreak = curRed;
+      }
+
+      // Check consecutive duplicate digit
+      if (i > 0 && realHist[i-1].number === num) {
+        consecPairs++;
+      }
+    }
+
+    const lastRound = realHist[realHist.length - 1];
+    const lastColor = lastRound ? (lastRound.color || ([1,3,7,9,5].includes(Number(lastRound.number)) ? 'GREEN' : 'RED')) : '—';
+    const lastNum = lastRound ? lastRound.number : '—';
+
+    colorDigitEl.innerHTML = `
+      <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/30 space-y-0.5">
+        <span class="text-[7.5px] text-slate-400 block uppercase">Green Dominance</span>
+        <b class="text-emerald-400 text-xs font-black">${greenCount} (${Math.round(greenCount/total*100)}%)</b>
+        <span class="text-[7.5px] text-slate-400 block">Max Streak: <b class="text-emerald-300 font-bold">${maxGreenStreak}×</b></span>
+      </div>
+      <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/30 space-y-0.5">
+        <span class="text-[7.5px] text-slate-400 block uppercase">Red Dominance</span>
+        <b class="text-rose-400 text-xs font-black">${redCount} (${Math.round(redCount/total*100)}%)</b>
+        <span class="text-[7.5px] text-slate-400 block">Max Streak: <b class="text-rose-300 font-bold">${maxRedStreak}×</b></span>
+      </div>
+      <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/30 space-y-0.5">
+        <span class="text-[7.5px] text-slate-400 block uppercase">Consecutive Digits</span>
+        <b class="text-amber-300 text-xs font-black">${consecPairs} Doubled</b>
+        <span class="text-[7.5px] text-slate-400 block">Rate: <b class="text-amber-400 font-bold">${Math.round(consecPairs/total*100)}%</b></span>
+      </div>
+      <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/30 space-y-0.5">
+        <span class="text-[7.5px] text-slate-400 block uppercase">Latest Pulse</span>
+        <b class="text-indigo-300 text-xs font-black">#${lastNum} (${lastColor})</b>
+        <span class="text-[7.5px] text-slate-400 block">Violet Hits: <b class="text-purple-400 font-bold">${violetCount}×</b></span>
+      </div>
+    `;
   }
 }
 
