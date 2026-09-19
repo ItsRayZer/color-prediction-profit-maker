@@ -111,489 +111,692 @@
     .num-pick.selected { box-shadow:0 0 0 3px #f59e0b, 0 0 12px rgba(245,158,11,.5); }
   </style>
 </head>
-<body class="flex justify-center min-h-screen">
+<body class="bg-app-bg min-h-screen text-white overflow-x-hidden">
 
 <!-- ════════════════════════════════════════════════════════════
      TOAST CONTAINER
 ════════════════════════════════════════════════════════════ -->
-<div id="toastContainer" class="fixed top-3 left-1/2 -translate-x-1/2 z-[110] flex flex-col items-center w-full max-w-md px-4 pointer-events-none space-y-2"></div>
-
-<!-- bet block overlay is now INSIDE #bettingBoard wrapper below -->
+<div id="toastContainer" class="fixed top-3 left-1/2 -translate-x-1/2 z-[110] flex flex-col items-center w-full max-w-lg px-4 pointer-events-none space-y-2"></div>
 
 <!-- ════════════════════════════════════════════════════════════
-     MAIN APP CONTAINER
+     FULL-WIDTH TOP NAVBAR
 ════════════════════════════════════════════════════════════ -->
-<div class="w-full max-w-md mx-auto bg-app-bg min-h-screen relative flex flex-col pb-28 shadow-2xl border-x border-purple-950/40 overflow-x-hidden">
-
-  <!-- ── TOP NAVBAR ── -->
-  <header class="flex items-center justify-between px-4 py-3 bg-app-surface sticky top-0 z-30 border-b border-purple-900/30">
+<header class="flex items-center justify-between px-6 py-3 bg-app-surface sticky top-0 z-30 border-b border-purple-900/30 w-full">
+  <div class="flex items-center gap-3">
     <button onclick="toggleAIGlow()" class="w-8 h-8 flex items-center justify-center rounded-full bg-app-card text-amber-400 hover:text-white transition active:scale-95">
       <i class="fa-solid fa-bolt-lightning text-xs"></i>
     </button>
-    <div class="flex flex-col items-center cursor-pointer" onclick="toggleAIGlow()">
-      <div class="flex items-center gap-1">
-        <span class="text-xl font-black italic text-indigo-400">Dhani</span>
-        <span class="text-xl font-black italic text-amber-400">.win</span>
-        <span class="ml-1 text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">QUANT AI</span>
-      </div>
-      <div id="realWorldClock" class="text-[9px] font-mono text-purple-300 font-semibold">--:--:-- UTC+5:30</div>
+    <div class="flex items-center gap-2 cursor-pointer" onclick="toggleAIGlow()">
+      <span class="text-xl font-black italic text-indigo-400">Dhani</span>
+      <span class="text-xl font-black italic text-amber-400">.win</span>
+      <span class="ml-1 text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">QUANT AI</span>
     </div>
-    <div class="flex items-center gap-2">
-      <button onclick="toggleAutoBet()" id="autoBetToggleBtn" class="w-8 h-8 flex items-center justify-center rounded-full bg-app-card text-slate-300 hover:text-emerald-400 transition" title="Auto-Execution">
-        <i class="fa-solid fa-robot text-xs"></i>
-      </button>
-      <button onclick="openImportModal()" class="w-8 h-8 flex items-center justify-center rounded-full bg-app-card text-slate-300 hover:text-white transition" title="Data Import">
-        <i class="fa-solid fa-database text-xs"></i>
-      </button>
-    </div>
-  </header>
-
-  <!-- ── QUANT AI SIGNAL TERMINAL ── -->
-  <div id="quantBox" class="mx-4 mt-3 mb-2 p-3.5 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border border-amber-500/40 rounded-2xl shadow-xl">
-    <div class="flex items-center justify-between pb-2 border-b border-purple-800/40">
-      <div class="flex items-center gap-2">
-        <span id="aiReadyDot" class="w-2 h-2 rounded-full bg-slate-500"></span>
-        <span class="text-[11px] font-black text-amber-400 uppercase tracking-wider">Markov + Kelly Engine</span>
-      </div>
-      <div id="circuitBreakerTag" class="text-[10px] px-2.5 py-0.5 rounded-full font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-        PROTECTION: SAFE
-      </div>
-    </div>
-
-    <!-- Signal row -->
-    <div class="mt-2.5 flex items-center justify-between">
-      <div>
-        <span class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold block">AI SIGNAL</span>
-        <div id="signalVerdict" class="text-xl font-black text-slate-400 mt-0.5">GATHERING DATA...</div>
-        <div class="mt-1.5 flex gap-2 flex-wrap">
-          <span id="aiSizePill" class="ai-signal-pill ai-wait"><i class="fa-solid fa-chart-bar text-[10px]"></i> —</span>
-          <span id="aiConfPill" class="ai-signal-pill ai-wait"><i class="fa-solid fa-percent text-[10px]"></i> —</span>
-        </div>
-      </div>
-      <div class="text-right">
-        <span class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold block">SUGGESTED STAKE</span>
-        <div id="signalStake" class="text-xl font-black text-emerald-400 font-mono mt-0.5">₹—</div>
-        <div class="text-[10px] text-slate-400 mt-0.5">Kelly-optimized</div>
-      </div>
-    </div>
-
-    <!-- Confidence bars -->
-    <div id="confidenceBars" class="mt-3 space-y-1.5">
-      <div class="flex items-center gap-2 text-[10px]">
-        <span class="w-10 text-amber-300 font-bold text-right">BIG</span>
-        <div class="prob-bar flex-1"><div id="bigBar" class="prob-fill bg-amber-400" style="width:50%"></div></div>
-        <span id="bigPct" class="w-8 text-amber-300 font-bold">50%</span>
-      </div>
-      <div class="flex items-center gap-2 text-[10px]">
-        <span class="w-10 text-sky-300 font-bold text-right">SMALL</span>
-        <div class="prob-bar flex-1"><div id="smallBar" class="prob-fill bg-sky-400" style="width:50%"></div></div>
-        <span id="smallPct" class="w-8 text-sky-300 font-bold">50%</span>
-      </div>
-    </div>
-
-    <!-- Telemetry strip -->
-    <div class="mt-2.5 pt-2 border-t border-purple-800/40 grid grid-cols-4 gap-1 text-[10px] text-center font-mono">
-      <div class="bg-purple-950/70 border border-purple-800/30 py-1.5 rounded-xl">
-        <span class="text-[8px] text-slate-400 block font-sans font-semibold">ROUNDS</span>
-        <b id="dataCountDisplay" class="text-amber-300">0</b>
-      </div>
-      <div class="bg-purple-950/70 border border-purple-800/30 py-1.5 rounded-xl">
-        <span class="text-[8px] text-slate-400 block font-sans font-semibold">ENTROPY</span>
-        <b id="entropyDisplay" class="text-slate-200">1.00</b>
-      </div>
-      <div class="bg-purple-950/70 border border-purple-800/30 py-1.5 rounded-xl">
-        <span class="text-[8px] text-slate-400 block font-sans font-semibold">WIN RATE</span>
-        <b id="winRateDisplay" class="text-emerald-400">—</b>
-      </div>
-      <div class="bg-purple-950/70 border border-purple-800/30 py-1.5 rounded-xl">
-        <span class="text-[8px] text-slate-400 block font-sans font-semibold">STREAK</span>
-        <b id="streakDisplay" class="text-rose-400">0/3</b>
-      </div>
-    </div>
-
-    <div class="mt-2 flex items-center justify-between px-2 py-1.5 bg-black/40 rounded-lg text-[10px] text-slate-300">
-      <span id="reasoningText" class="truncate italic font-medium">Enter at least 8 real results to unlock predictions...</span>
-      <span id="autoBetStatusTag" class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-bold border border-slate-700 ml-1 shrink-0">BOT: OFF</span>
-    </div>
-
-    <!-- Start Auto-Betting main button inside AI Box -->
-    <button id="autoBetBoxBtn" onclick="toggleAutoBet()" class="w-full mt-2.5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black text-xs shadow hover:brightness-110 active:scale-95 transition flex items-center justify-center gap-2">
-      <i class="fa-solid fa-play"></i> 🚀 Start Auto-Betting
-    </button>
-
-    <!-- Embedded AI Test Mode Status & Requirements Strip (Inside quantBox) -->
-    <div id="aiTestBoxStrip" class="mt-2.5 p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 flex flex-col gap-1.5 text-[10px]">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-1.5 font-black text-amber-300 uppercase tracking-wider text-[9.5px]">
-          <i class="fa-solid fa-flask text-amber-400"></i>
-          <span>AI Shadow Test Mode</span>
-          <span id="testProgressBadge" class="px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 font-bold border border-amber-400/40 text-[8.5px]">0 / 5 rounds</span>
-        </div>
-        <button onclick="exitTestMode()" class="text-[9px] text-slate-400 hover:text-white underline">Exit Test</button>
-      </div>
-
-      <!-- Test Requirements Checklist -->
-      <div class="grid grid-cols-3 gap-1 font-mono text-[9px] text-slate-300 pt-0.5">
-        <div class="flex items-center justify-between p-1 bg-black/40 rounded-lg">
-          <span>Rounds:</span>
-          <b id="reqRoundsVal" class="text-amber-300">0 / 6</b>
-        </div>
-        <div class="flex items-center justify-between p-1 bg-black/40 rounded-lg">
-          <span>Acc:</span>
-          <b id="reqAccVal" class="text-emerald-400">—</b>
-        </div>
-        <div class="flex items-center justify-between p-1 bg-black/40 rounded-lg">
-          <span>PnL:</span>
-          <b id="reqPnlVal" class="text-emerald-400">₹100</b>
-        </div>
-      </div>
-
-      <div class="flex items-center justify-between text-[9px] pt-0.5">
-        <span id="testStatusText" class="text-amber-300 font-bold italic">🧪 Testing pattern stability before live betting...</span>
-        <button id="startRealModeBtn" onclick="exitTestMode()" class="px-2.5 py-1 rounded bg-gradient-to-r from-emerald-400 to-teal-500 text-slate-950 font-black text-[9px] hover:brightness-110 shadow transition hidden">🚀 Start Real Mode</button>
-      </div>
-    </div>
-
-    <!-- Expandable AI Diagnostics Toggle -->
-    <button onclick="toggleAIDiagnostics()" class="w-full mt-2 py-1.5 px-3 bg-purple-950/80 hover:bg-purple-900/80 rounded-xl text-[10px] text-amber-300 font-bold flex items-center justify-between border border-purple-800/40 transition">
-      <span class="flex items-center gap-1.5"><i class="fa-solid fa-microchip text-amber-400"></i> AI Engine Diagnostics & Telemetry</span>
-      <i id="diagChevron" class="fa-solid fa-chevron-down text-[10px] transition-transform"></i>
-    </button>
-
-    <!-- Expandable Diagnostics Drawer -->
-    <div id="aiDiagnosticsDrawer" class="hidden mt-2 p-3 bg-black/70 rounded-2xl border border-purple-800/60 space-y-3 text-[10px]">
-      
-      <!-- 5 Engine Live Consensus breakdown -->
-      <div>
-        <div class="text-[9px] font-black text-amber-400 uppercase tracking-wider mb-1 flex items-center gap-1"><i class="fa-solid fa-network-wired text-amber-400"></i> 5-Engine Live Voting Breakdown</div>
-        <div class="grid grid-cols-2 gap-1.5 font-mono text-[9px]">
-          <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between">
-            <span class="text-slate-400">1. Sum % 10:</span> <b id="diagEngineSum" class="text-amber-300">—</b>
-          </div>
-          <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between">
-            <span class="text-slate-400">2. Dragon/Chop:</span> <b id="diagEngineTrend" class="text-amber-300">—</b>
-          </div>
-          <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between">
-            <span class="text-slate-400">3. DNA Empirical:</span> <b id="diagEngineDNA" class="text-amber-300">—</b>
-          </div>
-          <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between">
-            <span class="text-slate-400">4. Markov (2nd-Ord):</span> <b id="diagEngineMarkov" class="text-amber-300">—</b>
-          </div>
-          <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between">
-            <span class="text-slate-400">5. Rolling Rate:</span> <b id="diagEngineRolling" class="text-amber-300">—</b>
-          </div>
-          <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between">
-            <span class="text-slate-400">6. OpenRouter AI:</span> <b id="diagEngineOR" class="text-indigo-300">—</b>
-          </div>
-        </div>
-      </div>
-
-      <!-- Test Mode & Accuracy Telemetry -->
-      <div>
-        <div class="text-[9px] font-black text-emerald-400 uppercase tracking-wider mb-1 flex items-center gap-1"><i class="fa-solid fa-vial text-emerald-400"></i> AI Testing & Accuracy Telemetry</div>
-        <div class="grid grid-cols-3 gap-1.5 text-center font-mono text-[9px]">
-          <div class="p-1.5 bg-emerald-950/40 border border-emerald-500/30 rounded-lg">
-            <span class="text-slate-400 block text-[8px]">CORRECT</span>
-            <b id="diagCorrectCount" class="text-emerald-400">0</b>
-          </div>
-          <div class="p-1.5 bg-rose-950/40 border border-rose-500/30 rounded-lg">
-            <span class="text-slate-400 block text-[8px]">WRONG</span>
-            <b id="diagWrongCount" class="text-rose-400">0</b>
-          </div>
-          <div class="p-1.5 bg-purple-950/70 border border-purple-800/40 rounded-lg">
-            <span class="text-slate-400 block text-[8px]">ACCURACY</span>
-            <b id="diagAccPct" class="text-amber-300">—</b>
-          </div>
-        </div>
-      </div>
-
-      <!-- Circuit Breaker & Loss Guard Telemetry -->
-      <div>
-        <div class="text-[9px] font-black text-rose-400 uppercase tracking-wider mb-1 flex items-center gap-1"><i class="fa-solid fa-shield-halved text-rose-400"></i> Loss Guard & Circuit Breaker Math</div>
-        <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/40 space-y-1 font-mono text-[9px]">
-          <div class="flex justify-between"><span class="text-slate-400">Loss Streak:</span> <b id="diagLossStreak" class="text-rose-400">0/3 (SAFE)</b></div>
-          <div class="flex justify-between"><span class="text-slate-400">Circuit Breaker:</span> <b id="diagCircuitStatus" class="text-emerald-400 font-bold">PROTECTION SAFE</b></div>
-          <div class="flex justify-between"><span class="text-slate-400">Required Z-Score Threshold:</span> <b id="diagReqZ" class="text-amber-300">Z ≥ 1.64 (90% Conf)</b></div>
-          <div class="flex justify-between"><span class="text-slate-400">Entropy / Noise Index:</span> <b id="diagEntropyVal" class="text-slate-200">0.50 (Normal)</b></div>
-        </div>
-      </div>
-
-      <!-- Kelly Staking & Risk Formula -->
-      <div>
-        <div class="text-[9px] font-black text-indigo-300 uppercase tracking-wider mb-1 flex items-center gap-1"><i class="fa-solid fa-calculator text-indigo-300"></i> Half-Kelly Staking Engine</div>
-        <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/40 space-y-1 font-mono text-[9px]">
-          <div class="flex justify-between"><span class="text-slate-400">Payout Odds:</span> <b class="text-amber-300">1.92× (4% House Fee)</b></div>
-          <div class="flex justify-between"><span class="text-slate-400">Breakeven Win Rate:</span> <b class="text-slate-300">52.08%</b></div>
-          <div class="flex justify-between"><span class="text-slate-400">Model Win Probability:</span> <b id="diagProbVal" class="text-emerald-400">50.0%</b></div>
-          <div class="flex justify-between"><span class="text-slate-400">Calculated Stake:</span> <b id="diagStakeVal" class="text-amber-400">₹0.00 (5% max cap)</b></div>
-        </div>
-      </div>
-
-      <!-- Shadow Prediction Log -->
-      <div>
-        <div class="text-[9px] font-black text-amber-400 uppercase tracking-wider mb-1">Shadow Testing Predictions History</div>
-        <div id="diagTestHistoryLog" class="max-h-28 overflow-y-auto space-y-1 font-mono text-[9px]">
-          <div class="text-slate-500 italic text-[9px] p-1">No test rounds evaluated yet...</div>
-        </div>
-      </div>
-
-    </div>
+    <div id="realWorldClock" class="text-[10px] font-mono text-purple-300 font-semibold bg-purple-950/60 px-2 py-0.5 rounded-lg border border-purple-800/30">--:--:-- UTC+5:30</div>
   </div>
 
+  <!-- Center: Martingale status in header when active -->
+  <div id="mgHeaderStatus" class="hidden items-center gap-3 px-4 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-[11px]">
+    <i class="fa-solid fa-rotate text-amber-400 animate-spin" style="animation-duration:3s"></i>
+    <span class="text-amber-300 font-black">MARTINGALE ACTIVE</span>
+    <span class="text-slate-300">Base: <b id="mgHeaderBase" class="text-white font-mono">₹1</b></span>
+    <span class="text-slate-500">|</span>
+    <span class="text-slate-300">Next: <b id="mgHeaderCurrent" class="text-amber-400 font-mono font-black text-sm">₹1</b></span>
+    <span id="mgHeaderLevel" class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black text-[9px]">Lvl 0</span>
+    <span class="text-slate-400 font-mono text-[10px]" id="mgHeaderPnl">PnL: <span class="text-emerald-400">+₹0</span></span>
+  </div>
 
-  <div class="mx-4 mt-2 p-4 bg-app-card rounded-2xl border border-purple-900/40 shadow-lg">
-    <div class="flex items-center justify-between">
-      <div>
-        <span class="text-[10px] uppercase font-bold tracking-wider text-purple-300 block">Wallet Balance</span>
-        <div class="flex items-center gap-2 mt-0.5">
-          <span class="text-2xl font-black text-white font-mono" id="balanceDisplay">₹100.00</span>
-          <button onclick="openBalanceModal()" class="text-slate-400 hover:text-amber-400 transition text-sm active:scale-95">
-            <i class="fa-solid fa-pen-to-square"></i>
+    <button onclick="toggleProMode()" id="proModeToggleBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-indigo-500/20 border border-amber-400/50 text-amber-300 hover:text-white font-black text-xs transition shadow active:scale-95" title="Switch between Pro and Normal view">
+      <i class="fa-solid fa-layer-group text-amber-400 text-xs"></i>
+      <span id="proModeBtnText">⚡ PRO MODE: ON</span>
+    </button>
+    <div class="hidden lg:flex items-center gap-1 text-[10px] text-slate-400 font-mono bg-app-card px-3 py-1.5 rounded-xl border border-purple-900/40">
+      <i class="fa-solid fa-circle text-[6px] text-emerald-400 animate-pulse"></i>
+      <span id="liveStatusText">Connecting...</span>
+    </div>
+    <button onclick="toggleAutoBet()" id="autoBetToggleBtn" class="w-8 h-8 flex items-center justify-center rounded-full bg-app-card text-slate-300 hover:text-emerald-400 transition" title="Martingale Auto-Bet">
+      <i class="fa-solid fa-robot text-xs"></i>
+    </button>
+    <button onclick="openImportModal()" class="w-8 h-8 flex items-center justify-center rounded-full bg-app-card text-slate-300 hover:text-white transition" title="Data Import">
+      <i class="fa-solid fa-database text-xs"></i>
+    </button>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════════════════════
+     MAIN 3-COLUMN DESKTOP GRID
+════════════════════════════════════════════════════════════ -->
+<div class="flex flex-col lg:grid lg:grid-cols-[380px_1fr_360px] w-full" style="min-height:calc(100vh - 54px)">
+
+  <!-- ╔══════════════════════════════════════════════════════════
+       LEFT PANEL — AI Terminal + Timer + Betting Board
+  ══════════════════════════════════════════════════════════╗ -->
+  <aside class="lg:border-r border-purple-900/30 overflow-y-auto overflow-x-hidden bg-app-bg" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
+    <div class="p-3 space-y-3">
+
+      <!-- ── QUANT AI SIGNAL TERMINAL ── -->
+      <div id="quantBox" class="p-3.5 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border border-amber-500/40 rounded-2xl shadow-xl">
+        <div class="flex items-center justify-between pb-2 border-b border-purple-800/40">
+          <div class="flex items-center gap-2">
+            <span id="aiReadyDot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+            <span class="text-[11px] font-black text-amber-400 uppercase tracking-wider">Markov + Martingale Engine</span>
+          </div>
+          <div id="circuitBreakerTag" class="text-[10px] px-2.5 py-0.5 rounded-full font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">PROTECTION: SAFE</div>
+        </div>
+
+        <!-- Signal row -->
+        <div class="mt-2.5 flex items-center justify-between">
+          <div>
+            <span class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold block">AI SIGNAL</span>
+            <div id="signalVerdict" class="text-xl font-black text-slate-400 mt-0.5">GATHERING DATA...</div>
+            <div class="mt-1.5 flex gap-2 flex-wrap">
+              <span id="aiSizePill" class="ai-signal-pill ai-wait"><i class="fa-solid fa-chart-bar text-[10px]"></i> —</span>
+              <span id="aiConfPill" class="ai-signal-pill ai-wait"><i class="fa-solid fa-percent text-[10px]"></i> —</span>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="text-[9px] uppercase tracking-wider text-slate-400 font-semibold block">MARTINGALE BET</span>
+            <div id="signalStake" class="text-xl font-black text-emerald-400 font-mono mt-0.5">₹—</div>
+            <div class="text-[10px] text-slate-400 mt-0.5">Next in chain</div>
+          </div>
+        </div>
+
+        <!-- Confidence bars -->
+        <div id="confidenceBars" class="mt-3 space-y-1.5">
+          <div class="flex items-center gap-2 text-[10px]">
+            <span class="w-10 text-amber-300 font-bold text-right">BIG</span>
+            <div class="prob-bar flex-1"><div id="bigBar" class="prob-fill bg-amber-400" style="width:50%"></div></div>
+            <span id="bigPct" class="w-8 text-amber-300 font-bold">50%</span>
+          </div>
+          <div class="flex items-center gap-2 text-[10px]">
+            <span class="w-10 text-sky-300 font-bold text-right">SMALL</span>
+            <div class="prob-bar flex-1"><div id="smallBar" class="prob-fill bg-sky-400" style="width:50%"></div></div>
+            <span id="smallPct" class="w-8 text-sky-300 font-bold">50%</span>
+          </div>
+        </div>
+
+        <!-- Telemetry strip -->
+        <div class="mt-2.5 pt-2 border-t border-purple-800/40 grid grid-cols-4 gap-1 text-[10px] text-center font-mono">
+          <div class="bg-purple-950/70 border border-purple-800/30 py-1.5 rounded-xl">
+            <span class="text-[8px] text-slate-400 block font-sans font-semibold">ROUNDS</span>
+            <b id="dataCountDisplay" class="text-amber-300">0</b>
+          </div>
+          <div class="bg-purple-950/70 border border-purple-800/30 py-1.5 rounded-xl">
+            <span class="text-[8px] text-slate-400 block font-sans font-semibold">ENTROPY</span>
+            <b id="entropyDisplay" class="text-slate-200">1.00</b>
+          </div>
+          <div class="bg-purple-950/70 border border-purple-800/30 py-1.5 rounded-xl">
+            <span class="text-[8px] text-slate-400 block font-sans font-semibold">WIN RATE</span>
+            <b id="winRateDisplay" class="text-emerald-400">—</b>
+          </div>
+          <div class="bg-purple-950/70 border border-purple-800/30 py-1.5 rounded-xl">
+            <span class="text-[8px] text-slate-400 block font-sans font-semibold">STREAK</span>
+            <b id="streakDisplay" class="text-rose-400">0/3</b>
+          </div>
+        </div>
+
+        <div class="mt-2 flex items-center justify-between px-2 py-1.5 bg-black/40 rounded-lg text-[10px] text-slate-300">
+          <span id="reasoningText" class="truncate italic font-medium">Enter at least 8 real results to unlock predictions...</span>
+          <span id="autoBetStatusTag" class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-bold border border-slate-700 ml-1 shrink-0">BOT: OFF</span>
+        </div>
+
+        <!-- Start Martingale Bot button -->
+        <button id="autoBetBoxBtn" onclick="toggleAutoBet()" class="w-full mt-2.5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black text-xs shadow hover:brightness-110 active:scale-95 transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-rotate"></i> 🚀 Start Martingale Bot
+        </button>
+
+        <!-- AI Test Mode Strip -->
+        <div id="aiTestBoxStrip" class="mt-2.5 p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 flex flex-col gap-1.5 text-[10px]">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5 font-black text-amber-300 uppercase tracking-wider text-[9.5px]">
+              <i class="fa-solid fa-flask text-amber-400"></i>
+              <span>AI Shadow Test Mode</span>
+              <span id="testProgressBadge" class="px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 font-bold border border-amber-400/40 text-[8.5px]">0 / 5 rounds</span>
+            </div>
+            <button onclick="exitTestMode()" class="text-[9px] text-slate-400 hover:text-white underline">Exit Test</button>
+          </div>
+          <div class="grid grid-cols-3 gap-1 font-mono text-[9px] text-slate-300 pt-0.5">
+            <div class="flex items-center justify-between p-1 bg-black/40 rounded-lg"><span>Rounds:</span><b id="reqRoundsVal" class="text-amber-300">0 / 6</b></div>
+            <div class="flex items-center justify-between p-1 bg-black/40 rounded-lg"><span>Acc:</span><b id="reqAccVal" class="text-emerald-400">—</b></div>
+            <div class="flex items-center justify-between p-1 bg-black/40 rounded-lg"><span>PnL:</span><b id="reqPnlVal" class="text-emerald-400">₹100</b></div>
+          </div>
+          <div class="flex items-center justify-between text-[9px] pt-0.5">
+            <span id="testStatusText" class="text-amber-300 font-bold italic">🧪 Testing pattern stability before live betting...</span>
+            <button id="startRealModeBtn" onclick="exitTestMode()" class="px-2.5 py-1 rounded bg-gradient-to-r from-emerald-400 to-teal-500 text-slate-950 font-black text-[9px] hover:brightness-110 shadow transition hidden">🚀 Start Real Mode</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TIMEFRAME SELECTOR ── -->
+      <div class="grid grid-cols-4 gap-2">
+        <button onclick="setTimeframe('30s')" id="tf-30s" class="py-2 px-1 rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 text-slate-950 font-black text-xs flex flex-col items-center shadow active:scale-95">
+          <i class="fa-regular fa-clock text-sm mb-0.5"></i>
+          <span class="text-[10px] leading-tight font-black">WinGo<br>30sec</span>
+        </button>
+        <button onclick="setTimeframe('1m')" id="tf-1m" class="py-2 px-1 rounded-xl bg-app-card text-purple-200 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition">
+          <i class="fa-regular fa-clock text-sm mb-0.5 opacity-70"></i>
+          <span class="text-[10px] leading-tight">WinGo<br>1 Min</span>
+        </button>
+        <button onclick="setTimeframe('3m')" id="tf-3m" class="py-2 px-1 rounded-xl bg-app-card text-purple-200 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition">
+          <i class="fa-regular fa-clock text-sm mb-0.5 opacity-70"></i>
+          <span class="text-[10px] leading-tight">WinGo<br>3 Min</span>
+        </button>
+        <button onclick="setTimeframe('5m')" id="tf-5m" class="py-2 px-1 rounded-xl bg-app-card text-purple-200 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition">
+          <i class="fa-regular fa-clock text-sm mb-0.5 opacity-70"></i>
+          <span class="text-[10px] leading-tight">WinGo<br>5 Min</span>
+        </button>
+      </div>
+
+      <!-- ── TICKET COUNTDOWN ── -->
+      <div class="ticket-card rounded-xl p-3.5 text-slate-900 shadow-xl">
+        <div class="flex items-center justify-between">
+          <div class="space-y-1.5">
+            <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-slate-900/30 text-[10px] font-black bg-amber-400/50">
+              <i class="fa-solid fa-trophy text-[9px]"></i>
+              <span id="ticketTfTitle">WinGo 30sec</span>
+            </div>
+            <div class="text-[10px] font-bold text-slate-800 uppercase tracking-tight">Recent Results:</div>
+            <div class="flex items-center gap-1.5 pt-0.5" id="recentMiniBalls"></div>
+          </div>
+          <div class="text-right space-y-1">
+            <span class="text-[9px] font-black uppercase tracking-wider text-slate-800 block">Time remaining</span>
+            <div class="flex items-center gap-1 justify-end font-mono">
+              <span class="clock-digit w-5 h-7 rounded flex items-center justify-center font-black text-sm" id="tMin1">0</span>
+              <span class="clock-digit w-5 h-7 rounded flex items-center justify-center font-black text-sm" id="tMin2">0</span>
+              <span class="font-black text-slate-900 text-sm">:</span>
+              <span class="clock-digit w-5 h-7 rounded flex items-center justify-center font-black text-sm" id="tSec1">0</span>
+              <span class="clock-digit w-5 h-7 rounded flex items-center justify-center font-black text-sm" id="tSec2">0</span>
+            </div>
+            <div class="text-[10px] font-mono font-black tracking-tight text-slate-900 bg-amber-300/60 px-1.5 py-0.5 rounded inline-block" id="currentPeriodDisplay">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── BETTING BOARD ── -->
+      <div class="bg-app-card rounded-2xl border border-purple-900/30 shadow-lg" id="bettingBoardWrapper" style="position:relative;">
+        <div id="betBlockOverlay">
+          <div class="countdown-ring" style="--prog:100%">
+            <div class="countdown-inner">
+              <span id="blockCountNum" class="text-3xl font-black text-amber-400">5</span>
+            </div>
+          </div>
+          <p class="mt-3 text-base font-black text-rose-400 tracking-widest">BETTING CLOSED</p>
+          <p class="mt-1 text-xs text-slate-400 font-semibold">Awaiting round result...</p>
+        </div>
+        <div class="p-3.5 space-y-3.5" id="bettingBoard">
+          <div class="grid grid-cols-3 gap-2.5">
+            <button onclick="openBetSheet('GREEN','COLOR')" class="py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 font-black text-xs text-white shadow active:scale-95 transition flex items-center justify-center gap-1">
+              <i class="fa-solid fa-circle text-[8px]"></i> Green (2X)
+            </button>
+            <button onclick="openBetSheet('VIOLET','COLOR')" class="py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 font-black text-xs text-white shadow active:scale-95 transition flex items-center justify-center gap-1">
+              <i class="fa-solid fa-circle text-[8px]"></i> Violet (4.5X)
+            </button>
+            <button onclick="openBetSheet('RED','COLOR')" class="py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 font-black text-xs text-white shadow active:scale-95 transition flex items-center justify-center gap-1">
+              <i class="fa-solid fa-circle text-[8px]"></i> Red (2X)
+            </button>
+          </div>
+          <div class="grid grid-cols-5 gap-2.5 py-1">
+            <button onclick="openBetSheet('0','NUMBER')" class="ball-3d ball-split-0 w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">0</button>
+            <button onclick="openBetSheet('1','NUMBER')" class="ball-3d ball-green   w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">1</button>
+            <button onclick="openBetSheet('2','NUMBER')" class="ball-3d ball-red     w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">2</button>
+            <button onclick="openBetSheet('3','NUMBER')" class="ball-3d ball-green   w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">3</button>
+            <button onclick="openBetSheet('4','NUMBER')" class="ball-3d ball-red     w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">4</button>
+            <button onclick="openBetSheet('5','NUMBER')" class="ball-3d ball-split-5 w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">5</button>
+            <button onclick="openBetSheet('6','NUMBER')" class="ball-3d ball-red     w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">6</button>
+            <button onclick="openBetSheet('7','NUMBER')" class="ball-3d ball-green   w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">7</button>
+            <button onclick="openBetSheet('8','NUMBER')" class="ball-3d ball-red     w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">8</button>
+            <button onclick="openBetSheet('9','NUMBER')" class="ball-3d ball-green   w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">9</button>
+          </div>
+          <div class="grid grid-cols-2 gap-3 pt-1">
+            <button onclick="openBetSheet('BIG','SIZE')" class="py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 font-black text-base text-white shadow active:scale-95 transition flex flex-col items-center">
+              <span>Big</span><span class="text-[9px] font-normal opacity-90">5 – 9 &nbsp;(1.96X)</span>
+            </button>
+            <button onclick="openBetSheet('SMALL','SIZE')" class="py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-sky-500 font-black text-base text-white shadow active:scale-95 transition flex flex-col items-center">
+              <span>Small</span><span class="text-[9px] font-normal opacity-90">0 – 4 &nbsp;(1.96X)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── MARTINGALE STATUS (mobile / left panel) ── -->
+      <div id="martingaleStatusBar" class="p-3 bg-app-card rounded-2xl border border-amber-500/30 shadow-lg hidden">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center">
+              <i class="fa-solid fa-rotate text-amber-400 text-xs animate-spin" style="animation-duration:3s"></i>
+            </div>
+            <div>
+              <span class="text-[9px] uppercase font-black tracking-wider text-amber-400 block">MARTINGALE BOT ACTIVE</span>
+              <div class="flex items-center gap-2 mt-0.5">
+                <span class="text-[10px] text-slate-300">Base: <b id="mgBaseDisplay" class="text-white font-mono">₹1</b></span>
+                <span class="text-purple-600">|</span>
+                <span class="text-[10px] text-slate-300">Next: <b id="mgCurrentDisplay" class="text-amber-400 font-mono font-black">₹1</b></span>
+              </div>
+            </div>
+          </div>
+          <div class="text-right">
+            <div id="mgLevelBadge" class="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black mb-0.5">Level 0</div>
+            <div id="mgSessionPnl" class="text-[10px] font-mono text-slate-400">PnL: <span class="text-emerald-400 font-bold">+₹0.00</span></div>
+          </div>
+        </div>
+        <div id="mgChainViz" class="mt-2 flex items-center gap-1 text-[9px] font-mono overflow-x-auto pb-1"></div>
+        <button onclick="stopMartingale()" class="w-full mt-2 py-1.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 font-black text-[10px] hover:bg-rose-500/30 transition active:scale-95">
+          <i class="fa-solid fa-stop"></i> Stop Martingale Bot
+        </button>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- ╔══════════════════════════════════════════════════════════
+       CENTER PANEL — History + Charts (full height, all data)
+  ══════════════════════════════════════════════════════════╗ -->
+  <main class="overflow-y-auto overflow-x-hidden bg-[#0a0615]" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
+    <div class="p-3 space-y-3">
+
+      <!-- Sub-tabs -->
+      <div class="grid grid-cols-6 gap-1 text-[11px] sticky top-0 z-10 bg-[#0a0615] pb-2 pt-1 font-mono">
+        <button id="subtab-smart"   onclick="switchSubTab('smart')"   class="py-2 px-1 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black shadow truncate text-center">⚡ Smart View</button>
+        <button id="subtab-analyse" onclick="switchSubTab('analyse')" class="py-2 px-1 rounded-xl bg-app-card text-purple-300 font-bold hover:text-white truncate text-center">🧠 Patterns &amp; AI</button>
+        <button id="subtab-history" onclick="switchSubTab('history')" class="py-2 px-1 rounded-xl bg-app-card text-purple-300 font-bold hover:text-white truncate text-center">📋 History</button>
+        <button id="subtab-chart"   onclick="switchSubTab('chart')"   class="py-2 px-1 rounded-xl bg-app-card text-purple-300 font-bold hover:text-white truncate text-center">📈 Trend</button>
+        <button id="subtab-my"      onclick="switchSubTab('my')"      class="py-2 px-1 rounded-xl bg-app-card text-purple-300 font-bold hover:text-white truncate text-center">💰 Bets (<span id="myBetsBadge">0</span>)</button>
+        <button id="subtab-ai"      onclick="switchSubTab('ai')"      class="py-2 px-1 rounded-xl bg-app-card text-indigo-300 font-bold hover:text-white truncate text-center">🤖 Track</button>
+      </div>
+
+      <!-- ── HISTORY TABLE (full height, no truncation) ── -->
+      <div id="view-history" class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/30 shadow-lg">
+        <div class="grid grid-cols-12 py-2.5 px-3 bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black text-[10px]">
+          <div class="col-span-3">Period</div>
+          <div class="col-span-3 text-center">Real Output</div>
+          <div class="col-span-3 text-center">AI Signal</div>
+          <div class="col-span-3 text-right pr-1">Bet &amp; Result</div>
+        </div>
+        <!-- NO max-h limit — shows ALL history rows -->
+        <div id="gameHistoryRows" class="divide-y divide-purple-900/40 text-xs font-mono"></div>
+        <div class="flex items-center justify-between p-3 bg-app-surface border-t border-purple-900/40 text-xs text-purple-300">
+          <span id="rowCountBadge" class="text-[10px] font-bold">0 records</span>
+          <button onclick="downloadCSVReport()" class="text-amber-400 hover:text-amber-300 font-bold text-[11px] flex items-center gap-1">
+            <i class="fa-solid fa-download"></i> Export CSV
           </button>
         </div>
       </div>
-      <div class="text-right">
-        <div class="flex items-center gap-1 text-xs text-purple-300 justify-end">
-          <i class="fa-solid fa-shield-halved text-amber-400"></i>
-          <span class="font-bold">Vault Safe</span>
+
+      <!-- ── TREND CHART / ROAD MAP ── -->
+      <div id="view-chart" class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/30 shadow-lg hidden">
+        <div class="bg-gradient-to-r from-amber-400 to-amber-500 px-3 py-2">
+          <div class="grid grid-cols-12 text-[10px] font-black text-slate-900">
+            <div class="col-span-3">Statistic</div>
+            <div class="text-center">0</div><div class="text-center">1</div><div class="text-center">2</div>
+            <div class="text-center">3</div><div class="text-center">4</div><div class="text-center">5</div>
+            <div class="text-center">6</div><div class="text-center">7</div><div class="text-center">8</div>
+          </div>
         </div>
-        <div class="text-[10px] text-slate-400 font-mono mt-0.5" id="sessionPnlDisplay">PnL: <span class="text-emerald-400 font-bold">+₹0.00</span></div>
-      </div>
-    </div>
-    <div class="grid grid-cols-2 gap-3 mt-3">
-      <button class="py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 text-white font-bold text-xs shadow active:scale-95 transition flex items-center justify-center gap-1.5">
-        <i class="fa-solid fa-arrow-up-from-bracket text-xs"></i> Withdraw
-      </button>
-      <button onclick="openBalanceModal()" class="py-2.5 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 text-white font-bold text-xs shadow active:scale-95 transition flex items-center justify-center gap-1.5">
-        <i class="fa-solid fa-plus text-xs"></i> Deposit / Reset
-      </button>
-    </div>
-  </div>
-
-  <!-- ── TIMEFRAME SELECTOR ── -->
-  <div class="mx-4 mt-4 grid grid-cols-4 gap-2">
-    <button onclick="setTimeframe('30s')" id="tf-30s" class="py-2 px-1 rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 text-slate-950 font-black text-xs flex flex-col items-center shadow active:scale-95">
-      <i class="fa-regular fa-clock text-sm mb-0.5"></i>
-      <span class="text-[10px] leading-tight font-black">WinGo<br>30sec</span>
-    </button>
-    <button onclick="setTimeframe('1m')" id="tf-1m" class="py-2 px-1 rounded-xl bg-app-card text-purple-200 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition">
-      <i class="fa-regular fa-clock text-sm mb-0.5 opacity-70"></i>
-      <span class="text-[10px] leading-tight">WinGo<br>1 Min</span>
-    </button>
-    <button onclick="setTimeframe('3m')" id="tf-3m" class="py-2 px-1 rounded-xl bg-app-card text-purple-200 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition">
-      <i class="fa-regular fa-clock text-sm mb-0.5 opacity-70"></i>
-      <span class="text-[10px] leading-tight">WinGo<br>3 Min</span>
-    </button>
-    <button onclick="setTimeframe('5m')" id="tf-5m" class="py-2 px-1 rounded-xl bg-app-card text-purple-200 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition">
-      <i class="fa-regular fa-clock text-sm mb-0.5 opacity-70"></i>
-      <span class="text-[10px] leading-tight">WinGo<br>5 Min</span>
-    </button>
-  </div>
-
-  <!-- ── TICKET COUNTDOWN BANNER ── -->
-  <div class="mx-4 mt-4 ticket-card rounded-xl p-3.5 text-slate-900 shadow-xl">
-    <div class="flex items-center justify-between">
-      <div class="space-y-1.5">
-        <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-slate-900/30 text-[10px] font-black bg-amber-400/50">
-          <i class="fa-solid fa-trophy text-[9px]"></i>
-          <span id="ticketTfTitle">WinGo 30sec</span>
+        <div id="chartStatsRows" class="divide-y divide-purple-900/30 px-3 text-[9px] font-mono"></div>
+        <div class="grid gap-0 px-2 pt-2 pb-1" style="grid-template-columns:80px repeat(10,1fr) 28px 28px 28px">
+          <div class="text-[9px] text-slate-500 font-bold">Period</div>
+          <div class="text-[9px] text-center text-slate-400 font-bold">0</div>
+          <div class="text-[9px] text-center text-slate-400 font-bold">1</div>
+          <div class="text-[9px] text-center text-slate-400 font-bold">2</div>
+          <div class="text-[9px] text-center text-slate-400 font-bold">3</div>
+          <div class="text-[9px] text-center text-slate-400 font-bold">4</div>
+          <div class="text-[9px] text-center text-slate-400 font-bold">5</div>
+          <div class="text-[9px] text-center text-slate-400 font-bold">6</div>
+          <div class="text-[9px] text-center text-slate-400 font-bold">7</div>
+          <div class="text-[9px] text-center text-slate-400 font-bold">8</div>
+          <div class="text-[9px] text-center text-slate-400 font-bold">9</div>
+          <div class="text-[9px] text-center text-amber-400 font-bold">B/S</div>
+          <div class="text-[9px] text-center text-indigo-300 font-bold">AI</div>
+          <div class="text-[9px] text-center text-purple-300 font-bold">Bet</div>
         </div>
-        <div class="text-[10px] font-bold text-slate-800 uppercase tracking-tight">Recent Results:</div>
-        <div class="flex items-center gap-1.5 pt-0.5" id="recentMiniBalls"></div>
-      </div>
-      <div class="text-right space-y-1">
-        <span class="text-[9px] font-black uppercase tracking-wider text-slate-800 block">Time remaining</span>
-        <div class="flex items-center gap-1 justify-end font-mono">
-          <span class="clock-digit w-5 h-7 rounded flex items-center justify-center font-black text-sm" id="tMin1">0</span>
-          <span class="clock-digit w-5 h-7 rounded flex items-center justify-center font-black text-sm" id="tMin2">0</span>
-          <span class="font-black text-slate-900 text-sm">:</span>
-          <span class="clock-digit w-5 h-7 rounded flex items-center justify-center font-black text-sm" id="tSec1">0</span>
-          <span class="clock-digit w-5 h-7 rounded flex items-center justify-center font-black text-sm" id="tSec2">0</span>
+        <div class="relative px-2 pb-2" id="numberRoadContainer">
+          <svg id="roadConnectorSvg" class="absolute inset-0 pointer-events-none" style="width:100%;height:100%;overflow:visible;"></svg>
+          <div id="numberRoadRows" class="relative z-10 space-y-0.5"></div>
         </div>
-        <div class="text-[10px] font-mono font-black tracking-tight text-slate-900 bg-amber-300/60 px-1.5 py-0.5 rounded inline-block" id="currentPeriodDisplay">—</div>
+        <div class="grid grid-cols-3 gap-2 p-3 border-t border-purple-900/40 text-center text-xs font-mono">
+          <div class="p-2 bg-purple-950/60 rounded-xl"><span class="text-[9px] text-slate-400 block">BIG%</span><b id="chartBigPct" class="text-amber-400">50%</b></div>
+          <div class="p-2 bg-purple-950/60 rounded-xl"><span class="text-[9px] text-slate-400 block">SMALL%</span><b id="chartSmallPct" class="text-sky-400">50%</b></div>
+          <div class="p-2 bg-purple-950/60 rounded-xl"><span class="text-[9px] text-slate-400 block">WIN%</span><b id="chartWinRatio" class="text-emerald-400">—</b></div>
+        </div>
       </div>
-    </div>
-  </div>
 
-  <!-- ── BETTING BOARD ── -->
-  <!-- Betting board wrapper – bet block overlay is absolute-positioned inside here -->
-  <div class="mx-4 mt-4 bg-app-card rounded-2xl border border-purple-900/30 shadow-lg" id="bettingBoardWrapper" style="position:relative;">
-
-  <!-- ── 5-SECOND BET BLOCK (covers only this card) ── -->
-  <div id="betBlockOverlay">
-    <div class="countdown-ring" style="--prog:100%">
-      <div class="countdown-inner">
-        <span id="blockCountNum" class="text-3xl font-black text-amber-400">5</span>
+      <!-- ── MY BETS ── -->
+      <div id="view-my" class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/30 shadow-lg hidden">
+        <div class="p-3 bg-purple-950 text-xs font-bold text-purple-200 border-b border-purple-800/40 flex justify-between items-center">
+          <span>Active &amp; Resolved Bets</span>
+          <button onclick="clearMyBets()" class="text-rose-400 hover:text-rose-300 text-[10px]">Clear</button>
+        </div>
+        <div id="myBetsContainer" class="divide-y divide-purple-900/40 text-xs font-mono"></div>
       </div>
-    </div>
-    <p class="mt-3 text-base font-black text-rose-400 tracking-widest">BETTING CLOSED</p>
-    <p class="mt-1 text-xs text-slate-400 font-semibold">Awaiting round result...</p>
-  </div>
 
-  <div class="p-3.5 space-y-3.5" id="bettingBoard">
-
-    <!-- Color buttons -->
-    <div class="grid grid-cols-3 gap-2.5">
-      <button onclick="openBetSheet('GREEN','COLOR')"   class="py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 font-black text-xs text-white shadow active:scale-95 transition flex items-center justify-center gap-1">
-        <i class="fa-solid fa-circle text-[8px]"></i> Green (2X)
-      </button>
-      <button onclick="openBetSheet('VIOLET','COLOR')"  class="py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 font-black text-xs text-white shadow active:scale-95 transition flex items-center justify-center gap-1">
-        <i class="fa-solid fa-circle text-[8px]"></i> Violet (4.5X)
-      </button>
-      <button onclick="openBetSheet('RED','COLOR')"     class="py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 font-black text-xs text-white shadow active:scale-95 transition flex items-center justify-center gap-1">
-        <i class="fa-solid fa-circle text-[8px]"></i> Red (2X)
-      </button>
-    </div>
-
-    <!-- Number balls -->
-    <div class="grid grid-cols-5 gap-2.5 py-1">
-      <button onclick="openBetSheet('0','NUMBER')" class="ball-3d ball-split-0 w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">0</button>
-      <button onclick="openBetSheet('1','NUMBER')" class="ball-3d ball-green   w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">1</button>
-      <button onclick="openBetSheet('2','NUMBER')" class="ball-3d ball-red     w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">2</button>
-      <button onclick="openBetSheet('3','NUMBER')" class="ball-3d ball-green   w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">3</button>
-      <button onclick="openBetSheet('4','NUMBER')" class="ball-3d ball-red     w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">4</button>
-      <button onclick="openBetSheet('5','NUMBER')" class="ball-3d ball-split-5 w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">5</button>
-      <button onclick="openBetSheet('6','NUMBER')" class="ball-3d ball-red     w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">6</button>
-      <button onclick="openBetSheet('7','NUMBER')" class="ball-3d ball-green   w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">7</button>
-      <button onclick="openBetSheet('8','NUMBER')" class="ball-3d ball-red     w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">8</button>
-      <button onclick="openBetSheet('9','NUMBER')" class="ball-3d ball-green   w-11 h-11 rounded-full mx-auto flex items-center justify-center font-black text-base text-white">9</button>
-    </div>
-
-    <!-- Big / Small -->
-    <div class="grid grid-cols-2 gap-3 pt-1">
-      <button onclick="openBetSheet('BIG','SIZE')"   class="py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 font-black text-base text-white shadow active:scale-95 transition flex flex-col items-center">
-        <span>Big</span><span class="text-[9px] font-normal opacity-90">5 – 9 &nbsp;(1.96X)</span>
-      </button>
-      <button onclick="openBetSheet('SMALL','SIZE')" class="py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-sky-500 font-black text-base text-white shadow active:scale-95 transition flex flex-col items-center">
-        <span>Small</span><span class="text-[9px] font-normal opacity-90">0 – 4 &nbsp;(1.96X)</span>
-      </button>
-    </div>
-
-  </div><!-- end inner betting board -->
-  </div><!-- end bettingBoardWrapper -->
-
-  <!-- ── SUB TABS ── -->
-  <div class="mx-4 mt-5 space-y-3">
-    <div class="grid grid-cols-4 gap-1.5 text-xs">
-      <button id="subtab-history" onclick="switchSubTab('history')" class="py-2 rounded-xl bg-amber-400 text-slate-950 font-black shadow truncate">Game History</button>
-      <button id="subtab-chart"   onclick="switchSubTab('chart')"   class="py-2 rounded-xl bg-app-card text-purple-300 font-bold truncate">Trend Chart</button>
-      <button id="subtab-my"      onclick="switchSubTab('my')"      class="py-2 rounded-xl bg-app-card text-purple-300 font-bold truncate">My Bets (<span id="myBetsBadge">0</span>)</button>
-      <button id="subtab-ai"      onclick="switchSubTab('ai')"      class="py-2 rounded-xl bg-app-card text-indigo-300 font-bold truncate">🤖 AI Track</button>
-    </div>
-
-    <!-- History table -->
-    <div id="view-history" class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/30 shadow-lg">
-      <div class="grid grid-cols-12 py-2.5 px-3 bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black text-[10px]">
-        <div class="col-span-3">Period</div>
-        <div class="col-span-3 text-center">Real Output</div>
-        <div class="col-span-3 text-center">AI Signal</div>
-        <div class="col-span-3 text-right pr-1">Bet & Result</div>
+      <!-- ── AI TRACK RECORD ── -->
+      <div id="view-ai" class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/30 shadow-lg hidden p-3 space-y-3">
+        <div class="flex items-center justify-between border-b border-purple-800/40 pb-2">
+          <span class="text-xs font-black text-indigo-300 flex items-center gap-1.5"><i class="fa-solid fa-robot text-amber-400"></i> AI Prediction Track Record &amp; PnL</span>
+          <span class="text-[10px] text-slate-400 font-mono">If followed from Start</span>
+        </div>
+        <div class="grid grid-cols-4 gap-1.5 text-center font-mono text-[9px]">
+          <div class="p-2 bg-purple-950/70 border border-purple-800/40 rounded-xl"><span class="text-[8px] text-slate-400 block font-sans font-semibold">TOTAL SIGNALS</span><b id="aiTrackTotal" class="text-slate-200">0</b></div>
+          <div class="p-2 bg-emerald-950/50 border border-emerald-500/30 rounded-xl"><span class="text-[8px] text-slate-400 block font-sans font-semibold">WINS / LOSSES</span><b id="aiTrackWinsLosses" class="text-emerald-400">0W / 0L</b></div>
+          <div class="p-2 bg-purple-950/70 border border-purple-800/40 rounded-xl"><span class="text-[8px] text-slate-400 block font-sans font-semibold">WIN RATE</span><b id="aiTrackWinRate" class="text-amber-300">—</b></div>
+          <div class="p-2 bg-purple-950/70 border border-purple-800/40 rounded-xl"><span class="text-[8px] text-slate-400 block font-sans font-semibold">AI PnL</span><b id="aiTrackPnl" class="text-emerald-400">+₹0.00</b></div>
+        </div>
+        <div class="grid grid-cols-12 text-[9px] font-black text-slate-400 border-b border-purple-900/40 pb-1 font-mono">
+          <div class="col-span-3">Period</div>
+          <div class="col-span-3 text-center">AI Signal</div>
+          <div class="col-span-3 text-center">Real Output</div>
+          <div class="col-span-3 text-right">Result &amp; PnL</div>
+        </div>
+        <div id="aiTrackRowsContainer" class="divide-y divide-purple-900/30 text-[10px] font-mono"></div>
       </div>
-      <div id="gameHistoryRows" class="divide-y divide-purple-900/40 text-xs font-mono max-h-72 overflow-y-auto"></div>
-      <div class="flex items-center justify-between p-3 bg-app-surface border-t border-purple-900/40 text-xs text-purple-300">
-        <span id="rowCountBadge" class="text-[10px] font-bold">0 records</span>
-        <button onclick="downloadCSVReport()" class="text-amber-400 hover:text-amber-300 font-bold text-[11px] flex items-center gap-1">
-          <i class="fa-solid fa-download"></i> Export CSV
+
+      <!-- ── SMART VIEW (COMBINES HISTORY + TREND CHART + MY BETS + AI SIGNAL) ── -->
+      <div id="view-smart" class="space-y-3">
+        <!-- Pro Hero Telemetry Card -->
+        <div class="p-3.5 bg-app-card rounded-2xl border border-purple-900/40 shadow-xl space-y-3">
+          <div class="flex items-center justify-between border-b border-purple-900/30 pb-2">
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-black text-[10px] border border-amber-400/30 uppercase tracking-wide">
+                <i class="fa-solid fa-trophy mr-1"></i> <span id="smartTfBadge">WinGo 30sec</span>
+              </span>
+              <span class="text-[10px] text-slate-400 font-mono">Live High-Precision Pro Terminal</span>
+            </div>
+            <div id="smartRiskSummary" class="text-[9.5px] font-mono text-slate-400 flex items-center gap-2">
+              <span id="smartRiskBadge" class="px-2 py-0.5 rounded bg-purple-950 text-slate-300 border border-purple-800/40">Risk: Auto-Stop at ₹0</span>
+            </div>
+          </div>
+
+          <!-- Big Showcase Row: ACTIVE PERIOD | COUNTDOWN TIME | AI SIGNAL -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-center font-mono">
+            <!-- 1. Active Period -->
+            <div class="p-3 bg-purple-950/60 rounded-xl border border-purple-800/30 flex flex-col justify-center">
+              <span class="text-[9px] text-slate-400 block font-sans uppercase font-bold tracking-wider">Active Period</span>
+              <b id="smartPeriodDisplay" class="text-amber-400 text-xl font-mono font-black tracking-tight mt-0.5">—</b>
+              <span class="text-[9px] text-slate-500 font-sans mt-0.5">Selected period round</span>
+            </div>
+
+            <!-- 2. Big Countdown Time -->
+            <div class="p-3 bg-gradient-to-b from-purple-950/80 to-slate-900/90 rounded-xl border border-amber-400/30 flex flex-col justify-center shadow-inner">
+              <span class="text-[9px] text-amber-300/80 block font-sans uppercase font-black tracking-wider">Time Remaining</span>
+              <div id="smartTimerDisplay" class="text-3xl font-black text-amber-300 font-mono tracking-widest mt-0.5">00:00</div>
+              <span class="text-[9px] text-slate-400 font-sans mt-0.5">Seconds to lock &amp; draw</span>
+            </div>
+
+            <!-- 3. Big AI Signal -->
+            <div class="p-3 bg-purple-950/60 rounded-xl border border-purple-800/30 flex flex-col justify-center">
+              <span class="text-[9px] text-slate-400 block font-sans uppercase font-bold tracking-wider">AI Signal Target</span>
+              <div id="smartAiSignal" class="text-xl font-black text-white mt-0.5">WAITING...</div>
+              <span id="smartAiEngineTag" class="text-[9px] text-emerald-400 font-mono mt-0.5">5-Engine Consensus</span>
+            </div>
+          </div>
+
+          <!-- Secondary Metric Chips: Next Stake | Session PnL | Martingale Level | Quick Bot Action -->
+          <div class="grid grid-cols-4 gap-2 text-center font-mono text-[10px] pt-1 border-t border-purple-900/30">
+            <div class="p-2 bg-slate-900/70 rounded-xl border border-purple-900/30">
+              <span class="text-[8.5px] text-slate-400 block font-sans">TEST / BOT STAKE</span>
+              <b id="smartNextStake" class="text-emerald-400 text-xs font-black">₹1.00</b>
+            </div>
+            <div class="p-2 bg-slate-900/70 rounded-xl border border-purple-900/30">
+              <span class="text-[8.5px] text-slate-400 block font-sans">SESSION PNL</span>
+              <b id="smartSessionPnl" class="text-emerald-400 text-xs font-black">+₹0.00</b>
+            </div>
+            <div class="p-2 bg-slate-900/70 rounded-xl border border-purple-900/30">
+              <span class="text-[8.5px] text-slate-400 block font-sans">MARTINGALE LVL</span>
+              <b id="smartMartingaleLvl" class="text-amber-400 text-xs font-black">Lvl 0</b>
+            </div>
+            <button onclick="toggleAutoBet()" id="smartQuickBotBtn" class="p-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black text-[10px] shadow hover:brightness-110 active:scale-95 transition flex flex-col items-center justify-center">
+              <span>🚀 TEST BOT</span>
+            </button>
+          </div>
+
+          <!-- Integrated Trend Ribbon (Last 20 Results Mini Road) -->
+          <div class="bg-purple-950/40 rounded-xl p-2.5 border border-purple-900/30">
+            <div class="flex items-center justify-between text-[9px] text-slate-400 mb-1.5 font-bold">
+              <span><i class="fa-solid fa-chart-line text-amber-400 mr-1"></i> TREND ROAD MAP (Recent 20 Rounds)</span>
+              <div class="flex gap-2">
+                <span id="smartBigSmallRatio" class="text-amber-300 font-mono">BIG: —% | SMALL: —%</span>
+              </div>
+            </div>
+            <div id="smartTrendStrip" class="flex items-center gap-1.5 overflow-x-auto pb-1">
+              <span class="text-slate-500 text-[9px] italic">Loading trend road...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Smart Unified History Table (Period | Number | Color | Size | AI Prediction | Bet Placed | Outcome & PnL) -->
+        <div class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-xl">
+          <div class="p-3 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border-b border-purple-900/40 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-bolt text-amber-400"></i>
+              <span class="font-black text-xs text-white">Smart Unified Live Feed</span>
+              <span class="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">Auto-Synced</span>
+            </div>
+            <span class="text-[10px] text-slate-400 font-mono">History + Bets + AI Combined</span>
+          </div>
+          <div class="grid grid-cols-12 py-2 px-3 bg-purple-950/80 text-slate-300 font-bold text-[9.5px] border-b border-purple-900/30 font-mono">
+            <div class="col-span-2">Period</div>
+            <div class="col-span-3 text-center">Result &amp; Color</div>
+            <div class="col-span-3 text-center">AI Prediction</div>
+            <div class="col-span-2 text-center">Your Bet</div>
+            <div class="col-span-2 text-right">Outcome</div>
+          </div>
+          <div id="smartHistoryRows" class="divide-y divide-purple-900/30 text-[10px] font-mono max-h-[480px] overflow-y-auto"></div>
+        </div>
+      </div>
+
+      <!-- ── PATTERN & AI ANALYTICS PAGE (DETAILED PATTERN CODES, FREQUENCY, REPEATS, PREDICTION AUDIT) ── -->
+      <div id="view-analyse" class="space-y-3 hidden">
+        <!-- AI Performance Audit Scorecard -->
+        <div class="p-4 bg-app-card rounded-2xl border border-purple-900/40 shadow-xl space-y-3">
+          <div class="flex items-center justify-between border-b border-purple-900/40 pb-2">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-brain text-amber-400 text-sm"></i>
+              <span class="font-black text-xs text-white uppercase tracking-wider">AI Prediction Accuracy Audit</span>
+            </div>
+            <span class="text-[10px] text-slate-400 font-mono">Real vs Predicted Verification</span>
+          </div>
+
+          <div class="grid grid-cols-4 gap-2 text-center font-mono">
+            <div class="p-2.5 bg-purple-950/60 rounded-xl border border-purple-800/30">
+              <span class="text-[8.5px] text-slate-400 block font-sans">TOTAL PREDICTIONS</span>
+              <b id="auditTotalPreds" class="text-white text-base">0</b>
+            </div>
+            <div class="p-2.5 bg-emerald-950/40 rounded-xl border border-emerald-500/30">
+              <span class="text-[8.5px] text-slate-400 block font-sans">CORRECT SIGNALS</span>
+              <b id="auditCorrectPreds" class="text-emerald-400 text-base">0</b>
+            </div>
+            <div class="p-2.5 bg-rose-950/40 rounded-xl border border-rose-500/30">
+              <span class="text-[8.5px] text-slate-400 block font-sans">WRONG SIGNALS</span>
+              <b id="auditWrongPreds" class="text-rose-400 text-base">0</b>
+            </div>
+            <div class="p-2.5 bg-amber-950/40 rounded-xl border border-amber-500/30">
+              <span class="text-[8.5px] text-slate-400 block font-sans">WIN ACCURACY</span>
+              <b id="auditAccuracyPct" class="text-amber-300 text-base">—</b>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pattern Detection Library & Repeat Frequency -->
+        <div class="p-4 bg-app-card rounded-2xl border border-purple-900/40 shadow-xl space-y-3">
+          <div class="flex items-center justify-between border-b border-purple-900/40 pb-2">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-dna text-indigo-400 text-sm"></i>
+              <span class="font-black text-xs text-white uppercase tracking-wider">Detected Pattern Library &amp; Codes</span>
+            </div>
+            <span class="text-[9.5px] text-slate-400 font-mono">Repeat Count &amp; Frequency</span>
+          </div>
+
+          <div id="patternLibraryList" class="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px] font-mono">
+            <!-- Injected by renderPatternAnalytics() -->
+          </div>
+        </div>
+
+        <!-- Number Frequency & Distribution Analysis -->
+        <div class="p-4 bg-app-card rounded-2xl border border-purple-900/40 shadow-xl space-y-3">
+          <div class="flex items-center justify-between border-b border-purple-900/40 pb-2">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-chart-pie text-emerald-400 text-sm"></i>
+              <span class="font-black text-xs text-white uppercase tracking-wider">Number &amp; Color Frequency Audit</span>
+            </div>
+            <span class="text-[9.5px] text-slate-400 font-mono">Statistical Deviation</span>
+          </div>
+          <div id="auditNumberDistGrid" class="grid grid-cols-10 gap-1.5 text-center font-mono">
+            <!-- Injected by renderPatternAnalytics() -->
+          </div>
+        </div>
+      </div>
+
+  <!-- ╔══════════════════════════════════════════════════════════
+       RIGHT PANEL — AI Diagnostics + Pattern Analysis + Stats
+  ══════════════════════════════════════════════════════════╗ -->
+  <aside class="lg:border-l border-purple-900/30 overflow-y-auto overflow-x-hidden bg-app-bg" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
+    <div class="p-3 space-y-3">
+
+      <!-- ── AI DIAGNOSTICS (always visible on desktop) ── -->
+      <div class="p-3 bg-black/50 rounded-2xl border border-purple-800/60 space-y-3 text-[10px]">
+        <div class="text-[10px] font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+          <i class="fa-solid fa-microchip"></i> AI Engine Diagnostics
+          <button onclick="toggleAIDiagnostics()" class="ml-auto text-[9px] text-slate-500 hover:text-slate-300 lg:hidden">Toggle</button>
+        </div>
+
+        <!-- 5-Engine Voting -->
+        <div>
+          <div class="text-[9px] font-black text-amber-400 uppercase tracking-wider mb-1 flex items-center gap-1"><i class="fa-solid fa-network-wired"></i> 5-Engine Live Voting</div>
+          <div class="grid grid-cols-2 gap-1.5 font-mono text-[9px]">
+            <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between"><span class="text-slate-400">1. Sum % 10:</span> <b id="diagEngineSum" class="text-amber-300">—</b></div>
+            <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between"><span class="text-slate-400">2. Dragon/Chop:</span> <b id="diagEngineTrend" class="text-amber-300">—</b></div>
+            <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between"><span class="text-slate-400">3. DNA Empirical:</span> <b id="diagEngineDNA" class="text-amber-300">—</b></div>
+            <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between"><span class="text-slate-400">4. Markov 2nd-Ord:</span> <b id="diagEngineMarkov" class="text-amber-300">—</b></div>
+            <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between"><span class="text-slate-400">5. Rolling Rate:</span> <b id="diagEngineRolling" class="text-amber-300">—</b></div>
+            <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between"><span class="text-slate-400">6. OpenRouter AI:</span> <b id="diagEngineOR" class="text-indigo-300">—</b></div>
+          </div>
+        </div>
+
+        <!-- Accuracy telemetry -->
+        <div>
+          <div class="text-[9px] font-black text-emerald-400 uppercase tracking-wider mb-1 flex items-center gap-1"><i class="fa-solid fa-vial text-emerald-400"></i> Testing &amp; Accuracy</div>
+          <div class="grid grid-cols-3 gap-1.5 text-center font-mono text-[9px]">
+            <div class="p-1.5 bg-emerald-950/40 border border-emerald-500/30 rounded-lg"><span class="text-slate-400 block text-[8px]">CORRECT</span><b id="diagCorrectCount" class="text-emerald-400">0</b></div>
+            <div class="p-1.5 bg-rose-950/40 border border-rose-500/30 rounded-lg"><span class="text-slate-400 block text-[8px]">WRONG</span><b id="diagWrongCount" class="text-rose-400">0</b></div>
+            <div class="p-1.5 bg-purple-950/70 border border-purple-800/40 rounded-lg"><span class="text-slate-400 block text-[8px]">ACCURACY</span><b id="diagAccPct" class="text-amber-300">—</b></div>
+          </div>
+        </div>
+
+        <!-- Circuit breaker -->
+        <div>
+          <div class="text-[9px] font-black text-rose-400 uppercase tracking-wider mb-1 flex items-center gap-1"><i class="fa-solid fa-shield-halved text-rose-400"></i> Loss Guard</div>
+          <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/40 space-y-1 font-mono text-[9px]">
+            <div class="flex justify-between"><span class="text-slate-400">Loss Streak:</span> <b id="diagLossStreak" class="text-rose-400">0/3 (SAFE)</b></div>
+            <div class="flex justify-between"><span class="text-slate-400">Circuit Breaker:</span> <b id="diagCircuitStatus" class="text-emerald-400 font-bold">PROTECTION SAFE</b></div>
+            <div class="flex justify-between"><span class="text-slate-400">Z-Score Threshold:</span> <b id="diagReqZ" class="text-amber-300">Z ≥ 1.64 (90%)</b></div>
+            <div class="flex justify-between"><span class="text-slate-400">Entropy / Noise:</span> <b id="diagEntropyVal" class="text-slate-200">0.50 (Normal)</b></div>
+          </div>
+        </div>
+
+        <!-- Staking -->
+        <div>
+          <div class="text-[9px] font-black text-indigo-300 uppercase tracking-wider mb-1 flex items-center gap-1"><i class="fa-solid fa-calculator text-indigo-300"></i> Martingale Staking</div>
+          <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/40 space-y-1 font-mono text-[9px]">
+            <div class="flex justify-between"><span class="text-slate-400">Payout Odds:</span> <b class="text-amber-300">1.96× (4% house)</b></div>
+            <div class="flex justify-between"><span class="text-slate-400">Breakeven Win Rate:</span> <b class="text-slate-300">51.02%</b></div>
+            <div class="flex justify-between"><span class="text-slate-400">Model Win Prob:</span> <b id="diagProbVal" class="text-emerald-400">50.0%</b></div>
+            <div class="flex justify-between"><span class="text-slate-400">Current Stake:</span> <b id="diagStakeVal" class="text-amber-400">₹1.00</b></div>
+          </div>
+        </div>
+
+        <!-- Shadow log -->
+        <div>
+          <div class="text-[9px] font-black text-amber-400 uppercase tracking-wider mb-1">Shadow Test History</div>
+          <div id="diagTestHistoryLog" class="max-h-40 overflow-y-auto space-y-1 font-mono text-[9px]">
+            <div class="text-slate-500 italic text-[9px] p-1">No test rounds evaluated yet...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hidden drawer toggle for mobile (desktop always shows above) -->
+      <button onclick="toggleAIDiagnostics()" class="lg:hidden w-full py-1.5 px-3 bg-purple-950/80 hover:bg-purple-900/80 rounded-xl text-[10px] text-amber-300 font-bold flex items-center justify-between border border-purple-800/40 transition">
+        <span class="flex items-center gap-1.5"><i class="fa-solid fa-microchip text-amber-400"></i> AI Engine Diagnostics &amp; Telemetry</span>
+        <i id="diagChevron" class="fa-solid fa-chevron-down text-[10px] transition-transform"></i>
+      </button>
+      <div id="aiDiagnosticsDrawer" class="hidden"></div>
+
+      <!-- ── PATTERN HEATMAP ── -->
+      <div class="p-3 bg-app-card rounded-2xl border border-purple-900/40 shadow-lg">
+        <div class="text-[9px] font-black text-indigo-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+          <i class="fa-solid fa-fire-flame-curved text-rose-400"></i> Number Frequency Heatmap
+        </div>
+        <div class="grid grid-cols-10 gap-1" id="heatmapGrid">
+          <!-- Filled by JS renderHeatmap() -->
+          <div class="h-10 rounded-lg bg-purple-900/40 flex flex-col items-center justify-center text-[8px] font-bold text-slate-400">0</div>
+          <div class="h-10 rounded-lg bg-purple-900/40 flex flex-col items-center justify-center text-[8px] font-bold text-slate-400">1</div>
+          <div class="h-10 rounded-lg bg-purple-900/40 flex flex-col items-center justify-center text-[8px] font-bold text-slate-400">2</div>
+          <div class="h-10 rounded-lg bg-purple-900/40 flex flex-col items-center justify-center text-[8px] font-bold text-slate-400">3</div>
+          <div class="h-10 rounded-lg bg-purple-900/40 flex flex-col items-center justify-center text-[8px] font-bold text-slate-400">4</div>
+          <div class="h-10 rounded-lg bg-purple-900/40 flex flex-col items-center justify-center text-[8px] font-bold text-slate-400">5</div>
+          <div class="h-10 rounded-lg bg-purple-900/40 flex flex-col items-center justify-center text-[8px] font-bold text-slate-400">6</div>
+          <div class="h-10 rounded-lg bg-purple-900/40 flex flex-col items-center justify-center text-[8px] font-bold text-slate-400">7</div>
+          <div class="h-10 rounded-lg bg-purple-900/40 flex flex-col items-center justify-center text-[8px] font-bold text-slate-400">8</div>
+          <div class="h-10 rounded-lg bg-purple-900/40 flex flex-col items-center justify-center text-[8px] font-bold text-slate-400">9</div>
+        </div>
+        <div class="flex justify-between text-[8px] text-slate-500 mt-1.5 font-mono">
+          <span>COLD</span><span>← frequency →</span><span>HOT</span>
+        </div>
+      </div>
+
+      <!-- ── BIG/SMALL PATTERN STREAK ── -->
+      <div class="p-3 bg-app-card rounded-2xl border border-purple-900/40 shadow-lg">
+        <div class="text-[9px] font-black text-indigo-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+          <i class="fa-solid fa-wave-square text-amber-400"></i> Big/Small Pattern — Last 30
+        </div>
+        <div id="bsPatternTrail" class="flex flex-wrap gap-1"></div>
+        <div class="mt-2 grid grid-cols-2 gap-2 text-[9px] font-mono">
+          <div class="p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg text-center">
+            <span class="text-slate-400 block text-[8px]">BIG STREAK</span>
+            <b id="currentBigStreak" class="text-amber-400">0</b>
+          </div>
+          <div class="p-2 bg-sky-500/10 border border-sky-500/20 rounded-lg text-center">
+            <span class="text-slate-400 block text-[8px]">SMALL STREAK</span>
+            <b id="currentSmallStreak" class="text-sky-400">0</b>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── SESSION STATS ── -->
+      <div class="p-3 bg-app-card rounded-2xl border border-purple-900/40 shadow-lg">
+        <div class="text-[9px] font-black text-purple-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+          <i class="fa-solid fa-chart-line text-emerald-400"></i> Session Statistics
+        </div>
+        <div class="space-y-1.5 text-[10px] font-mono">
+          <div class="flex justify-between"><span class="text-slate-400">Total Rounds:</span><b id="statsTotalRounds" class="text-white">0</b></div>
+          <div class="flex justify-between"><span class="text-slate-400">Total Bets:</span><b id="statsTotalBets" class="text-white">0</b></div>
+          <div class="flex justify-between"><span class="text-slate-400">Wins / Losses:</span><b id="statsWinsLosses" class="text-emerald-400">0 / 0</b></div>
+          <div class="flex justify-between"><span class="text-slate-400">Win Rate:</span><b id="statsWinRate" class="text-amber-300">—</b></div>
+          <div class="flex justify-between"><span class="text-slate-400">Session PnL:</span><b id="statsSessionPnl" class="text-emerald-400">+₹0.00</b></div>
+          <div class="flex justify-between"><span class="text-slate-400">Martingale Level:</span><b id="statsMgLevel" class="text-amber-300">0</b></div>
+        </div>
+        <div class="mt-2 pt-2 border-t border-purple-900/40 flex gap-2">
+          <button onclick="downloadCSVReport()" class="flex-1 py-1.5 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 font-bold text-[10px] hover:bg-indigo-500/30 transition">
+            <i class="fa-solid fa-download"></i> CSV Export
+          </button>
+          <button onclick="fetchLiveAPIResults()" class="flex-1 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 font-bold text-[10px] hover:bg-emerald-500/30 transition">
+            <i class="fa-solid fa-rotate"></i> Sync Live
+          </button>
+        </div>
+      </div>
+
+      <!-- ── OFFLINE BANNER ── -->
+      <div id="offlineBanner" class="hidden p-3 bg-rose-500/10 border border-rose-500/40 rounded-2xl text-center">
+        <div class="text-rose-300 font-black text-xs mb-2">📡 Offline — Live data unavailable</div>
+        <button onclick="fetchLiveAPIResults()" class="px-4 py-2 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-200 font-bold text-[11px] hover:bg-rose-500/30 transition">
+          🔄 Retry Connection
         </button>
       </div>
+
     </div>
+  </aside>
 
-    <!-- Chart – Number Road Map (like Dhaniwin) -->
-    <div id="view-chart" class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/30 shadow-lg hidden">
+</div><!-- end 3-col grid -->
 
-      <!-- Stats header table -->
-      <div class="bg-gradient-to-r from-amber-400 to-amber-500 px-3 py-2">
-        <div class="grid grid-cols-12 text-[10px] font-black text-slate-900">
-          <div class="col-span-3">Statistic</div>
-          <div class="text-center">0</div><div class="text-center">1</div><div class="text-center">2</div>
-          <div class="text-center">3</div><div class="text-center">4</div><div class="text-center">5</div>
-          <div class="text-center">6</div><div class="text-center">7</div><div class="text-center">8</div>
-        </div>
-      </div>
-      <div id="chartStatsRows" class="divide-y divide-purple-900/30 px-3 text-[9px] font-mono"></div>
 
-      <!-- Column headers for road -->
-      <div class="grid gap-0 px-2 pt-2 pb-1" style="grid-template-columns:80px repeat(10,1fr) 28px 28px 28px">
-        <div class="text-[9px] text-slate-500 font-bold">Period</div>
-        <div class="text-[9px] text-center text-slate-400 font-bold">0</div>
-        <div class="text-[9px] text-center text-slate-400 font-bold">1</div>
-        <div class="text-[9px] text-center text-slate-400 font-bold">2</div>
-        <div class="text-[9px] text-center text-slate-400 font-bold">3</div>
-        <div class="text-[9px] text-center text-slate-400 font-bold">4</div>
-        <div class="text-[9px] text-center text-slate-400 font-bold">5</div>
-        <div class="text-[9px] text-center text-slate-400 font-bold">6</div>
-        <div class="text-[9px] text-center text-slate-400 font-bold">7</div>
-        <div class="text-[9px] text-center text-slate-400 font-bold">8</div>
-        <div class="text-[9px] text-center text-slate-400 font-bold">9</div>
-        <div class="text-[9px] text-center text-amber-400 font-bold">B/S</div>
-        <div class="text-[9px] text-center text-indigo-300 font-bold">AI</div>
-        <div class="text-[9px] text-center text-purple-300 font-bold">Bet</div>
-      </div>
-
-      <!-- Road rows (SVG canvas behind, rows on top) -->
-      <div class="relative px-2 pb-2 max-h-[420px] overflow-y-auto" id="numberRoadContainer">
-        <svg id="roadConnectorSvg" class="absolute inset-0 pointer-events-none" style="width:100%;height:100%;overflow:visible;"></svg>
-        <div id="numberRoadRows" class="relative z-10 space-y-0.5"></div>
-      </div>
-
-      <!-- Summary footer -->
-      <div class="grid grid-cols-3 gap-2 p-3 border-t border-purple-900/40 text-center text-xs font-mono">
-        <div class="p-2 bg-purple-950/60 rounded-xl"><span class="text-[9px] text-slate-400 block">BIG%</span><b id="chartBigPct" class="text-amber-400">50%</b></div>
-        <div class="p-2 bg-purple-950/60 rounded-xl"><span class="text-[9px] text-slate-400 block">SMALL%</span><b id="chartSmallPct" class="text-sky-400">50%</b></div>
-        <div class="p-2 bg-purple-950/60 rounded-xl"><span class="text-[9px] text-slate-400 block">WIN%</span><b id="chartWinRatio" class="text-emerald-400">—</b></div>
-      </div>
-    </div>
-
-    <!-- My bets -->
-    <div id="view-my" class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/30 shadow-lg hidden">
-      <div class="p-3 bg-purple-950 text-xs font-bold text-purple-200 border-b border-purple-800/40 flex justify-between items-center">
-        <span>Active & Resolved Bets</span>
-        <button onclick="clearMyBets()" class="text-rose-400 hover:text-rose-300 text-[10px]">Clear</button>
-      </div>
-      <div id="myBetsContainer" class="divide-y divide-purple-900/40 text-xs font-mono max-h-72 overflow-y-auto"></div>
-    </div>
-
-    <!-- AI Prediction Track Record View -->
-    <div id="view-ai" class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/30 shadow-lg hidden p-3 space-y-3">
-      <div class="flex items-center justify-between border-b border-purple-800/40 pb-2">
-        <span class="text-xs font-black text-indigo-300 flex items-center gap-1.5"><i class="fa-solid fa-robot text-amber-400"></i> AI Prediction Track Record & PnL</span>
-        <span class="text-[10px] text-slate-400 font-mono">If followed from Start</span>
-      </div>
-
-      <!-- AI Performance Summary Card -->
-      <div class="grid grid-cols-4 gap-1.5 text-center font-mono text-[9px]">
-        <div class="p-2 bg-purple-950/70 border border-purple-800/40 rounded-xl">
-          <span class="text-[8px] text-slate-400 block font-sans font-semibold">TOTAL SIGNALS</span>
-          <b id="aiTrackTotal" class="text-slate-200">0</b>
-        </div>
-        <div class="p-2 bg-emerald-950/50 border border-emerald-500/30 rounded-xl">
-          <span class="text-[8px] text-slate-400 block font-sans font-semibold">WINS / LOSSES</span>
-          <b id="aiTrackWinsLosses" class="text-emerald-400">0W / 0L</b>
-        </div>
-        <div class="p-2 bg-purple-950/70 border border-purple-800/40 rounded-xl">
-          <span class="text-[8px] text-slate-400 block font-sans font-semibold">WIN RATE</span>
-          <b id="aiTrackWinRate" class="text-amber-300">—</b>
-        </div>
-        <div class="p-2 bg-purple-950/70 border border-purple-800/40 rounded-xl">
-          <span class="text-[8px] text-slate-400 block font-sans font-semibold">AI PnL BALANCE</span>
-          <b id="aiTrackPnl" class="text-emerald-400">+₹0.00</b>
-        </div>
-      </div>
-
-      <!-- Table headers -->
-      <div class="grid grid-cols-12 text-[9px] font-black text-slate-400 border-b border-purple-900/40 pb-1 font-mono">
-        <div class="col-span-3">Period</div>
-        <div class="col-span-3 text-center">AI Signal</div>
-        <div class="col-span-3 text-center">Real Output</div>
-        <div class="col-span-3 text-right">Result & PnL</div>
-      </div>
-
-      <!-- Round by round AI prediction history log -->
-      <div id="aiTrackRowsContainer" class="divide-y divide-purple-900/30 text-[10px] font-mono max-h-80 overflow-y-auto"></div>
-    </div>
-  </div>
-
-</div><!-- end main app -->
 
 <!-- ════════════════════════════════════════════════════════════
      BATCH RESULT MODAL (multiple missed periods at once)
@@ -630,25 +833,119 @@
 </div>
 
 <!-- ════════════════════════════════════════════════════════════
-     START BETTING PROMPT MODAL
+     MARTINGALE SETUP MODAL — replaces start betting prompt
 ════════════════════════════════════════════════════════════ -->
-<div id="startBettingPromptModal" style="position:fixed;inset:0;z-index:320;display:none;align-items:center;justify-center:center;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);padding:20px;">
-  <div class="bg-gradient-to-b from-purple-950 via-slate-900 to-slate-950 border border-emerald-500/50 rounded-3xl p-6 w-full max-w-sm text-center shadow-2xl space-y-4">
-    <div class="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
-      <i class="fa-solid fa-rocket text-2xl text-emerald-400 animate-bounce"></i>
+<div id="martingaleSetupModal" style="position:fixed;inset:0;z-index:320;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);padding:20px;">
+  <div style="background:linear-gradient(160deg,#1a0d38,#0f0a20);border:1.5px solid rgba(245,158,11,.4);border-radius:28px;padding:28px 22px 24px;width:100%;max-width:380px;box-shadow:0 0 60px rgba(245,158,11,.15),0 30px 80px rgba(0,0,0,.6);">
+
+    <!-- Icon + Title -->
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="width:60px;height:60px;border-radius:18px;background:linear-gradient(135deg,rgba(245,158,11,.2),rgba(16,185,129,.15));border:1.5px solid rgba(245,158,11,.5);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+        <i class="fa-solid fa-rotate" style="font-size:24px;color:#f59e0b;"></i>
+      </div>
+      <div style="font-size:20px;font-weight:900;color:#fff;letter-spacing:.3px;">Martingale Bot Setup</div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:4px;">AI predicts → Bot bets → Loss doubles → Win resets</div>
     </div>
-    <div>
-      <h3 class="text-lg font-black text-white">High AI Accuracy Signal!</h3>
-      <p class="text-xs text-slate-300 mt-1">AI has edge confidence and safe streak protection. Start Auto-Betting now to automate entries and maximize profits?</p>
+
+    <!-- Strategy explanation -->
+    <div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:14px;padding:12px 14px;margin-bottom:18px;">
+      <div style="font-size:10px;font-weight:900;color:#f59e0b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+        <i class="fa-solid fa-circle-info"></i> How It Works
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;font-size:9px;font-family:monospace;">
+        <div style="background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);border-radius:8px;padding:6px 4px;">
+          <div style="color:#94a3b8;margin-bottom:2px;">Round 1</div>
+          <div style="color:#10b981;font-weight:900;" id="mgExample1">₹1</div>
+          <div style="color:#10b981;font-size:8px;">BASE BET</div>
+        </div>
+        <div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:6px 4px;">
+          <div style="color:#94a3b8;margin-bottom:2px;">If Loss</div>
+          <div style="color:#f59e0b;font-weight:900;" id="mgExample2">₹2</div>
+          <div style="color:#f59e0b;font-size:8px;">DOUBLED</div>
+        </div>
+        <div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:6px 4px;">
+          <div style="color:#94a3b8;margin-bottom:2px;">2nd Loss</div>
+          <div style="color:#ef4444;font-weight:900;" id="mgExample3">₹4</div>
+          <div style="color:#ef4444;font-size:8px;">×2 AGAIN</div>
+        </div>
+      </div>
+      <div style="font-size:9px;color:#64748b;text-align:center;margin-top:8px;">✅ After any WIN → resets back to base bet</div>
     </div>
-    <div class="p-3 bg-black/40 rounded-2xl border border-purple-800/40 text-xs space-y-1">
-      <div class="flex justify-between text-slate-400"><span>AI Signal:</span> <b id="promptSignalVal" class="text-emerald-400 font-bold">BIG</b></div>
-      <div class="flex justify-between text-slate-400"><span>Suggested Stake:</span> <b id="promptStakeVal" class="text-amber-300 font-mono">₹10.00</b></div>
-      <div class="flex justify-between text-slate-400"><span>Loss Streak:</span> <b id="promptStreakVal" class="text-emerald-400">0/3 (SAFE)</b></div>
+
+    <!-- Base stake selection -->
+    <div style="margin-bottom:16px;">
+      <div style="font-size:10px;font-weight:900;color:#c4b5fd;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">
+        <i class="fa-solid fa-coins"></i> Choose Your Base Bet Amount
+      </div>
+
+      <!-- Quick select chips -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px;" id="mgQuickChips">
+        <button onclick="setMgChip(1)"  class="mg-chip" data-val="1"  style="padding:8px 4px;border-radius:10px;border:1.5px solid rgba(99,102,241,.4);background:rgba(99,102,241,.1);color:#a5b4fc;font-weight:900;font-size:11px;cursor:pointer;transition:all .15s;">₹1</button>
+        <button onclick="setMgChip(2)"  class="mg-chip" data-val="2"  style="padding:8px 4px;border-radius:10px;border:1.5px solid rgba(99,102,241,.4);background:rgba(99,102,241,.1);color:#a5b4fc;font-weight:900;font-size:11px;cursor:pointer;transition:all .15s;">₹2</button>
+        <button onclick="setMgChip(3)"  class="mg-chip" data-val="3"  style="padding:8px 4px;border-radius:10px;border:1.5px solid rgba(99,102,241,.4);background:rgba(99,102,241,.1);color:#a5b4fc;font-weight:900;font-size:11px;cursor:pointer;transition:all .15s;">₹3</button>
+        <button onclick="setMgChip(4)"  class="mg-chip" data-val="4"  style="padding:8px 4px;border-radius:10px;border:1.5px solid rgba(245,158,11,.4);background:rgba(245,158,11,.1);color:#fbbf24;font-weight:900;font-size:11px;cursor:pointer;transition:all .15s;">₹4</button>
+        <button onclick="setMgChip(5)"  class="mg-chip" data-val="5"  style="padding:8px 4px;border-radius:10px;border:1.5px solid rgba(245,158,11,.4);background:rgba(245,158,11,.1);color:#fbbf24;font-weight:900;font-size:11px;cursor:pointer;transition:all .15s;">₹5</button>
+      </div>
+
+      <!-- Custom amount input -->
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="flex:1;position:relative;">
+          <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94a3b8;font-weight:900;font-size:14px;">₹</span>
+          <input type="number" id="mgCustomInput" min="1" max="10000" step="1" placeholder="Custom amount..." oninput="setMgCustom()"
+            style="width:100%;padding:10px 12px 10px 28px;border-radius:12px;border:1.5px solid rgba(99,102,241,.4);background:rgba(15,10,32,.8);color:#fff;font-weight:700;font-size:13px;outline:none;box-sizing:border-box;">
+        </div>
+      </div>
     </div>
-    <div class="grid grid-cols-2 gap-3 pt-1">
-      <button onclick="dismissStartBettingPrompt()" class="py-3 rounded-2xl bg-slate-800 text-slate-400 font-bold text-xs hover:bg-slate-700 transition">Dismiss</button>
-      <button onclick="acceptStartBettingPrompt()" class="py-3 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-500 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition">🚀 Start Betting</button>
+
+    <!-- Selected amount display -->
+    <div id="mgSelectedDisplay" style="background:rgba(16,185,129,.08);border:1.5px solid rgba(16,185,129,.3);border-radius:14px;padding:12px 16px;margin-bottom:14px;text-align:center;display:none;">
+      <div style="font-size:10px;color:#6ee7b7;font-weight:700;margin-bottom:2px;">STARTING BASE BET</div>
+      <div style="font-size:28px;font-weight:900;color:#10b981;font-family:monospace;" id="mgSelectedAmt">₹1</div>
+      <div style="font-size:9px;color:#64748b;margin-top:3px;">Sequence: <span id="mgSeqPreview" style="color:#94a3b8;font-weight:700;">₹1 → ₹2 → ₹4 → ₹8 → ₹16...</span></div>
+    </div>
+
+    <!-- ── ADVANCED RISK & AUTO-STOP TARGETS ── -->
+    <div style="background:rgba(15,10,32,.7);border:1px solid rgba(147,51,234,.3);border-radius:14px;padding:12px;margin-bottom:16px;">
+      <div style="font-size:10px;font-weight:900;color:#f59e0b;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+        <i class="fa-solid fa-shield-halved"></i> Test Budget &amp; Auto-Stop Targets (Optional)
+      </div>
+
+      <!-- Test Starting Amount / Balance -->
+      <div style="margin-bottom:8px;">
+        <label style="font-size:9px;color:#a5b4fc;font-weight:700;display:block;margin-bottom:3px;">💰 Test Starting Amount / Balance (₹) <span style="color:#64748b;font-weight:normal;">(Optional – resets starting balance)</span></label>
+        <input type="number" id="mgStartingBalanceInput" min="1" step="1" placeholder="Current Balance"
+          style="width:100%;padding:8px 10px;border-radius:10px;border:1px solid rgba(99,102,241,.4);background:rgba(0,0,0,.5);color:#fff;font-size:11px;font-weight:700;outline:none;box-sizing:border-box;">
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <div>
+          <label style="font-size:9px;color:#6ee7b7;font-weight:700;display:block;margin-bottom:3px;">🎯 Stop at Profit (+₹)</label>
+          <input type="number" id="mgTakeProfitInput" min="1" step="1" placeholder="e.g. 50"
+            style="width:100%;padding:8px 10px;border-radius:10px;border:1px solid rgba(168,85,247,.4);background:rgba(0,0,0,.5);color:#fff;font-size:11px;font-weight:700;outline:none;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:9px;color:#f87171;font-weight:700;display:block;margin-bottom:3px;">🛑 Stop at Loss (-₹)</label>
+          <input type="number" id="mgStopLossInput" min="1" step="1" placeholder="e.g. 100"
+            style="width:100%;padding:8px 10px;border-radius:10px;border:1px solid rgba(239,68,68,.4);background:rgba(0,0,0,.5);color:#fff;font-size:11px;font-weight:700;outline:none;box-sizing:border-box;">
+        </div>
+      </div>
+      <div>
+        <label style="font-size:9px;color:#c084fc;font-weight:700;display:block;margin-bottom:3px;">⛔ Stop if Balance Drops Below (₹) <span style="color:#64748b;font-weight:normal;">(Stops at ₹0 automatically)</span></label>
+        <input type="number" id="mgMinBalanceInput" min="0" step="1" placeholder="0 (Default)" value="0"
+          style="width:100%;padding:8px 10px;border-radius:10px;border:1px solid rgba(168,85,247,.4);background:rgba(0,0,0,.5);color:#fff;font-size:11px;font-weight:700;outline:none;box-sizing:border-box;">
+      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;">
+      <button onclick="closeMartingaleSetup()" style="padding:14px;border-radius:14px;background:rgba(51,65,85,.5);border:1px solid rgba(51,65,85,.8);color:#94a3b8;font-weight:700;font-size:12px;cursor:pointer;">Cancel</button>
+      <button onclick="startMartingaleBot()" id="mgStartBtn" disabled style="padding:14px;border-radius:14px;background:linear-gradient(135deg,#10b981,#0d9488);border:none;color:#fff;font-weight:900;font-size:13px;cursor:pointer;opacity:.4;transition:opacity .2s;display:flex;align-items:center;justify-content:center;gap:6px;">
+        <i class="fa-solid fa-rocket"></i> Start Martingale Bot
+      </button>
+    </div>
+
+    <div style="text-align:center;margin-top:12px;font-size:9.5px;color:#475569;">
+      ⚠️ Martingale doubles on loss. Manage your risk accordingly.
     </div>
   </div>
 </div>
@@ -699,7 +996,12 @@ box-shadow:0 4px 20px #f59e0b88;">
     </div>
 
     <!-- AI badge -->
-    <div id="winAiBadge" style="font-size:11px;color:#ffe08a;margin-bottom:12px;font-weight:700;"></div>
+    <div id="winAiBadge" style="font-size:11px;color:#ffe08a;margin-bottom:6px;font-weight:700;"></div>
+
+    <!-- Martingale next bet info -->
+    <div id="winMgNextBet" style="display:none;font-size:11px;color:#a5f3fc;font-weight:900;margin-bottom:8px;background:rgba(6,182,212,.15);border:1px solid rgba(6,182,212,.3);border-radius:8px;padding:6px 12px;">
+      🔄 Martingale RESET → Next Bet: <span id="winMgNextAmt" style="color:#10b981;">₹1</span>
+    </div>
 
     <!-- Auto close -->
     <div style="display:flex;align-items:center;gap:8px;justify-content:center;">
@@ -747,6 +1049,11 @@ box-shadow:0 4px 20px #8888;">
       <div id="lossPeriodEl" style="font-size:10px;color:#ccc;font-weight:600;">Period —</div>
       <div id="lossAiPredictionEl" style="font-size:11px;color:#ffe08a;font-weight:700;margin-top:4px;"></div>
       <div id="lossBalanceEl" style="font-size:11px;color:#aaa;margin-top:2px;">Balance: ₹—</div>
+    </div>
+
+    <!-- Martingale doubled bet info -->
+    <div id="lossMgNextBet" style="display:none;font-size:11px;color:#fca5a5;font-weight:900;margin-bottom:8px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:6px 12px;">
+      📈 Martingale DOUBLES → Next Bet: <span id="lossMgNextAmt" style="color:#f87171;">₹2</span>
     </div>
 
     <div style="display:flex;align-items:center;gap:8px;justify-content:center;">
@@ -1134,7 +1441,20 @@ const S = {
 
   // 5-sec block
   inBetBlock: false,
-  lastKnownPeriod: null
+  lastKnownPeriod: null,
+
+  // ── Martingale bot state ──
+  martingaleBase: 1,       // the starting bet chosen by user
+  martingaleCurrent: 1,    // current bet = base * 2^lossLevel
+  martingaleLevel: 0,      // how many consecutive losses in current chain
+  martingalePnl: 0,        // session PnL (won - lost)
+  martingaleHistory: [],   // [{bet, won, result}] for chain visualization
+
+  // ── PRO MODE & ADVANCED RISK GUARDS ──
+  proMode: true,           // Pro Mode default ON
+  takeProfitAmount: null,  // Stop when profit >= this
+  stopLossAmount: null,    // Stop when loss >= this
+  stopMinBalance: 0        // Stop when balance <= this (default 0)
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -1194,6 +1514,8 @@ function startRTEngine() {
       S.secondsLeft = secsLeft;
       const periodEl = document.getElementById('currentPeriodDisplay');
       if (periodEl) periodEl.textContent = S.currentPeriod;
+      const smartPEl = document.getElementById('smartPeriodDisplay');
+      if (smartPEl) smartPEl.textContent = S.currentPeriod ? S.currentPeriod.slice(-5) : '—';
       updateTimerUI();
 
       // 5-second bet block
@@ -1239,6 +1561,9 @@ function updateTimerUI() {
   if (m2) m2.textContent = ms[1];
   if (s1) s1.textContent = ss[0];
   if (s2) s2.textContent = ss[1];
+
+  const smartT = document.getElementById('smartTimerDisplay');
+  if (smartT) smartT.textContent = `${ms}:${ss}`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1667,26 +1992,47 @@ function runAI() {
   updateAIDiagnosticsDrawer();
 
   // ── AUTO-BETTING EXECUTION (only if NOT in test mode) ──
-  if (S.autoBetEnabled && !isTest && S.aiSignal.decision === 'BET' && S.aiSignal.target && S.aiSignal.stake > 0) {
+  if (S.autoBetEnabled && !isTest && S.aiSignal.decision === 'BET' && S.aiSignal.target) {
+    if (S.balance <= 0) {
+      stopMartingale('Balance reached ₹0.00!');
+      return;
+    }
+    if (S.stopMinBalance !== null && S.stopMinBalance !== undefined && S.balance <= S.stopMinBalance) {
+      stopMartingale(`Balance hit minimum limit (₹${S.balance.toFixed(2)} <= ₹${S.stopMinBalance.toFixed(2)})`);
+      return;
+    }
+    if (S.takeProfitAmount && (S.martingalePnl || 0) >= S.takeProfitAmount) {
+      stopMartingale(`🎯 Target Profit reached: +₹${(S.martingalePnl || 0).toFixed(2)}!`);
+      return;
+    }
+    if (S.stopLossAmount && (S.martingalePnl || 0) <= -S.stopLossAmount) {
+      stopMartingale(`🛑 Stop-Loss threshold reached: -₹${Math.abs(S.martingalePnl || 0).toFixed(2)}!`);
+      return;
+    }
+
     if (!S.roundBet || S.roundBet.period !== S.currentPeriod) {
-      const autoStake = Math.min(S.aiSignal.stake, S.balance);
-      if (autoStake >= 1) {
-        S.balance = Math.max(0, S.balance - autoStake);
-        updateBalanceDisplay();
-        S.roundBet = {
-          id: Date.now(),
-          period: S.currentPeriod,
-          type: 'SIZE',
-          choice: S.aiSignal.target,
-          stake: autoStake,
-          status: 'PENDING',
-          aiSignal: S.aiSignal.target,
-          isAuto: true
-        };
-        S.myBets.unshift(S.roundBet);
-        renderMyBets();
-        showToast(`🤖 Auto-Bet placed: -₹${autoStake.toFixed(2)} on ${S.aiSignal.target}`, 'success');
+      // Use Martingale current bet instead of Kelly stake
+      const autoStake = S.martingaleCurrent || S.martingaleBase || 1;
+      if (S.balance < autoStake) {
+        stopMartingale(`Insufficient balance (₹${S.balance.toFixed(2)}) for next stake ₹${autoStake.toFixed(2)}`);
+        return;
       }
+      S.balance = Math.max(0, S.balance - autoStake);
+      updateBalanceDisplay();
+
+      S.roundBet = {
+        id: Date.now(),
+        period: S.currentPeriod,
+        type: 'SIZE',
+        choice: S.aiSignal.target,
+        stake: autoStake,
+        status: 'PENDING',
+        aiSignal: S.aiSignal.target,
+        isAuto: true
+      };
+      S.myBets.unshift(S.roundBet);
+      renderMyBets();
+      showToast(`🤖 Auto-Bet placed: -₹${autoStake.toFixed(2)} on ${S.aiSignal.target}`, 'success');
     }
   }
 
@@ -2078,10 +2424,42 @@ function saveRealResult(period, numberInput) {
         S.balance += payout;
         S.lossStreak = 0;
         S.winStreak++;
+
+        // ── Martingale WIN: track PnL, record history, reset to base ──
+        if (bet.isAuto) {
+          const netWin = payout - bet.stake;  // e.g. 1.96× - 1× = 0.96
+          S.martingalePnl = (S.martingalePnl || 0) + netWin;
+          S.martingaleHistory = [...(S.martingaleHistory || []), { bet: bet.stake, won: true }];
+          S.martingaleCurrent = S.martingaleBase;
+          S.martingaleLevel   = 0;
+        }
+
         showWinPopup({ period, number: n, color, size, profit: payout - bet.stake, balance: S.balance, aiCorrect: bet.aiSignal === size });
       } else {
         S.lossStreak++; S.winStreak = 0;
+
+        // ── Martingale LOSS: track PnL, record history, double the stake ──
+        if (bet.isAuto) {
+          S.martingalePnl = (S.martingalePnl || 0) - bet.stake;
+          S.martingaleHistory = [...(S.martingaleHistory || []), { bet: bet.stake, won: false }];
+          S.martingaleCurrent = (S.martingaleCurrent || S.martingaleBase) * 2;
+          S.martingaleLevel   = (S.martingaleLevel || 0) + 1;
+        }
+
         showLossPopup({ period, number: n, color, size, lost: bet.stake, balance: S.balance });
+      }
+
+      // ── Auto-stop checks on risk & targets ──
+      if (bet.isAuto && S.autoBetEnabled) {
+        if (S.balance <= 0) {
+          stopMartingale('Balance depleted to ₹0.00!');
+        } else if (S.stopMinBalance !== null && S.stopMinBalance !== undefined && S.balance <= S.stopMinBalance) {
+          stopMartingale(`Balance hit minimum limit (₹${S.balance.toFixed(2)} <= ₹${S.stopMinBalance.toFixed(2)})`);
+        } else if (S.takeProfitAmount && (S.martingalePnl || 0) >= S.takeProfitAmount) {
+          stopMartingale(`🎯 Target Profit reached: +₹${(S.martingalePnl || 0).toFixed(2)}! (Target: ₹${S.takeProfitAmount})`);
+        } else if (S.stopLossAmount && (S.martingalePnl || 0) <= -S.stopLossAmount) {
+          stopMartingale(`🛑 Stop-Loss threshold reached: -₹${Math.abs(S.martingalePnl || 0).toFixed(2)} (Limit: ₹${S.stopLossAmount})`);
+        }
       }
     }
     if (S.roundBet && S.roundBet.period === period) S.roundBet = null;
@@ -2091,12 +2469,28 @@ function saveRealResult(period, numberInput) {
 
   if (S.cooloffRounds > 0) S.cooloffRounds--;
 
+  // ── Snapshot AI signal for THIS period BEFORE runAI() overwrites S.currentPeriod ──
+  if (!S.aiPredictionMap[period] && S.aiSignal && S.aiSignal.target) {
+    S.aiPredictionMap[period] = {
+      target: S.aiSignal.target,
+      decision: S.aiSignal.decision || 'BET',
+      prob: S.aiSignal.prob || 0.55,
+      engines: S.aiSignal.engines || [],
+      isTest: S.aiSignal.isTest || S.aiTestMode
+    };
+  }
+
   S.history.sort((a,b) => String(a.period).localeCompare(String(b.period)));
 
   renderHistoryTable();
   renderMiniBalls();
   renderMyBets();
   renderTrendChart();
+  renderHeatmap();
+  renderBSPattern();
+  renderSmartView();
+  renderPatternAnalytics();
+  updateMartingaleUI();
   updateBalanceDisplay();
   runAI();
   saveToLocalStorage();
@@ -2259,10 +2653,19 @@ function renderMyBets() {
 }
 
 function updateBalanceDisplay() {
-  document.getElementById('balanceDisplay').textContent = `₹${S.balance.toFixed(2)}`;
+  const bEl = document.getElementById('balanceDisplay');
+  if (bEl) bEl.textContent = `₹${S.balance.toFixed(2)}`;
   const pnl = S.balance - S.initialBalance;
   const pnlEl = document.getElementById('sessionPnlDisplay');
-  pnlEl.innerHTML = `PnL: <span class="${pnl>=0?'text-emerald-400':'text-rose-400'} font-bold">${pnl>=0?'+':''}₹${Math.abs(pnl).toFixed(2)}</span>`;
+  if (pnlEl) {
+    pnlEl.innerHTML = `PnL: <span class="${pnl>=0?'text-emerald-400':'text-rose-400'} font-bold">${pnl>=0?'+':''}₹${Math.abs(pnl).toFixed(2)}</span>`;
+  }
+  const smartPnl = document.getElementById('smartSessionPnl');
+  if (smartPnl) {
+    const curPnl = S.martingalePnl !== undefined && S.martingalePnl !== null ? S.martingalePnl : pnl;
+    smartPnl.textContent = `${curPnl >= 0 ? '+' : ''}₹${curPnl.toFixed(2)}`;
+    smartPnl.className = `${curPnl >= 0 ? 'text-emerald-400' : 'text-rose-400'} text-xs font-black`;
+  }
 }
 
 // ─────────────────────────────────────────────────────────
@@ -2586,18 +2989,20 @@ function toggleAIGlow() {
 }
 
 function switchSubTab(tab) {
-  ['history','chart','my','ai'].forEach(t => {
+  ['smart','analyse','history','chart','my','ai'].forEach(t => {
     const btn = document.getElementById(`subtab-${t}`);
     if (btn) {
       btn.className = t===tab
-        ? 'py-2 rounded-xl bg-amber-400 text-slate-950 font-black shadow truncate'
-        : 'py-2 rounded-xl bg-app-card text-purple-300 font-bold truncate';
+        ? 'py-2 px-1 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black shadow truncate text-center'
+        : 'py-2 px-1 rounded-xl bg-app-card text-purple-300 font-bold hover:text-white truncate text-center';
     }
     const view = document.getElementById(`view-${t}`);
     if (view) {
       t===tab ? view.classList.remove('hidden') : view.classList.add('hidden');
     }
   });
+  if (tab==='smart') renderSmartView();
+  if (tab==='analyse') renderPatternAnalytics();
   if (tab==='chart') setTimeout(renderNumberRoad, 50);
   if (tab==='ai') renderAITrackRecord();
 }
@@ -2679,6 +3084,267 @@ function renderAITrackRecord() {
 }
 
 function clearMyBets() { S.myBets = []; renderMyBets(); showToast('Bets log cleared', 'info'); }
+
+// ═══════════════════════════════════════════════════════════════
+// PRO MODE TOGGLE & PERSISTENCE
+// ═══════════════════════════════════════════════════════════════
+function toggleProMode() {
+  S.proMode = !S.proMode;
+  applyProModeUI();
+  saveToLocalStorage();
+  showToast(S.proMode ? '⚡ PRO MODE ACTIVATED! Advanced terminal & analytics enabled.' : '📱 NORMAL MODE ACTIVATED. Clean layout restored.', 'info');
+}
+
+function applyProModeUI() {
+  const isPro = S.proMode;
+  const btnText = document.getElementById('proModeBtnText');
+  const btn = document.getElementById('proModeToggleBtn');
+  if (btnText) btnText.textContent = isPro ? '⚡ PRO MODE: ON' : '📱 NORMAL MODE';
+  if (btn) {
+    btn.className = isPro
+      ? 'flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-indigo-500/20 border border-amber-400/50 text-amber-300 hover:text-white font-black text-xs transition shadow active:scale-95'
+      : 'flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-app-card border border-purple-900/40 text-slate-400 hover:text-white font-bold text-xs transition active:scale-95';
+  }
+
+  // In Pro mode, default to Smart View or keep current view; in Normal mode, show standard game history
+  if (isPro) {
+    switchSubTab('smart');
+  } else {
+    switchSubTab('history');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SMART UNIFIED VIEW (HISTORY + TREND + BETS + AI COMBINED)
+// ═══════════════════════════════════════════════════════════════
+function renderSmartView() {
+  const periodEl   = document.getElementById('smartPeriodDisplay');
+  const timerEl    = document.getElementById('smartTimerDisplay');
+  const signalEl   = document.getElementById('smartAiSignal');
+  const engineEl   = document.getElementById('smartAiEngineTag');
+  const tfBadge    = document.getElementById('smartTfBadge');
+  const stakeEl    = document.getElementById('smartNextStake');
+  const pnlEl      = document.getElementById('smartSessionPnl');
+  const lvlEl      = document.getElementById('smartMartingaleLvl');
+  const botBtn     = document.getElementById('smartQuickBotBtn');
+  const riskBadge  = document.getElementById('smartRiskBadge');
+  const trendStrip = document.getElementById('smartTrendStrip');
+  const ratioEl    = document.getElementById('smartBigSmallRatio');
+
+  const { periodStr, secsLeft } = computeRTState();
+  if (periodEl) periodEl.textContent = S.currentPeriod ? S.currentPeriod.slice(-5) : (periodStr ? periodStr.slice(-5) : '—');
+
+  if (timerEl) {
+    const sVal = Math.max(0, parseInt(S.secondsLeft ?? secsLeft) || 0);
+    const ms = String(Math.floor(sVal / 60)).padStart(2,'0');
+    const ss = String(sVal % 60).padStart(2,'0');
+    timerEl.textContent = `${ms}:${ss}`;
+  }
+
+  if (tfBadge) tfBadge.textContent = `WinGo ${S.timeframe}`;
+
+  if (signalEl) {
+    const target = S.aiSignal?.target;
+    const prob = S.aiSignal?.prob ? Math.round(S.aiSignal.prob * 100) : 50;
+    if (target) {
+      signalEl.innerHTML = `<span class="${target==='BIG' ? 'text-amber-400' : 'text-sky-400'} font-black text-2xl">${target}</span> <span class="text-xs text-slate-300 font-mono">(${prob}%)</span>`;
+    } else {
+      signalEl.innerHTML = '<span class="text-slate-400 text-sm italic">ANALYZING...</span>';
+    }
+  }
+
+  if (engineEl) {
+    const engs = S.aiSignal?.engines?.length ? S.aiSignal.engines.join(' + ') : '5-Engine Consensus';
+    engineEl.textContent = engs;
+  }
+
+  const curStake = S.autoBetEnabled ? (S.martingaleCurrent || S.martingaleBase || 1) : (S.aiSignal?.stake || 1);
+  if (stakeEl) stakeEl.textContent = `₹${curStake.toFixed(2)}`;
+
+  const pnl = S.martingalePnl || (S.balance - (S.initialBalance || 100));
+  if (pnlEl) {
+    pnlEl.textContent = `${pnl >= 0 ? '+' : ''}₹${pnl.toFixed(2)}`;
+    pnlEl.className = `${pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'} text-xs font-black`;
+  }
+
+  if (lvlEl) {
+    lvlEl.textContent = `Lvl ${S.martingaleLevel || 0}`;
+    lvlEl.className = `${(S.martingaleLevel || 0) === 0 ? 'text-emerald-400' : 'text-amber-400'} text-xs font-black`;
+  }
+
+  if (botBtn) {
+    if (S.autoBetEnabled) {
+      botBtn.className = "p-2 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 text-white font-black text-[10px] shadow animate-pulse hover:brightness-110 active:scale-95 transition flex flex-col items-center justify-center";
+      botBtn.innerHTML = '<span>🛑 STOP BOT</span>';
+    } else {
+      botBtn.className = "p-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black text-[10px] shadow hover:brightness-110 active:scale-95 transition flex flex-col items-center justify-center";
+      botBtn.innerHTML = '<span>🚀 TEST BOT</span>';
+    }
+  }
+
+  if (riskBadge) {
+    const parts = [];
+    if (S.takeProfitAmount) parts.push(`TP: +₹${S.takeProfitAmount}`);
+    if (S.stopLossAmount)   parts.push(`SL: -₹${S.stopLossAmount}`);
+    if (S.stopMinBalance > 0) parts.push(`Floor: ₹${S.stopMinBalance}`);
+    else parts.push('Floor: ₹0');
+    riskBadge.textContent = `Risk: ${parts.join(' | ')}`;
+  }
+
+  // Mini Trend Road Strip (last 20 results)
+  const realHistAsc = S.history.filter(r => !r.gap);
+  if (trendStrip) {
+    const last20 = realHistAsc.slice(-20);
+    if (!last20.length) {
+      trendStrip.innerHTML = '<span class="text-slate-500 text-[9px] italic">No historical data recorded yet</span>';
+    } else {
+      trendStrip.innerHTML = last20.map(r => {
+        const isBig = r.size === 'BIG';
+        const cBorder = r.color === 'RED' ? 'border-rose-500/50 bg-rose-500/20 text-rose-300' : (r.color === 'GREEN' ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-300' : 'border-purple-500/50 bg-purple-500/20 text-purple-300');
+        return `<div class="flex flex-col items-center gap-0.5 shrink-0">
+          <span class="w-6 h-6 rounded-full flex items-center justify-center font-black text-[10.5px] border ${cBorder}">${r.number}</span>
+          <span class="text-[8.5px] font-bold ${isBig ? 'text-amber-400' : 'text-sky-400'}">${isBig ? 'B' : 'S'}</span>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  if (ratioEl) {
+    const last50 = realHistAsc.slice(-50);
+    const bigs = last50.filter(r => r.size === 'BIG').length;
+    const total = last50.length || 1;
+    const bigPct = Math.round(bigs / total * 100);
+    const smallPct = 100 - bigPct;
+    ratioEl.textContent = `BIG: ${bigPct}% | SMALL: ${smallPct}% (${total} rounds)`;
+  }
+
+  const container = document.getElementById('smartHistoryRows');
+  if (!container) return;
+
+  const realHistDesc = realHistAsc.slice(-50).reverse();
+  if (!realHistDesc.length) {
+    container.innerHTML = '<div class="text-center py-6 text-slate-500 text-xs italic">No game rounds recorded yet...</div>';
+    return;
+  }
+
+  container.innerHTML = realHistDesc.map(row => {
+    const periodShort = String(row.period).slice(-5);
+    const n = row.number;
+    const size = row.size;
+    const color = row.color;
+    const colorDot = color === 'RED' ? '🔴' : color === 'GREEN' ? '🟢' : '🟣';
+    const numColor = (n===0||n===5) ? 'text-purple-400' : (n%2===1 ? 'text-emerald-400' : 'text-rose-400');
+
+    // AI Prediction
+    const aiPred = S.aiPredictionMap[row.period];
+    let aiHtml = '<span class="text-slate-600">—</span>';
+    if (aiPred && aiPred.target) {
+      const isCorrect = aiPred.target === size;
+      const probPct = Math.round((aiPred.prob || 0.55) * 100);
+      aiHtml = `<span class="px-2 py-0.5 rounded-full font-black text-[9px] ${isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">${aiPred.target} ${probPct}% ${isCorrect ? '✓' : '✗'}</span>`;
+    }
+
+    // Bet placed
+    const bet = S.myBets.find(b => b.period === row.period);
+    let betHtml = '<span class="text-slate-600 text-[9px]">No Bet</span>';
+    let outcomeHtml = '<span class="text-slate-600 text-[9px]">—</span>';
+
+    if (bet) {
+      betHtml = `<span class="font-bold text-slate-200">₹${bet.stake.toFixed(0)} on ${bet.choice}</span>`;
+      if (bet.status === 'WON') {
+        const profit = bet.payout - bet.stake;
+        outcomeHtml = `<span class="text-emerald-400 font-black">+₹${profit.toFixed(1)} WIN</span>`;
+      } else if (bet.status === 'LOST') {
+        outcomeHtml = `<span class="text-rose-400 font-black">-₹${bet.stake.toFixed(1)} LOSS</span>`;
+      } else {
+        outcomeHtml = `<span class="text-amber-400 font-bold animate-pulse">PENDING</span>`;
+      }
+    }
+
+    return `<div class="grid grid-cols-12 py-2 px-3 items-center hover:bg-white/5 transition">
+      <div class="col-span-2 text-slate-400 font-mono font-bold">${periodShort}</div>
+      <div class="col-span-3 text-center flex items-center justify-center gap-1.5">
+        <span class="text-xs">${colorDot}</span>
+        <b class="${numColor} text-xs font-black">${n}</b>
+        <span class="text-[9px] px-1.5 py-0.2 rounded font-black ${size==='BIG' ? 'bg-amber-500/20 text-amber-300' : 'bg-sky-500/20 text-sky-300'}">${size}</span>
+      </div>
+      <div class="col-span-3 text-center">${aiHtml}</div>
+      <div class="col-span-2 text-center text-[9px]">${betHtml}</div>
+      <div class="col-span-2 text-right text-[9px]">${outcomeHtml}</div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PATTERN DETECTION & AI AUDIT ENGINE
+// ═══════════════════════════════════════════════════════════════
+function renderPatternAnalytics() {
+  const realHist = S.history.filter(r => !r.gap);
+  
+  // ── 1. AI Accuracy Audit ──
+  let totalPreds = 0, correctPreds = 0, wrongPreds = 0;
+  realHist.forEach(r => {
+    const p = S.aiPredictionMap[r.period];
+    if (p && p.target) {
+      totalPreds++;
+      if (p.target === r.size) correctPreds++;
+      else wrongPreds++;
+    }
+  });
+  const accPct = totalPreds > 0 ? Math.round(correctPreds / totalPreds * 100) : 0;
+
+  _setEl('auditTotalPreds', totalPreds);
+  _setEl('auditCorrectPreds', correctPreds);
+  _setEl('auditWrongPreds', wrongPreds);
+  _setEl('auditAccuracyPct', totalPreds > 0 ? `${accPct}%` : '—');
+
+  // ── 2. Pattern Detection & Repeat Library ──
+  const patterns = [
+    { code: 'DRAGON_BIG', name: 'Big Dragon Streak (3+ Bigs)', regex: /B{3,}/g, color: 'text-amber-400', desc: 'Sustained upward momentum run' },
+    { code: 'DRAGON_SMALL', name: 'Small Dragon Streak (3+ Smalls)', regex: /S{3,}/g, color: 'text-sky-400', desc: 'Sustained downward momentum run' },
+    { code: 'CHOP_BS', name: 'Chop Zig-Zag (BSBS alternating)', regex: /(?:BS){2,}|(?:SB){2,}/g, color: 'text-purple-400', desc: 'Mean-reverting ping-pong market' },
+    { code: 'DOUBLE_PAIR', name: 'Double Pair (BBSS / SSBB)', regex: /B{2}S{2}|S{2}B{2}/g, color: 'text-emerald-400', desc: 'Harmonic two-by-two repeat rhythm' },
+    { code: 'TRIPLE_CHOP', name: '3-1 Trend Break (BBB-S / SSS-B)', regex: /B{3}S|S{3}B/g, color: 'text-rose-400', desc: 'Exhaustion reversal pivot pattern' },
+    { code: 'MIRROR_SANDWICH', name: 'Sandwich (BSB / SBS)', regex: /BSB|SBS/g, color: 'text-indigo-300', desc: 'Fakeout trap pattern' }
+  ];
+
+  const seq = realHist.map(r => r.size === 'BIG' ? 'B' : 'S').join('');
+  const listEl = document.getElementById('patternLibraryList');
+  if (listEl) {
+    listEl.innerHTML = patterns.map(pat => {
+      const matches = seq.match(pat.regex) || [];
+      const count = matches.length;
+      return `<div class="p-3 bg-purple-950/60 rounded-xl border border-purple-800/40 flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span class="font-black ${pat.color} text-xs">${pat.name}</span>
+          <span class="px-2 py-0.5 rounded-full bg-white/10 text-white font-bold text-[9px]">${count} Repeats</span>
+        </div>
+        <div class="text-slate-400 text-[9px] mt-1 italic font-sans">${pat.desc}</div>
+        <div class="mt-2 text-[8px] text-slate-500 font-mono flex items-center justify-between border-t border-purple-900/30 pt-1">
+          <span>CODE: <b class="text-slate-300 font-mono">${pat.code}</b></span>
+          <span class="text-amber-400/80">Freq: ${realHist.length > 0 ? Math.round(count / (realHist.length / 5 || 1) * 10) : 0}%</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── 3. Number Distribution Grid ──
+  const numGrid = document.getElementById('auditNumberDistGrid');
+  if (numGrid) {
+    const counts = [0,1,2,3,4,5,6,7,8,9].map(n => realHist.filter(r => r.number === n).length);
+    const maxC = Math.max(...counts, 1);
+    numGrid.innerHTML = counts.map((c, n) => {
+      const pct = Math.round(c / (realHist.length || 1) * 100);
+      const isHot = c / maxC > 0.7;
+      const numC = (n===0||n===5) ? 'text-purple-300' : (n%2===1 ? 'text-emerald-300' : 'text-rose-300');
+      return `<div class="p-2 rounded-xl bg-purple-950/70 border ${isHot ? 'border-amber-400/60 shadow-lg' : 'border-purple-900/30'} flex flex-col items-center">
+        <b class="${numC} text-sm">${n}</b>
+        <span class="text-slate-300 text-[10px] font-bold mt-0.5">${c}×</span>
+        <span class="text-slate-500 text-[8px] font-mono">${pct}%</span>
+      </div>`;
+    }).join('');
+  }
+}
 
 // ── Balance Modal ──
 function openBalanceModal() {
@@ -3285,19 +3951,227 @@ function showLossPopup({ period, number, color, size, lost, balance }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// AUTO-BETTING CONTROLS & PROMPTS
+// MARTINGALE BOT — SETUP + CONTROLS
 // ═══════════════════════════════════════════════════════════════
+let _mgSelectedBase = null;
+
 function toggleAutoBet() {
-  S.autoBetEnabled = !S.autoBetEnabled;
-  updateAutoBetUI();
   if (S.autoBetEnabled) {
-    showToast('🚀 Auto-Betting Activated! AI will execute bets automatically.', 'success');
-    runAI(); // execute immediately if signal ready
+    stopMartingale();
   } else {
-    showToast('🛑 Auto-Betting Deactivated.', 'info');
+    openMartingaleSetup();
   }
 }
 
+function openMartingaleSetup() {
+  _mgSelectedBase = null;
+  const modal = document.getElementById('martingaleSetupModal');
+  if (!modal) return;
+  // Reset UI
+  const input = document.getElementById('mgCustomInput');
+  if (input) input.value = '';
+  const sbInput = document.getElementById('mgStartingBalanceInput');
+  if (sbInput) {
+    sbInput.value = '';
+    sbInput.placeholder = `Current Balance: ₹${S.balance.toFixed(0)}`;
+  }
+  document.getElementById('mgSelectedDisplay').style.display = 'none';
+  document.getElementById('mgStartBtn').disabled = true;
+  document.getElementById('mgStartBtn').style.opacity = '0.4';
+  document.querySelectorAll('.mg-chip').forEach(c => {
+    c.style.background = c.dataset.val <= 3 ? 'rgba(99,102,241,.1)' : 'rgba(245,158,11,.1)';
+    c.style.border = c.dataset.val <= 3 ? '1.5px solid rgba(99,102,241,.4)' : '1.5px solid rgba(245,158,11,.4)';
+  });
+  // Show example based on first chip value
+  updateMgExamples(1);
+  modal.style.display = 'flex';
+}
+
+function closeMartingaleSetup() {
+  const modal = document.getElementById('martingaleSetupModal');
+  if (modal) modal.style.display = 'none';
+  _mgSelectedBase = null;
+}
+
+function setMgChip(val) {
+  _mgSelectedBase = val;
+  const input = document.getElementById('mgCustomInput');
+  if (input) input.value = '';
+  document.querySelectorAll('.mg-chip').forEach(c => {
+    const isSelected = parseInt(c.dataset.val) === val;
+    c.style.background = isSelected ? 'rgba(16,185,129,.3)' : (c.dataset.val <= 3 ? 'rgba(99,102,241,.1)' : 'rgba(245,158,11,.1)');
+    c.style.border = isSelected ? '2px solid #10b981' : (c.dataset.val <= 3 ? '1.5px solid rgba(99,102,241,.4)' : '1.5px solid rgba(245,158,11,.4)');
+    c.style.color = isSelected ? '#fff' : (c.dataset.val <= 3 ? '#a5b4fc' : '#fbbf24');
+  });
+  showMgSelectedAmount(val);
+}
+
+function setMgCustom() {
+  const input = document.getElementById('mgCustomInput');
+  const val = parseFloat(input.value);
+  if (val >= 1) {
+    _mgSelectedBase = val;
+    document.querySelectorAll('.mg-chip').forEach(c => {
+      c.style.background = c.dataset.val <= 3 ? 'rgba(99,102,241,.1)' : 'rgba(245,158,11,.1)';
+      c.style.border = c.dataset.val <= 3 ? '1.5px solid rgba(99,102,241,.4)' : '1.5px solid rgba(245,158,11,.4)';
+    });
+    showMgSelectedAmount(val);
+  } else {
+    _mgSelectedBase = null;
+    document.getElementById('mgSelectedDisplay').style.display = 'none';
+    document.getElementById('mgStartBtn').disabled = true;
+    document.getElementById('mgStartBtn').style.opacity = '0.4';
+  }
+}
+
+function showMgSelectedAmount(base) {
+  _mgSelectedBase = base;
+  document.getElementById('mgSelectedAmt').textContent = `₹${base}`;
+  document.getElementById('mgSeqPreview').textContent =
+    `₹${base} → ₹${base*2} → ₹${base*4} → ₹${base*8} → ₹${base*16}...`;
+  document.getElementById('mgSelectedDisplay').style.display = 'block';
+  document.getElementById('mgStartBtn').disabled = false;
+  document.getElementById('mgStartBtn').style.opacity = '1';
+  updateMgExamples(base);
+}
+
+function updateMgExamples(base) {
+  const e1 = document.getElementById('mgExample1');
+  const e2 = document.getElementById('mgExample2');
+  const e3 = document.getElementById('mgExample3');
+  if (e1) e1.textContent = `₹${base}`;
+  if (e2) e2.textContent = `₹${base * 2}`;
+  if (e3) e3.textContent = `₹${base * 4}`;
+}
+
+function startMartingaleBot() {
+  if (!_mgSelectedBase || _mgSelectedBase < 1) return;
+
+  // Optional: User-defined test starting budget / balance
+  const sbVal = parseFloat(document.getElementById('mgStartingBalanceInput')?.value);
+  if (!isNaN(sbVal) && sbVal > 0) {
+    S.balance = sbVal;
+    S.initialBalance = sbVal;
+    updateBalanceDisplay();
+  }
+
+  S.martingaleBase    = _mgSelectedBase;
+  S.martingaleCurrent = _mgSelectedBase;
+  S.martingaleLevel   = 0;
+  S.martingalePnl     = 0;
+  S.martingaleHistory = [];
+
+  // Read Advanced Auto-Stop limits
+  const tpVal = parseFloat(document.getElementById('mgTakeProfitInput')?.value);
+  const slVal = parseFloat(document.getElementById('mgStopLossInput')?.value);
+  const mbVal = parseFloat(document.getElementById('mgMinBalanceInput')?.value);
+
+  S.takeProfitAmount = (!isNaN(tpVal) && tpVal > 0) ? tpVal : null;
+  S.stopLossAmount   = (!isNaN(slVal) && slVal > 0) ? slVal : null;
+  S.stopMinBalance   = (!isNaN(mbVal) && mbVal >= 0) ? mbVal : 0;
+
+  S.autoBetEnabled    = true;
+
+  closeMartingaleSetup();
+  updateAutoBetUI();
+  updateMartingaleUI();
+  renderSmartView();
+  
+  let riskMsg = '';
+  if (S.takeProfitAmount) riskMsg += ` | TP: +₹${S.takeProfitAmount}`;
+  if (S.stopLossAmount) riskMsg += ` | SL: -₹${S.stopLossAmount}`;
+  riskMsg += ` | Stop at ₹${S.stopMinBalance}`;
+
+  showToast(`🚀 Martingale Bot started! Base: ₹${_mgSelectedBase}${riskMsg}`, 'success');
+  saveToLocalStorage();
+  runAI();
+}
+
+function stopMartingale(reason) {
+  S.autoBetEnabled = false;
+  updateAutoBetUI();
+  updateMartingaleUI();
+  renderSmartView();
+  const reasonStr = reason ? ` (${reason})` : '';
+  const pnlStr = (S.martingalePnl || 0) >= 0 ? `+₹${(S.martingalePnl || 0).toFixed(2)}` : `-₹${Math.abs(S.martingalePnl || 0).toFixed(2)}`;
+  showToast(`🛑 Martingale Bot stopped${reasonStr}. PnL: ${pnlStr}`, 'info');
+  saveToLocalStorage();
+}
+
+function updateMartingaleUI() {
+  const bar    = document.getElementById('martingaleStatusBar');
+  const hdrSt  = document.getElementById('mgHeaderStatus');
+
+  if (S.autoBetEnabled) {
+    if (bar) bar.classList.remove('hidden');
+    if (hdrSt) { hdrSt.classList.remove('hidden'); hdrSt.classList.add('flex'); }
+  } else {
+    if (bar) bar.classList.add('hidden');
+    if (hdrSt) { hdrSt.classList.add('hidden'); hdrSt.classList.remove('flex'); }
+  }
+
+  // Update all Martingale display elements
+  const base = S.martingaleBase;
+  const cur  = S.martingaleCurrent;
+  const lvl  = S.martingaleLevel;
+  const pnl  = S.martingalePnl;
+  const pnlStr = `${pnl >= 0 ? '+' : ''}₹${pnl.toFixed(2)}`;
+
+  _setEl('mgBaseDisplay', `₹${base}`);
+  _setEl('mgCurrentDisplay', `₹${cur}`);
+  _setEl('mgHeaderBase', `₹${base}`);
+  _setEl('mgHeaderCurrent', `₹${cur}`);
+  _setEl('mgHeaderPnl', `PnL: <span class="${pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${pnlStr}</span>`);
+
+  const lvlEl = document.getElementById('mgLevelBadge');
+  if (lvlEl) {
+    lvlEl.textContent = `Level ${lvl}`;
+    lvlEl.className = `text-[9px] px-2 py-0.5 rounded-full font-black mb-0.5 ${lvl === 0 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : lvl <= 2 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}`;
+  }
+  const hdrLvl = document.getElementById('mgHeaderLevel');
+  if (hdrLvl) {
+    hdrLvl.textContent = `Lvl ${lvl}`;
+    hdrLvl.className = `px-2 py-0.5 rounded-full font-black text-[9px] ${lvl === 0 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}`;
+  }
+
+  const pnlEl = document.getElementById('mgSessionPnl');
+  if (pnlEl) pnlEl.innerHTML = `PnL: <span class="${pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'} font-bold">${pnlStr}</span>`;
+
+  // Chain visualization
+  const chain = document.getElementById('mgChainViz');
+  if (chain) {
+    chain.innerHTML = S.martingaleHistory.slice(-12).map(h =>
+      `<span class="px-1.5 py-0.5 rounded-lg ${h.won ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/30 text-rose-300 border border-rose-500/30'}" title="${h.won ? 'WIN' : 'LOSS'}">₹${h.bet}</span>`
+    ).join('<span class="text-slate-600 text-[8px]">→</span>');
+    if (S.martingaleHistory.length === 0) chain.innerHTML = '<span class="text-slate-500 italic text-[9px]">No rounds yet...</span>';
+  }
+
+  // Session stats panel
+  _setEl('statsMgLevel', lvl);
+  _setEl('statsTotalRounds', S.history.filter(r => !r.gap).length);
+  _setEl('statsTotalBets', S.totalBets);
+  _setEl('statsWinsLosses', `${S.totalWins} / ${S.totalBets - S.totalWins}`);
+  const wr = S.totalBets > 0 ? Math.round(S.totalWins / S.totalBets * 100) : 0;
+  _setEl('statsWinRate', S.totalBets > 0 ? `${wr}%` : '—');
+  const spnl = (S.balance || 100) - (S.initialBalance || 100);
+  const spnlEl = document.getElementById('statsSessionPnl');
+  if (spnlEl) spnlEl.innerHTML = `<b class="${spnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${spnl >= 0 ? '+' : ''}₹${spnl.toFixed(2)}</b>`;
+
+  // Signal stake
+  const sigStake = document.getElementById('signalStake');
+  if (sigStake) sigStake.textContent = S.autoBetEnabled ? `₹${cur}` : '₹—';
+  const dStake = document.getElementById('diagStakeVal');
+  if (dStake) dStake.textContent = `₹${cur}`;
+}
+
+function _setEl(id, html) {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTO-BET UI UPDATE
+// ═══════════════════════════════════════════════════════════════
 function updateAutoBetUI() {
   const btnHeader = document.getElementById('autoBetToggleBtn');
   const btnBox    = document.getElementById('autoBetBoxBtn');
@@ -3307,7 +4181,7 @@ function updateAutoBetUI() {
     if (btnHeader) btnHeader.className = "w-8 h-8 flex items-center justify-center rounded-full bg-emerald-500 text-slate-950 font-black shadow animate-pulse";
     if (btnBox) {
       btnBox.className = "w-full mt-2.5 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 text-white font-black text-xs shadow animate-pulse hover:brightness-110 active:scale-95 transition flex items-center justify-center gap-2";
-      btnBox.innerHTML = '<i class="fa-solid fa-stop"></i> 🛑 Stop Auto-Betting (ACTIVE)';
+      btnBox.innerHTML = '<i class="fa-solid fa-stop"></i> 🛑 Stop Martingale Bot';
     }
     if (tagBox) {
       tagBox.className = "text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/40 ml-1 shrink-0";
@@ -3317,7 +4191,7 @@ function updateAutoBetUI() {
     if (btnHeader) btnHeader.className = "w-8 h-8 flex items-center justify-center rounded-full bg-app-card text-slate-300 hover:text-emerald-400 transition";
     if (btnBox) {
       btnBox.className = "w-full mt-2.5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black text-xs shadow hover:brightness-110 active:scale-95 transition flex items-center justify-center gap-2";
-      btnBox.innerHTML = '<i class="fa-solid fa-play"></i> 🚀 Start Auto-Betting';
+      btnBox.innerHTML = '<i class="fa-solid fa-rotate"></i> 🚀 Start Martingale Bot';
     }
     if (tagBox) {
       tagBox.className = "text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-bold border border-slate-700 ml-1 shrink-0";
@@ -3326,68 +4200,61 @@ function updateAutoBetUI() {
   }
 }
 
-function showStartBettingPrompt() {
-  const modal = document.getElementById('startBettingPromptModal');
-  if (!modal || S.autoBetEnabled || S.promptDismissed || S.aiTestMode) return;
+// ═══════════════════════════════════════════════════════════════
+// PATTERN ANALYSIS — HEATMAP + B/S TRAIL
+// ═══════════════════════════════════════════════════════════════
+function renderHeatmap() {
+  const grid = document.getElementById('heatmapGrid');
+  if (!grid) return;
+  const counts = [0,1,2,3,4,5,6,7,8,9].map(n => S.history.filter(r => !r.gap && r.number === n).length);
+  const maxC = Math.max(...counts, 1);
+  grid.innerHTML = counts.map((c, n) => {
+    const pct = c / maxC;
+    const heat = pct > 0.7 ? 'bg-rose-500' : pct > 0.4 ? 'bg-amber-500' : pct > 0.2 ? 'bg-indigo-500' : 'bg-purple-900/40';
+    const textC = pct > 0.2 ? 'text-white' : 'text-slate-400';
+    const numC = (n===0||n===5) ? 'text-purple-300' : (n%2===1 ? 'text-emerald-300' : 'text-rose-300');
+    return `<div class="h-12 rounded-lg ${heat} flex flex-col items-center justify-center text-center transition-all" title="Number ${n}: ${c} times">
+      <b class="${numC} text-[11px]">${n}</b>
+      <span class="${textC} text-[8px]">${c}×</span>
+    </div>`;
+  }).join('');
+}
 
-  const realHist = S.history.filter(r => !r.gap);
-  if (realHist.length < MIN_DATA_TO_PREDICT) return;
+function renderBSPattern() {
+  const trail = document.getElementById('bsPatternTrail');
+  if (!trail) return;
+  const real = S.history.filter(r => !r.gap && r.size).slice(-30);
+  trail.innerHTML = real.map(r =>
+    `<span class="w-5 h-5 rounded-sm flex items-center justify-center text-[8px] font-black ${r.size === 'BIG' ? 'bg-amber-500/30 text-amber-300 border border-amber-500/30' : 'bg-sky-500/30 text-sky-300 border border-sky-500/30'}" title="${r.size}">${r.size[0]}</span>`
+  ).join('');
 
-  // STRICT RULE: ONLY SHOW PROMPT IF ALL RECENT PREDICTIONS ARE CORRECT!
-  // DONT SHOW IF PREDICTIONS ARE WRONG!
-  const recentResults = S.aiTestResults.slice(-3);
-  if (recentResults.length >= 2) {
-    const allCorrect = recentResults.every(r => r.correct);
-    if (!allCorrect) return; // Hide prompt if any recent prediction was wrong
-  } else {
-    if (S.lossStreak > 0) return; // Hide prompt if currently on a loss
+  // Current streaks
+  let bigStreak = 0, smallStreak = 0;
+  const rev = [...real].reverse();
+  for (const r of rev) {
+    if (r.size === 'BIG') { bigStreak++; if (smallStreak > 0) break; }
+    else break;
   }
-
-  const { periodStr } = computeRTState();
-  const newestHistPeriod = realHist[realHist.length - 1].period;
-  if (!newestHistPeriod) return;
-
-  const lastNum = parseInt(newestHistPeriod.slice(-5));
-  const curNum  = parseInt(periodStr.slice(-5));
-  const prefix  = periodStr.slice(0, -5);
-  const lastPrefix = newestHistPeriod.slice(0, -5);
-
-  if (prefix !== lastPrefix || (curNum - lastNum) > 2) return;
-
-  const sigEl = document.getElementById('promptSignalVal');
-  const stkEl = document.getElementById('promptStakeVal');
-  const strEl = document.getElementById('promptStreakVal');
-
-  if (sigEl) sigEl.textContent = S.aiSignal.target || 'BIG';
-  if (stkEl) stkEl.textContent = `₹${(S.aiSignal.stake || 10).toFixed(2)}`;
-  if (strEl) strEl.textContent = `${S.lossStreak}/3 (SAFE)`;
-
-  modal.style.display = 'flex';
-
-  // 10-second auto-close timer for start betting prompt
-  if (S.startBetPromptTimer) clearTimeout(S.startBetPromptTimer);
-  S.startBetPromptTimer = setTimeout(() => {
-    modal.style.display = 'none';
-  }, 10000);
-}
-
-function dismissStartBettingPrompt() {
-  S.promptDismissed = true;
-  const modal = document.getElementById('startBettingPromptModal');
-  if (modal) modal.style.display = 'none';
-}
-
-function acceptStartBettingPrompt() {
-  S.promptDismissed = true;
-  const modal = document.getElementById('startBettingPromptModal');
-  if (modal) modal.style.display = 'none';
-  if (!S.autoBetEnabled) toggleAutoBet();
+  for (const r of rev) {
+    if (r.size === 'SMALL') { smallStreak++; if (bigStreak > 0) break; }
+    else break;
+  }
+  _setEl('currentBigStreak', bigStreak || '0');
+  _setEl('currentSmallStreak', smallStreak || '0');
 }
 
 // ═══════════════════════════════════════════════════════════════
-// LOCALSTORAGE PERSISTENCE
+// STUB functions for old prompt (now replaced by Martingale)
 // ═══════════════════════════════════════════════════════════════
-const LS_KEY = 'dhaniwin_quant_state_v1';
+function showStartBettingPrompt() { /* replaced by Martingale setup */ }
+function dismissStartBettingPrompt() { closeMartingaleSetup(); }
+function acceptStartBettingPrompt() { startMartingaleBot(); }
+
+
+// ═══════════════════════════════════════════════════════════════
+// LOCALSTORAGE PERSISTENCE — ALWAYS SAVE + RESTORE ALL DATA
+// ═══════════════════════════════════════════════════════════════
+const LS_KEY = 'dhaniwin_quant_state_v2';
 
 function saveToLocalStorage() {
   try {
@@ -3404,7 +4271,20 @@ function saveToLocalStorage() {
       engineWeights: S.engineWeights || {},
       timeframe: S.timeframe,
       isInitialized: S.isInitialized,
-      aiTestMode: S.aiTestMode
+      aiTestMode: S.aiTestMode,
+      totalBets: S.totalBets,
+      totalWins: S.totalWins,
+      proMode: S.proMode,
+      takeProfitAmount: S.takeProfitAmount,
+      stopLossAmount: S.stopLossAmount,
+      stopMinBalance: S.stopMinBalance,
+      // Martingale state
+      martingaleBase: S.martingaleBase,
+      martingaleCurrent: S.martingaleCurrent,
+      martingaleLevel: S.martingaleLevel,
+      martingalePnl: S.martingalePnl,
+      martingaleHistory: (S.martingaleHistory || []).slice(-50),
+      savedAt: Date.now()
     };
     localStorage.setItem(LS_KEY, JSON.stringify(payload));
   } catch (e) {
@@ -3428,7 +4308,19 @@ function loadFromLocalStorage() {
       S.timeframe         = data.timeframe || '30s';
       S.isInitialized     = data.isInitialized ?? false;
       S.aiTestMode        = data.aiTestMode ?? true;
+      S.proMode           = data.proMode ?? true;
+      S.takeProfitAmount  = data.takeProfitAmount ?? null;
+      S.stopLossAmount    = data.stopLossAmount ?? null;
+      S.stopMinBalance    = data.stopMinBalance ?? 0;
       S.history           = [...(S.historyByTimeframe[S.timeframe] || [])];
+      S.totalBets         = data.totalBets || 0;
+      S.totalWins         = data.totalWins || 0;
+      // Restore Martingale state
+      S.martingaleBase    = data.martingaleBase || 1;
+      S.martingaleCurrent = data.martingaleCurrent || 1;
+      S.martingaleLevel   = data.martingaleLevel || 0;
+      S.martingalePnl     = data.martingalePnl || 0;
+      S.martingaleHistory = data.martingaleHistory || [];
       return true;
     }
   } catch (e) {
@@ -3441,52 +4333,54 @@ function loadFromLocalStorage() {
 // BOOTSTRAP
 // ═══════════════════════════════════════════════════════════════
 window.onload = () => {
-  // ── 1. Load from LocalStorage ──
+  // ── 1. Load from LocalStorage (ALWAYS restore saved data) ──
   const loaded = loadFromLocalStorage();
   updateBalanceDisplay();
   renderMyBets();
+  applyProModeUI();
 
-  // ── 2. Start real-time engine (timer ticks, period tracking) ──
+  // ── 2. Start real-time engine ──
   startRTEngine();
 
-  // ── 3. Check if saved history is still fresh ──
-  let isFresh = false;
   if (loaded && S.history && S.history.length >= MIN_DATA_TO_PREDICT) {
-    try {
-      const { periodStr } = computeRTState();
-      const newestHistPeriod = S.history[S.history.length - 1]?.period;
-      if (newestHistPeriod) {
-        const lastNum = parseInt(newestHistPeriod.slice(-5));
-        const curNum  = parseInt(periodStr.slice(-5));
-        const prefix  = periodStr.slice(0, -5);
-        const lastPrefix = newestHistPeriod.slice(0, -5);
-        if (prefix === lastPrefix && (curNum - lastNum) >= 0 && (curNum - lastNum) <= 5) {
-          isFresh = true;
-        }
-      }
-    } catch(e) {}
-  }
-
-  if (isFresh) {
-    // Fresh saved data – show immediately
+    // ALWAYS use saved history - no stale check
     renderHistoryTable();
     renderMiniBalls();
     renderTrendChart();
+    renderHeatmap();
+    renderBSPattern();
+    renderSmartView();
+    renderPatternAnalytics();
+    updateMartingaleUI();
     runAI();
     updateTestBanner();
-    showToast('💾 Restored active history from LocalStorage!', 'success');
-    // Try background sync after 1 second without blocking UI
-    setTimeout(() => fetchLiveAPIResults().catch(() => {}), 1000);
+    showToast(`💾 ${S.history.length} rounds restored! Syncing live data...`, 'success');
+    // Always try live sync in background to append new data
+    setTimeout(() => fetchLiveAPIResults().catch(() => showOfflineBanner(true)), 1000);
   } else {
-    // ── 4. Load demo data IMMEDIATELY so app is usable right away ──
+    // ── 3. No saved data — load demo data ──
     loadInitDemoData();
-    showToast('✨ Sample data loaded! Tap 🌐 Sync anytime for live results.', 'info');
-    // ── 5. Then try live sync in background (won't freeze UI) ──
+    renderHeatmap();
+    renderBSPattern();
+    renderSmartView();
+    renderPatternAnalytics();
+    showToast('✨ Sample data loaded. Syncing live results...', 'info');
     setTimeout(() => {
-      fetchLiveAPIResults().catch(() => {});
+      fetchLiveAPIResults().catch(() => showOfflineBanner(true));
     }, 800);
   }
 };
+
+function showOfflineBanner(show) {
+  const el = document.getElementById('offlineBanner');
+  if (el) el.classList.toggle('hidden', !show);
+  const liveStatus = document.getElementById('liveStatusText');
+  if (liveStatus) {
+    liveStatus.textContent = show ? 'Offline' : 'Live';
+    liveStatus.style.color = show ? '#f87171' : '#34d399';
+  }
+}
+
 window.onresize = renderTrendChart;
 </script>
 </body>
