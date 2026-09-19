@@ -471,6 +471,30 @@
   <main class="overflow-y-auto overflow-x-hidden bg-[#0a0615]" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
     <div class="p-3 space-y-3">
 
+      <!-- ── CENTER NAVIGATION SWITCHER: TERMINAL & ROAD MAP vs GAME HISTORY & ANALYSIS ── -->
+      <div class="flex items-center justify-between bg-black/40 p-1.5 rounded-2xl border border-purple-900/40 backdrop-blur-xl">
+        <div class="flex items-center gap-1.5">
+          <button id="tabBtnTerminal" onclick="switchCenterView('terminal')" class="px-3.5 py-1.5 rounded-xl font-black text-xs transition active:scale-95 bg-amber-400 text-slate-950 shadow flex items-center gap-1.5">
+            <i class="fa-solid fa-gamepad"></i> <span>Live Terminal &amp; Road</span>
+          </button>
+          <button id="tabBtnAnalysis" onclick="switchCenterView('analysis')" class="px-3.5 py-1.5 rounded-xl font-bold text-xs transition active:scale-95 text-slate-400 hover:text-white flex items-center gap-1.5">
+            <i class="fa-solid fa-chart-pie text-amber-400"></i> <span>Game History &amp; Analysis</span>
+            <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-900 text-purple-200 font-mono font-black border border-purple-700/50">v5 Engine</span>
+          </button>
+        </div>
+        <div class="flex items-center gap-1.5 pr-1">
+          <button onclick="exportGameAnalysisJSON()" class="px-2.5 py-1 rounded-xl bg-purple-950/70 hover:bg-purple-900 text-purple-200 text-[10px] font-mono border border-purple-800/40 flex items-center gap-1 transition active:scale-95" title="Export current timeframe analysis as JSON">
+            <i class="fa-solid fa-file-code text-amber-400"></i> <span class="hidden sm:inline">JSON</span>
+          </button>
+          <button onclick="exportGameAnalysisCSV()" class="px-2.5 py-1 rounded-xl bg-purple-950/70 hover:bg-purple-900 text-purple-200 text-[10px] font-mono border border-purple-800/40 flex items-center gap-1 transition active:scale-95" title="Export pattern catalog as CSV">
+            <i class="fa-solid fa-file-csv text-emerald-400"></i> <span class="hidden sm:inline">CSV</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── CONTAINER 1: LIVE TERMINAL & ROAD MAP ── -->
+      <div id="centerViewTerminal" class="space-y-3">
+
       <!-- ── PRO HERO TELEMETRY CARD (ACTIVE PERIOD, TIMER, AI SIGNAL, STAKE, TREND RIBBON) ── -->
       <div class="p-3.5 bg-app-card rounded-2xl border border-purple-900/40 shadow-xl space-y-3">
         <div class="flex items-center justify-between border-b border-purple-900/30 pb-2 flex-wrap gap-2">
@@ -646,6 +670,150 @@
         </div>
 
       </div>
+      </div> <!-- End #centerViewTerminal -->
+
+      <!-- ── CONTAINER 2: DEDICATED GAME HISTORY & ANALYSIS DASHBOARD ── -->
+      <div id="centerViewAnalysis" class="space-y-3 hidden">
+        <!-- ── HEADER CARD WITH TIMEFRAME SELECTOR ── -->
+        <div class="p-3.5 bg-app-card rounded-2xl border border-purple-900/40 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-brain text-amber-400 text-base"></i>
+              <h2 class="text-sm font-black text-white tracking-wide uppercase">Game History &amp; Pattern Intelligence Engine</h2>
+              <span class="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">Continuous Walk-Forward</span>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-0.5 font-mono">
+              Persistent analytical layer • Empirical Bayesian next-result statistics • Combinatorial 1–8 Catalog (P01_01 to P08_256) • Structural DYN Taxonomies
+            </p>
+          </div>
+
+          <!-- Timeframe selector -->
+          <div class="flex items-center bg-black/60 p-1 rounded-xl border border-purple-800/40 gap-1 self-start md:self-auto">
+            <button onclick="selectAnalysisTf('30s')" id="ghTf-30s" class="px-3 py-1 rounded-lg font-black text-[10px] transition active:scale-95 bg-amber-400 text-slate-950 shadow">30s</button>
+            <button onclick="selectAnalysisTf('1m')" id="ghTf-1m" class="px-3 py-1 rounded-lg font-bold text-[10px] transition active:scale-95 text-slate-400 hover:text-white">1m</button>
+            <button onclick="selectAnalysisTf('3m')" id="ghTf-3m" class="px-3 py-1 rounded-lg font-bold text-[10px] transition active:scale-95 text-slate-400 hover:text-white">3m</button>
+            <button onclick="selectAnalysisTf('5m')" id="ghTf-5m" class="px-3 py-1 rounded-lg font-bold text-[10px] transition active:scale-95 text-slate-400 hover:text-white">5m</button>
+          </div>
+        </div>
+
+        <!-- ── SUMMARY STAT METRICS (8 CARDS) ── -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 font-mono text-center">
+          <div class="p-2.5 bg-purple-950/60 rounded-xl border border-purple-800/30">
+            <span class="text-[8.5px] text-slate-400 block font-sans uppercase">Total Results</span>
+            <b id="ghStatTotal" class="text-amber-400 text-sm font-black">0</b>
+          </div>
+          <div class="p-2.5 bg-purple-950/60 rounded-xl border border-purple-800/30">
+            <span class="text-[8.5px] text-slate-400 block font-sans uppercase">BIG Count</span>
+            <b id="ghStatBig" class="text-amber-300 text-sm font-black">0 (50%)</b>
+          </div>
+          <div class="p-2.5 bg-purple-950/60 rounded-xl border border-purple-800/30">
+            <span class="text-[8.5px] text-slate-400 block font-sans uppercase">SMALL Count</span>
+            <b id="ghStatSmall" class="text-sky-300 text-sm font-black">0 (50%)</b>
+          </div>
+          <div class="p-2.5 bg-purple-950/60 rounded-xl border border-purple-800/30">
+            <span class="text-[8.5px] text-slate-400 block font-sans uppercase">Current Streak</span>
+            <b id="ghStatCurStreak" class="text-emerald-400 text-sm font-black">—</b>
+          </div>
+          <div class="p-2.5 bg-purple-950/60 rounded-xl border border-purple-800/30">
+            <span class="text-[8.5px] text-slate-400 block font-sans uppercase">Longest BIG</span>
+            <b id="ghStatLongestB" class="text-amber-400 text-sm font-black">0</b>
+          </div>
+          <div class="p-2.5 bg-purple-950/60 rounded-xl border border-purple-800/30">
+            <span class="text-[8.5px] text-slate-400 block font-sans uppercase">Longest SMALL</span>
+            <b id="ghStatLongestS" class="text-sky-400 text-sm font-black">0</b>
+          </div>
+          <div class="p-2.5 bg-purple-950/60 rounded-xl border border-purple-800/30">
+            <span class="text-[8.5px] text-slate-400 block font-sans uppercase">Catalog Size</span>
+            <b id="ghStatCatalog" class="text-indigo-300 text-sm font-black">510</b>
+          </div>
+          <div class="p-2.5 bg-purple-950/60 rounded-xl border border-purple-800/30">
+            <span class="text-[8.5px] text-slate-400 block font-sans uppercase">Active Edge</span>
+            <b id="ghStatActiveEdge" class="text-emerald-400 text-sm font-black">0</b>
+          </div>
+        </div>
+
+        <!-- ── LIVE SEQUENCE TRACKER & ACTIVE MATCHED PATTERN BANNER ── -->
+        <div class="p-3.5 bg-gradient-to-r from-purple-950/90 via-slate-900 to-indigo-950/90 rounded-2xl border border-purple-800/40 shadow-xl space-y-2.5">
+          <div class="flex items-center justify-between text-xs font-mono">
+            <span class="text-slate-300 font-bold flex items-center gap-1.5">
+              <i class="fa-solid fa-stream text-amber-400"></i> TRAILING ROUND SEQUENCE (LAST 10 ROUNDS)
+            </span>
+            <span id="ghSeqStatus" class="text-[9.5px] text-slate-400">Scanning window...</span>
+          </div>
+          <!-- Sequence pills -->
+          <div id="ghTrailingSeqPills" class="flex items-center gap-1.5 overflow-x-auto pb-1 font-mono">
+            <span class="text-slate-500 text-xs italic">Awaiting round data...</span>
+          </div>
+
+          <!-- Matched Candidate Signal Details -->
+          <div id="ghCandidateSignalBox" class="p-2.5 rounded-xl bg-black/40 border border-purple-800/40 grid grid-cols-1 md:grid-cols-3 gap-2 text-[10px] font-mono">
+            <div>
+              <span class="text-slate-400 text-[9px] block uppercase">Best Matched Pattern</span>
+              <div id="ghCandCode" class="text-amber-300 font-bold text-xs mt-0.5">—</div>
+            </div>
+            <div>
+              <span class="text-slate-400 text-[9px] block uppercase">Next Predicted Bias &amp; Confidence</span>
+              <div id="ghCandBias" class="text-white font-bold text-xs mt-0.5">—</div>
+            </div>
+            <div>
+              <span class="text-slate-400 text-[9px] block uppercase">Statistical Validation &amp; Status</span>
+              <div id="ghCandValidation" class="text-emerald-400 font-bold text-xs mt-0.5">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── PATTERN RANKINGS MATRIX ── -->
+        <div class="bg-app-card rounded-2xl border border-purple-900/40 shadow-xl overflow-hidden flex flex-col">
+          <!-- Filter Tabs & Search Header -->
+          <div class="p-3 bg-purple-950/70 border-b border-purple-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <button onclick="switchAnalysisRankingFilter('repeated')" id="ghFilterRepeated" class="px-3 py-1 rounded-xl text-[10px] font-black transition active:scale-95 bg-amber-400 text-slate-950 shadow">
+                🔥 Most Repeated
+              </button>
+              <button onclick="switchAnalysisRankingFilter('predictive')" id="ghFilterPredictive" class="px-3 py-1 rounded-xl text-[10px] font-bold transition active:scale-95 text-slate-300 hover:text-white bg-purple-900/40 border border-purple-800/40">
+                🎯 Most Predictive
+              </button>
+              <button onclick="switchAnalysisRankingFilter('recent')" id="ghFilterRecent" class="px-3 py-1 rounded-xl text-[10px] font-bold transition active:scale-95 text-slate-300 hover:text-white bg-purple-900/40 border border-purple-800/40">
+                ⚡ Recent Active
+              </button>
+              <button onclick="switchAnalysisRankingFilter('failed')" id="ghFilterFailed" class="px-3 py-1 rounded-xl text-[10px] font-bold transition active:scale-95 text-slate-300 hover:text-white bg-purple-900/40 border border-purple-800/40">
+                ⚠️ Failed / Weakening
+              </button>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="relative">
+                <input type="text" id="ghPatternSearch" oninput="filterGhTableBySearch()" placeholder="Search code or seq..." class="px-2.5 py-1 bg-black/50 border border-purple-800/40 rounded-xl text-[10.5px] text-amber-300 placeholder-slate-500 font-mono focus:outline-none focus:border-amber-400 w-36">
+              </div>
+              <button onclick="rescanAllPatterns()" class="px-2.5 py-1 rounded-xl bg-purple-900 hover:bg-purple-800 text-purple-200 text-[10px] font-mono border border-purple-700/50 flex items-center gap-1 active:scale-95 transition" title="Re-scan and recalculate complete history">
+                <i class="fa-solid fa-arrows-rotate"></i> Re-Scan
+              </button>
+            </div>
+          </div>
+
+          <!-- Table Header -->
+          <div class="grid grid-cols-12 py-2 px-3 bg-purple-950/90 text-slate-300 font-bold text-[9.5px] border-b border-purple-900/30 font-mono">
+            <div class="col-span-1">Rank</div>
+            <div class="col-span-2">Code &amp; Len</div>
+            <div class="col-span-2">Sequence</div>
+            <div class="col-span-2 text-center">Occurrences</div>
+            <div class="col-span-2 text-center">Next Result (B / S)</div>
+            <div class="col-span-2 text-center">OOS Acc &amp; CI</div>
+            <div class="col-span-1 text-right pr-1">Action</div>
+          </div>
+
+          <!-- Table Body -->
+          <div id="ghRankingTableBody" class="divide-y divide-purple-900/20 text-[10px] font-mono max-h-[520px] overflow-y-auto" style="scrollbar-width:thin;scrollbar-color:#4c1d95 transparent;">
+            <!-- Rows injected by renderGameHistoryAnalysisTab() -->
+          </div>
+
+          <!-- Table Footer -->
+          <div class="flex items-center justify-between p-2.5 bg-app-surface border-t border-purple-900/40 text-xs text-purple-300 font-mono">
+            <span id="ghRowCountBadge" class="text-[10px] font-bold text-slate-400">0 patterns displayed</span>
+            <span class="text-[9.5px] text-slate-500">Wilson 95% Score Confidence Interval • Brier Scoring</span>
+          </div>
+        </div>
+      </div>
+
 
     </div>
   </main>
@@ -1400,8 +1568,82 @@ box-shadow:0 4px 20px #8888;">
 </div>
 
 <!-- ════════════════════════════════════════════════════════════
+     PATTERN DEEP-DIVE MODAL (Expandable details)
+════════════════════════════════════════════════════════════ -->
+<div id="ghPatternModal" class="fixed inset-0 z-[120] bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+  <div class="bg-app-card w-full max-w-xl rounded-2xl border border-purple-800/60 shadow-2xl p-5 space-y-4">
+    <div class="flex items-center justify-between border-b border-purple-900/50 pb-3">
+      <div class="flex items-center gap-2.5">
+        <span id="modalPatternStatusBadge" class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">ACTIVE</span>
+        <h3 id="modalPatternCode" class="text-base font-black text-amber-300 font-mono">P04_07</h3>
+        <span id="modalPatternLen" class="text-[10px] text-slate-400 font-mono">Length 4</span>
+      </div>
+      <button onclick="closePatternDetailModal()" class="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition">✕</button>
+    </div>
+
+    <!-- Sequence Display -->
+    <div class="p-3 bg-black/40 rounded-xl border border-purple-900/50 space-y-1.5">
+      <span class="text-[9px] text-slate-400 block font-mono uppercase">Full Sequence Structure</span>
+      <div id="modalPatternSeq" class="flex items-center gap-1.5 font-mono text-xs"></div>
+    </div>
+
+    <!-- Key Metrics Grid -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-center text-[10px]">
+      <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/30">
+        <span class="text-[8.5px] text-slate-400 block font-sans">TOTAL SEEN</span>
+        <b id="modalPatternTotal" class="text-amber-400 text-xs font-black">0</b>
+      </div>
+      <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/30">
+        <span class="text-[8.5px] text-slate-400 block font-sans">NEXT B COUNT</span>
+        <b id="modalPatternNextB" class="text-amber-300 text-xs font-black">0 (0%)</b>
+      </div>
+      <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/30">
+        <span class="text-[8.5px] text-slate-400 block font-sans">NEXT S COUNT</span>
+        <b id="modalPatternNextS" class="text-sky-300 text-xs font-black">0 (0%)</b>
+      </div>
+      <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/30">
+        <span class="text-[8.5px] text-slate-400 block font-sans">OOS ACCURACY</span>
+        <b id="modalPatternOOS" class="text-emerald-400 text-xs font-black">0%</b>
+      </div>
+    </div>
+
+    <!-- Multi-Window Occurrences -->
+    <div class="p-3 bg-black/40 rounded-xl border border-purple-900/50 space-y-1.5 font-mono text-[10px]">
+      <span class="text-[9px] text-slate-400 block font-mono uppercase">Multi-Lookback Window Frequency</span>
+      <div id="modalPatternWindows" class="grid grid-cols-6 gap-1 text-center"></div>
+    </div>
+
+    <!-- Statistical Edge & Confidence -->
+    <div class="p-3 bg-purple-950/40 rounded-xl border border-purple-800/30 space-y-2 font-mono text-[10px]">
+      <div class="flex justify-between items-center">
+        <span class="text-slate-400">Wilson 95% Confidence Interval:</span>
+        <b id="modalPatternWilson" class="text-amber-300">[0.00% - 0.00%]</b>
+      </div>
+      <div class="flex justify-between items-center">
+        <span class="text-slate-400">Brier Score Calibration:</span>
+        <b id="modalPatternBrier" class="text-slate-300">0.000</b>
+      </div>
+      <div class="flex justify-between items-center">
+        <span class="text-slate-400">Deviation from Normal:</span>
+        <b id="modalPatternDev" class="text-slate-300">+0.0σ</b>
+      </div>
+    </div>
+
+    <div class="flex justify-end pt-1">
+      <button onclick="closePatternDetailModal()" class="px-4 py-2 rounded-xl bg-purple-900 hover:bg-purple-800 text-purple-200 font-bold text-xs transition">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
      MODULAR ENGINES & TIMEFRAME SYSTEMS
 ════════════════════════════════════════════════════════════ -->
+<script src="./src/algorithm/analysis/patternCatalog.js"></script>
+<script src="./src/algorithm/analysis/patternStatistics.js"></script>
+<script src="./src/algorithm/analysis/sequenceMatcher.js"></script>
+<script src="./src/algorithm/analysis/patternAnalyzer.js"></script>
+<script src="./src/algorithm/analysis/analysisState.js"></script>
+<script src="./src/algorithm/analysis/gameHistoryAnalysis.js"></script>
 <script src="./algorithms/quant_algorithm.js"></script>
 <script src="./systems/wingo_30s.js"></script>
 <script src="./systems/wingo_1m.js"></script>
@@ -2076,9 +2318,9 @@ function runAI() {
     if (outcome.adaptiveWeights) S.engineWeights = outcome.adaptiveWeights;
   } else {
     outcome = {
-      ready: aiReady,
-      decision: aiReady ? 'BET' : 'SKIP',
-      target: realHist.length > 0 ? (realHist[realHist.length-1].size === 'BIG' ? 'SMALL' : 'BIG') : null,
+      ready: true,
+      decision: 'BET',
+      target: realHist.length > 0 ? (realHist[realHist.length-1].size === 'BIG' ? 'SMALL' : 'BIG') : 'BIG',
       stake: 1,
       prob: 0.55,
       entropy: 0.9,
@@ -2091,40 +2333,35 @@ function runAI() {
   const entropyDisplay = document.getElementById('entropyDisplay');
   if (entropyDisplay) entropyDisplay.textContent = (outcome.entropy || 1.0).toFixed(2);
 
-  if (!outcome.ready) {
-    S.aiReady  = false;
-    S.aiSignal = { decision: 'SKIP', target: null, stake: 0, prob: 0.5, entropy: outcome.entropy, reason: outcome.reason };
-    renderAIPanel();
-    return;
-  }
-
   const isLowAcc = S.totalBets >= 5 && winRate < MIN_WIN_RATE;
   const isTest   = S.aiTestMode || isLowAcc;
-  const decision = isTest ? 'SKIP' : outcome.decision;
+  // Zero-skip requirement: AI prediction decision is ALWAYS 'BET', never 'SKIP'
+  const decision = 'BET';
   const orTag    = _orSignal ? `🤖OR(${_orSignal.signal[0]}) ` : '';
   const reasonFinal = isTest
-    ? `🧪 Test Mode in progress — Shadow prediction: ${outcome.target} (${(outcome.prob*100).toFixed(0)}%). Testing accuracy before live betting.`
+    ? `🧪 Test Mode active — Target: ${outcome.target} (${(outcome.prob*100).toFixed(0)}%).`
     : (orTag + outcome.reason);
 
   S.aiSignal = {
-    decision,
-    target: outcome.target,
+    decision: 'BET',
+    target: outcome.target || 'BIG',
     type: outcome.type || (['RED', 'GREEN'].includes(outcome.target) ? 'COLOR' : 'SIZE'),
     sizeTarget: outcome.sizeTarget,
     sizeProb: outcome.sizeProb,
     colorTarget: outcome.colorTarget,
     colorProb: outcome.colorProb,
     patternStrength: outcome.patternStrength,
-    stake: outcome.stake,
-    prob: outcome.prob,
-    entropy: outcome.entropy,
+    stake: outcome.stake || 1,
+    prob: outcome.prob || 0.55,
+    entropy: outcome.entropy || 0.5,
     reason: reasonFinal,
+    pickDesc: outcome.pickDesc || '',
     engines: outcome.engines || [],
     scores: outcome.scores,
     zScore: outcome.zScore,
     isTest
   };
-  S.aiReady = !isLowAcc;
+  S.aiReady = true;
 
   // Store AI Prediction for current period (both full string and 5-digit suffix)
   if (S.currentPeriod) {
@@ -2493,6 +2730,21 @@ function saveRealResult(period, numberInput) {
   const pStr   = String(period).trim();
   const pLast5 = pStr.slice(-5);
 
+  // 0. Update dedicated Game History & Analysis persistent layer
+  if (window.GameHistoryAnalysis && typeof window.GameHistoryAnalysis.recordRoundResult === 'function') {
+    try {
+      window.GameHistoryAnalysis.recordRoundResult(S.timeframe, {
+        period: pStr,
+        number: n,
+        size,
+        color,
+        timestamp: Date.now()
+      });
+    } catch (err) {
+      console.warn('GameHistoryAnalysis update notice:', err);
+    }
+  }
+
   // 1. Resolve and permanently freeze AI Prediction for this period so it NEVER mutates or flips!
   let existingPred = (S.aiPredictionMap && (S.aiPredictionMap[pStr] || S.aiPredictionMap[pLast5]));
 
@@ -2756,6 +3008,7 @@ function saveRealResult(period, numberInput) {
   renderBSPattern();
   renderSmartView();
   renderPatternAnalytics();
+  if (typeof renderGameHistoryAnalysisTab === 'function') renderGameHistoryAnalysisTab(S.timeframe);
   updateMartingaleUI();
   updateBalanceDisplay();
   runAI();
@@ -3248,6 +3501,7 @@ function setTimeframe(tf) {
   renderSmartView();
   renderPatternAnalytics();
   runAI();
+  if (typeof renderGameHistoryAnalysisTab === 'function') renderGameHistoryAnalysisTab(tf);
 
   showToast(`⚡ WinGo ${tf} session active. Fetching live draws...`, 'info');
 
@@ -3406,6 +3660,429 @@ function switchSubTab(tab) {
   renderSmartView();
   renderPatternAnalytics();
   setTimeout(renderNumberRoad, 50);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DEDICATED GAME HISTORY & PATTERN INTELLIGENCE ENGINE (UI & CONTROLLER)
+// ═══════════════════════════════════════════════════════════════
+let currentAnalysisTf = '30s';
+let currentAnalysisFilter = 'repeated';
+let currentAnalysisSearch = '';
+
+function switchCenterView(view) {
+  const terminalEl = document.getElementById('centerViewTerminal');
+  const analysisEl = document.getElementById('centerViewAnalysis');
+  const btnTerm = document.getElementById('tabBtnTerminal');
+  const btnAnal = document.getElementById('tabBtnAnalysis');
+
+  if (view === 'analysis') {
+    if (terminalEl) terminalEl.classList.add('hidden');
+    if (analysisEl) analysisEl.classList.remove('hidden');
+    if (btnTerm) {
+      btnTerm.className = 'px-3.5 py-1.5 rounded-xl font-bold text-xs transition active:scale-95 text-slate-400 hover:text-white flex items-center gap-1.5';
+    }
+    if (btnAnal) {
+      btnAnal.className = 'px-3.5 py-1.5 rounded-xl font-black text-xs transition active:scale-95 bg-amber-400 text-slate-950 shadow flex items-center gap-1.5';
+    }
+    selectAnalysisTf(S.timeframe || '30s');
+  } else {
+    if (terminalEl) terminalEl.classList.remove('hidden');
+    if (analysisEl) analysisEl.classList.add('hidden');
+    if (btnTerm) {
+      btnTerm.className = 'px-3.5 py-1.5 rounded-xl font-black text-xs transition active:scale-95 bg-amber-400 text-slate-950 shadow flex items-center gap-1.5';
+    }
+    if (btnAnal) {
+      btnAnal.className = 'px-3.5 py-1.5 rounded-xl font-bold text-xs transition active:scale-95 text-slate-400 hover:text-white flex items-center gap-1.5';
+    }
+  }
+}
+
+function selectAnalysisTf(tf) {
+  currentAnalysisTf = tf;
+  ['30s','1m','3m','5m'].forEach(t => {
+    const b = document.getElementById(`ghTf-${t}`);
+    if (b) {
+      b.className = (t === tf)
+        ? 'px-3 py-1 rounded-lg font-black text-[10px] transition active:scale-95 bg-amber-400 text-slate-950 shadow'
+        : 'px-3 py-1 rounded-lg font-bold text-[10px] transition active:scale-95 text-slate-400 hover:text-white';
+    }
+  });
+  renderGameHistoryAnalysisTab(tf);
+}
+
+function syncHistoryToGameAnalysis(tf) {
+  if (!window.GameHistoryAnalysis || !S.historyByTimeframe) return;
+  const list = S.historyByTimeframe[tf] || [];
+  list.forEach(r => {
+    if (r && r.period && r.number !== undefined) {
+      window.GameHistoryAnalysis.recordRoundResult(tf, {
+        period: String(r.period),
+        number: Number(r.number),
+        size: r.size || (Number(r.number) >= 5 ? 'BIG' : 'SMALL'),
+        color: r.color || ([1,3,7,9,5].includes(Number(r.number)) ? 'GREEN' : 'RED'),
+        timestamp: r.timestamp || Date.now()
+      });
+    }
+  });
+}
+
+function getStatusBadgeHtml(status) {
+  const s = String(status || 'WATCH').toUpperCase();
+  if (s === 'STRONG') {
+    return '<span class="px-1.5 py-0.5 rounded text-[8.5px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">STRONG</span>';
+  } else if (s === 'ACTIVE') {
+    return '<span class="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-teal-500/20 text-teal-300 border border-teal-500/40">ACTIVE</span>';
+  } else if (s === 'WEAKENING') {
+    return '<span class="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">WEAKENING</span>';
+  } else if (s === 'FAILED') {
+    return '<span class="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">FAILED</span>';
+  }
+  return '<span class="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-slate-500/20 text-slate-300 border border-slate-500/40">WATCH</span>';
+}
+
+function switchAnalysisRankingFilter(filterType) {
+  currentAnalysisFilter = filterType;
+  const filterBtns = {
+    repeated: document.getElementById('ghFilterRepeated'),
+    predictive: document.getElementById('ghFilterPredictive'),
+    recent: document.getElementById('ghFilterRecent'),
+    failed: document.getElementById('ghFilterFailed')
+  };
+  Object.keys(filterBtns).forEach(key => {
+    const btn = filterBtns[key];
+    if (btn) {
+      btn.className = (key === filterType)
+        ? 'px-3 py-1 rounded-xl text-[10px] font-black transition active:scale-95 bg-amber-400 text-slate-950 shadow'
+        : 'px-3 py-1 rounded-xl text-[10px] font-bold transition active:scale-95 text-slate-300 hover:text-white bg-purple-900/40 border border-purple-800/40';
+    }
+  });
+  renderGameHistoryAnalysisTab(currentAnalysisTf);
+}
+
+function filterGhTableBySearch() {
+  const input = document.getElementById('ghPatternSearch');
+  currentAnalysisSearch = (input ? input.value.trim().toLowerCase() : '');
+  renderGameHistoryAnalysisTab(currentAnalysisTf);
+}
+
+function renderGameHistoryAnalysisTab(tf = currentAnalysisTf) {
+  if (!window.GameHistoryAnalysis) return;
+  syncHistoryToGameAnalysis(tf);
+  const data = window.GameHistoryAnalysis.getDashboardData(tf);
+  if (!data) return;
+
+  const s = data.summary || {};
+  const elTotal = document.getElementById('ghStatTotal');
+  const elBig   = document.getElementById('ghStatBig');
+  const elSmall = document.getElementById('ghStatSmall');
+  const elStreak= document.getElementById('ghStatCurStreak');
+  const elLongB = document.getElementById('ghStatLongestB');
+  const elLongS = document.getElementById('ghStatLongestS');
+  const elCatalog = document.getElementById('ghStatCatalog');
+  const elActive = document.getElementById('ghStatActiveEdge');
+
+  if (elTotal) elTotal.textContent = s.totalResults || 0;
+  if (elBig)   elBig.textContent   = `${s.bCount || 0} (${s.bPct || '50.0'}%)`;
+  if (elSmall) elSmall.textContent = `${s.sCount || 0} (${s.sPct || '50.0'}%)`;
+  if (elStreak) {
+    if (s.currentStreak && s.currentStreak.type) {
+      const typeLabel = s.currentStreak.type === 'B' ? 'BIG' : 'SMALL';
+      const typeColor = s.currentStreak.type === 'B' ? 'text-amber-400' : 'text-sky-400';
+      elStreak.innerHTML = `<span class="${typeColor}">${s.currentStreak.length}x ${typeLabel}</span>`;
+    } else {
+      elStreak.textContent = '—';
+    }
+  }
+  if (elLongB) elLongB.textContent = s.longestBStreak || 0;
+  if (elLongS) elLongS.textContent = s.longestSStreak || 0;
+  if (elCatalog) elCatalog.textContent = data.catalogSize || 510;
+
+  const predictiveRank = data.rankings?.mostPredictive || [];
+  const strongCount = predictiveRank.filter(p => p.status === 'STRONG' || p.status === 'ACTIVE').length;
+  if (elActive) elActive.textContent = strongCount;
+
+  // Trailing sequence pills
+  const pillsContainer = document.getElementById('ghTrailingSeqPills');
+  if (pillsContainer) {
+    const trailing = data.candidates?.trailingSequence || [];
+    if (!trailing.length) {
+      pillsContainer.innerHTML = '<span class="text-slate-500 text-xs italic">Awaiting round data...</span>';
+    } else {
+      pillsContainer.innerHTML = trailing.map((sym, idx) => {
+        const isB = sym === 'B';
+        const isLast = idx === trailing.length - 1;
+        const bg = isB ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-sky-500/20 text-sky-300 border-sky-500/40';
+        return `<span class="px-2 py-0.5 rounded-lg border font-bold text-xs ${bg} ${isLast ? 'ring-1 ring-white/60' : ''}">${sym}</span>`;
+      }).join('');
+    }
+  }
+
+  // Active matched candidate signal details
+  const cand = data.candidates?.bestCandidate;
+  const structMatches = data.candidates?.structuralMatches || [];
+  const elCandCode = document.getElementById('ghCandCode');
+  const elCandBias = document.getElementById('ghCandBias');
+  const elCandVal  = document.getElementById('ghCandValidation');
+
+  if (cand) {
+    if (elCandCode) {
+      const structName = structMatches.length ? ` • ${structMatches[0].type}` : '';
+      elCandCode.innerHTML = `<span class="text-amber-300 font-bold">${cand.code}</span> <span class="text-slate-400">(${cand.sequence.join('-')})</span><span class="text-emerald-400 text-[9px] block">${structName}</span>`;
+    }
+    if (elCandBias) {
+      const targetColor = cand.nextPredicted === 'BIG' ? 'text-amber-400' : 'text-sky-400';
+      const confPct = Math.round(cand.confidence * 100);
+      elCandBias.innerHTML = `<span class="${targetColor} font-black text-sm">${cand.nextPredicted}</span> <span class="text-slate-300">(${confPct}% conf)</span>`;
+    }
+    if (elCandVal) {
+      const statusBadge = getStatusBadgeHtml(cand.status);
+      const oosAcc = (cand.outOfSampleAccuracy * 100).toFixed(1);
+      elCandVal.innerHTML = `${statusBadge} <span class="text-slate-300 text-[9px] block">OOS Acc: <b class="text-emerald-400">${oosAcc}%</b> | N=${cand.totalOccurrences}</span>`;
+    }
+  } else {
+    if (elCandCode) elCandCode.textContent = structMatches.length ? `${structMatches[0].code} (${structMatches[0].type})` : 'Scanning catalog...';
+    if (elCandBias) elCandBias.textContent = structMatches.length ? `${structMatches[0].predicted} (Structural Edge)` : 'Awaiting confirmation';
+    if (elCandVal)  elCandVal.textContent  = 'Normalizing prior...';
+  }
+
+  // Render Table
+  renderGhRankingTable(data);
+}
+
+function renderGhRankingTable(data) {
+  const container = document.getElementById('ghRankingTableBody');
+  const badge = document.getElementById('ghRowCountBadge');
+  if (!container) return;
+
+  let list = [];
+  if (currentAnalysisFilter === 'repeated') {
+    list = data.rankings?.mostRepeated || [];
+  } else if (currentAnalysisFilter === 'predictive') {
+    list = data.rankings?.mostPredictive || [];
+  } else if (currentAnalysisFilter === 'recent') {
+    list = data.rankings?.recentActive || [];
+  } else if (currentAnalysisFilter === 'failed') {
+    list = data.rankings?.failedWeakening || [];
+  }
+
+  // Filter by search query if any
+  if (currentAnalysisSearch) {
+    const q = currentAnalysisSearch.toLowerCase();
+    list = list.filter(p => (
+      (p.code && p.code.toLowerCase().includes(q)) ||
+      (p.sequence && p.sequence.join('-').toLowerCase().includes(q)) ||
+      (p.status && p.status.toLowerCase().includes(q))
+    ));
+  }
+
+  if (badge) badge.textContent = `${list.length} patterns displayed (${currentAnalysisTf})`;
+
+  if (!list.length) {
+    container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs italic">
+      No patterns found matching "${currentAnalysisFilter}" filter for ${currentAnalysisTf}. Results accumulate after draws are recorded.
+    </div>`;
+    return;
+  }
+
+  const rowsHtml = list.map((p, idx) => {
+    const seqPills = (p.sequence || []).map(sym => {
+      const isB = sym === 'B';
+      const bg = isB ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-sky-500/20 text-sky-300 border-sky-500/40';
+      return `<span class="px-1 py-0.2 rounded border text-[9px] font-bold ${bg}">${sym}</span>`;
+    }).join(' ');
+
+    const total = p.totalOccurrences || 0;
+    const nB = p.nextResultCounts ? (p.nextResultCounts.BIG || 0) : 0;
+    const nS = p.nextResultCounts ? (p.nextResultCounts.SMALL || 0) : 0;
+    const pB = total > 0 ? ((nB / total) * 100).toFixed(1) : '50.0';
+    const pS = total > 0 ? ((nS / total) * 100).toFixed(1) : '50.0';
+
+    const oos = p.outOfSampleAccuracy !== undefined ? (p.outOfSampleAccuracy * 100).toFixed(1) + '%' : '—';
+    const oosColor = (p.outOfSampleAccuracy >= 0.55) ? 'text-emerald-400 font-bold' : (p.outOfSampleAccuracy <= 0.45 ? 'text-rose-400' : 'text-slate-300');
+
+    const wilsonLower = p.wilsonScoreInterval ? (p.wilsonScoreInterval.lower * 100).toFixed(0) : '—';
+    const wilsonUpper = p.wilsonScoreInterval ? (p.wilsonScoreInterval.upper * 100).toFixed(0) : '—';
+    const ciText = (wilsonLower !== '—') ? `[${wilsonLower}%-${wilsonUpper}%]` : '—';
+
+    const statusBadge = getStatusBadgeHtml(p.status);
+
+    return `<div class="grid grid-cols-12 py-2 px-3 items-center hover:bg-white/[0.02] transition">
+      <div class="col-span-1 text-slate-500 font-bold">#${idx + 1}</div>
+      <div class="col-span-2">
+        <b class="text-amber-300">${p.code}</b>
+        <span class="text-[8px] px-1 py-0.2 rounded bg-purple-950 text-slate-400 ml-1 border border-purple-800/40">L${p.length || (p.sequence ? p.sequence.length : 1)}</span>
+        <div class="mt-0.5">${statusBadge}</div>
+      </div>
+      <div class="col-span-2 flex items-center gap-1 flex-wrap">${seqPills}</div>
+      <div class="col-span-2 text-center text-slate-200 font-bold">
+        ${total}
+        <span class="text-[8.5px] text-slate-500 block">Seen in history</span>
+      </div>
+      <div class="col-span-2 text-center text-[9px]">
+        <div class="flex items-center justify-center gap-2">
+          <span class="text-amber-300 font-bold">B: ${nB} (${pB}%)</span>
+          <span class="text-sky-300 font-bold">S: ${nS} (${pS}%)</span>
+        </div>
+        <div class="w-full bg-slate-800 h-1 rounded-full overflow-hidden flex mt-1">
+          <div class="bg-amber-400" style="width:${pB}%"></div>
+          <div class="bg-sky-400" style="width:${pS}%"></div>
+        </div>
+      </div>
+      <div class="col-span-2 text-center">
+        <span class="${oosColor}">${oos}</span>
+        <span class="text-[8.5px] text-slate-400 block">${ciText}</span>
+      </div>
+      <div class="col-span-1 text-right pr-1">
+        <button onclick="inspectPatternDetail('${p.code}')" class="px-2 py-1 rounded bg-purple-900/60 hover:bg-purple-800 text-purple-200 text-[9px] font-bold border border-purple-700/40 active:scale-95 transition">
+          View
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+
+  container.innerHTML = rowsHtml;
+}
+
+function inspectPatternDetail(patternCode) {
+  if (!window.GameHistoryAnalysis) return;
+  const analyzer = window.GameHistoryAnalysis.Analyzer;
+  let p = null;
+  if (analyzer && typeof analyzer.getPatternDetail === 'function') {
+    p = analyzer.getPatternDetail(currentAnalysisTf, patternCode);
+  }
+  if (!p) {
+    const db = window.GameHistoryAnalysis.State.getPatternDb(currentAnalysisTf);
+    p = db[patternCode];
+  }
+  if (!p) return;
+
+  const modal = document.getElementById('ghPatternModal');
+  if (!modal) return;
+
+  document.getElementById('modalPatternCode').textContent = p.code;
+  document.getElementById('modalPatternLen').textContent  = `Length ${p.length || (p.sequence ? p.sequence.length : 1)}`;
+
+  const statusBadge = document.getElementById('modalPatternStatusBadge');
+  if (statusBadge) {
+    statusBadge.outerHTML = `<div id="modalPatternStatusBadge">${getStatusBadgeHtml(p.status)}</div>`;
+  }
+
+  const seqEl = document.getElementById('modalPatternSeq');
+  if (seqEl) {
+    seqEl.innerHTML = (p.sequence || []).map(sym => {
+      const isB = sym === 'B';
+      const bg = isB ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-sky-500/20 text-sky-300 border-sky-500/40';
+      return `<span class="px-2 py-0.5 rounded-lg border font-bold text-xs ${bg}">${sym}</span>`;
+    }).join(' <i class="fa-solid fa-arrow-right text-[9px] text-slate-600"></i> ');
+  }
+
+  const total = p.totalOccurrences || 0;
+  const nB = p.nextResultCounts ? (p.nextResultCounts.BIG || 0) : 0;
+  const nS = p.nextResultCounts ? (p.nextResultCounts.SMALL || 0) : 0;
+  const pB = total > 0 ? ((nB / total) * 100).toFixed(1) : '50.0';
+  const pS = total > 0 ? ((nS / total) * 100).toFixed(1) : '50.0';
+
+  document.getElementById('modalPatternTotal').textContent = total;
+  document.getElementById('modalPatternNextB').textContent = `${nB} (${pB}%)`;
+  document.getElementById('modalPatternNextS').textContent = `${nS} (${pS}%)`;
+
+  const oosVal = p.outOfSampleAccuracy !== undefined ? (p.outOfSampleAccuracy * 100).toFixed(1) + '%' : '—';
+  document.getElementById('modalPatternOOS').textContent   = oosVal;
+
+  // Window breakdown
+  const winEl = document.getElementById('modalPatternWindows');
+  if (winEl) {
+    const windows = [10, 20, 50, 100, 200, 500];
+    winEl.innerHTML = windows.map(w => {
+      const count = p.lookbackWindows ? (p.lookbackWindows[w] || 0) : 0;
+      return `<div class="p-1.5 bg-white/[0.03] rounded border border-white/5">
+        <span class="text-slate-400 block text-[8px]">W${w}</span>
+        <b class="text-amber-300 text-xs font-bold">${count}</b>
+      </div>`;
+    }).join('');
+  }
+
+  // Statistical Edge
+  const wLower = p.wilsonScoreInterval ? (p.wilsonScoreInterval.lower * 100).toFixed(1) : '0.0';
+  const wUpper = p.wilsonScoreInterval ? (p.wilsonScoreInterval.upper * 100).toFixed(1) : '0.0';
+  document.getElementById('modalPatternWilson').textContent = `[${wLower}% - ${wUpper}%]`;
+
+  document.getElementById('modalPatternBrier').textContent = (p.brierScore !== undefined) ? p.brierScore.toFixed(4) : '0.2500';
+  document.getElementById('modalPatternDev').textContent   = (p.stdDevRatio !== undefined) ? `${p.stdDevRatio >= 0 ? '+' : ''}${p.stdDevRatio.toFixed(2)}σ` : '0.00σ';
+
+  modal.classList.remove('hidden');
+}
+
+function closePatternDetailModal() {
+  const modal = document.getElementById('ghPatternModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function exportGameAnalysisJSON() {
+  if (!window.GameHistoryAnalysis) return;
+  const data = window.GameHistoryAnalysis.getDashboardData(currentAnalysisTf);
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `wingo_${currentAnalysisTf}_game_analysis_${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`✅ Exported ${currentAnalysisTf} analysis JSON`, 'success');
+}
+
+function exportGameAnalysisCSV() {
+  if (!window.GameHistoryAnalysis) return;
+  const db = window.GameHistoryAnalysis.State.getPatternDb(currentAnalysisTf);
+  const rows = [['Code', 'Sequence', 'Length', 'TotalOccurrences', 'NextB_Count', 'NextB_Pct', 'NextS_Count', 'NextS_Pct', 'OOS_Accuracy', 'Wilson_Lower', 'Wilson_Upper', 'Status']];
+
+  Object.values(db).forEach(p => {
+    const total = p.totalOccurrences || 0;
+    const nB = p.nextResultCounts ? (p.nextResultCounts.BIG || 0) : 0;
+    const nS = p.nextResultCounts ? (p.nextResultCounts.SMALL || 0) : 0;
+    const pB = total > 0 ? ((nB / total) * 100).toFixed(1) : '50.0';
+    const pS = total > 0 ? ((nS / total) * 100).toFixed(1) : '50.0';
+    const oos = p.outOfSampleAccuracy !== undefined ? (p.outOfSampleAccuracy * 100).toFixed(1) : '0.0';
+    const wLow = p.wilsonScoreInterval ? (p.wilsonScoreInterval.lower * 100).toFixed(1) : '0.0';
+    const wHigh = p.wilsonScoreInterval ? (p.wilsonScoreInterval.upper * 100).toFixed(1) : '0.0';
+    rows.push([
+      p.code,
+      (p.sequence || []).join('-'),
+      p.length || (p.sequence ? p.sequence.length : 1),
+      total,
+      nB,
+      pB,
+      nS,
+      pS,
+      oos,
+      wLow,
+      wHigh,
+      p.status || 'WATCH'
+    ]);
+  });
+
+  const csvContent = rows.map(e => e.join(',')).join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `wingo_${currentAnalysisTf}_pattern_catalog_${Date.now()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`✅ Exported ${currentAnalysisTf} pattern CSV`, 'success');
+}
+
+function rescanAllPatterns() {
+  if (!window.GameHistoryAnalysis) return;
+  syncHistoryToGameAnalysis(currentAnalysisTf);
+  const hist = window.GameHistoryAnalysis.State.getHistory(currentAnalysisTf);
+  const curDb = window.GameHistoryAnalysis.State.getPatternDb(currentAnalysisTf);
+  const newDb = window.GameHistoryAnalysis.Analyzer.analyzeCompleteHistory(hist, curDb);
+  window.GameHistoryAnalysis.State.setPatternDb(currentAnalysisTf, newDb);
+  const rankings = window.GameHistoryAnalysis.Analyzer.generateRankings(newDb);
+  window.GameHistoryAnalysis.State.setRankings(currentAnalysisTf, rankings);
+  renderGameHistoryAnalysisTab(currentAnalysisTf);
+  showToast(`✅ Re-scanned complete ${currentAnalysisTf} history! (${hist.length} rounds, ${Object.keys(newDb).length} patterns tracked)`, 'success');
 }
 
 function renderAITrackRecord() {
@@ -3592,8 +4269,15 @@ function renderSmartView() {
           </div>`
         : '';
 
+      const pickHtml = S.aiSignal?.pickDesc
+        ? `<div class="text-[10px] text-amber-300 font-mono font-bold mt-1 px-2.5 py-0.5 rounded-lg bg-amber-400/10 border border-amber-400/30">
+            🎯 ${S.aiSignal.pickDesc}
+          </div>`
+        : '';
+
       signalEl.innerHTML = `<div class="flex flex-col items-center">
         <span class="${targetColor} font-black text-2xl tracking-wider">${target} ${icon}</span>
+        ${pickHtml}
         ${subInfo}
       </div>`;
     } else {

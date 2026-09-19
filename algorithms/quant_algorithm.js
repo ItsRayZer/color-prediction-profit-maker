@@ -492,10 +492,240 @@
     };
   }
 
-  // -- BET PREDICTION DECISION ENGINE ---------------------------------------
+  // =========================================================================
+  // PYTHON v5 EXPERT ENSEMBLE SYSTEM & SAFETY OVERRIDE
+  // =========================================================================
+  function parityOf(n) {
+    return (Number(n) % 2 === 1) ? 'O' : 'E';
+  }
+
+  function opposite(sym) {
+    return sym === 'B' ? 'S' : 'B';
+  }
+
+  function describePick(size, par) {
+    if (size === 'SMALL' || size === 'S') {
+      if (par === 'E') return 'SMALL + Red (play 2 or 4, 0 adds Violet)';
+      return 'SMALL + Green (play 1 or 3)';
+    }
+    if (par === 'E') return 'BIG + Red (play 6 or 8)';
+    return 'BIG + Green (play 7 or 9, 5 adds Violet)';
+  }
+
+  /**
+   * Evaluates Python v5 Expert Predictions on history
+   */
+  function evaluateV5Ensemble(hist, activePattern, lossStreak = 0) {
+    const seq = (hist || []).map(r => (r.size === 'BIG' ? 'B' : 'S'));
+    const pseq = (hist || []).map(r => parityOf(r.number));
+    const n = seq.length;
+    if (n === 0) return null;
+
+    const experts = [];
+
+    // Cycle 1 to 8
+    for (let p = 1; p <= 8; p++) {
+      experts.push({
+        name: `Cycle-${p}`,
+        predict: () => (n >= p ? seq[n - p] : null),
+        weight: 1.0
+      });
+    }
+
+    // Repeat-last & Alternate
+    experts.push({ name: 'Repeat-last', predict: () => seq[n - 1], weight: 1.0 });
+    experts.push({ name: 'Alternate',   predict: () => opposite(seq[n - 1]), weight: 1.0 });
+
+    // Majority-5, Majority-12, All-time-majority
+    experts.push({
+      name: 'Majority-5',
+      predict: () => {
+        const slice = seq.slice(-5);
+        const b = slice.filter(s => s === 'B').length;
+        const s = slice.length - b;
+        return b === s ? seq[n - 1] : (b > s ? 'B' : 'S');
+      },
+      weight: 1.0
+    });
+
+    experts.push({
+      name: 'Majority-12',
+      predict: () => {
+        const slice = seq.slice(-12);
+        const b = slice.filter(s => s === 'B').length;
+        const s = slice.length - b;
+        return b === s ? seq[n - 1] : (b > s ? 'B' : 'S');
+      },
+      weight: 1.0
+    });
+
+    experts.push({
+      name: 'All-time-majority',
+      predict: () => {
+        const b = seq.filter(s => s === 'B').length;
+        return b >= (seq.length - b) ? 'B' : 'S';
+      },
+      weight: 1.0
+    });
+
+    // Markov 1, 2, 3 for Size
+    for (let order = 1; order <= 3; order++) {
+      experts.push({
+        name: `Markov-${order}`,
+        predict: () => {
+          if (n <= order) return null;
+          const ctx = seq.slice(-order).join('_');
+          let bCount = 0, sCount = 0;
+          for (let i = order; i < n; i++) {
+            if (seq.slice(i - order, i).join('_') === ctx) {
+              if (seq[i] === 'B') bCount++;
+              else sCount++;
+            }
+          }
+          if (bCount + sCount === 0) return null;
+          return bCount >= sCount ? 'B' : 'S';
+        },
+        weight: 1.0
+      });
+    }
+
+    // Parity Experts (Parity-5, Parity-12, ParMarkov 1-3)
+    const parityExperts = [
+      {
+        name: 'Parity-5',
+        predict: () => {
+          const slice = pseq.slice(-5);
+          const o = slice.filter(x => x === 'O').length;
+          return o >= (slice.length - o) ? 'O' : 'E';
+        },
+        weight: 1.0
+      },
+      {
+        name: 'Parity-12',
+        predict: () => {
+          const slice = pseq.slice(-12);
+          const o = slice.filter(x => x === 'O').length;
+          return o >= (slice.length - o) ? 'O' : 'E';
+        },
+        weight: 1.0
+      }
+    ];
+
+    for (let order = 1; order <= 3; order++) {
+      parityExperts.push({
+        name: `ParMarkov-${order}`,
+        predict: () => {
+          if (pseq.length <= order) return null;
+          const ctx = pseq.slice(-order).join('_');
+          let oCount = 0, eCount = 0;
+          for (let i = order; i < pseq.length; i++) {
+            if (pseq.slice(i - order, i).join('_') === ctx) {
+              if (pseq[i] === 'O') oCount++;
+              else eCount++;
+            }
+          }
+          if (oCount + eCount === 0) return null;
+          return oCount >= eCount ? 'O' : 'E';
+        },
+        weight: 1.0
+      });
+    }
+
+    // Evaluate recent accuracy of each expert over last 10 rounds to tune weights
+    const recentWindow = Math.min(10, n - 1);
+    experts.forEach(exp => {
+      let correct = 0, total = 0;
+      for (let i = n - recentWindow; i < n; i++) {
+        const subSeq = seq.slice(0, i);
+        if (subSeq.length >= 2) {
+          const p = exp.predict.call({ predict: exp.predict }, subSeq);
+          if (p !== null) {
+            total++;
+            if (p === seq[i]) correct++;
+          }
+        }
+      }
+      const acc = total > 0 ? correct / total : 0.5;
+      exp.recentAcc = acc;
+      exp.weight = Math.max(0.05, 1.0 * (1 + (acc - 0.5) * 1.5));
+    });
+
+    // Pattern bonus multiplier: if an active pattern matches an expert, boost by confidence * 3.0
+    let patternBonusApplied = null;
+    if (activePattern && activePattern.confidence) {
+      const matchName = activePattern.code === 'P1-STREAK' ? 'Cycle-1' :
+                        activePattern.code === 'P2-ALT' ? 'Alternate' :
+                        activePattern.code === 'P4-DOUBLE' ? 'Cycle-4' : null;
+      if (matchName) {
+        const targetExp = experts.find(e => e.name === matchName);
+        if (targetExp) {
+          targetExp.weight += activePattern.confidence * 3.0;
+          patternBonusApplied = `${targetExp.name} boosted by ${activePattern.code}`;
+        }
+      }
+    }
+
+    // Safety Override: if loss streak >= 3, best single recent expert takes direct command!
+    let isSafetyOverride = false;
+    let sizePick = null;
+    let sizeSource = '';
+
+    if (lossStreak >= 3) {
+      const validExperts = experts.filter(e => e.predict() !== null);
+      if (validExperts.length > 0) {
+        validExperts.sort((a, b) => (b.recentAcc || 0.5) - (a.recentAcc || 0.5));
+        const best = validExperts[0];
+        sizePick = best.predict();
+        sizeSource = `SAFETY OVERRIDE (3+ Losses): ${best.name} (${Math.round((best.recentAcc || 0.5) * 100)}% acc)`;
+        isSafetyOverride = true;
+      }
+    }
+
+    if (!sizePick) {
+      let bWeight = 0, sWeight = 0;
+      const votes = [];
+      experts.forEach(e => {
+        const p = e.predict();
+        if (p) {
+          votes.push({ name: e.name, pick: p, weight: e.weight });
+          if (p === 'B') bWeight += e.weight;
+          else sWeight += e.weight;
+        }
+      });
+      sizePick = bWeight >= sWeight ? 'B' : 'S';
+      const top3 = votes.sort((a, b) => b.weight - a.weight).slice(0, 3);
+      sizeSource = `Ensemble: ${top3.map(v => `${v.name}(${v.weight.toFixed(1)})`).join(', ')}`;
+    }
+
+    // Parity weighted vote
+    let oWeight = 0, eWeight = 0;
+    parityExperts.forEach(pe => {
+      const p = pe.predict();
+      if (p === 'O') oWeight += pe.weight;
+      else if (p === 'E') eWeight += pe.weight;
+    });
+    const parityPick = oWeight >= eWeight ? 'O' : 'E'; // O = Green, E = Red
+
+    const finalSize = sizePick === 'B' ? 'BIG' : 'SMALL';
+    const finalColor = parityPick === 'O' ? 'GREEN' : 'RED';
+    const pickDesc = describePick(finalSize, parityPick);
+
+    return {
+      sizePick: finalSize,
+      colorPick: finalColor,
+      parityPick,
+      pickDesc,
+      sizeSource,
+      isSafetyOverride,
+      patternBonusApplied
+    };
+  }
+
+  // -- BET PREDICTION DECISION ENGINE (ZERO SKIP GUARANTEE) ------------------
   /**
    * Main entry point to predict the next bet.
-   * @param {Object} state - Current application state { history, balance, initialBalance, lossStreak, winStreak, cooloffRounds, myBets, engineWeights }
+   * NOTE: "SKIP" is completely removed as requested. Every round delivers an active BET recommendation.
+   * @param {Object} state - Current application state { history, balance, initialBalance, lossStreak, winStreak, cooloffRounds, myBets, engineWeights, timeframe }
    * @param {Array} extraSignals - Optional auxiliary signals (e.g. OpenRouter LLM)
    * @returns {Object} Complete prediction outcome
    */
@@ -503,52 +733,65 @@
     const history = (state.history || []).filter(r => !r.gap);
     const n = history.length;
 
-    // 1. Check data sufficiency
-    if (n < CONFIG.MIN_DATA_TO_PREDICT) {
+    // Fast fallback if zero history
+    if (n === 0) {
       return {
-        ready: false,
-        decision: 'SKIP',
-        target: null,
-        stake: 0,
-        prob: 0.5,
+        ready: true,
+        decision: 'BET',
+        target: 'BIG',
+        type: 'SIZE',
+        sizeTarget: 'BIG',
+        sizeProb: 0.55,
+        colorTarget: 'GREEN',
+        colorProb: 0.55,
+        stake: 1,
+        prob: 0.55,
         entropy: 1.0,
-        reason: 'Need ' + (CONFIG.MIN_DATA_TO_PREDICT - n) + ' more real results to activate AI',
-        engines: [],
-        scores: { big: 0, small: 0 }
+        zScore: 1.0,
+        reqZ: 1.64,
+        engines: ['Seed Engine'],
+        scores: { big: 50, small: 50 },
+        reason: 'Empirical starting round recommendation',
+        pickDesc: 'BIG + Green (play 7 or 9, 5 adds Violet)'
       };
     }
+
+    // 1. Query Game History Analysis candidates (if available)
+    let candidateData = null;
+    try {
+      const GHA = (typeof window !== 'undefined' ? window.GameHistoryAnalysis : null) || (typeof global !== 'undefined' ? global.GameHistoryAnalysis : null);
+      if (GHA && typeof GHA.getCandidatePatterns === 'function') {
+        candidateData = GHA.getCandidatePatterns(state.timeframe || '1m', history);
+      }
+    } catch (e) {}
 
     // 2. Calculate entropy of recent window
     const recentSizes = history.slice(-20).map(r => r.size);
     const entropy = calcEntropy(recentSizes);
 
-    // 3. Check circuit breaker cooldown
-    if (state.cooloffRounds && state.cooloffRounds > 0) {
-      return {
-        ready: false,
-        decision: 'SKIP',
-        target: null,
-        stake: 0,
-        prob: 0.5,
-        entropy,
-        reason: 'Circuit Breaker ACTIVE: ' + state.cooloffRounds + ' round(s) remaining',
-        engines: [],
-        scores: { big: 0, small: 0 }
-      };
-    }
-
-    // 4. Update adaptive weights
+    // 3. Update adaptive weights
     const adaptiveWeights = updateAdaptiveEngineWeights(history, state.engineWeights);
 
+    // 4. Inject validated candidate pattern from GameHistoryAnalysis as extra signal if present
+    const combinedSignals = Array.isArray(extraSignals) ? [...extraSignals] : [];
+    if (candidateData && candidateData.bestCandidate) {
+      const best = candidateData.bestCandidate;
+      combinedSignals.push({
+        signal: best.probabilityB >= 0.5 ? 'BIG' : 'SMALL',
+        weight: Math.round((best.outOfSampleAccuracy - 0.5) * 200) + 30,
+        engine: `HistoryPattern:${best.code}(${best.exactSequence})`
+      });
+    }
+
     // 5. Generate consensus for BOTH Size (BIG/SMALL) and Color (RED/GREEN)
-    const sizeConsensus = generateConsensus(history, adaptiveWeights, extraSignals);
+    const sizeConsensus = generateConsensus(history, adaptiveWeights, combinedSignals);
     const colorConsensus = generateColorConsensus(history);
 
     // 6. Evaluate Pattern Sequence Strength for both
     const sizePattern  = evaluatePatternSequence(history, 'SIZE');
     const colorPattern = evaluatePatternSequence(history, 'COLOR');
 
-    // Total sequence scores (pattern regularity + consensus weight agreement + win prob bonus)
+    // Total sequence scores
     const sizeSeqScore  = sizePattern.patternScore + (sizeConsensus.leadScore * 0.4) + Math.round((sizeConsensus.prob - 0.5) * 80);
     const colorSeqScore = colorPattern.patternScore + (colorConsensus.leadScore * 0.4) + Math.round((colorConsensus.prob - 0.5) * 80);
 
@@ -559,12 +802,19 @@
     const dominantEngines = dominantType === 'COLOR' ? colorConsensus.engines : sizeConsensus.engines;
     const dominantScores = dominantType === 'COLOR' ? colorConsensus.scores : sizeConsensus.scores;
 
-    // 7. Z-Score Statistical Confidence Validation
+    // 7. Evaluate Python v5 Ensemble experts & Safety Override
+    const activePatObj = (candidateData && candidateData.structuralMatches && candidateData.structuralMatches[0]) || {
+      code: sizePattern.streak >= 3 ? 'P1-STREAK' : (sizePattern.chop >= 4 ? 'P2-ALT' : null),
+      confidence: sizePattern.streak >= 3 ? 0.85 : 0.75
+    };
+
+    const v5Ensemble = evaluateV5Ensemble(history, activePatObj, state.lossStreak || 0);
+
+    // 8. Staking calculation
     const pWin = Math.max(dominantProb, CONFIG.BREAKEVEN_P + 0.01);
     const zScore = (pWin - 0.5) / Math.sqrt(0.25 / Math.max(n, 1));
     const reqZ = requiredZScore(state.lossStreak || 0);
 
-    // 8. Recent balance trend detection
     const resolvedBets = (state.myBets || []).filter(b => b.status === 'WON' || b.status === 'LOST').slice(0, 10);
     let balanceTrend = 0;
     if (resolvedBets.length >= 3) {
@@ -575,7 +825,6 @@
       balanceTrend = recent > older ? 1 : recent < older ? -1 : 0;
     }
 
-    // 9. Staking calculation
     const staking = calculateStake({
       balance: state.balance || 1000,
       initialBalance: state.initialBalance || 1000,
@@ -585,37 +834,32 @@
       balanceTrend
     });
 
-    // 10. Filter decision (BET vs SKIP)
-    let decision = 'BET';
-    let reason = '';
+    // 9. ALWAYS BET (NO SKIP) with intelligent protective staking
+    let finalTarget = recommendedTarget;
+    let finalReason = '';
 
     const patternNote = dominantType === 'COLOR'
-      ? `Color [${colorPattern.patternName}] stronger sequence (${colorSeqScore} vs Size ${sizeSeqScore})`
-      : `Size [${sizePattern.patternName}] stronger sequence (${sizeSeqScore} vs Color ${colorSeqScore})`;
+      ? `Color [${colorPattern.patternName}] stronger (${colorSeqScore} vs Size ${sizeSeqScore})`
+      : `Size [${sizePattern.patternName}] stronger (${sizeSeqScore} vs Color ${colorSeqScore})`;
 
-    if (zScore < reqZ && (state.lossStreak || 0) >= 2) {
-      decision = 'SKIP';
-      reason = 'Filter: Z-score ' + zScore.toFixed(2) + ' < req ' + reqZ + ' after loss streak ' + state.lossStreak;
-    } else if (entropy > 0.98 && n < 20) {
-      decision = 'SKIP';
-      reason = 'Filter: High entropy (' + entropy.toFixed(2) + ') - chaotic distribution';
-    } else if (staking.stopLossTriggered) {
-      reason = 'Stop-Loss: micro stake – protect balance';
-    } else if (staking.stopLossRecovery) {
-      reason = 'Recovery zone - reduced stake';
-    } else if ((state.lossStreak || 0) >= 2) {
-      reason = 'Recovery x' + Math.round(staking.fraction * 100) + '% (' + state.lossStreak + ' loss streak) | ' + patternNote;
-    } else if ((state.winStreak || 0) >= 3) {
-      reason = 'Win streak ' + state.winStreak + 'x | ' + patternNote;
+    // If safety override is triggered, prioritize the safety expert
+    if (v5Ensemble && v5Ensemble.isSafetyOverride) {
+      finalTarget = v5Ensemble.sizePick;
+      finalReason = `🛡️ ${v5Ensemble.sizeSource} | Recovery Stake ₹${staking.stake}`;
+    } else if (candidateData && candidateData.bestCandidate) {
+      const best = candidateData.bestCandidate;
+      finalReason = `📊 History Match ${best.code} (${best.exactSequence}) OOS ${Math.round(best.outOfSampleAccuracy * 100)}% | ${patternNote}`;
     } else {
       const topEngine = dominantEngines[0] || (dominantType === 'COLOR' ? 'Color' : 'Quant');
-      reason = topEngine + ' | ' + patternNote + ' (' + Math.round(dominantProb * 100) + '% Win Rate)';
+      finalReason = `${topEngine} | ${patternNote} (${Math.round(dominantProb * 100)}% Win Rate)`;
     }
+
+    const pickDesc = v5Ensemble ? v5Ensemble.pickDesc : describePick(sizeConsensus.target, colorConsensus.target === 'GREEN' ? 'O' : 'E');
 
     return {
       ready: true,
-      decision,
-      target: recommendedTarget,
+      decision: 'BET', // Strictly BET - SKIP is completely removed
+      target: finalTarget,
       type: dominantType,
       sizeTarget: sizeConsensus.target,
       sizeProb: sizeConsensus.prob,
@@ -628,7 +872,7 @@
         sizePattern: sizePattern.patternName,
         colorPattern: colorPattern.patternName
       },
-      stake: decision === 'BET' ? staking.stake : 0,
+      stake: Math.max(1, staking.stake),
       prob: dominantProb,
       entropy,
       zScore,
@@ -636,7 +880,9 @@
       engines: dominantEngines,
       scores: dominantScores,
       adaptiveWeights,
-      reason
+      reason: finalReason,
+      pickDesc,
+      v5Ensemble
     };
   }
 
