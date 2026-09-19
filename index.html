@@ -3607,19 +3607,29 @@ function selectAnalysisTf(tf) {
 }
 
 function syncHistoryToGameAnalysis(tf) {
-  if (!window.GameHistoryAnalysis || !S.historyByTimeframe) return;
-  const list = S.historyByTimeframe[tf] || [];
-  list.forEach(r => {
-    if (r && r.period && r.number !== undefined) {
-      window.GameHistoryAnalysis.recordRoundResult(tf, {
-        period: String(r.period),
-        number: Number(r.number),
-        size: r.size || (Number(r.number) >= 5 ? 'BIG' : 'SMALL'),
-        color: r.color || ([1,3,7,9,5].includes(Number(r.number)) ? 'GREEN' : 'RED'),
-        timestamp: r.timestamp || Date.now()
-      });
-    }
-  });
+  if (!window.GameHistoryAnalysis) return;
+  const targetTf = tf || S.timeframe || '30s';
+  const list = (S.historyByTimeframe && S.historyByTimeframe[targetTf] && S.historyByTimeframe[targetTf].length)
+    ? S.historyByTimeframe[targetTf]
+    : ((S.timeframe === targetTf && S.history && S.history.length) ? S.history : []);
+
+  if (!list.length) return;
+
+  if (typeof window.GameHistoryAnalysis.syncCompleteHistory === 'function') {
+    window.GameHistoryAnalysis.syncCompleteHistory(targetTf, list);
+  } else {
+    list.forEach(r => {
+      if (r && r.period && r.number !== undefined) {
+        window.GameHistoryAnalysis.recordRoundResult(targetTf, {
+          period: String(r.period),
+          number: Number(r.number),
+          size: r.size || (Number(r.number) >= 5 ? 'BIG' : 'SMALL'),
+          color: r.color || ([1,3,7,9,5].includes(Number(r.number)) ? 'GREEN' : 'RED'),
+          timestamp: r.timestamp || Date.now()
+        });
+      }
+    });
+  }
 }
 
 function getStatusBadgeHtml(status) {
@@ -3697,10 +3707,11 @@ function renderGameHistoryAnalysisTab(tf = currentAnalysisTf) {
   const strongCount = predictiveRank.filter(p => p.status === 'STRONG' || p.status === 'ACTIVE').length;
   if (elActive) elActive.textContent = strongCount;
 
-  // Trailing sequence pills
+  // Trailing sequence pills (safely handles array or string)
   const pillsContainer = document.getElementById('ghTrailingSeqPills');
   if (pillsContainer) {
-    const trailing = data.candidates?.trailingSequence || [];
+    const rawTrailing = data.candidates?.trailingSequence || '';
+    const trailing = Array.isArray(rawTrailing) ? rawTrailing : (typeof rawTrailing === 'string' ? rawTrailing.split('') : []);
     if (!trailing.length) {
       pillsContainer.innerHTML = '<span class="text-slate-500 text-xs italic">Awaiting round data...</span>';
     } else {
@@ -3708,7 +3719,7 @@ function renderGameHistoryAnalysisTab(tf = currentAnalysisTf) {
         const isB = sym === 'B';
         const isLast = idx === trailing.length - 1;
         const bg = isB ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-sky-500/20 text-sky-300 border-sky-500/40';
-        return `<span class="px-2 py-0.5 rounded-lg border font-bold text-xs ${bg} ${isLast ? 'ring-1 ring-white/60' : ''}">${sym}</span>`;
+        return `<span class="px-1.5 py-0.5 rounded border font-bold text-[9px] ${bg} ${isLast ? 'ring-1 ring-white/60' : ''}">${sym}</span>`;
       }).join('');
     }
   }
@@ -3723,21 +3734,30 @@ function renderGameHistoryAnalysisTab(tf = currentAnalysisTf) {
   if (cand) {
     if (elCandCode) {
       const structName = structMatches.length ? ` • ${structMatches[0].type}` : '';
-      elCandCode.innerHTML = `<span class="text-amber-300 font-bold">${cand.code}</span> <span class="text-slate-400">(${cand.sequence.join('-')})</span><span class="text-emerald-400 text-[9px] block">${structName}</span>`;
+      const seqDisplay = Array.isArray(cand.sequence) ? cand.sequence.join('-') : (cand.exactSequence ? cand.exactSequence.split('').join('-') : cand.code);
+      elCandCode.innerHTML = `<span class="text-amber-300 font-bold">${cand.code}</span> <span class="text-slate-400">(${seqDisplay})</span><span class="text-emerald-400 text-[8px] block">${structName}</span>`;
     }
     if (elCandBias) {
-      const targetColor = cand.nextPredicted === 'BIG' ? 'text-amber-400' : 'text-sky-400';
-      const confPct = Math.round(cand.confidence * 100);
-      elCandBias.innerHTML = `<span class="${targetColor} font-black text-sm">${cand.nextPredicted}</span> <span class="text-slate-300">(${confPct}% conf)</span>`;
+      const predTarget = cand.nextPredicted || (cand.currentSignal === 'B' ? 'BIG' : (cand.currentSignal === 'S' ? 'SMALL' : 'BIG'));
+      const targetColor = predTarget === 'BIG' ? 'text-amber-400' : 'text-sky-400';
+      const confPct = Math.round((cand.confidence !== undefined ? cand.confidence : (cand.outOfSampleAccuracy || 0.6)) * 100);
+      elCandBias.innerHTML = `<span class="${targetColor} font-black text-xs">${predTarget}</span> <span class="text-slate-300 text-[8px]">(${confPct}%)</span>`;
     }
     if (elCandVal) {
       const statusBadge = getStatusBadgeHtml(cand.status);
-      const oosAcc = (cand.outOfSampleAccuracy * 100).toFixed(1);
-      elCandVal.innerHTML = `${statusBadge} <span class="text-slate-300 text-[9px] block">OOS Acc: <b class="text-emerald-400">${oosAcc}%</b> | N=${cand.totalOccurrences}</span>`;
+      const oosAcc = ((cand.outOfSampleAccuracy || 0.5) * 100).toFixed(0);
+      elCandVal.innerHTML = `${statusBadge} <span class="text-slate-300 text-[8px] block">Acc:${oosAcc}% | N=${cand.totalOccurrences || 0}</span>`;
     }
+  } else if (structMatches.length > 0) {
+    const sm = structMatches[0];
+    const smPred = sm.predictedNext === 'B' ? 'BIG' : (sm.predictedNext === 'S' ? 'SMALL' : (sm.predicted || 'BIG'));
+    const smColor = smPred === 'BIG' ? 'text-amber-400' : 'text-sky-400';
+    if (elCandCode) elCandCode.innerHTML = `<span class="text-indigo-300 font-bold">${sm.code}</span> <span class="text-[7.5px] text-slate-400">${sm.name}</span>`;
+    if (elCandBias) elCandBias.innerHTML = `<span class="${smColor} font-black text-xs">${smPred}</span> <span class="text-slate-300 text-[8px]">(${Math.round((sm.confidence||0.6)*100)}%)</span>`;
+    if (elCandVal)  elCandVal.innerHTML  = `${getStatusBadgeHtml(sm.status)} <span class="text-slate-400 text-[7.5px]">Structural</span>`;
   } else {
-    if (elCandCode) elCandCode.textContent = structMatches.length ? `${structMatches[0].code} (${structMatches[0].type})` : 'Scanning catalog...';
-    if (elCandBias) elCandBias.textContent = structMatches.length ? `${structMatches[0].predicted} (Structural Edge)` : 'Awaiting confirmation';
+    if (elCandCode) elCandCode.textContent = 'Scanning stream...';
+    if (elCandBias) elCandBias.textContent = 'Awaiting confirmation';
     if (elCandVal)  elCandVal.textContent  = 'Normalizing prior...';
   }
 
@@ -3756,49 +3776,50 @@ function renderGhRankingTable(data) {
   } else if (currentAnalysisFilter === 'predictive') {
     list = data.rankings?.mostPredictive || [];
   } else if (currentAnalysisFilter === 'recent') {
-    list = data.rankings?.recentActive || [];
+    list = data.rankings?.recentActive || data.rankings?.mostRecent || [];
   } else if (currentAnalysisFilter === 'failed') {
-    list = data.rankings?.failedWeakening || [];
+    list = data.rankings?.failedWeakening || data.rankings?.failedList || [];
   }
 
   // Filter by search query if any
   if (currentAnalysisSearch) {
     const q = currentAnalysisSearch.toLowerCase();
-    list = list.filter(p => (
-      (p.code && p.code.toLowerCase().includes(q)) ||
-      (p.sequence && p.sequence.join('-').toLowerCase().includes(q)) ||
-      (p.status && p.status.toLowerCase().includes(q))
-    ));
+    list = list.filter(p => {
+      const seqStr = Array.isArray(p.sequence) ? p.sequence.join('') : (p.exactSequence || '');
+      return (
+        (p.code && p.code.toLowerCase().includes(q)) ||
+        seqStr.toLowerCase().includes(q) ||
+        (p.status && p.status.toLowerCase().includes(q))
+      );
+    });
   }
 
-  if (badge) badge.textContent = `${list.length} patterns displayed (${currentAnalysisTf})`;
+  if (badge) badge.textContent = `${list.length} patterns (${currentAnalysisTf})`;
 
   if (!list.length) {
-    container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs italic">
-      No patterns found matching "${currentAnalysisFilter}" filter for ${currentAnalysisTf}. Results accumulate after draws are recorded.
+    container.innerHTML = `<div class="text-center py-6 text-slate-500 text-[9px] italic">
+      No patterns found for "${currentAnalysisFilter}" filter on ${currentAnalysisTf}. Syncing live draws...
     </div>`;
     return;
   }
 
   const rowsHtml = list.map((p, idx) => {
-    const seqPills = (p.sequence || []).map(sym => {
+    const seqArr = Array.isArray(p.sequence) ? p.sequence : (p.exactSequence ? p.exactSequence.split('') : []);
+    const seqPills = seqArr.map(sym => {
       const isB = sym === 'B';
       const bg = isB ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-sky-500/20 text-sky-300 border-sky-500/40';
-      return `<span class="px-1 py-0.2 rounded border text-[9px] font-bold ${bg}">${sym}</span>`;
+      return `<span class="px-1 py-0.2 rounded border text-[7.5px] font-bold ${bg}">${sym}</span>`;
     }).join(' ');
 
     const total = p.totalOccurrences || 0;
-    const nB = p.nextResultCounts ? (p.nextResultCounts.BIG || 0) : 0;
-    const nS = p.nextResultCounts ? (p.nextResultCounts.SMALL || 0) : 0;
-    const pB = total > 0 ? ((nB / total) * 100).toFixed(1) : '50.0';
-    const pS = total > 0 ? ((nS / total) * 100).toFixed(1) : '50.0';
+    const nB = p.followingB !== undefined ? p.followingB : (p.nextResultCounts?.BIG || 0);
+    const nS = p.followingS !== undefined ? p.followingS : (p.nextResultCounts?.SMALL || 0);
+    const validNext = nB + nS;
+    const pB = validNext > 0 ? ((nB / validNext) * 100).toFixed(0) : (p.probabilityB ? (p.probabilityB * 100).toFixed(0) : '50');
+    const pS = validNext > 0 ? ((nS / validNext) * 100).toFixed(0) : (p.probabilityS ? (p.probabilityS * 100).toFixed(0) : '50');
 
-    const oos = p.outOfSampleAccuracy !== undefined ? (p.outOfSampleAccuracy * 100).toFixed(1) + '%' : '—';
+    const oos = p.outOfSampleAccuracy !== undefined ? Math.round(p.outOfSampleAccuracy * 100) + '%' : '—';
     const oosColor = (p.outOfSampleAccuracy >= 0.55) ? 'text-emerald-400 font-bold' : (p.outOfSampleAccuracy <= 0.45 ? 'text-rose-400' : 'text-slate-300');
-
-    const wilsonLower = p.wilsonScoreInterval ? (p.wilsonScoreInterval.lower * 100).toFixed(0) : '—';
-    const wilsonUpper = p.wilsonScoreInterval ? (p.wilsonScoreInterval.upper * 100).toFixed(0) : '—';
-    const ciText = (wilsonLower !== '—') ? `[${wilsonLower}%-${wilsonUpper}%]` : '—';
 
     const statusBadge = getStatusBadgeHtml(p.status);
 
@@ -4684,6 +4705,8 @@ async function fetchLiveAPIResults(tfOverride) {
             renderPatternAnalytics();
             runAI();
             updateTestBanner();
+            syncHistoryToGameAnalysis(tf);
+            renderGameHistoryAnalysisTab(tf);
             saveToLocalStorage();
 
             const modal = document.getElementById('initModal');
@@ -4714,10 +4737,16 @@ async function fetchLiveAPIResults(tfOverride) {
             renderTrendChart();
             renderPatternAnalytics();
             runAI();
+            syncHistoryToGameAnalysis(tf);
+            renderGameHistoryAnalysisTab(tf);
             saveToLocalStorage();
+          } else {
+            syncHistoryToGameAnalysis(tf);
+            renderGameHistoryAnalysisTab(tf);
           }
         } else {
           S.historyByTimeframe[tf] = parsedList;
+          syncHistoryToGameAnalysis(tf);
         }
 
         showOfflineBanner(false);
@@ -4754,6 +4783,8 @@ function loadInitDemoData(tfOverride) {
     S.history = tfHistory;
     S.historyByTimeframe[tf] = [...tfHistory];
     S.isInitialized = true;
+    syncHistoryToGameAnalysis(tf);
+    renderGameHistoryAnalysisTab(tf);
   }
   fetchLiveAPIResults(tf);
 }
@@ -4790,6 +4821,8 @@ function submitInitData() {
   renderMiniBalls();
   renderTrendChart();
   runAI();
+  syncHistoryToGameAnalysis(S.timeframe);
+  renderGameHistoryAnalysisTab(S.timeframe);
   updateTestBanner();
   saveToLocalStorage();
 }

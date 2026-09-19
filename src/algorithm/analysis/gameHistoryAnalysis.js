@@ -49,6 +49,9 @@
    *   ↓
    * OUT-OF-SAMPLE VALIDATION
    */
+  /**
+   * Main lifecycle hook triggered whenever a new round result arrives.
+   */
   function recordRoundResult(timeframe = '1m', result) {
     if (!result || !result.period) return null;
 
@@ -77,6 +80,49 @@
   }
 
   /**
+   * Batch synchronizes entire game history and recalculates pattern database once.
+   * Significantly faster than calling recordRoundResult in a loop for 50+ items.
+   */
+  function syncCompleteHistory(timeframe = '1m', historyList = []) {
+    if (!historyList || !historyList.length) return null;
+
+    const cleanList = historyList
+      .filter(r => r && r.period && r.number !== undefined && !isNaN(Number(r.number)))
+      .map(r => {
+        const num = Number(r.number);
+        return {
+          period: String(r.period).trim(),
+          number: num,
+          size: r.size || (num >= 5 ? 'BIG' : 'SMALL'),
+          color: r.color || ([1,3,7,9,5].includes(num) ? 'GREEN' : 'RED'),
+          timestamp: r.timestamp || Date.now(),
+          timeframe
+        };
+      });
+
+    if (!cleanList.length) return null;
+
+    State.setHistory(timeframe, cleanList);
+    const fullHistory = State.getHistory(timeframe);
+
+    const currentDb = State.getPatternDb(timeframe);
+    const updatedDb = Analyzer.analyzeCompleteHistory(fullHistory, currentDb);
+    State.setPatternDb(timeframe, updatedDb);
+
+    const rankings = Analyzer.generateRankings(updatedDb);
+    State.setRankings(timeframe, rankings);
+
+    const summary = State.getSummary(timeframe);
+    const candidates = getCandidatePatterns(timeframe, fullHistory);
+
+    return {
+      summary,
+      rankings,
+      candidates
+    };
+  }
+
+  /**
    * Evaluates current trailing history and extracts candidate patterns for prediction
    * @param {string} timeframe e.g. '1m'
    * @param {Array<Object>} [historyOverride] Optional slice
@@ -85,33 +131,49 @@
   function getCandidatePatterns(timeframe = '1m', historyOverride = null) {
     const history = historyOverride || State.getHistory(timeframe);
     const patternDb = State.getPatternDb(timeframe);
-    const trailingSeq = Matcher.getTrailingSequence(history, Catalog.MAX_CATALOG_LENGTH);
+    const trailingSeqStr = Matcher.getTrailingSequence(history, Catalog.MAX_CATALOG_LENGTH);
+    const trailingSeqArr = trailingSeqStr ? trailingSeqStr.split('') : [];
 
     // 1. Find exact catalog matches for trailing sequence
-    const exactMatches = Matcher.findMatchingTrailingPatterns(trailingSeq, patternDb);
+    const exactMatches = Matcher.findMatchingTrailingPatterns(trailingSeqStr, patternDb);
 
     // 2. Find structural matches (Dragon streak, Chop alternation, Double block, Cycle, Mirror)
-    const structuralMatches = Matcher.detectStructuralPatterns(trailingSeq);
+    const structuralMatches = Matcher.detectStructuralPatterns(trailingSeqStr);
 
-    // 3. Filter candidates by statistical validity
-    const validatedCandidates = exactMatches.filter(p => {
-      // Must have at least 5 historical occurrences and not be marked FAILED
-      return p.totalOccurrences >= 5 && p.status !== 'FAILED';
-    });
+    // 3. Filter candidates adaptively so patterns are ALWAYS discovered
+    let validatedCandidates = exactMatches.filter(p => p.totalOccurrences >= 3 && p.status !== 'FAILED');
+    if (validatedCandidates.length === 0) {
+      validatedCandidates = exactMatches.filter(p => p.totalOccurrences >= 1 && p.status !== 'FAILED');
+    }
+    if (validatedCandidates.length === 0) {
+      validatedCandidates = exactMatches.filter(p => p.totalOccurrences >= 1);
+    }
 
-    // Best candidate based on highest sample size + out-of-sample edge
+    // Best candidate based on specificity (length) + sample size + OOS accuracy
     let bestCandidate = null;
     if (validatedCandidates.length > 0) {
       bestCandidate = [...validatedCandidates].sort((a, b) => {
-        // Prioritize ACTIVE/STRONG status first
-        const scoreA = (a.status === 'STRONG' ? 3 : (a.status === 'ACTIVE' ? 2 : 1)) + a.outOfSampleAccuracy * 2;
-        const scoreB = (b.status === 'STRONG' ? 3 : (b.status === 'ACTIVE' ? 2 : 1)) + b.outOfSampleAccuracy * 2;
+        const lenBonusA = (a.length || 1) * 0.5;
+        const lenBonusB = (b.length || 1) * 0.5;
+        const statusWeightA = (a.status === 'STRONG' ? 3 : (a.status === 'ACTIVE' ? 2 : 1));
+        const statusWeightB = (b.status === 'STRONG' ? 3 : (b.status === 'ACTIVE' ? 2 : 1));
+        const scoreA = statusWeightA + (a.outOfSampleAccuracy || 0.5) * 2 + lenBonusA + Math.min(2, (a.totalOccurrences || 0) * 0.2);
+        const scoreB = statusWeightB + (b.outOfSampleAccuracy || 0.5) * 2 + lenBonusB + Math.min(2, (b.totalOccurrences || 0) * 0.2);
         return scoreB - scoreA;
       })[0];
+
+      if (bestCandidate) {
+        // Guarantee standardized helper properties for UI and AI consumers
+        const predSignal = bestCandidate.currentSignal || (bestCandidate.probabilityB >= 0.5 ? 'B' : 'S');
+        bestCandidate.nextPredicted = predSignal === 'B' ? 'BIG' : 'SMALL';
+        bestCandidate.confidence = predSignal === 'B' ? (bestCandidate.probabilityB || 0.5) : (bestCandidate.probabilityS || 0.5);
+        bestCandidate.sequence = (bestCandidate.exactSequence || '').split('');
+      }
     }
 
     return {
-      trailingSequence: trailingSeq,
+      trailingSequence: trailingSeqArr,
+      trailingSequenceStr: trailingSeqStr,
       matchingPatterns: exactMatches,
       validatedCandidates,
       bestCandidate,
@@ -145,6 +207,7 @@
 
   const GameHistoryAnalysis = {
     recordRoundResult,
+    syncCompleteHistory,
     getCandidatePatterns,
     getDashboardData,
     // Sub-module exposure

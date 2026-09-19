@@ -48,7 +48,7 @@
       rec.predictionHistory = [];
     });
 
-    const maxScanLen = Math.min(Catalog.MAX_CATALOG_LENGTH, Math.floor(n / 2));
+    const maxScanLen = Math.min(Catalog.MAX_CATALOG_LENGTH, Math.max(1, n - 1));
 
     // 1. Scan and count all occurrences and following results
     for (let len = 1; len <= maxScanLen; len++) {
@@ -79,6 +79,8 @@
       const rec = db[k];
       const validNext = rec.followingB + rec.followingS;
       rec.sampleSize = validNext;
+      rec.nextResultCounts = { BIG: rec.followingB, SMALL: rec.followingS };
+      rec.sequence = (rec.exactSequence || k).split('');
 
       if (validNext > 0) {
         rec.probabilityB = rec.followingB / validNext;
@@ -97,6 +99,7 @@
         : 0;
 
       rec.confidenceInterval = Stats.calcWilsonInterval(rec.followingB, validNext);
+      rec.wilsonScoreInterval = rec.confidenceInterval;
     });
 
     // 3. Walk-forward Out-Of-Sample (OOS) Simulation (strictly prior-only data)
@@ -113,36 +116,50 @@
   /**
    * Walk-forward testing (OOS)
    * Evaluates each pattern's historical predictive performance without hindsight.
+   * Rolling origin: only patterns that appeared in training portion make predictions.
    */
   function simulateWalkForwardTesting(fullSeq, db) {
     const n = fullSeq.length;
-    if (n < 30) return;
+    if (n < 4) return;
 
-    const trainEnd = Math.floor(n * 0.40); // Initial burn-in training split
+    // Train on first 40%, test on remaining 60%
+    const trainEnd = Math.max(2, Math.floor(n * 0.40));
     const oosStats = {};
 
     Object.keys(db).forEach(k => {
-      oosStats[k] = { correct: 0, total: 0, events: [], recentCorrect: 0, recentTotal: 0 };
+      oosStats[k] = {
+        correct: 0,
+        total: 0,
+        recentCorrect: 0,
+        recentTotal: 0,
+        events: []
+      };
     });
 
-    // Online counts during walk-forward
+    // Running tally during walk-forward
     const onlineB = {};
     const onlineS = {};
+    Object.keys(db).forEach(k => {
+      onlineB[k] = 0;
+      onlineS[k] = 0;
+    });
 
+    // Iterate through sequence
     for (let i = 0; i < n - 1; i++) {
-      for (let len = 1; len <= Catalog.MAX_CATALOG_LENGTH && (i + len) < n; len++) {
-        const sub = fullSeq.slice(i, i + len);
-        const nextActual = fullSeq[i + len];
+      const nextActual = fullSeq[i + 1];
 
-        if (!onlineB[sub]) { onlineB[sub] = 0; onlineS[sub] = 0; }
+      // Test all pattern lengths matching ending at index i
+      for (let len = 1; len <= Math.min(Catalog.MAX_CATALOG_LENGTH, i + 1); len++) {
+        const sub = fullSeq.slice(i - len + 1, i + 1);
+        if (!db[sub]) continue;
 
-        // If in out-of-sample evaluation phase, test prior belief
+        // If in out-of-sample period, evaluate prediction made from prior knowledge
         if (i >= trainEnd && oosStats[sub]) {
           const priorB = onlineB[sub];
           const priorS = onlineS[sub];
           const priorTotal = priorB + priorS;
 
-          if (priorTotal >= 3) {
+          if (priorTotal >= 1) {
             const predProbB = priorB / priorTotal;
             const predChoice = predProbB >= 0.5 ? 'B' : 'S';
             const wasCorrect = (predChoice === nextActual);
@@ -185,6 +202,8 @@
         rec.brierScore = 0.25;
         rec.logLoss = 0.693;
       }
+      // Refresh status based on OOS metrics
+      rec.status = Stats.determinePatternStatus(rec);
     });
   }
 
@@ -198,8 +217,8 @@
       .sort((a, b) => b.totalOccurrences - a.totalOccurrences)
       .slice(0, 30);
 
-    const mostPredictive = [...list]
-      .filter(r => r.sampleSize >= 5 && r.outOfSampleAccuracy >= 0.52)
+    let mostPredictive = [...list]
+      .filter(r => r.sampleSize >= 3 && r.outOfSampleAccuracy >= 0.50)
       .sort((a, b) => {
         if (b.outOfSampleAccuracy !== a.outOfSampleAccuracy) {
           return b.outOfSampleAccuracy - a.outOfSampleAccuracy;
@@ -208,6 +227,14 @@
       })
       .slice(0, 30);
 
+    // Adaptive fallback if strict condition returns 0
+    if (mostPredictive.length === 0 && list.length > 0) {
+      mostPredictive = [...list]
+        .filter(r => r.sampleSize >= 1)
+        .sort((a, b) => Math.abs(b.probabilityB - 0.5) - Math.abs(a.probabilityB - 0.5))
+        .slice(0, 30);
+    }
+
     const mostRecent = [...list]
       .filter(r => r.lastSeen)
       .sort((a, b) => String(b.lastSeen).localeCompare(String(a.lastSeen)))
@@ -215,18 +242,21 @@
 
     const activeList = [...list]
       .filter(r => r.status === 'ACTIVE' || r.status === 'STRONG')
-      .sort((a, b) => b.outOfSampleAccuracy - a.outOfSampleAccuracy);
+      .sort((a, b) => (b.outOfSampleAccuracy || 0.5) - (a.outOfSampleAccuracy || 0.5));
 
-    const failedList = [...list]
-      .filter(r => r.status === 'FAILED' || r.status === 'WEAKENING')
-      .sort((a, b) => a.outOfSampleAccuracy - b.outOfSampleAccuracy);
+    let failedList = [...list]
+      .filter(r => r.status === 'FAILED' || r.status === 'WEAKENING' || (r.sampleSize >= 2 && r.outOfSampleAccuracy < 0.50))
+      .sort((a, b) => (a.outOfSampleAccuracy || 0.5) - (b.outOfSampleAccuracy || 0.5))
+      .slice(0, 30);
 
     return {
       mostRepeated,
       mostPredictive,
       mostRecent,
+      recentActive: mostRecent,
       activeList,
-      failedList
+      failedList,
+      failedWeakening: failedList
     };
   }
 

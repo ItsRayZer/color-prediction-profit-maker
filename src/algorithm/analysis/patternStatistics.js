@@ -59,39 +59,45 @@
    * States: NEW, WATCH, ACTIVE, STRONG, WEAKENING, FAILED, RETIRED
    */
   function determinePatternStatus(record) {
-    const { totalOccurrences, oosAccuracy, sampleSize, recentAccuracy } = record;
-    if (totalOccurrences < 5) return 'NEW';
-    if (totalOccurrences < 10) return 'WATCH';
+    const totalOccurrences = record.totalOccurrences || 0;
+    const sampleSize = record.sampleSize || 0;
+    const oosAccuracy = record.outOfSampleAccuracy !== undefined ? record.outOfSampleAccuracy : (record.oosAccuracy || 0.5);
+    const recentAccuracy = record.recentAccuracy !== undefined ? record.recentAccuracy : oosAccuracy;
 
-    if (sampleSize >= 15 && oosAccuracy >= 0.58) {
-      if (recentAccuracy !== undefined && recentAccuracy < 0.45) return 'WEAKENING';
+    if (totalOccurrences < 2) return 'NEW';
+    if (totalOccurrences < 4) return 'WATCH';
+
+    if (sampleSize >= 5 && oosAccuracy >= 0.58) {
+      if (recentAccuracy < 0.45) return 'WEAKENING';
       return 'STRONG';
     }
 
-    if (sampleSize >= 10 && oosAccuracy >= 0.53) {
-      if (recentAccuracy !== undefined && recentAccuracy < 0.45) return 'WEAKENING';
+    if (sampleSize >= 3 && oosAccuracy >= 0.52) {
+      if (recentAccuracy < 0.45) return 'WEAKENING';
       return 'ACTIVE';
     }
 
-    if (sampleSize >= 12 && oosAccuracy <= 0.44) {
+    if (sampleSize >= 4 && oosAccuracy <= 0.42) {
       return 'FAILED';
     }
 
-    if (recentAccuracy !== undefined && recentAccuracy < 0.48 && oosAccuracy < 0.50) {
+    if (recentAccuracy < 0.48 && oosAccuracy < 0.50) {
       return 'WEAKENING';
     }
 
-    return 'WATCH';
+    return 'ACTIVE';
   }
 
   /**
    * Creates a fresh pattern statistical record
    */
   function createPatternRecord(catalogEntry) {
+    const seqStr = catalogEntry.exactSequence || '';
     return {
       code: catalogEntry.code,
-      exactSequence: catalogEntry.exactSequence,
-      length: catalogEntry.length,
+      exactSequence: seqStr,
+      sequence: seqStr.split(''),
+      length: catalogEntry.length || seqStr.length,
       type: catalogEntry.type,
       structuralCode: catalogEntry.structuralCode,
       description: catalogEntry.description,
@@ -99,6 +105,7 @@
       totalOccurrences: 0,
       followingB: 0,
       followingS: 0,
+      nextResultCounts: { BIG: 0, SMALL: 0 },
 
       probabilityB: 0.5,
       probabilityS: 0.5,
@@ -114,11 +121,12 @@
       outOfSampleAccuracy: 0.5,
 
       sampleSize: 0,
-      expectedFrequency: catalogEntry.expectedProbability || Math.pow(0.5, catalogEntry.length),
+      expectedFrequency: catalogEntry.expectedProbability || Math.pow(0.5, catalogEntry.length || 1),
       observedFrequency: 0,
       frequencyDeviation: 0,
 
       confidenceInterval: { lower: 0, upper: 1 },
+      wilsonScoreInterval: { lower: 0, upper: 1 },
       brierScore: 0.25,
       logLoss: 0.693,
 
