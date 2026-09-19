@@ -1482,9 +1482,15 @@ function getColorForNum(n) {
 function getSizeForNum(n) { return n >= 5 ? 'BIG' : 'SMALL'; }
 
 // ═══════════════════════════════════════════════════════════════
-// REAL-WORLD CLOCK  (IST = UTC+5:30)
+// ═══════════════════════════════════════════════════════════════
+// REAL-WORLD CLOCK  (IST = UTC+5:30) & SERVER TIME CALIBRATION
 // ═══════════════════════════════════════════════════════════════
 let lastPeriod = null;
+let _savedOffset = 0;
+try {
+  _savedOffset = parseInt(localStorage.getItem('wingo_server_offset'), 10) || 0;
+} catch (e) {}
+window._serverTimeOffset = _savedOffset;
 
 function computeRTState() {
   const durMap = { '30s': 30, '1m': 60, '3m': 180, '5m': 300 };
@@ -1494,12 +1500,15 @@ function computeRTState() {
   const dur = durMap[tf] || 30;
   S.durationSeconds = dur;
 
-  const nowMs       = Date.now();
+  // Use calibrated server authority time (corrects local PC/device clock drift)
+  const serverOffset = (typeof window._serverTimeOffset === 'number' && !isNaN(window._serverTimeOffset)) ? window._serverTimeOffset : 0;
+  const nowMs       = Date.now() + serverOffset;
   const nowUtc      = new Date(nowMs);
   const totalSecUtc = nowUtc.getUTCHours() * 3600 + nowUtc.getUTCMinutes() * 60 + nowUtc.getUTCSeconds();
   const periodIdx   = Math.floor(totalSecUtc / dur) + 1;
   const elapsed     = totalSecUtc % dur;
-  const secsLeft    = dur - elapsed;
+  // Official WinGo countdown: dur-1 down to 0 (e.g. 59 down to 0 for 1m, 29 down to 0 for 30s)
+  const secsLeft    = Math.max(0, (dur - 1) - elapsed);
 
   const y      = nowUtc.getUTCFullYear();
   const mo     = String(nowUtc.getUTCMonth() + 1).padStart(2, '0');
@@ -1523,7 +1532,7 @@ function startRTEngine() {
   // Continuous real-time live server synchronization every 2.5s
   if (window._livePollTimer) clearInterval(window._livePollTimer);
   window._livePollTimer = setInterval(() => {
-    fetchLiveAPIResults().catch(() => {});
+    fetchLiveAPIResults(S.timeframe).catch(() => {});
   }, 2500);
 
   window._rtTimer = setInterval(() => {
@@ -1557,20 +1566,21 @@ function startRTEngine() {
       if (smartPEl) smartPEl.textContent = S.currentPeriod ? S.currentPeriod.slice(-5) : '—';
       updateTimerUI();
 
-      // 5-second bet block
-      if (S.secondsLeft <= 5 && S.secondsLeft > 0 && !S.inBetBlock) {
+      // 5-second bet block: lock down when 5 seconds or less remaining (5, 4, 3, 2, 1, 0)
+      if (S.secondsLeft <= 5 && !S.inBetBlock) {
         S.inBetBlock = true;
         showBetBlock(S.secondsLeft);
       } else if (S.secondsLeft > 5 && S.inBetBlock) {
         S.inBetBlock = false;
+        hideBetBlock();
       }
-      if (S.inBetBlock && S.secondsLeft > 0) {
+      if (S.inBetBlock) {
         updateBetBlock(S.secondsLeft);
       }
 
-      // Fast sync trigger right around rollover (secsLeft === 1 or dur - 1)
-      if (secsLeft === 1 || secsLeft === dur - 1) {
-        setTimeout(() => fetchLiveAPIResults().catch(() => {}), 800);
+      // Fast sync trigger right around rollover (secsLeft === 0 or dur - 1)
+      if (secsLeft === 0 || secsLeft === dur - 1) {
+        setTimeout(() => fetchLiveAPIResults(S.timeframe).catch(() => {}), 600);
       }
 
       // ── Live countdown bar for result prompt ──
@@ -1607,7 +1617,16 @@ function updateTimerUI() {
   if (s2) s2.textContent = ss[1];
 
   const smartT = document.getElementById('smartTimerDisplay');
-  if (smartT) smartT.textContent = `${ms}:${ss}`;
+  if (smartT) {
+    smartT.textContent = `${ms}:${ss}`;
+    if (secsVal <= 5) {
+      smartT.classList.add('text-rose-400');
+      smartT.classList.remove('text-amber-300');
+    } else {
+      smartT.classList.remove('text-rose-400');
+      smartT.classList.add('text-amber-300');
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2514,23 +2533,7 @@ function saveRealResult(period, numberInput) {
 
     if (S.roundBet && S.roundBet.period === period) S.roundBet = null;
   } else {
-    // No bet placed: show prediction correctness only (NO loss money shown)
-    if (isAiCorrect) {
-      showWinPopup({
-        period, number: n, color, size,
-        profit: 0,
-        balance: S.balance,
-        aiCorrect: true,
-        hasBet: false
-      });
-    } else {
-      showLossPopup({
-        period, number: n, color, size,
-        lost: 0,
-        balance: S.balance,
-        hasBet: false
-      });
-    }
+    // No bet placed: record AI outcome quietly without popup interruption
   }
 
   if (S.cooloffRounds > 0) S.cooloffRounds--;
@@ -3323,6 +3326,13 @@ function renderSmartView() {
     const ms = String(Math.floor(sVal / 60)).padStart(2,'0');
     const ss = String(sVal % 60).padStart(2,'0');
     timerEl.textContent = `${ms}:${ss}`;
+    if (sVal <= 5) {
+      timerEl.classList.add('text-rose-400');
+      timerEl.classList.remove('text-amber-300');
+    } else {
+      timerEl.classList.remove('text-rose-400');
+      timerEl.classList.add('text-amber-300');
+    }
   }
 
   if (tfBadge) tfBadge.textContent = `WinGo ${S.timeframe}`;
@@ -3782,10 +3792,21 @@ async function fetchLiveAPIResults(tfOverride) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 3500);
     try {
+      const tReq = Date.now();
       const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: controller.signal });
       clearTimeout(timer);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
+      
+      // Real-time server authority time synchronization
+      if (data && data.serviceTime) {
+        const sTime = Number(data.serviceTime);
+        if (!isNaN(sTime) && sTime > 0) {
+          window._serverTimeOffset = sTime - tReq;
+          try { localStorage.setItem('wingo_server_offset', String(window._serverTimeOffset)); } catch (e) {}
+        }
+      }
+
       let list = [];
       if (Array.isArray(data)) list = data;
       else if (data && typeof data === 'object') {
@@ -3940,8 +3961,8 @@ function checkAndQueueSkippedPeriods() {
       }
     }
     if (S.missingQueue.length > 0) {
-      showToast(`⚠️ ${skippedCount} skipped period(s) detected on load. Please enter results!`, 'info');
-      serveNextFromQueue();
+      // Auto fetch live results without opening manual entry modal
+      fetchLiveAPIResults(S.timeframe);
     }
   }
 }
@@ -4598,6 +4619,9 @@ window.onload = () => {
   renderMyBets();
   applyProModeUI();
 
+  // Synchronize active timeframe buttons, titles, badges & countdown duration
+  setTimeframe(S.timeframe || '30s');
+
   // ── 2. Start real-time engine ──
   startRTEngine();
 
@@ -4615,7 +4639,7 @@ window.onload = () => {
     updateTestBanner();
     showToast(`💾 ${S.history.length} rounds restored! Syncing live data...`, 'success');
     // Always try live sync in background to append new data
-    setTimeout(() => fetchLiveAPIResults().catch(() => showOfflineBanner(true)), 1000);
+    setTimeout(() => fetchLiveAPIResults(S.timeframe).catch(() => showOfflineBanner(true)), 800);
   } else {
     // ── 3. No saved data — load demo data ──
     loadInitDemoData();
@@ -4625,8 +4649,8 @@ window.onload = () => {
     renderPatternAnalytics();
     showToast('✨ Sample data loaded. Syncing live results...', 'info');
     setTimeout(() => {
-      fetchLiveAPIResults().catch(() => showOfflineBanner(true));
-    }, 800);
+      fetchLiveAPIResults(S.timeframe).catch(() => showOfflineBanner(true));
+    }, 600);
   }
 };
 
