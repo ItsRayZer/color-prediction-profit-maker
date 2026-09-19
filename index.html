@@ -2935,44 +2935,71 @@ function renderTrendChart() { renderNumberRoad(); }
 // CONTROLS
 // ═══════════════════════════════════════════════════════════════
 function setTimeframe(tf) {
-  // Save current history into timeframe bucket
-  if (!S.historyByTimeframe) {
-    S.historyByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
-  }
+  if (!S.historyByTimeframe) S.historyByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
+  if (!S.aiPredictionMapByTimeframe) S.aiPredictionMapByTimeframe = { '30s': {}, '1m': {}, '3m': {}, '5m': {} };
+  if (!S.myBetsByTimeframe) S.myBetsByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
+
+  // 1. Save current session state before switching
   S.historyByTimeframe[S.timeframe] = [...S.history];
+  S.aiPredictionMapByTimeframe[S.timeframe] = { ...S.aiPredictionMap };
+  S.myBetsByTimeframe[S.timeframe] = [...S.myBets];
 
+  // 2. Switch active timeframe
   S.timeframe = tf;
-  S.durationSeconds = { '30s':30,'1m':60,'3m':180,'5m':300 }[tf]||30;
+  S.durationSeconds = { '30s':30, '1m':60, '3m':180, '5m':300 }[tf] || 30;
 
-  // Load history for target timeframe section
+  // 3. Load isolated session state for target timeframe
   S.history = [...(S.historyByTimeframe[tf] || [])];
+  S.aiPredictionMap = { ...(S.aiPredictionMapByTimeframe[tf] || {}) };
+  S.myBets = [...(S.myBetsByTimeframe[tf] || [])];
 
+  // 4. Update UI buttons
   ['30s','1m','3m','5m'].forEach(t => {
     const b = document.getElementById(`tf-${t}`);
     if (b) {
-      b.className = t===tf
+      b.className = t === tf
         ? 'py-2 px-1 rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 text-slate-950 font-black text-xs flex flex-col items-center shadow active:scale-95'
         : 'py-2 px-1 rounded-xl bg-app-card text-purple-200 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition';
     }
   });
 
-  document.getElementById('ticketTfTitle').textContent = `WinGo ${tf}`;
+  const ticketTitle = document.getElementById('ticketTfTitle');
+  if (ticketTitle) ticketTitle.textContent = `WinGo ${tf}`;
+
+  const smartTfBadge = document.getElementById('smartTfBadge');
+  if (smartTfBadge) smartTfBadge.textContent = `WinGo ${tf}`;
+
+  // 5. Recompute real-time clock and period for this timeframe
   const { secsLeft, periodStr } = computeRTState();
-  lastPeriod = periodStr; S.currentPeriod = periodStr; S.secondsLeft = secsLeft;
-  document.getElementById('currentPeriodDisplay').textContent = S.currentPeriod;
+  lastPeriod = periodStr;
+  S.currentPeriod = periodStr;
+  S.secondsLeft = secsLeft;
+  const currentPeriodDisplay = document.getElementById('currentPeriodDisplay');
+  if (currentPeriodDisplay) currentPeriodDisplay.textContent = S.currentPeriod;
+  const smartPeriodDisplay = document.getElementById('smartPeriodDisplay');
+  if (smartPeriodDisplay) smartPeriodDisplay.textContent = S.currentPeriod ? S.currentPeriod.slice(-5) : '—';
   updateTimerUI();
 
-  // If newly selected timeframe section has fewer than MIN_DATA_TO_PREDICT results, prompt for initial 10 results
-  if (S.history.length < MIN_DATA_TO_PREDICT) {
-    openInitModal();
-    showToast(`WinGo ${tf} section selected: Please enter initial 10 results for ${tf}`, 'info');
-  } else {
-    renderHistoryTable();
-    renderMiniBalls();
-    renderTrendChart();
-    runAI();
-    showToast(`Switched to WinGo ${tf} section (${S.history.length} records)`, 'info');
-  }
+  // 6. Refresh UI with target session data
+  renderHistoryTable();
+  renderMiniBalls();
+  renderMyBets();
+  renderTrendChart();
+  renderHeatmap();
+  renderBSPattern();
+  renderSmartView();
+  renderPatternAnalytics();
+  runAI();
+
+  showToast(`⚡ Switched to WinGo ${tf} session. Fetching live data...`, 'info');
+
+  // 7. Immediately fetch real live results for this timeframe!
+  fetchLiveAPIResults(tf).then(ok => {
+    if (ok) {
+      showToast(`✅ WinGo ${tf} live data updated! (${S.history.length} records)`, 'success');
+    }
+  });
+  saveToLocalStorage();
 }
 
 function toggleAIDiagnostics() {
@@ -3722,14 +3749,14 @@ async function fetchLiveAPIResults(tfOverride) {
   const targetUrl = `https://draw.ar-lottery01.com/WinGo/WinGo_${tfCode}/GetHistoryIssuePage.json`;
 
   const urlsToTry = [
-    targetUrl,
-    `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`
+    `/api-wingo/WinGo/WinGo_${tfCode}/GetHistoryIssuePage.json`,
+    `https://proxy.corsfix.com/?${targetUrl}`,
+    targetUrl
   ];
 
   async function fetchSingle(url) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 1800);
+    const timer = setTimeout(() => controller.abort(), 3500);
     try {
       const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: controller.signal });
       clearTimeout(timer);
@@ -3760,54 +3787,62 @@ async function fetchLiveAPIResults(tfOverride) {
       }).filter(r => r.period && !isNaN(r.number));
 
       if (parsedList.length > 0) {
-        if (!S.isInitialized || !S.history || S.history.length === 0) {
-          S.history = parsedList;
-          if (!S.historyByTimeframe) S.historyByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
-          S.historyByTimeframe[tf] = [...parsedList];
-          S.isInitialized = true;
+        if (!S.historyByTimeframe) S.historyByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
 
-          renderHistoryTable();
-          renderSmartView();
-          renderMiniBalls();
-          renderTrendChart();
-          renderHeatmap();
-          renderBSPattern();
-          renderPatternAnalytics();
-          runAI();
-          updateTestBanner();
-          saveToLocalStorage();
+        if (tf === S.timeframe) {
+          if (!S.isInitialized || !S.history || S.history.length === 0) {
+            S.history = parsedList;
+            S.historyByTimeframe[tf] = [...parsedList];
+            S.isInitialized = true;
 
-          const modal = document.getElementById('initModal');
-          if (modal) modal.style.display = 'none';
-          showOfflineBanner(false);
-          return true;
-        }
+            renderHistoryTable();
+            renderSmartView();
+            renderMiniBalls();
+            renderTrendChart();
+            renderHeatmap();
+            renderBSPattern();
+            renderPatternAnalytics();
+            runAI();
+            updateTestBanner();
+            saveToLocalStorage();
 
-        // Check for new draws or pending bets to resolve
-        let hasNew = false;
-        for (const item of parsedList) {
-          const existing = S.history.find(r => r.period === item.period && !r.gap);
-          const hasPendingBet = S.myBets.some(b => b.period === item.period && b.status === 'PENDING');
-          if (!existing || hasPendingBet) {
-            saveRealResult(item.period, item.number);
-            hasNew = true;
+            const modal = document.getElementById('initModal');
+            if (modal) modal.style.display = 'none';
+            showOfflineBanner(false);
+            return true;
           }
+
+          // Check for new draws or pending bets to resolve
+          let hasNew = false;
+          for (const item of parsedList) {
+            const existing = S.history.find(r => r.period === item.period && !r.gap);
+            const hasPendingBet = S.myBets.some(b => b.period === item.period && b.status === 'PENDING');
+            if (!existing || hasPendingBet) {
+              saveRealResult(item.period, item.number);
+              hasNew = true;
+            }
+          }
+
+          S.historyByTimeframe[tf] = [...S.history];
+
+          if (hasNew) {
+            renderHistoryTable();
+            renderSmartView();
+            renderMiniBalls();
+            renderTrendChart();
+            renderPatternAnalytics();
+            saveToLocalStorage();
+          }
+        } else {
+          S.historyByTimeframe[tf] = parsedList;
         }
 
-        if (hasNew) {
-          renderHistoryTable();
-          renderSmartView();
-          renderMiniBalls();
-          renderTrendChart();
-          renderPatternAnalytics();
-          saveToLocalStorage();
-        }
         showOfflineBanner(false);
         return true;
       }
     }
   } catch (err) {
-    console.warn('Live API sync notice:', err.message);
+    console.warn('Live API sync notice for ' + tf + ':', err.message);
   }
   return false;
 }
