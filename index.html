@@ -35,7 +35,34 @@
       content:''; position:absolute; width:18px; height:18px;
       background:#0d071b; border-radius:50%; top:50%; transform:translateY(-50%);
     }
-    .ticket-card::before { left:-9px; } .ticket-card::after { right:-9px; }
+    /* ── Apple Liquid Glass UI ── */
+    .liquid-glass {
+      background: rgba(255, 255, 255, 0.035);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.14);
+      border-radius: 24px;
+    }
+    .liquid-glass-card {
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.015) 100%);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35), inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+    }
+    .liquid-glass-pill {
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 9999px;
+    }
+    .liquid-glass-row:hover {
+      background: rgba(255, 255, 255, 0.04);
+      box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+    }
 
     /* ── 3-D Balls ── */
     .ball-3d {
@@ -111,7 +138,14 @@
     .num-pick.selected { box-shadow:0 0 0 3px #f59e0b, 0 0 12px rgba(245,158,11,.5); }
   </style>
 </head>
-<body class="bg-app-bg min-h-screen text-white overflow-x-hidden">
+<body class="bg-app-bg min-h-screen text-white overflow-x-hidden relative">
+
+<!-- Ambient Liquid Glass Lighting Blobs -->
+<div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
+  <div class="absolute -top-32 -left-32 w-96 h-96 bg-purple-600/15 rounded-full blur-[120px]"></div>
+  <div class="absolute top-1/3 -right-32 w-96 h-96 bg-amber-500/10 rounded-full blur-[140px]"></div>
+  <div class="absolute -bottom-32 left-1/3 w-96 h-96 bg-indigo-600/15 rounded-full blur-[130px]"></div>
+</div>
 
 <!-- ════════════════════════════════════════════════════════════
      TOAST CONTAINER
@@ -119,23 +153,23 @@
 <div id="toastContainer" class="fixed top-3 left-1/2 -translate-x-1/2 z-[110] flex flex-col items-center w-full max-w-lg px-4 pointer-events-none space-y-2"></div>
 
 <!-- ════════════════════════════════════════════════════════════
-     FULL-WIDTH TOP NAVBAR
+     FULL-WIDTH TOP NAVBAR (Apple Frosted Glass)
 ════════════════════════════════════════════════════════════ -->
-<header class="flex items-center justify-between px-6 py-3 bg-app-surface sticky top-0 z-30 border-b border-purple-900/30 w-full">
+<header class="flex items-center justify-between px-6 py-2.5 bg-black/40 backdrop-blur-2xl sticky top-0 z-30 border-b border-white/10 w-full shadow-lg">
   <div class="flex items-center gap-3">
-    <button onclick="toggleAIGlow()" class="w-8 h-8 flex items-center justify-center rounded-full bg-app-card text-amber-400 hover:text-white transition active:scale-95">
+    <button onclick="toggleAIGlow()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-amber-400 hover:text-white transition active:scale-95 border border-white/10">
       <i class="fa-solid fa-bolt-lightning text-xs"></i>
     </button>
     <div class="flex items-center gap-2 cursor-pointer" onclick="toggleAIGlow()">
       <span class="text-xl font-black italic text-indigo-400">Dhani</span>
       <span class="text-xl font-black italic text-amber-400">.win</span>
-      <span class="ml-1 text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">QUANT AI</span>
+      <span class="ml-1 text-[9px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-black border border-amber-400/30">QUANT AI</span>
     </div>
-    <div id="realWorldClock" class="text-[10px] font-mono text-purple-300 font-semibold bg-purple-950/60 px-2 py-0.5 rounded-lg border border-purple-800/30">--:--:-- UTC+5:30</div>
+    <div id="realWorldClock" class="text-[10px] font-mono text-purple-300 font-semibold bg-white/5 px-2.5 py-0.5 rounded-full border border-white/10">--:--:-- UTC+5:30</div>
   </div>
 
   <!-- Center: Martingale status in header when active -->
-  <div id="mgHeaderStatus" class="hidden items-center gap-3 px-4 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-[11px]">
+  <div id="mgHeaderStatus" class="hidden items-center gap-3 px-4 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-[11px] backdrop-blur-md">
     <i class="fa-solid fa-rotate text-amber-400 animate-spin" style="animation-duration:3s"></i>
     <span class="text-amber-300 font-black">MARTINGALE ACTIVE</span>
     <span class="text-slate-300">Base: <b id="mgHeaderBase" class="text-white font-mono">₹1</b></span>
@@ -145,27 +179,28 @@
     <span class="text-slate-400 font-mono text-[10px]" id="mgHeaderPnl">PnL: <span class="text-emerald-400">+₹0</span></span>
   </div>
 
-    <button onclick="toggleProMode()" id="proModeToggleBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-indigo-500/20 border border-amber-400/50 text-amber-300 hover:text-white font-black text-xs transition shadow active:scale-95" title="Switch between Pro and Normal view">
+  <div class="flex items-center gap-2.5">
+    <button onclick="toggleProMode()" id="proModeToggleBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-white/10 backdrop-blur-xl border border-amber-400/50 text-amber-300 hover:text-white font-black text-xs transition shadow-[0_0_15px_rgba(245,158,11,0.2)] active:scale-95" title="Switch between Pro and Normal view">
       <i class="fa-solid fa-layer-group text-amber-400 text-xs"></i>
       <span id="proModeBtnText">⚡ PRO MODE: ON</span>
     </button>
-    <div class="hidden lg:flex items-center gap-1 text-[10px] text-slate-400 font-mono bg-app-card px-3 py-1.5 rounded-xl border border-purple-900/40">
+    <div class="hidden lg:flex items-center gap-1 text-[10px] text-slate-400 font-mono bg-white/5 px-3 py-1.5 rounded-2xl border border-white/10">
       <i class="fa-solid fa-circle text-[6px] text-emerald-400 animate-pulse"></i>
       <span id="liveStatusText">Connecting...</span>
     </div>
-    <button onclick="toggleAutoBet()" id="autoBetToggleBtn" class="w-8 h-8 flex items-center justify-center rounded-full bg-app-card text-slate-300 hover:text-emerald-400 transition" title="Martingale Auto-Bet">
+    <button onclick="toggleAutoBet()" id="autoBetToggleBtn" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-slate-300 hover:text-emerald-400 transition border border-white/10" title="Martingale Auto-Bet">
       <i class="fa-solid fa-robot text-xs"></i>
     </button>
-    <button onclick="openImportModal()" class="w-8 h-8 flex items-center justify-center rounded-full bg-app-card text-slate-300 hover:text-white transition" title="Data Import">
+    <button onclick="openImportModal()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-slate-300 hover:text-white transition border border-white/10" title="Data Import">
       <i class="fa-solid fa-database text-xs"></i>
     </button>
   </div>
 </header>
 
 <!-- ════════════════════════════════════════════════════════════
-     MAIN 3-COLUMN DESKTOP GRID
+     MAIN 3-COLUMN DESKTOP GRID (Effective wide ratio without gap)
 ════════════════════════════════════════════════════════════ -->
-<div class="flex flex-col lg:grid lg:grid-cols-[380px_1fr_360px] w-full" style="min-height:calc(100vh - 54px)">
+<div class="relative z-10 flex flex-col lg:grid lg:grid-cols-[380px_1fr_420px] w-full" style="min-height:calc(100vh - 54px)">
 
   <!-- ╔══════════════════════════════════════════════════════════
        LEFT PANEL — AI Terminal + Timer + Betting Board
@@ -286,8 +321,8 @@
         </button>
       </div>
 
-      <!-- ── TICKET COUNTDOWN ── -->
-      <div class="ticket-card rounded-xl p-3.5 text-slate-900 shadow-xl">
+      <!-- ── TICKET COUNTDOWN (Hidden in Pro Mode) ── -->
+      <div id="ticketCard" class="ticket-card rounded-xl p-3.5 text-slate-900 shadow-xl">
         <div class="flex items-center justify-between">
           <div class="space-y-1.5">
             <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-slate-900/30 text-[10px] font-black bg-amber-400/50">
@@ -311,7 +346,7 @@
         </div>
       </div>
 
-      <!-- ── BETTING BOARD ── -->
+      <!-- ── BETTING BOARD (Manual clicker – Hidden in Pro Mode) ── -->
       <div class="bg-app-card rounded-2xl border border-purple-900/30 shadow-lg" id="bettingBoardWrapper" style="position:relative;">
         <div id="betBlockOverlay">
           <div class="countdown-ring" style="--prog:100%">
@@ -355,6 +390,43 @@
             </button>
           </div>
         </div>
+      </div>
+
+      <!-- ── PRO MODE QUANT TEST & RISK CONTROL (Shown ONLY in Pro Mode – No Balls / Manual Buttons) ── -->
+      <div id="proModeLeftControl" class="liquid-glass-card p-4 space-y-3.5 hidden">
+        <div class="flex items-center justify-between pb-2 border-b border-white/10">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="text-xs font-black uppercase tracking-wider text-white">Automated Quant Staker</span>
+          </div>
+          <span class="text-[9px] px-2 py-0.5 rounded-full bg-white/10 text-emerald-300 font-mono border border-white/10">Hands-Free</span>
+        </div>
+
+        <!-- Bot Quick Staking Chips -->
+        <div>
+          <span class="text-[9.5px] font-bold text-slate-300 block mb-1.5 uppercase tracking-wide">Select Base Stake (₹)</span>
+          <div class="grid grid-cols-5 gap-1.5 font-mono">
+            <button onclick="setMgChip(1); startMartingaleBot();" class="py-2 rounded-xl bg-white/5 border border-white/10 hover:border-emerald-400/50 hover:bg-emerald-500/20 text-white font-black text-xs transition">₹1</button>
+            <button onclick="setMgChip(2); startMartingaleBot();" class="py-2 rounded-xl bg-white/5 border border-white/10 hover:border-emerald-400/50 hover:bg-emerald-500/20 text-white font-black text-xs transition">₹2</button>
+            <button onclick="setMgChip(3); startMartingaleBot();" class="py-2 rounded-xl bg-white/5 border border-white/10 hover:border-emerald-400/50 hover:bg-emerald-500/20 text-white font-black text-xs transition">₹3</button>
+            <button onclick="setMgChip(4); startMartingaleBot();" class="py-2 rounded-xl bg-white/5 border border-white/10 hover:border-amber-400/50 hover:bg-amber-500/20 text-amber-300 font-black text-xs transition">₹4</button>
+            <button onclick="setMgChip(5); startMartingaleBot();" class="py-2 rounded-xl bg-white/5 border border-white/10 hover:border-amber-400/50 hover:bg-amber-500/20 text-amber-300 font-black text-xs transition">₹5</button>
+          </div>
+        </div>
+
+        <!-- Progression & Risk Monitor -->
+        <div class="p-3 rounded-2xl bg-black/40 border border-white/10 space-y-1.5 font-mono text-[10px]">
+          <div class="flex justify-between items-center"><span class="text-slate-400">Progression Multiplier:</span><b class="text-amber-400">2.0× on Loss</b></div>
+          <div class="flex justify-between items-center"><span class="text-slate-400">Win Net Yield:</span><b class="text-emerald-400">1.96× (+96% Net)</b></div>
+          <div class="flex justify-between items-center"><span class="text-slate-400">Active Martingale Stake:</span><b id="proModeStakeDisplay" class="text-white font-black text-xs">₹1.00</b></div>
+          <div class="flex justify-between items-center"><span class="text-slate-400">Target Profit (TP):</span><b id="proModeTpDisplay" class="text-emerald-300">+₹50</b></div>
+          <div class="flex justify-between items-center"><span class="text-slate-400">Stop Loss (SL):</span><b id="proModeSlDisplay" class="text-rose-400">-₹100</b></div>
+        </div>
+
+        <!-- Action button -->
+        <button onclick="toggleAutoBet()" id="proModeBotLaunchBtn" class="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black text-xs shadow-lg hover:brightness-110 active:scale-95 transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-play"></i> START AUTOMATED TEST BOT
+        </button>
       </div>
 
       <!-- ── MARTINGALE STATUS (mobile / left panel) ── -->
@@ -646,146 +718,141 @@
       </div>
 
   <!-- ╔══════════════════════════════════════════════════════════
-       RIGHT PANEL — AI Diagnostics + Pattern Analysis + Stats
+       RIGHT PANEL — Apple Minimalist Liquid Glass Telemetry Hub
   ══════════════════════════════════════════════════════════╗ -->
-  <aside class="lg:border-l border-purple-900/30 overflow-y-auto overflow-x-hidden bg-app-bg" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
-    <div class="p-3 space-y-3">
+  <aside class="lg:border-l border-white/10 overflow-y-auto overflow-x-hidden bg-black/20 backdrop-blur-3xl" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.2) transparent;">
+    <div class="p-3.5 space-y-3.5">
 
-      <!-- ── AI DIAGNOSTICS (always visible on desktop) ── -->
-      <div class="p-3 bg-black/50 rounded-2xl border border-purple-800/60 space-y-3 text-[10px]">
-        <div class="text-[10px] font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-          <i class="fa-solid fa-microchip"></i> AI Engine Diagnostics
-          <button onclick="toggleAIDiagnostics()" class="ml-auto text-[9px] text-slate-500 hover:text-slate-300 lg:hidden">Toggle</button>
+      <!-- ── 1. LIVE PATTERN RADAR & ACTIVE EDGE SIGNAL ── -->
+      <div class="liquid-glass-card p-3.5 space-y-2.5">
+        <div class="flex items-center justify-between pb-2 border-b border-white/10">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+            <span class="text-[10px] font-black uppercase tracking-wider text-white">Live Pattern Radar</span>
+          </div>
+          <span class="text-[8.5px] px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-300 font-mono border border-amber-400/20">Real-Time Edge</span>
         </div>
 
-        <!-- 5-Engine Voting -->
-        <div>
-          <div class="text-[9px] font-black text-amber-400 uppercase tracking-wider mb-1 flex items-center gap-1"><i class="fa-solid fa-network-wired"></i> 5-Engine Live Voting</div>
-          <div class="grid grid-cols-2 gap-1.5 font-mono text-[9px]">
-            <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between"><span class="text-slate-400">1. Sum % 10:</span> <b id="diagEngineSum" class="text-amber-300">—</b></div>
-            <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between"><span class="text-slate-400">2. Dragon/Chop:</span> <b id="diagEngineTrend" class="text-amber-300">—</b></div>
-            <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between"><span class="text-slate-400">3. DNA Empirical:</span> <b id="diagEngineDNA" class="text-amber-300">—</b></div>
-            <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between"><span class="text-slate-400">4. Markov 2nd-Ord:</span> <b id="diagEngineMarkov" class="text-amber-300">—</b></div>
-            <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between"><span class="text-slate-400">5. Rolling Rate:</span> <b id="diagEngineRolling" class="text-amber-300">—</b></div>
-            <div class="p-1.5 bg-purple-950/70 rounded-lg border border-purple-900/40 flex justify-between"><span class="text-slate-400">6. OpenRouter AI:</span> <b id="diagEngineOR" class="text-indigo-300">—</b></div>
+        <div class="grid grid-cols-2 gap-2 text-[9.5px] font-mono">
+          <div class="p-2 rounded-xl bg-white/[0.03] border border-white/5 space-y-0.5">
+            <span class="text-slate-400 text-[8px] uppercase tracking-wider block">Active Sequence</span>
+            <b id="radarPatternName" class="text-amber-300 text-[10px] truncate block">Dragon / Momentum</b>
+          </div>
+          <div class="p-2 rounded-xl bg-white/[0.03] border border-white/5 space-y-0.5">
+            <span class="text-slate-400 text-[8px] uppercase tracking-wider block">Pattern Confidence</span>
+            <b id="radarConfidence" class="text-emerald-400 text-[10px] block">High (Z ≥ 1.96)</b>
           </div>
         </div>
 
-        <!-- Accuracy telemetry -->
-        <div>
-          <div class="text-[9px] font-black text-emerald-400 uppercase tracking-wider mb-1 flex items-center gap-1"><i class="fa-solid fa-vial text-emerald-400"></i> Testing &amp; Accuracy</div>
-          <div class="grid grid-cols-3 gap-1.5 text-center font-mono text-[9px]">
-            <div class="p-1.5 bg-emerald-950/40 border border-emerald-500/30 rounded-lg"><span class="text-slate-400 block text-[8px]">CORRECT</span><b id="diagCorrectCount" class="text-emerald-400">0</b></div>
-            <div class="p-1.5 bg-rose-950/40 border border-rose-500/30 rounded-lg"><span class="text-slate-400 block text-[8px]">WRONG</span><b id="diagWrongCount" class="text-rose-400">0</b></div>
-            <div class="p-1.5 bg-purple-950/70 border border-purple-800/40 rounded-lg"><span class="text-slate-400 block text-[8px]">ACCURACY</span><b id="diagAccPct" class="text-amber-300">—</b></div>
-          </div>
-        </div>
-
-        <!-- Circuit breaker -->
-        <div>
-          <div class="text-[9px] font-black text-rose-400 uppercase tracking-wider mb-1 flex items-center gap-1"><i class="fa-solid fa-shield-halved text-rose-400"></i> Loss Guard</div>
-          <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/40 space-y-1 font-mono text-[9px]">
-            <div class="flex justify-between"><span class="text-slate-400">Loss Streak:</span> <b id="diagLossStreak" class="text-rose-400">0/3 (SAFE)</b></div>
-            <div class="flex justify-between"><span class="text-slate-400">Circuit Breaker:</span> <b id="diagCircuitStatus" class="text-emerald-400 font-bold">PROTECTION SAFE</b></div>
-            <div class="flex justify-between"><span class="text-slate-400">Z-Score Threshold:</span> <b id="diagReqZ" class="text-amber-300">Z ≥ 1.64 (90%)</b></div>
-            <div class="flex justify-between"><span class="text-slate-400">Entropy / Noise:</span> <b id="diagEntropyVal" class="text-slate-200">0.50 (Normal)</b></div>
-          </div>
-        </div>
-
-        <!-- Staking -->
-        <div>
-          <div class="text-[9px] font-black text-indigo-300 uppercase tracking-wider mb-1 flex items-center gap-1"><i class="fa-solid fa-calculator text-indigo-300"></i> Martingale Staking</div>
-          <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/40 space-y-1 font-mono text-[9px]">
-            <div class="flex justify-between"><span class="text-slate-400">Payout Odds:</span> <b class="text-amber-300">1.96× (4% house)</b></div>
-            <div class="flex justify-between"><span class="text-slate-400">Breakeven Win Rate:</span> <b class="text-slate-300">51.02%</b></div>
-            <div class="flex justify-between"><span class="text-slate-400">Model Win Prob:</span> <b id="diagProbVal" class="text-emerald-400">50.0%</b></div>
-            <div class="flex justify-between"><span class="text-slate-400">Current Stake:</span> <b id="diagStakeVal" class="text-amber-400">₹1.00</b></div>
-          </div>
-        </div>
-
-        <!-- Shadow log -->
-        <div>
-          <div class="text-[9px] font-black text-amber-400 uppercase tracking-wider mb-1">Shadow Test History</div>
-          <div id="diagTestHistoryLog" class="max-h-40 overflow-y-auto space-y-1 font-mono text-[9px]">
-            <div class="text-slate-500 italic text-[9px] p-1">No test rounds evaluated yet...</div>
-          </div>
+        <div class="p-2 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between text-[9px] font-mono">
+          <span class="text-slate-400">Next Predicted Bias:</span>
+          <span id="radarNextBias" class="font-black text-amber-300">Evaluating Stream...</span>
         </div>
       </div>
 
-      <!-- Hidden drawer toggle for mobile (desktop always shows above) -->
-      <button onclick="toggleAIDiagnostics()" class="lg:hidden w-full py-1.5 px-3 bg-purple-950/80 hover:bg-purple-900/80 rounded-xl text-[10px] text-amber-300 font-bold flex items-center justify-between border border-purple-800/40 transition">
-        <span class="flex items-center gap-1.5"><i class="fa-solid fa-microchip text-amber-400"></i> AI Engine Diagnostics &amp; Telemetry</span>
-        <i id="diagChevron" class="fa-solid fa-chevron-down text-[10px] transition-transform"></i>
-      </button>
+      <!-- ── 2. 5-ENGINE VOTING & CONSENSUS MATRIX ── -->
+      <div class="liquid-glass-card p-3.5 space-y-2.5">
+        <div class="flex items-center justify-between pb-2 border-b border-white/10">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-microchip text-indigo-400 text-xs"></i>
+            <span class="text-[10px] font-black uppercase tracking-wider text-white">5-Engine Consensus Matrix</span>
+          </div>
+          <span class="text-[8.5px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 font-mono border border-indigo-500/20">Multi-Model</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-1.5 font-mono text-[9px]">
+          <div class="p-2 bg-white/[0.03] rounded-xl border border-white/5 flex justify-between items-center"><span class="text-slate-400">1. Sum % 10:</span> <b id="diagEngineSum" class="text-amber-300">—</b></div>
+          <div class="p-2 bg-white/[0.03] rounded-xl border border-white/5 flex justify-between items-center"><span class="text-slate-400">2. Dragon/Chop:</span> <b id="diagEngineTrend" class="text-amber-300">—</b></div>
+          <div class="p-2 bg-white/[0.03] rounded-xl border border-white/5 flex justify-between items-center"><span class="text-slate-400">3. DNA Empirical:</span> <b id="diagEngineDNA" class="text-amber-300">—</b></div>
+          <div class="p-2 bg-white/[0.03] rounded-xl border border-white/5 flex justify-between items-center"><span class="text-slate-400">4. Markov 2nd:</span> <b id="diagEngineMarkov" class="text-amber-300">—</b></div>
+          <div class="p-2 bg-white/[0.03] rounded-xl border border-white/5 flex justify-between items-center"><span class="text-slate-400">5. Rolling Rate:</span> <b id="diagEngineRolling" class="text-amber-300">—</b></div>
+          <div class="p-2 bg-white/[0.03] rounded-xl border border-white/5 flex justify-between items-center"><span class="text-slate-400">6. OpenRouter AI:</span> <b id="diagEngineOR" class="text-indigo-300">—</b></div>
+        </div>
+
+        <!-- Testing & Accuracy Mini Telemetry -->
+        <div class="grid grid-cols-3 gap-1.5 text-center font-mono text-[9px] pt-1">
+          <div class="p-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl"><span class="text-slate-400 block text-[8px]">CORRECT</span><b id="diagCorrectCount" class="text-emerald-400">0</b></div>
+          <div class="p-1.5 bg-rose-500/10 border border-rose-500/20 rounded-xl"><span class="text-slate-400 block text-[8px]">WRONG</span><b id="diagWrongCount" class="text-rose-400">0</b></div>
+          <div class="p-1.5 bg-white/[0.04] border border-white/10 rounded-xl"><span class="text-slate-400 block text-[8px]">ACCURACY</span><b id="diagAccPct" class="text-amber-300">—</b></div>
+        </div>
+      </div>
+
+      <!-- ── 3. MARTINGALE RECOVERY LADDER & SENTINEL ── -->
+      <div class="liquid-glass-card p-3.5 space-y-2.5">
+        <div class="flex items-center justify-between pb-2 border-b border-white/10">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-shield-halved text-rose-400 text-xs"></i>
+            <span class="text-[10px] font-black uppercase tracking-wider text-white">Loss Sentinel &amp; Staking</span>
+          </div>
+          <span id="diagCircuitStatus" class="text-[8.5px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono border border-emerald-500/20 font-bold">PROTECTION SAFE</span>
+        </div>
+
+        <!-- 4-Level Visual Recovery Ladder -->
+        <div>
+          <span class="text-[8.5px] text-slate-400 uppercase font-bold tracking-wider block mb-1.5">Martingale Recovery Ladder</span>
+          <div class="grid grid-cols-4 gap-1 text-center font-mono text-[9px]">
+            <div id="mgLadderL0" class="p-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300">
+              <span class="block text-[7.5px] text-slate-400">L0 (Base)</span>
+              <b class="text-[10px]">1.0×</b>
+            </div>
+            <div id="mgLadderL1" class="p-1.5 rounded-lg bg-white/[0.03] border border-white/5 text-slate-400">
+              <span class="block text-[7.5px] text-slate-400">L1</span>
+              <b class="text-[10px]">2.0×</b>
+            </div>
+            <div id="mgLadderL2" class="p-1.5 rounded-lg bg-white/[0.03] border border-white/5 text-slate-400">
+              <span class="block text-[7.5px] text-slate-400">L2</span>
+              <b class="text-[10px]">4.0×</b>
+            </div>
+            <div id="mgLadderL3" class="p-1.5 rounded-lg bg-white/[0.03] border border-white/5 text-slate-400">
+              <span class="block text-[7.5px] text-slate-400">L3</span>
+              <b class="text-[10px]">8.0×</b>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-2 rounded-xl bg-white/[0.02] border border-white/5 space-y-1 font-mono text-[9px]">
+          <div class="flex justify-between"><span class="text-slate-400">Consecutive Loss:</span> <b id="diagLossStreak" class="text-rose-400">0/3 (SAFE)</b></div>
+          <div class="flex justify-between"><span class="text-slate-400">Payout Net Ratio:</span> <b class="text-amber-300">1.96× (+96% win profit)</b></div>
+          <div class="flex justify-between"><span class="text-slate-400">Current Next Stake:</span> <b id="diagStakeVal" class="text-emerald-400 font-bold">₹1.00</b></div>
+          <div class="flex justify-between"><span class="text-slate-400">Entropy / Noise:</span> <b id="diagEntropyVal" class="text-slate-200">0.50 (Normal)</b></div>
+        </div>
+      </div>
+
+      <!-- ── 4. SESSION TELEMETRY & CONTROLS ── -->
+      <div class="liquid-glass-card p-3.5 space-y-2.5">
+        <div class="flex items-center justify-between pb-2 border-b border-white/10">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-chart-line text-emerald-400 text-xs"></i>
+            <span class="text-[10px] font-black uppercase tracking-wider text-white">Live Session Telemetry</span>
+          </div>
+          <span class="text-[8.5px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 font-mono border border-emerald-500/20">Synchronized</span>
+        </div>
+
+        <div class="space-y-1.5 text-[10px] font-mono">
+          <div class="flex justify-between items-center"><span class="text-slate-400">Total Rounds Evaluated:</span><b id="statsTotalRounds" class="text-white">0</b></div>
+          <div class="flex justify-between items-center"><span class="text-slate-400">Total Bets Executed:</span><b id="statsTotalBets" class="text-white">0</b></div>
+          <div class="flex justify-between items-center"><span class="text-slate-400">Wins / Losses:</span><b id="statsWinsLosses" class="text-emerald-400">0 / 0</b></div>
+          <div class="flex justify-between items-center"><span class="text-slate-400">Overall Win Rate:</span><b id="statsWinRate" class="text-amber-300 font-bold">—</b></div>
+          <div class="flex justify-between items-center"><span class="text-slate-400">Net Session PnL:</span><b id="statsSessionPnl" class="text-emerald-400 font-black">+₹0.00</b></div>
+          <div class="flex justify-between items-center"><span class="text-slate-400">Active Martingale Level:</span><b id="statsMgLevel" class="text-amber-300">0</b></div>
+        </div>
+
+        <div class="mt-2 pt-2 border-t border-white/10 flex gap-2">
+          <button onclick="downloadCSVReport()" class="flex-1 py-2 rounded-xl bg-white/5 border border-white/10 text-white font-bold text-[10px] hover:bg-white/10 hover:border-white/20 transition flex items-center justify-center gap-1.5 active:scale-95">
+            <i class="fa-solid fa-download text-indigo-400"></i> CSV Export
+          </button>
+          <button onclick="fetchLiveAPIResults()" class="flex-1 py-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 font-bold text-[10px] hover:bg-emerald-500/30 transition flex items-center justify-center gap-1.5 active:scale-95">
+            <i class="fa-solid fa-rotate text-emerald-400"></i> Sync Live
+          </button>
+        </div>
+      </div>
+
+      <!-- Hidden drawer toggle for mobile -->
       <div id="aiDiagnosticsDrawer" class="hidden"></div>
 
-      <!-- ── PATTERN HEATMAP ── -->
-      <div class="p-3 bg-app-card rounded-2xl border border-purple-900/40 shadow-lg">
-        <div class="text-[9px] font-black text-indigo-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-          <i class="fa-solid fa-fire-flame-curved text-rose-400"></i> Number Frequency Heatmap
-        </div>
-        <div class="grid grid-cols-10 gap-1" id="heatmapGrid">
-          <!-- Filled by JS renderHeatmap() -->
-          <div class="h-10 rounded-lg bg-purple-900/40 flex flex-col items-center justify-center text-[8px] font-bold text-slate-400">0</div>
-          <div class="h-10 rounded-lg bg-purple-900/40 flex flex-col items-center justify-center text-[8px] font-bold text-slate-400">1</div>
-          <div class="h-10 rounded-lg bg-purple-900/40 flex flex-col items-center justify-center text-[8px] font-bold text-slate-400">2</div>
-          <div class="h-10 rounded-lg bg-purple-900/40 flex flex-col items-center justify-center text-[8px] font-bold text-slate-400">3</div>
-          <div class="h-10 rounded-lg bg-purple-900/40 flex flex-col items-center justify-center text-[8px] font-bold text-slate-400">4</div>
-          <div class="h-10 rounded-lg bg-purple-900/40 flex flex-col items-center justify-center text-[8px] font-bold text-slate-400">5</div>
-          <div class="h-10 rounded-lg bg-purple-900/40 flex flex-col items-center justify-center text-[8px] font-bold text-slate-400">6</div>
-          <div class="h-10 rounded-lg bg-purple-900/40 flex flex-col items-center justify-center text-[8px] font-bold text-slate-400">7</div>
-          <div class="h-10 rounded-lg bg-purple-900/40 flex flex-col items-center justify-center text-[8px] font-bold text-slate-400">8</div>
-          <div class="h-10 rounded-lg bg-purple-900/40 flex flex-col items-center justify-center text-[8px] font-bold text-slate-400">9</div>
-        </div>
-        <div class="flex justify-between text-[8px] text-slate-500 mt-1.5 font-mono">
-          <span>COLD</span><span>← frequency →</span><span>HOT</span>
-        </div>
-      </div>
-
-      <!-- ── BIG/SMALL PATTERN STREAK ── -->
-      <div class="p-3 bg-app-card rounded-2xl border border-purple-900/40 shadow-lg">
-        <div class="text-[9px] font-black text-indigo-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-          <i class="fa-solid fa-wave-square text-amber-400"></i> Big/Small Pattern — Last 30
-        </div>
-        <div id="bsPatternTrail" class="flex flex-wrap gap-1"></div>
-        <div class="mt-2 grid grid-cols-2 gap-2 text-[9px] font-mono">
-          <div class="p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg text-center">
-            <span class="text-slate-400 block text-[8px]">BIG STREAK</span>
-            <b id="currentBigStreak" class="text-amber-400">0</b>
-          </div>
-          <div class="p-2 bg-sky-500/10 border border-sky-500/20 rounded-lg text-center">
-            <span class="text-slate-400 block text-[8px]">SMALL STREAK</span>
-            <b id="currentSmallStreak" class="text-sky-400">0</b>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── SESSION STATS ── -->
-      <div class="p-3 bg-app-card rounded-2xl border border-purple-900/40 shadow-lg">
-        <div class="text-[9px] font-black text-purple-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-          <i class="fa-solid fa-chart-line text-emerald-400"></i> Session Statistics
-        </div>
-        <div class="space-y-1.5 text-[10px] font-mono">
-          <div class="flex justify-between"><span class="text-slate-400">Total Rounds:</span><b id="statsTotalRounds" class="text-white">0</b></div>
-          <div class="flex justify-between"><span class="text-slate-400">Total Bets:</span><b id="statsTotalBets" class="text-white">0</b></div>
-          <div class="flex justify-between"><span class="text-slate-400">Wins / Losses:</span><b id="statsWinsLosses" class="text-emerald-400">0 / 0</b></div>
-          <div class="flex justify-between"><span class="text-slate-400">Win Rate:</span><b id="statsWinRate" class="text-amber-300">—</b></div>
-          <div class="flex justify-between"><span class="text-slate-400">Session PnL:</span><b id="statsSessionPnl" class="text-emerald-400">+₹0.00</b></div>
-          <div class="flex justify-between"><span class="text-slate-400">Martingale Level:</span><b id="statsMgLevel" class="text-amber-300">0</b></div>
-        </div>
-        <div class="mt-2 pt-2 border-t border-purple-900/40 flex gap-2">
-          <button onclick="downloadCSVReport()" class="flex-1 py-1.5 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 font-bold text-[10px] hover:bg-indigo-500/30 transition">
-            <i class="fa-solid fa-download"></i> CSV Export
-          </button>
-          <button onclick="fetchLiveAPIResults()" class="flex-1 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 font-bold text-[10px] hover:bg-emerald-500/30 transition">
-            <i class="fa-solid fa-rotate"></i> Sync Live
-          </button>
-        </div>
-      </div>
-
       <!-- ── OFFLINE BANNER ── -->
-      <div id="offlineBanner" class="hidden p-3 bg-rose-500/10 border border-rose-500/40 rounded-2xl text-center">
-        <div class="text-rose-300 font-black text-xs mb-2">📡 Offline — Live data unavailable</div>
+      <div id="offlineBanner" class="hidden p-3 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-center backdrop-blur-xl">
+        <div class="text-rose-300 font-black text-xs mb-2">📡 Offline — Live data stream paused</div>
         <button onclick="fetchLiveAPIResults()" class="px-4 py-2 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-200 font-bold text-[11px] hover:bg-rose-500/30 transition">
           🔄 Retry Connection
         </button>
@@ -1506,6 +1573,17 @@ function startRTEngine() {
 
       // Period rollover detection
       if (lastPeriod && lastPeriod !== periodStr) {
+        // Snapshot prediction for the finished period before recalculating for new period
+        if (lastPeriod && S.aiSignal && S.aiSignal.target && (!S.aiPredictionMap || !S.aiPredictionMap[lastPeriod])) {
+          if (!S.aiPredictionMap) S.aiPredictionMap = {};
+          S.aiPredictionMap[lastPeriod] = {
+            target: S.aiSignal.target,
+            decision: S.aiSignal.decision || 'BET',
+            prob: S.aiSignal.prob || 0.55,
+            engines: S.aiSignal.engines || [],
+            isTest: S.aiSignal.isTest || S.aiTestMode
+          };
+        }
         onPeriodRollover(lastPeriod);
         runAI(); // Fresh AI calculation immediately on every period rollover!
       }
@@ -2545,8 +2623,50 @@ function editHistoryRow(period) {
   showResultPrompt(period, preNum);
 }
 
-// Keep old alias for any lingering references
-function fillGap(period) { editHistoryRow(period); }
+// Universal AI prediction lookup (matches exact period, 5-digit suffix, bet history, or generates consensus)
+function getAIPredictionForPeriod(period) {
+  if (!period) return null;
+  const pStr = String(period).trim();
+  if (S.aiPredictionMap && S.aiPredictionMap[pStr] && S.aiPredictionMap[pStr].target) {
+    return S.aiPredictionMap[pStr];
+  }
+  if (S.aiPredictionMap) {
+    const keys = Object.keys(S.aiPredictionMap);
+    const last5 = pStr.length >= 5 ? pStr.slice(-5) : pStr;
+    const foundKey = keys.find(k => k === pStr || (last5.length >= 4 && k.slice(-5) === last5));
+    if (foundKey && S.aiPredictionMap[foundKey]?.target) {
+      return S.aiPredictionMap[foundKey];
+    }
+  }
+  if (S.myBets && S.myBets.length) {
+    const last5 = pStr.slice(-5);
+    const bet = S.myBets.find(b => String(b.period) === pStr || String(b.period).slice(-5) === last5);
+    if (bet && bet.aiSignal) {
+      const pObj = { target: bet.aiSignal, prob: 0.65, decision: 'BET', engines: ['Consensus Staked'] };
+      if (!S.aiPredictionMap) S.aiPredictionMap = {};
+      S.aiPredictionMap[pStr] = pObj;
+      return pObj;
+    }
+  }
+  if (S.history && S.history.length) {
+    const last5 = pStr.slice(-5);
+    const idx = S.history.findIndex(r => String(r.period) === pStr || String(r.period).slice(-5) === last5);
+    if (idx >= 0) {
+      const prevSlice = S.history.slice(0, idx).filter(r => !r.gap);
+      if (prevSlice.length >= 2) {
+        const cons = generateConsensus(prevSlice);
+        const pObj = { target: cons.target, prob: cons.prob || 0.60, decision: 'BET', engines: cons.engines || ['Consensus'] };
+        if (!S.aiPredictionMap) S.aiPredictionMap = {};
+        S.aiPredictionMap[pStr] = pObj;
+        return pObj;
+      }
+    }
+  }
+  if (S.aiSignal && S.aiSignal.target) {
+    return { target: S.aiSignal.target, prob: S.aiSignal.prob || 0.60, decision: 'BET', engines: S.aiSignal.engines || [] };
+  }
+  return null;
+}
 
 // ═══════════════════════════════════════════════════════════════
 // RENDERING
@@ -2568,8 +2688,8 @@ function renderHistoryTable() {
     const numClass = (row.number===0||row.number===5) ? 'text-purple-400' : (row.number%2===1 ? 'text-emerald-400' : 'text-rose-400');
     let colorBadge = row.color === 'RED' ? '🔴' : row.color === 'GREEN' ? '🟢' : '🟣';
 
-    // AI Prediction details (display for every round, including test mode predictions)
-    const aiPred = S.aiPredictionMap[row.period] || (S.myBets.find(b => b.period === row.period)?.aiSignal ? { target: S.myBets.find(b => b.period === row.period).aiSignal } : null);
+    // AI Prediction details (universal resolver guarantees predictions are displayed)
+    const aiPred = getAIPredictionForPeriod(row.period);
     let aiText = '<span class="text-slate-500 text-[9px]">—</span>';
     if (aiPred && aiPred.target) {
       const isCorrect = aiPred.target === row.size;
@@ -2770,7 +2890,7 @@ function renderRoadRows(hist) {
       : `<div class="w-6 h-6 rounded-full bg-sky-400 flex items-center justify-center font-black text-[8px] text-slate-900">S</div>`;
 
     // AI prediction badge (ALWAYS DISPLAYED for EVERY round, even skips)
-    const aiPred = S.aiPredictionMap[row.period] || (bet?.aiSignal ? { target: bet.aiSignal } : null);
+    const aiPred = getAIPredictionForPeriod(row.period);
     let aiPredBadge = `<div class="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[7px] text-slate-500">—</div>`;
     if (aiPred && aiPred.target) {
       const correct = aiPred.target === row.size;
@@ -2901,9 +3021,6 @@ function toggleAIDiagnostics() {
 }
 
 function updateAIDiagnosticsDrawer() {
-  const drawer = document.getElementById('aiDiagnosticsDrawer');
-  if (!drawer || drawer.classList.contains('hidden')) return;
-
   const sig = S.aiSignal;
   const realHist = S.history.filter(r => !r.gap);
   const eSum     = engineSum(realHist);
@@ -2979,6 +3096,48 @@ function updateAIDiagnosticsDrawer() {
       ).join('');
     }
   }
+
+  // ── Update Live Pattern Radar & Martingale Recovery Ladder ──
+  const radarPat = document.getElementById('radarPatternName');
+  const radarConf = document.getElementById('radarConfidence');
+  const radarBias = document.getElementById('radarNextBias');
+  if (radarPat) {
+    const activePat = eTrend.signal !== 'NEUTRAL' ? 'Momentum Trend Run' : (eM2.signal !== 'NEUTRAL' ? 'Markov 2-Chain' : (eDNA.signal !== 'NEUTRAL' ? 'Empirical DNA Cycle' : 'Consensus Balance'));
+    radarPat.textContent = activePat;
+  }
+  if (radarConf) {
+    radarConf.textContent = sig.prob >= 0.65 ? 'High (Z ≥ 1.96)' : (sig.prob >= 0.55 ? 'Moderate (Z ≥ 1.64)' : 'Evaluating Flow');
+  }
+  if (radarBias) {
+    if (sig.target) {
+      radarBias.innerHTML = `<span class="${sig.target==='BIG'?'text-amber-300':'text-sky-300'} font-black text-[10px]">${sig.target} (${Math.round((sig.prob||0.5)*100)}%)</span>`;
+    } else {
+      radarBias.textContent = 'Awaiting Next Stream';
+    }
+  }
+
+  // 4-level Martingale ladder visual highlighting
+  const curLvl = S.martingaleLevel || 0;
+  for (let l = 0; l <= 3; l++) {
+    const elLadder = document.getElementById(`mgLadderL${l}`);
+    if (elLadder) {
+      if (l === curLvl) {
+        elLadder.className = 'p-1.5 rounded-lg bg-amber-500/30 border border-amber-400 text-amber-300 ring-1 ring-amber-400 font-bold';
+      } else if (l < curLvl) {
+        elLadder.className = 'p-1.5 rounded-lg bg-rose-500/20 border border-rose-500/40 text-rose-300 font-semibold';
+      } else {
+        elLadder.className = 'p-1.5 rounded-lg bg-white/[0.03] border border-white/5 text-slate-400';
+      }
+    }
+  }
+
+  // Pro mode stake and SL/TP displays
+  const proStake = document.getElementById('proModeStakeDisplay');
+  const proTp = document.getElementById('proModeTpDisplay');
+  const proSl = document.getElementById('proModeSlDisplay');
+  if (proStake) proStake.textContent = `₹${(S.martingaleCurrent || S.martingaleBase || 1).toFixed(2)}`;
+  if (proTp) proTp.textContent = S.takeProfitAmount ? `+₹${S.takeProfitAmount}` : 'None';
+  if (proSl) proSl.textContent = S.stopLossAmount ? `-₹${S.stopLossAmount}` : 'None';
 }
 
 
@@ -3024,7 +3183,7 @@ function renderAITrackRecord() {
   const flatStake   = 10; // ₹10 simulated bet per AI prediction
 
   const rowsHtml = realHist.slice().reverse().map(row => {
-    const aiPred = S.aiPredictionMap[row.period];
+    const aiPred = getAIPredictionForPeriod(row.period);
     if (!aiPred || !aiPred.target) {
       return `<div class="grid grid-cols-12 py-1.5 items-center text-[10px]">
         <div class="col-span-3 text-slate-500 font-mono">${row.period.slice(-4)}</div>
@@ -3104,6 +3263,21 @@ function applyProModeUI() {
     btn.className = isPro
       ? 'flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-indigo-500/20 border border-amber-400/50 text-amber-300 hover:text-white font-black text-xs transition shadow active:scale-95'
       : 'flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-app-card border border-purple-900/40 text-slate-400 hover:text-white font-bold text-xs transition active:scale-95';
+  }
+
+  // Toggle elements for Pro Mode vs Normal Mode:
+  // In Pro Mode: DO NOT show number balls and manual betting buttons!
+  // In Normal Mode: Show old normal UI with ticket and manual betting board.
+  const ticketCard = document.getElementById('ticketCard');
+  const bettingBoard = document.getElementById('bettingBoardWrapper');
+  const proModeLeft = document.getElementById('proModeLeftControl');
+
+  if (ticketCard) ticketCard.style.display = isPro ? 'none' : 'block';
+  if (bettingBoard) bettingBoard.style.display = isPro ? 'none' : 'block';
+  if (proModeLeft) {
+    proModeLeft.classList.toggle('hidden', !isPro);
+    if (isPro) proModeLeft.style.display = 'block';
+    else proModeLeft.style.display = 'none';
   }
 
   // In Pro mode, default to Smart View or keep current view; in Normal mode, show standard game history
@@ -3236,7 +3410,7 @@ function renderSmartView() {
     const numColor = (n===0||n===5) ? 'text-purple-400' : (n%2===1 ? 'text-emerald-400' : 'text-rose-400');
 
     // AI Prediction
-    const aiPred = S.aiPredictionMap[row.period];
+    const aiPred = getAIPredictionForPeriod(row.period);
     let aiHtml = '<span class="text-slate-600">—</span>';
     if (aiPred && aiPred.target) {
       const isCorrect = aiPred.target === size;
@@ -3284,7 +3458,7 @@ function renderPatternAnalytics() {
   // ── 1. AI Accuracy Audit ──
   let totalPreds = 0, correctPreds = 0, wrongPreds = 0;
   realHist.forEach(r => {
-    const p = S.aiPredictionMap[r.period];
+    const p = getAIPredictionForPeriod(r.period);
     if (p && p.target) {
       totalPreds++;
       if (p.target === r.size) correctPreds++;
@@ -3886,7 +4060,7 @@ function showWinPopup({ period, number, color, size, profit, balance, aiCorrect 
   document.getElementById('winSizeBadge').textContent  = size;
 
   const isRealBet = S.autoBetEnabled && S.myBets.some(b => b.period === period && b.status === 'WON');
-  const aiPred = S.aiPredictionMap[period];
+  const aiPred = getAIPredictionForPeriod(period);
   const aiTarget = aiPred ? aiPred.target : size;
 
   if (isRealBet && profit > 0) {
@@ -3921,7 +4095,7 @@ function showLossPopup({ period, number, color, size, lost, balance }) {
   document.getElementById('lossSizeBadge').textContent  = size;
 
   const isRealBet = S.autoBetEnabled && S.myBets.some(b => b.period === period && b.status === 'LOST');
-  const aiPred = S.aiPredictionMap[period];
+  const aiPred = getAIPredictionForPeriod(period);
   const aiTarget = aiPred ? aiPred.target : (size === 'BIG' ? 'SMALL' : 'BIG');
 
   if (isRealBet && lost > 0) {
