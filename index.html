@@ -553,7 +553,7 @@
             <div class="col-span-3">Period</div>
             <div class="col-span-3 text-center">Result &amp; Color</div>
             <div class="col-span-3 text-center">AI Signal</div>
-            <div class="col-span-3 text-right pr-1">Bet &amp; Outcome</div>
+            <div class="col-span-3 text-right pr-1">Bet</div>
           </div>
           <div id="smartHistoryRows" class="divide-y divide-purple-900/30 text-[10px] font-mono max-h-[640px] overflow-y-auto" style="scrollbar-width:thin;scrollbar-color:#4c1d95 transparent;"></div>
           <!-- Hidden fallback hook for any legacy calls -->
@@ -1480,25 +1480,25 @@ function getSizeForNum(n) { return n >= 5 ? 'BIG' : 'SMALL'; }
 let lastPeriod = null;
 
 function computeRTState() {
-  const nowMs    = Date.now();
-  const istMs    = nowMs + (5.5 * 3600 * 1000);
-  const totalSec = Math.floor(istMs / 1000) % 86400;
-  const dur      = S.durationSeconds || 30;
-  const periodIdx = Math.floor(totalSec / dur) + 1;
-  const elapsed  = totalSec % dur;
-  const secsLeft = dur - elapsed;
+  const nowMs       = Date.now();
+  const nowUtc      = new Date(nowMs);
+  const totalSecUtc = nowUtc.getUTCHours() * 3600 + nowUtc.getUTCMinutes() * 60 + nowUtc.getUTCSeconds();
+  const dur         = S.durationSeconds || 30;
+  const periodIdx   = Math.floor(totalSecUtc / dur) + 1;
+  const elapsed     = totalSecUtc % dur;
+  const secsLeft    = dur - elapsed;
 
-  const ist = new Date(istMs);
-  const y   = ist.getUTCFullYear();
-  const mo  = String(ist.getUTCMonth() + 1).padStart(2, '0');
-  const d   = String(ist.getUTCDate()).padStart(2, '0');
+  const y      = nowUtc.getUTCFullYear();
+  const mo     = String(nowUtc.getUTCMonth() + 1).padStart(2, '0');
+  const d      = String(nowUtc.getUTCDate()).padStart(2, '0');
   const tfCode = { '30s': '10005', '1m': '10001', '3m': '10003', '5m': '10004' }[S.timeframe] || '10005';
-  const periodStr = `${y}${mo}${d}${tfCode}${String(periodIdx).padStart(5, '0')}`;
+  const periodStr = `${y}${mo}${d}${tfCode}${String(periodIdx).padStart(4, '0')}`;
 
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const se = totalSec % 60;
-  const hh = String(h).padStart(2, '0'), mm = String(m).padStart(2, '0'), ss = String(se).padStart(2, '0');
+  const istMs  = nowMs + (5.5 * 3600 * 1000);
+  const ist    = new Date(istMs);
+  const hh     = String(ist.getUTCHours()).padStart(2, '0');
+  const mm     = String(ist.getUTCMinutes()).padStart(2, '0');
+  const ss     = String(ist.getUTCSeconds()).padStart(2, '0');
   const clockStr = `${hh}:${mm}:${ss} IST`;
 
   return { secsLeft, periodStr, clockStr };
@@ -1506,6 +1506,13 @@ function computeRTState() {
 
 function startRTEngine() {
   if (window._rtTimer) clearInterval(window._rtTimer);
+  
+  // Continuous real-time live server synchronization every 2.5s
+  if (window._livePollTimer) clearInterval(window._livePollTimer);
+  window._livePollTimer = setInterval(() => {
+    fetchLiveAPIResults().catch(() => {});
+  }, 2500);
+
   window._rtTimer = setInterval(() => {
     try {
       const { secsLeft, periodStr, clockStr } = computeRTState();
@@ -1546,6 +1553,11 @@ function startRTEngine() {
       }
       if (S.inBetBlock && S.secondsLeft > 0) {
         updateBetBlock(S.secondsLeft);
+      }
+
+      // Fast sync trigger right around rollover (secsLeft === 1 or 29)
+      if (secsLeft === 1 || secsLeft === 29) {
+        setTimeout(() => fetchLiveAPIResults().catch(() => {}), 800);
       }
 
       // ── Live countdown bar for result prompt ──
@@ -1633,23 +1645,27 @@ async function serveNextFromQueue() {
 
 async function autoSyncOrGeneratePeriodResult(finishedPeriod) {
   if (!finishedPeriod) return;
-
   if (S.history.some(r => r.period === finishedPeriod && !r.gap)) return;
 
-  try {
-    const synced = await fetchLiveAPIResults();
-    if (synced && S.history.some(r => r.period === finishedPeriod && !r.gap)) {
-      return;
+  // Retry live fetch up to 3 times (servers typically publish draw results within 1-2.5s)
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const synced = await fetchLiveAPIResults();
+      if (synced && S.history.some(r => r.period === finishedPeriod && !r.gap)) {
+        return;
+      }
+    } catch (e) {
+      console.warn(`Live API sync attempt ${attempt + 1} notice:`, e);
     }
-  } catch (e) {
-    console.warn('Live API auto-sync notice:', e);
+    await new Promise(res => setTimeout(res, 1200));
+    if (S.history.some(r => r.period === finishedPeriod && !r.gap)) return;
   }
 
   if (S.history.some(r => r.period === finishedPeriod && !r.gap)) return;
 
   let num;
-  if (finishedPeriod && finishedPeriod.length >= 5) {
-    const periodDigits = parseInt(finishedPeriod.slice(-5), 10);
+  if (finishedPeriod && finishedPeriod.length >= 4) {
+    const periodDigits = parseInt(finishedPeriod.slice(-4), 10);
     num = (periodDigits * 7 + 3) % 10;
   } else {
     num = Math.floor(Math.random() * 10);
@@ -2010,8 +2026,8 @@ function runAI() {
   // Update AI Diagnostics Drawer if currently open
   updateAIDiagnosticsDrawer();
 
-  // ── AUTO-BETTING EXECUTION (only if NOT in test mode) ──
-  if (S.autoBetEnabled && !isTest && S.aiSignal.decision === 'BET' && S.aiSignal.target) {
+  // ── AUTO-BETTING EXECUTION (Martingale Bot) ──
+  if (S.autoBetEnabled && S.aiSignal.target) {
     if (S.balance <= 0) {
       stopMartingale('Balance reached ₹0.00!');
       return;
@@ -2029,8 +2045,9 @@ function runAI() {
       return;
     }
 
-    if (!S.roundBet || S.roundBet.period !== S.currentPeriod) {
-      // Use Martingale current bet instead of Kelly stake
+    const alreadyBet = S.myBets.some(b => b.period === S.currentPeriod);
+    if (!alreadyBet && (!S.roundBet || S.roundBet.period !== S.currentPeriod)) {
+      // Use Martingale current bet
       const autoStake = S.martingaleCurrent || S.martingaleBase || 1;
       if (S.balance < autoStake) {
         stopMartingale(`Insufficient balance (₹${S.balance.toFixed(2)}) for next stake ₹${autoStake.toFixed(2)}`);
@@ -2051,6 +2068,7 @@ function runAI() {
       };
       S.myBets.unshift(S.roundBet);
       renderMyBets();
+      renderSmartView();
       showToast(`🤖 Auto-Bet placed: -₹${autoStake.toFixed(2)} on ${S.aiSignal.target}`, 'success');
     }
   }
@@ -2351,37 +2369,22 @@ function saveRealResult(period, numberInput) {
   if (!S.historyByTimeframe) S.historyByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
   S.historyByTimeframe[S.timeframe] = [...S.history];
 
-  // AI test-mode: record prediction accuracy & virtual ₹100 balance PnL
+  // AI test-mode accuracy tracking (no fake popups or balance deductions)
   if (S.aiTestMode && S.aiSignal.target) {
     const aiCorrect = (String(S.aiSignal.target).toUpperCase() === String(size).toUpperCase());
-    if (!S.testBalance) S.testBalance = 100;
-
-    const testStake = 10;
-    if (aiCorrect) {
-      S.testBalance += testStake * 0.92;
-      showWinPopup({ period, number: n, color, size, profit: testStake * 0.92, balance: S.testBalance, aiCorrect: true });
-    } else {
-      S.testBalance -= testStake;
-      showLossPopup({ period, number: n, color, size, lost: testStake, balance: S.testBalance });
-    }
-
     S.aiTestResults.push({ period, predicted: S.aiSignal.target, actual: size, correct: aiCorrect });
     
     const recentLosses = S.aiTestResults.slice(-3).filter(r => !r.correct).length;
     if (S.aiTestResults.length >= 3 && recentLosses >= 3) {
       S.engineWeights = { Sum:15, Trend:20, DNA:55, Markov:50, Rolling:20 };
       S.aiTestResults = [];
-      S.testBalance = 100;
-      showToast(`⚠️ 3 consecutive losses in test mode! AI switched consensus method & restarted 6-round test mode from ₹100.`, 'danger');
+      showToast(`⚠️ 3 consecutive losses in test mode! AI switched consensus method.`, 'danger');
     } else if (S.aiTestResults.length >= 6) {
       const correctCount = S.aiTestResults.filter(r => r.correct).length;
       const accPct = Math.round(correctCount / S.aiTestResults.length * 100);
-      const testProfit = S.testBalance - 100;
-
-      if (accPct >= 52 && testProfit > 0) {
+      if (accPct >= 50) {
         S.aiTestMode = false;
-        showToast(`🎉 Test Mode Complete (6/6 Rounds, ${accPct}% Acc, +₹${testProfit.toFixed(2)} Profit)! LIVE REAL BETTING ACTIVATED!`, 'success');
-        runAI();
+        showToast(`🎉 Test Mode Complete (6/6 Rounds, ${accPct}% Acc)! LIVE PREDICTIONS READY!`, 'success');
       }
     }
     updateTestBanner();
@@ -2389,6 +2392,10 @@ function saveRealResult(period, numberInput) {
 
   // Settle or re-settle any bet placed for this period
   const existingBet = S.myBets.find(b => b.period === period);
+  const aiPred = getAIPredictionForPeriod(period);
+  const aiTarget = aiPred ? aiPred.target : S.aiSignal?.target;
+  const isAiCorrect = aiTarget ? (String(aiTarget).toUpperCase() === String(size).toUpperCase()) : false;
+
   if (existingBet) {
     const bet = existingBet;
     let won = false;
@@ -2420,25 +2427,7 @@ function saveRealResult(period, numberInput) {
     bet.payout     = payout;
     bet.realNumber = n;
 
-    if (prevStatus !== 'WON' && won) {
-      S.balance += payout;
-      S.totalWins++;
-      S.lossStreak = 0;
-      S.winStreak++;
-      showToast(`💰 Period ${period.slice(-4)}: WON! +₹${(payout - bet.stake).toFixed(2)}`, 'success');
-      showWinPopup({
-        period, number: n, color, size,
-        profit: payout - bet.stake,
-        balance: S.balance,
-        aiCorrect: bet.aiSignal === size
-      });
-    } else if (prevStatus === 'WON' && !won) {
-      S.balance = Math.max(0, S.balance - bet.payout);
-      S.totalWins = Math.max(0, S.totalWins - 1);
-      S.lossStreak++;
-      S.winStreak = 0;
-      showToast(`⚠️ Period ${period.slice(-4)}: LOST. Balance adjusted.`, 'danger');
-    } else if (prevStatus === 'PENDING') {
+    if (prevStatus === 'PENDING') {
       S.totalBets++;
       if (won) {
         S.totalWins++;
@@ -2447,31 +2436,45 @@ function saveRealResult(period, numberInput) {
         S.winStreak++;
 
         // ── Martingale WIN: track PnL, record history, reset to base ──
-        if (bet.isAuto) {
-          const netWin = payout - bet.stake;  // e.g. 1.96× - 1× = 0.96
+        if (bet.isAuto || S.autoBetEnabled) {
+          const netWin = payout - bet.stake;
           S.martingalePnl = (S.martingalePnl || 0) + netWin;
           S.martingaleHistory = [...(S.martingaleHistory || []), { bet: bet.stake, won: true }];
-          S.martingaleCurrent = S.martingaleBase;
+          S.martingaleCurrent = S.martingaleBase || 1;
           S.martingaleLevel   = 0;
         }
 
-        showWinPopup({ period, number: n, color, size, profit: payout - bet.stake, balance: S.balance, aiCorrect: bet.aiSignal === size });
+        showWinPopup({
+          period, number: n, color, size,
+          profit: payout - bet.stake,
+          balance: S.balance,
+          aiCorrect: isAiCorrect,
+          hasBet: true
+        });
+        showToast(`💰 Period ${String(period).slice(-4)}: WON! +₹${(payout - bet.stake).toFixed(2)}`, 'success');
       } else {
-        S.lossStreak++; S.winStreak = 0;
+        S.lossStreak++;
+        S.winStreak = 0;
 
         // ── Martingale LOSS: track PnL, record history, double the stake ──
-        if (bet.isAuto) {
+        if (bet.isAuto || S.autoBetEnabled) {
           S.martingalePnl = (S.martingalePnl || 0) - bet.stake;
           S.martingaleHistory = [...(S.martingaleHistory || []), { bet: bet.stake, won: false }];
-          S.martingaleCurrent = (S.martingaleCurrent || S.martingaleBase) * 2;
           S.martingaleLevel   = (S.martingaleLevel || 0) + 1;
+          S.martingaleCurrent = (S.martingaleBase || 1) * Math.pow(2, S.martingaleLevel);
         }
 
-        showLossPopup({ period, number: n, color, size, lost: bet.stake, balance: S.balance });
+        showLossPopup({
+          period, number: n, color, size,
+          lost: bet.stake,
+          balance: S.balance,
+          hasBet: true
+        });
+        showToast(`⚠️ Period ${String(period).slice(-4)}: LOST -₹${bet.stake.toFixed(2)}`, 'danger');
       }
 
       // ── Auto-stop checks on risk & targets ──
-      if (bet.isAuto && S.autoBetEnabled) {
+      if ((bet.isAuto || S.autoBetEnabled) && S.autoBetEnabled) {
         if (S.balance <= 0) {
           stopMartingale('Balance depleted to ₹0.00!');
         } else if (S.stopMinBalance !== null && S.stopMinBalance !== undefined && S.balance <= S.stopMinBalance) {
@@ -2482,10 +2485,39 @@ function saveRealResult(period, numberInput) {
           stopMartingale(`🛑 Stop-Loss threshold reached: -₹${Math.abs(S.martingalePnl || 0).toFixed(2)} (Limit: ₹${S.stopLossAmount})`);
         }
       }
+    } else if (prevStatus === 'WON' && !won) {
+      S.balance = Math.max(0, S.balance - bet.payout);
+      S.totalWins = Math.max(0, S.totalWins - 1);
+      S.lossStreak++;
+      S.winStreak = 0;
+      showToast(`⚠️ Period ${String(period).slice(-4)}: Adjusted to LOST.`, 'danger');
+    } else if (prevStatus === 'LOST' && won) {
+      S.balance += payout;
+      S.totalWins++;
+      S.lossStreak = 0;
+      S.winStreak++;
+      showToast(`💰 Period ${String(period).slice(-4)}: Adjusted to WON!`, 'success');
     }
+
     if (S.roundBet && S.roundBet.period === period) S.roundBet = null;
   } else {
-    showToast(`📊 Recorded: ${n} · ${color.replace('_', ' + ')} · ${size}`, 'info');
+    // No bet placed: show prediction correctness only (NO loss money shown)
+    if (isAiCorrect) {
+      showWinPopup({
+        period, number: n, color, size,
+        profit: 0,
+        balance: S.balance,
+        aiCorrect: true,
+        hasBet: false
+      });
+    } else {
+      showLossPopup({
+        period, number: n, color, size,
+        lost: 0,
+        balance: S.balance,
+        hasBet: false
+      });
+    }
   }
 
   if (S.cooloffRounds > 0) S.cooloffRounds--;
@@ -2615,6 +2647,7 @@ function getAIPredictionForPeriod(period) {
 // RENDERING
 // ═══════════════════════════════════════════════════════════════
 function renderHistoryTable() {
+  renderSmartView();
   const container = document.getElementById('gameHistoryRows');
   if (!container) return;
   const slice = S.history.slice(-20).reverse(); // Last 20 rounds
@@ -2631,18 +2664,12 @@ function renderHistoryTable() {
     const numClass = (row.number===0||row.number===5) ? 'text-purple-400' : (row.number%2===1 ? 'text-emerald-400' : 'text-rose-400');
     let colorBadge = row.color === 'RED' ? '🔴' : row.color === 'GREEN' ? '🟢' : '🟣';
 
-    // AI Prediction details (universal resolver guarantees predictions are displayed)
+    // AI Prediction details (universal resolver guarantees predictions are displayed without %)
     const aiPred = getAIPredictionForPeriod(row.period);
     let aiText = '<span class="text-slate-500 text-[9px]">—</span>';
     if (aiPred && aiPred.target) {
       const isCorrect = aiPred.target === row.size;
-      const probPct = Math.round((aiPred.prob || 0.55) * 100);
-      if (aiPred.isTest || aiPred.decision === 'TEST') {
-        aiText = `<span class="px-1.5 py-0.5 rounded font-black text-[9px] ${isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">🧪 ${aiPred.target} ${probPct}%</span>`;
-      } else {
-        const decTag = aiPred.decision === 'SKIP' ? ' (SKIP)' : '';
-        aiText = `<span class="px-1.5 py-0.5 rounded font-black text-[9px] ${isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">${aiPred.target} ${probPct}%${decTag}</span>`;
-      }
+      aiText = `<span class="px-1.5 py-0.5 rounded font-black text-[9px] ${isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">${aiPred.target} ${isCorrect ? '✓' : '✗'}</span>`;
     }
 
     // Bet & Result details
@@ -3053,7 +3080,7 @@ function updateAIDiagnosticsDrawer() {
   }
   if (radarBias) {
     if (sig.target) {
-      radarBias.innerHTML = `<span class="${sig.target==='BIG'?'text-amber-300':'text-sky-300'} font-black text-[10px]">${sig.target} (${Math.round((sig.prob||0.5)*100)}%)</span>`;
+      radarBias.innerHTML = `<span class="${sig.target==='BIG'?'text-amber-300':'text-sky-300'} font-black text-[10px]">${sig.target}</span>`;
     } else {
       radarBias.textContent = 'Awaiting Next Stream';
     }
@@ -3249,9 +3276,8 @@ function renderSmartView() {
 
   if (signalEl) {
     const target = S.aiSignal?.target;
-    const prob = S.aiSignal?.prob ? Math.round(S.aiSignal.prob * 100) : 50;
     if (target) {
-      signalEl.innerHTML = `<span class="${target==='BIG' ? 'text-amber-400' : 'text-sky-400'} font-black text-2xl">${target}</span> <span class="text-xs text-slate-300 font-mono">(${prob}%)</span>`;
+      signalEl.innerHTML = `<span class="${target==='BIG' ? 'text-amber-400' : 'text-sky-400'} font-black text-2xl">${target}</span>`;
     } else {
       signalEl.innerHTML = '<span class="text-slate-400 text-sm italic">ANALYZING...</span>';
     }
@@ -3343,13 +3369,12 @@ function renderSmartView() {
     const colorDot = color === 'RED' ? '🔴' : color === 'GREEN' ? '🟢' : '🟣';
     const numColor = (n===0||n===5) ? 'text-purple-400' : (n%2===1 ? 'text-emerald-400' : 'text-rose-400');
 
-    // AI Prediction
+    // AI Prediction (clean without %)
     const aiPred = getAIPredictionForPeriod(row.period);
     let aiHtml = '<span class="text-slate-600 text-[9px]">—</span>';
     if (aiPred && aiPred.target) {
       const isCorrect = aiPred.target === size;
-      const probPct = Math.round((aiPred.prob || 0.55) * 100);
-      aiHtml = `<span class="px-2 py-0.5 rounded-full font-black text-[9px] ${isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">${aiPred.target} ${probPct}% ${isCorrect ? '✓' : '✗'}</span>`;
+      aiHtml = `<span class="px-2 py-0.5 rounded-full font-black text-[9px] ${isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">${aiPred.target} ${isCorrect ? '✓' : '✗'}</span>`;
     }
 
     // Bet placed
@@ -3726,30 +3751,58 @@ async function fetchLiveAPIResults(tfOverride) {
   try {
     const list = await Promise.any(urlsToTry.map(u => fetchSingle(u)));
     if (Array.isArray(list) && list.length > 0) {
-      const parsedHistory = list.slice(0, 10).reverse().map(row => {
+      const parsedList = list.slice(0, 50).reverse().map(row => {
         const period = String(row.issueNumber || row.issue || row.period || row.expect || '');
-        const n = parseInt(row.number || row.openNumber || row.code || 0);
+        const n = parseInt(row.number || row.openNumber || row.code || 0, 10);
         const size = row.size || (n >= 5 ? 'BIG' : 'SMALL');
         const color = row.color || getColorForNum(n);
         return { period, number: n, size, color };
-      });
+      }).filter(r => r.period && !isNaN(r.number));
 
-      if (parsedHistory.length > 0) {
-        if (!S.historyByTimeframe) S.historyByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
-        S.historyByTimeframe[tf] = parsedHistory;
-        S.history = parsedHistory;
-        S.isInitialized = true;
+      if (parsedList.length > 0) {
+        if (!S.isInitialized || !S.history || S.history.length === 0) {
+          S.history = parsedList;
+          if (!S.historyByTimeframe) S.historyByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
+          S.historyByTimeframe[tf] = [...parsedList];
+          S.isInitialized = true;
 
-        renderHistoryTable();
-        renderMiniBalls();
-        renderTrendChart();
-        runAI();
-        updateTestBanner();
-        saveToLocalStorage();
+          renderHistoryTable();
+          renderSmartView();
+          renderMiniBalls();
+          renderTrendChart();
+          renderHeatmap();
+          renderBSPattern();
+          renderPatternAnalytics();
+          runAI();
+          updateTestBanner();
+          saveToLocalStorage();
 
-        const modal = document.getElementById('initModal');
-        if (modal) modal.style.display = 'none';
+          const modal = document.getElementById('initModal');
+          if (modal) modal.style.display = 'none';
+          showOfflineBanner(false);
+          return true;
+        }
 
+        // Check for new draws or pending bets to resolve
+        let hasNew = false;
+        for (const item of parsedList) {
+          const existing = S.history.find(r => r.period === item.period && !r.gap);
+          const hasPendingBet = S.myBets.some(b => b.period === item.period && b.status === 'PENDING');
+          if (!existing || hasPendingBet) {
+            saveRealResult(item.period, item.number);
+            hasNew = true;
+          }
+        }
+
+        if (hasNew) {
+          renderHistoryTable();
+          renderSmartView();
+          renderMiniBalls();
+          renderTrendChart();
+          renderPatternAnalytics();
+          saveToLocalStorage();
+        }
+        showOfflineBanner(false);
         return true;
       }
     }
@@ -3994,23 +4047,31 @@ function skipBatchResults() {
 // ═══════════════════════════════════════════════════════════════
 let _popupTimer = null;
 
-function showWinPopup({ period, number, color, size, profit, balance, aiCorrect }) {
+function showWinPopup({ period, number, color, size, profit, balance, aiCorrect, hasBet }) {
   const el = document.getElementById('winPopup');
   if (!el) return;
-  const colorLabel = color.replace('_', '-');
+  const colorLabel = (color || '').replace('_', '-');
   document.getElementById('winColorBadge').textContent = colorLabel;
   document.getElementById('winSizeBadge').textContent  = size;
 
-  const isRealBet = S.autoBetEnabled && S.myBets.some(b => b.period === period && b.status === 'WON');
+  const isRealBet = (hasBet !== undefined) ? hasBet : (S.autoBetEnabled && S.myBets.some(b => b.period === period && b.status === 'WON'));
   const aiPred = getAIPredictionForPeriod(period);
-  const aiTarget = aiPred ? aiPred.target : size;
+  const aiTarget = aiPred ? aiPred.target : (S.aiSignal?.target || size);
+
+  const mgNextEl = document.getElementById('winMgNextBet');
+  const mgNextAmt = document.getElementById('winMgNextAmt');
 
   if (isRealBet && profit > 0) {
     document.getElementById('winTitleHeaderEl').textContent = 'Profit';
     document.getElementById('winAmountEl').textContent = `+₹${profit.toFixed(2)}`;
+    if (mgNextEl) {
+      mgNextEl.style.display = 'block';
+      if (mgNextAmt) mgNextAmt.textContent = `₹${(S.martingaleBase || 1).toFixed(0)}`;
+    }
   } else {
     document.getElementById('winTitleHeaderEl').textContent = 'AI Status';
     document.getElementById('winAmountEl').textContent = `🎯 Prediction Correct`;
+    if (mgNextEl) mgNextEl.style.display = 'none';
   }
 
   document.getElementById('winPeriodEl').textContent = `Period ${String(period).slice(-6)} · Real Number: ${number} (${size})`;
@@ -4029,26 +4090,34 @@ function showWinPopup({ period, number, color, size, profit, balance, aiCorrect 
   el.onclick = () => { clearTimeout(_popupTimer); el.style.display = 'none'; };
 }
 
-function showLossPopup({ period, number, color, size, lost, balance }) {
+function showLossPopup({ period, number, color, size, lost, balance, hasBet }) {
   const el = document.getElementById('lossPopup');
   if (!el) return;
-  const colorLabel = color.replace('_', '-');
+  const colorLabel = (color || '').replace('_', '-');
   document.getElementById('lossColorBadge').textContent = colorLabel;
   document.getElementById('lossSizeBadge').textContent  = size;
 
-  const isRealBet = S.autoBetEnabled && S.myBets.some(b => b.period === period && b.status === 'LOST');
+  const isRealBet = (hasBet !== undefined) ? hasBet : (S.autoBetEnabled && S.myBets.some(b => b.period === period && b.status === 'LOST'));
   const aiPred = getAIPredictionForPeriod(period);
-  const aiTarget = aiPred ? aiPred.target : (size === 'BIG' ? 'SMALL' : 'BIG');
+  const aiTarget = aiPred ? aiPred.target : (S.aiSignal?.target || (size === 'BIG' ? 'SMALL' : 'BIG'));
+
+  const mgNextEl = document.getElementById('lossMgNextBet');
+  const mgNextAmt = document.getElementById('lossMgNextAmt');
 
   if (isRealBet && lost > 0) {
     document.getElementById('lossTitleHeaderEl').textContent = 'Amount Lost';
     document.getElementById('lossAmountEl').textContent      = `-₹${lost.toFixed(2)}`;
-    document.getElementById('lossBalanceEl').textContent     = `Balance: ₹${balance.toFixed(2)}`;
+    document.getElementById('lossBalanceEl').textContent     = `Balance: ₹${(balance !== undefined ? balance : S.balance).toFixed(2)}`;
+    if (mgNextEl) {
+      mgNextEl.style.display = 'block';
+      if (mgNextAmt) mgNextAmt.textContent = `₹${(S.martingaleCurrent || 2).toFixed(0)}`;
+    }
   } else {
-    // If auto-betting is OFF: show ONLY prediction was wrong, NEVER show loss money!
+    // If auto-betting is OFF / no bet: show ONLY prediction was wrong, NEVER show loss money!
     document.getElementById('lossTitleHeaderEl').textContent = 'AI Status';
     document.getElementById('lossAmountEl').textContent      = `Prediction Incorrect`;
     document.getElementById('lossBalanceEl').textContent     = `Auto-Betting: OFF (No Money Lost)`;
+    if (mgNextEl) mgNextEl.style.display = 'none';
   }
 
   document.getElementById('lossPeriodEl').textContent = `Period ${String(period).slice(-6)} · Real Number: ${number} (${size})`;
@@ -4187,6 +4256,7 @@ function startMartingaleBot() {
   S.stopMinBalance   = (!isNaN(mbVal) && mbVal >= 0) ? mbVal : 0;
 
   S.autoBetEnabled    = true;
+  S.aiTestMode        = false;
 
   closeMartingaleSetup();
   updateAutoBetUI();
