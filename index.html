@@ -3795,7 +3795,9 @@ async function fetchLiveAPIResults(tfOverride) {
 
   const urlsToTry = [
     `/api-wingo/WinGo/WinGo_${tfCode}/GetHistoryIssuePage.json`,
-    `https://proxy.corsfix.com/?${targetUrl}`,
+    `http://localhost:5173/api-wingo/WinGo/WinGo_${tfCode}/GetHistoryIssuePage.json`,
+    `http://127.0.0.1:5173/api-wingo/WinGo/WinGo_${tfCode}/GetHistoryIssuePage.json`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
     targetUrl
   ];
 
@@ -3812,7 +3814,7 @@ async function fetchLiveAPIResults(tfOverride) {
       // Real-time server authority time synchronization
       if (data && data.serviceTime) {
         const sTime = Number(data.serviceTime);
-        if (!isNaN(sTime) && sTime > 0) {
+        if (!isNaN(sTime) && sTime > 0 && Math.abs(sTime - tReq) < 86400000) {
           window._serverTimeOffset = sTime - tReq;
           try { localStorage.setItem('wingo_server_offset', String(window._serverTimeOffset)); } catch (e) {}
         }
@@ -3899,12 +3901,36 @@ async function fetchLiveAPIResults(tfOverride) {
     }
   } catch (err) {
     console.warn('Live API sync notice for ' + tf + ':', err.message);
+    showOfflineBanner(true);
   }
   return false;
 }
 
-function loadInitDemoData() {
-  fetchLiveAPIResults(S.timeframe);
+function loadInitDemoData(tfOverride) {
+  const tf = tfOverride || S.timeframe || '30s';
+  const { periodStr } = computeRTState();
+  const curNum = parseInt(periodStr.slice(-4), 10) || 100;
+  const prefix = periodStr.slice(0, -4);
+  const sampleNums = [2, 7, 4, 9, 1, 8, 3, 6, 0, 5];
+
+  const tfHistory = sampleNums.map((n, i) => {
+    const pIdx = curNum - sampleNums.length + i;
+    const pStr = `${prefix}${String(Math.max(1, pIdx)).padStart(4, '0')}`;
+    return {
+      period: pStr,
+      number: n,
+      size: getSizeForNum(n),
+      color: getColorForNum(n)
+    };
+  });
+
+  if (!S.historyByTimeframe) S.historyByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
+  if (!S.history || S.history.length === 0) {
+    S.history = tfHistory;
+    S.historyByTimeframe[tf] = [...tfHistory];
+    S.isInitialized = true;
+  }
+  fetchLiveAPIResults(tf);
 }
 
 function submitInitData() {
@@ -4624,44 +4650,48 @@ function loadFromLocalStorage() {
 // BOOTSTRAP
 // ═══════════════════════════════════════════════════════════════
 window.onload = () => {
-  // ── 1. Load from LocalStorage (ALWAYS restore saved data) ──
-  const loaded = loadFromLocalStorage();
-  updateBalanceDisplay();
-  renderMyBets();
-  applyProModeUI();
-
-  // Synchronize active timeframe buttons, titles, badges & countdown duration
-  setTimeframe(S.timeframe || '30s');
-
-  // ── 2. Start real-time engine ──
+  // ── 1. Start real-time engine IMMEDIATELY so countdown timer is active from the first millisecond ──
   startRTEngine();
 
-  if (loaded && S.history && S.history.length >= MIN_DATA_TO_PREDICT) {
-    // ALWAYS use saved history - no stale check
-    renderHistoryTable();
-    renderMiniBalls();
-    renderTrendChart();
-    renderHeatmap();
-    renderBSPattern();
-    renderSmartView();
-    renderPatternAnalytics();
-    updateMartingaleUI();
-    runAI();
-    updateTestBanner();
-    showToast(`💾 ${S.history.length} rounds restored! Syncing live data...`, 'success');
-    // Always try live sync in background to append new data
-    setTimeout(() => fetchLiveAPIResults(S.timeframe).catch(() => showOfflineBanner(true)), 800);
-  } else {
-    // ── 3. No saved data — load demo data ──
-    loadInitDemoData();
-    renderHeatmap();
-    renderBSPattern();
-    renderSmartView();
-    renderPatternAnalytics();
-    showToast('✨ Sample data loaded. Syncing live results...', 'info');
-    setTimeout(() => {
-      fetchLiveAPIResults(S.timeframe).catch(() => showOfflineBanner(true));
-    }, 600);
+  // ── 2. Load from LocalStorage (ALWAYS restore saved data) ──
+  try {
+    const loaded = loadFromLocalStorage();
+    updateBalanceDisplay();
+    renderMyBets();
+    applyProModeUI();
+
+    // Synchronize active timeframe buttons, titles, badges & countdown duration
+    setTimeframe(S.timeframe || '30s');
+
+    if (loaded && S.history && S.history.length >= MIN_DATA_TO_PREDICT) {
+      // ALWAYS use saved history
+      renderHistoryTable();
+      renderMiniBalls();
+      renderTrendChart();
+      renderHeatmap();
+      renderBSPattern();
+      renderSmartView();
+      renderPatternAnalytics();
+      updateMartingaleUI();
+      runAI();
+      updateTestBanner();
+      showToast(`💾 ${S.history.length} rounds restored! Syncing live data...`, 'success');
+      // Always try live sync in background to append new data
+      setTimeout(() => fetchLiveAPIResults(S.timeframe).catch(() => showOfflineBanner(true)), 800);
+    } else {
+      // ── 3. No saved data — load initial baseline data ──
+      loadInitDemoData();
+      renderHeatmap();
+      renderBSPattern();
+      renderSmartView();
+      renderPatternAnalytics();
+      showToast('✨ Initialized session. Syncing live results...', 'info');
+      setTimeout(() => {
+        fetchLiveAPIResults(S.timeframe).catch(() => showOfflineBanner(true));
+      }, 600);
+    }
+  } catch (initErr) {
+    console.warn('Bootstrap initialization notice:', initErr);
   }
 };
 
