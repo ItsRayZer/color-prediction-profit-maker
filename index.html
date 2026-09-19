@@ -460,262 +460,171 @@
   </aside>
 
   <!-- ╔══════════════════════════════════════════════════════════
-       CENTER PANEL — History + Charts (full height, all data)
+       CENTER PANEL — SMART HERO + REAL HISTORY & TREND ROAD MAP
   ══════════════════════════════════════════════════════════╗ -->
   <main class="overflow-y-auto overflow-x-hidden bg-[#0a0615]" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
     <div class="p-3 space-y-3">
 
-      <!-- Sub-tabs -->
-      <div class="grid grid-cols-6 gap-1 text-[11px] sticky top-0 z-10 bg-[#0a0615] pb-2 pt-1 font-mono">
-        <button id="subtab-smart"   onclick="switchSubTab('smart')"   class="py-2 px-1 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black shadow truncate text-center">⚡ Smart View</button>
-        <button id="subtab-analyse" onclick="switchSubTab('analyse')" class="py-2 px-1 rounded-xl bg-app-card text-purple-300 font-bold hover:text-white truncate text-center">🧠 Patterns &amp; AI</button>
-        <button id="subtab-history" onclick="switchSubTab('history')" class="py-2 px-1 rounded-xl bg-app-card text-purple-300 font-bold hover:text-white truncate text-center">📋 History</button>
-        <button id="subtab-chart"   onclick="switchSubTab('chart')"   class="py-2 px-1 rounded-xl bg-app-card text-purple-300 font-bold hover:text-white truncate text-center">📈 Trend</button>
-        <button id="subtab-my"      onclick="switchSubTab('my')"      class="py-2 px-1 rounded-xl bg-app-card text-purple-300 font-bold hover:text-white truncate text-center">💰 Bets (<span id="myBetsBadge">0</span>)</button>
-        <button id="subtab-ai"      onclick="switchSubTab('ai')"      class="py-2 px-1 rounded-xl bg-app-card text-indigo-300 font-bold hover:text-white truncate text-center">🤖 Track</button>
-      </div>
-
-      <!-- ── HISTORY TABLE (full height, no truncation) ── -->
-      <div id="view-history" class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/30 shadow-lg">
-        <div class="grid grid-cols-12 py-2.5 px-3 bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black text-[10px]">
-          <div class="col-span-3">Period</div>
-          <div class="col-span-3 text-center">Real Output</div>
-          <div class="col-span-3 text-center">AI Signal</div>
-          <div class="col-span-3 text-right pr-1">Bet &amp; Result</div>
+      <!-- ── PRO HERO TELEMETRY CARD (ACTIVE PERIOD, TIMER, AI SIGNAL, STAKE, TREND RIBBON) ── -->
+      <div class="p-3.5 bg-app-card rounded-2xl border border-purple-900/40 shadow-xl space-y-3">
+        <div class="flex items-center justify-between border-b border-purple-900/30 pb-2">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-black text-[10px] border border-amber-400/30 uppercase tracking-wide">
+              <i class="fa-solid fa-trophy mr-1"></i> <span id="smartTfBadge">WinGo 30sec</span>
+            </span>
+            <span class="text-[10px] text-slate-400 font-mono">Live High-Precision Pro Terminal</span>
+          </div>
+          <div id="smartRiskSummary" class="text-[9.5px] font-mono text-slate-400 flex items-center gap-2">
+            <span id="smartRiskBadge" class="px-2 py-0.5 rounded bg-purple-950 text-slate-300 border border-purple-800/40">Risk: Auto-Stop at ₹0</span>
+          </div>
         </div>
-        <!-- NO max-h limit — shows ALL history rows -->
-        <div id="gameHistoryRows" class="divide-y divide-purple-900/40 text-xs font-mono"></div>
-        <div class="flex items-center justify-between p-3 bg-app-surface border-t border-purple-900/40 text-xs text-purple-300">
-          <span id="rowCountBadge" class="text-[10px] font-bold">0 records</span>
-          <button onclick="downloadCSVReport()" class="text-amber-400 hover:text-amber-300 font-bold text-[11px] flex items-center gap-1">
-            <i class="fa-solid fa-download"></i> Export CSV
+
+        <!-- Big Showcase Row: ACTIVE PERIOD | COUNTDOWN TIME | AI SIGNAL -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-center font-mono">
+          <!-- 1. Active Period -->
+          <div class="p-3 bg-purple-950/60 rounded-xl border border-purple-800/30 flex flex-col justify-center">
+            <span class="text-[9px] text-slate-400 block font-sans uppercase font-bold tracking-wider">Active Period</span>
+            <b id="smartPeriodDisplay" class="text-amber-400 text-xl font-mono font-black tracking-tight mt-0.5">—</b>
+            <span class="text-[9px] text-slate-500 font-sans mt-0.5">Selected period round</span>
+          </div>
+
+          <!-- 2. Big Countdown Time -->
+          <div class="p-3 bg-gradient-to-b from-purple-950/80 to-slate-900/90 rounded-xl border border-amber-400/30 flex flex-col justify-center shadow-inner">
+            <span class="text-[9px] text-amber-300/80 block font-sans uppercase font-black tracking-wider">Time Remaining</span>
+            <div id="smartTimerDisplay" class="text-3xl font-black text-amber-300 font-mono tracking-widest mt-0.5">00:00</div>
+            <span class="text-[9px] text-slate-400 font-sans mt-0.5">Seconds to lock &amp; draw</span>
+          </div>
+
+          <!-- 3. Big AI Signal -->
+          <div class="p-3 bg-purple-950/60 rounded-xl border border-purple-800/30 flex flex-col justify-center">
+            <span class="text-[9px] text-slate-400 block font-sans uppercase font-bold tracking-wider">AI Signal Target</span>
+            <div id="smartAiSignal" class="text-xl font-black text-white mt-0.5">WAITING...</div>
+            <span id="smartAiEngineTag" class="text-[9px] text-emerald-400 font-mono mt-0.5">5-Engine Consensus</span>
+          </div>
+        </div>
+
+        <!-- Secondary Metric Chips: Next Stake | Session PnL | Martingale Level | Quick Bot Action -->
+        <div class="grid grid-cols-4 gap-2 text-center font-mono text-[10px] pt-1 border-t border-purple-900/30">
+          <div class="p-2 bg-slate-900/70 rounded-xl border border-purple-900/30">
+            <span class="text-[8.5px] text-slate-400 block font-sans">TEST / BOT STAKE</span>
+            <b id="smartNextStake" class="text-emerald-400 text-xs font-black">₹1.00</b>
+          </div>
+          <div class="p-2 bg-slate-900/70 rounded-xl border border-purple-900/30">
+            <span class="text-[8.5px] text-slate-400 block font-sans">SESSION PNL</span>
+            <b id="smartSessionPnl" class="text-emerald-400 text-xs font-black">+₹0.00</b>
+          </div>
+          <div class="p-2 bg-slate-900/70 rounded-xl border border-purple-900/30">
+            <span class="text-[8.5px] text-slate-400 block font-sans">MARTINGALE LVL</span>
+            <b id="smartMartingaleLvl" class="text-amber-400 text-xs font-black">Lvl 0</b>
+          </div>
+          <button onclick="toggleAutoBet()" id="smartQuickBotBtn" class="p-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black text-[10px] shadow hover:brightness-110 active:scale-95 transition flex flex-col items-center justify-center">
+            <span>🚀 TEST BOT</span>
           </button>
         </div>
-      </div>
 
-      <!-- ── TREND CHART / ROAD MAP ── -->
-      <div id="view-chart" class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/30 shadow-lg hidden">
-        <div class="bg-gradient-to-r from-amber-400 to-amber-500 px-3 py-2">
-          <div class="grid grid-cols-12 text-[10px] font-black text-slate-900">
-            <div class="col-span-3">Statistic</div>
-            <div class="text-center">0</div><div class="text-center">1</div><div class="text-center">2</div>
-            <div class="text-center">3</div><div class="text-center">4</div><div class="text-center">5</div>
-            <div class="text-center">6</div><div class="text-center">7</div><div class="text-center">8</div>
+        <!-- Integrated Trend Ribbon (Last 20 Results Mini Road) -->
+        <div class="bg-purple-950/40 rounded-xl p-2.5 border border-purple-900/30">
+          <div class="flex items-center justify-between text-[9px] text-slate-400 mb-1.5 font-bold">
+            <span><i class="fa-solid fa-chart-line text-amber-400 mr-1"></i> TREND ROAD MAP (Recent 20 Rounds)</span>
+            <div class="flex gap-2">
+              <span id="smartBigSmallRatio" class="text-amber-300 font-mono">BIG: —% | SMALL: —%</span>
+            </div>
           </div>
-        </div>
-        <div id="chartStatsRows" class="divide-y divide-purple-900/30 px-3 text-[9px] font-mono"></div>
-        <div class="grid gap-0 px-2 pt-2 pb-1" style="grid-template-columns:80px repeat(10,1fr) 28px 28px 28px">
-          <div class="text-[9px] text-slate-500 font-bold">Period</div>
-          <div class="text-[9px] text-center text-slate-400 font-bold">0</div>
-          <div class="text-[9px] text-center text-slate-400 font-bold">1</div>
-          <div class="text-[9px] text-center text-slate-400 font-bold">2</div>
-          <div class="text-[9px] text-center text-slate-400 font-bold">3</div>
-          <div class="text-[9px] text-center text-slate-400 font-bold">4</div>
-          <div class="text-[9px] text-center text-slate-400 font-bold">5</div>
-          <div class="text-[9px] text-center text-slate-400 font-bold">6</div>
-          <div class="text-[9px] text-center text-slate-400 font-bold">7</div>
-          <div class="text-[9px] text-center text-slate-400 font-bold">8</div>
-          <div class="text-[9px] text-center text-slate-400 font-bold">9</div>
-          <div class="text-[9px] text-center text-amber-400 font-bold">B/S</div>
-          <div class="text-[9px] text-center text-indigo-300 font-bold">AI</div>
-          <div class="text-[9px] text-center text-purple-300 font-bold">Bet</div>
-        </div>
-        <div class="relative px-2 pb-2" id="numberRoadContainer">
-          <svg id="roadConnectorSvg" class="absolute inset-0 pointer-events-none" style="width:100%;height:100%;overflow:visible;"></svg>
-          <div id="numberRoadRows" class="relative z-10 space-y-0.5"></div>
-        </div>
-        <div class="grid grid-cols-3 gap-2 p-3 border-t border-purple-900/40 text-center text-xs font-mono">
-          <div class="p-2 bg-purple-950/60 rounded-xl"><span class="text-[9px] text-slate-400 block">BIG%</span><b id="chartBigPct" class="text-amber-400">50%</b></div>
-          <div class="p-2 bg-purple-950/60 rounded-xl"><span class="text-[9px] text-slate-400 block">SMALL%</span><b id="chartSmallPct" class="text-sky-400">50%</b></div>
-          <div class="p-2 bg-purple-950/60 rounded-xl"><span class="text-[9px] text-slate-400 block">WIN%</span><b id="chartWinRatio" class="text-emerald-400">—</b></div>
+          <div id="smartTrendStrip" class="flex items-center gap-1.5 overflow-x-auto pb-1">
+            <span class="text-slate-500 text-[9px] italic">Loading trend road...</span>
+          </div>
         </div>
       </div>
 
-      <!-- ── MY BETS ── -->
-      <div id="view-my" class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/30 shadow-lg hidden">
-        <div class="p-3 bg-purple-950 text-xs font-bold text-purple-200 border-b border-purple-800/40 flex justify-between items-center">
-          <span>Active &amp; Resolved Bets</span>
-          <button onclick="clearMyBets()" class="text-rose-400 hover:text-rose-300 text-[10px]">Clear</button>
-        </div>
-        <div id="myBetsContainer" class="divide-y divide-purple-900/40 text-xs font-mono"></div>
-      </div>
-
-      <!-- ── AI TRACK RECORD ── -->
-      <div id="view-ai" class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/30 shadow-lg hidden p-3 space-y-3">
-        <div class="flex items-center justify-between border-b border-purple-800/40 pb-2">
-          <span class="text-xs font-black text-indigo-300 flex items-center gap-1.5"><i class="fa-solid fa-robot text-amber-400"></i> AI Prediction Track Record &amp; PnL</span>
-          <span class="text-[10px] text-slate-400 font-mono">If followed from Start</span>
-        </div>
-        <div class="grid grid-cols-4 gap-1.5 text-center font-mono text-[9px]">
-          <div class="p-2 bg-purple-950/70 border border-purple-800/40 rounded-xl"><span class="text-[8px] text-slate-400 block font-sans font-semibold">TOTAL SIGNALS</span><b id="aiTrackTotal" class="text-slate-200">0</b></div>
-          <div class="p-2 bg-emerald-950/50 border border-emerald-500/30 rounded-xl"><span class="text-[8px] text-slate-400 block font-sans font-semibold">WINS / LOSSES</span><b id="aiTrackWinsLosses" class="text-emerald-400">0W / 0L</b></div>
-          <div class="p-2 bg-purple-950/70 border border-purple-800/40 rounded-xl"><span class="text-[8px] text-slate-400 block font-sans font-semibold">WIN RATE</span><b id="aiTrackWinRate" class="text-amber-300">—</b></div>
-          <div class="p-2 bg-purple-950/70 border border-purple-800/40 rounded-xl"><span class="text-[8px] text-slate-400 block font-sans font-semibold">AI PnL</span><b id="aiTrackPnl" class="text-emerald-400">+₹0.00</b></div>
-        </div>
-        <div class="grid grid-cols-12 text-[9px] font-black text-slate-400 border-b border-purple-900/40 pb-1 font-mono">
-          <div class="col-span-3">Period</div>
-          <div class="col-span-3 text-center">AI Signal</div>
-          <div class="col-span-3 text-center">Real Output</div>
-          <div class="col-span-3 text-right">Result &amp; PnL</div>
-        </div>
-        <div id="aiTrackRowsContainer" class="divide-y divide-purple-900/30 text-[10px] font-mono"></div>
-      </div>
-
-      <!-- ── SMART VIEW (COMBINES HISTORY + TREND CHART + MY BETS + AI SIGNAL) ── -->
-      <div id="view-smart" class="space-y-3">
-        <!-- Pro Hero Telemetry Card -->
-        <div class="p-3.5 bg-app-card rounded-2xl border border-purple-900/40 shadow-xl space-y-3">
-          <div class="flex items-center justify-between border-b border-purple-900/30 pb-2">
-            <div class="flex items-center gap-2">
-              <span class="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-black text-[10px] border border-amber-400/30 uppercase tracking-wide">
-                <i class="fa-solid fa-trophy mr-1"></i> <span id="smartTfBadge">WinGo 30sec</span>
-              </span>
-              <span class="text-[10px] text-slate-400 font-mono">Live High-Precision Pro Terminal</span>
-            </div>
-            <div id="smartRiskSummary" class="text-[9.5px] font-mono text-slate-400 flex items-center gap-2">
-              <span id="smartRiskBadge" class="px-2 py-0.5 rounded bg-purple-950 text-slate-300 border border-purple-800/40">Risk: Auto-Stop at ₹0</span>
-            </div>
-          </div>
-
-          <!-- Big Showcase Row: ACTIVE PERIOD | COUNTDOWN TIME | AI SIGNAL -->
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-center font-mono">
-            <!-- 1. Active Period -->
-            <div class="p-3 bg-purple-950/60 rounded-xl border border-purple-800/30 flex flex-col justify-center">
-              <span class="text-[9px] text-slate-400 block font-sans uppercase font-bold tracking-wider">Active Period</span>
-              <b id="smartPeriodDisplay" class="text-amber-400 text-xl font-mono font-black tracking-tight mt-0.5">—</b>
-              <span class="text-[9px] text-slate-500 font-sans mt-0.5">Selected period round</span>
-            </div>
-
-            <!-- 2. Big Countdown Time -->
-            <div class="p-3 bg-gradient-to-b from-purple-950/80 to-slate-900/90 rounded-xl border border-amber-400/30 flex flex-col justify-center shadow-inner">
-              <span class="text-[9px] text-amber-300/80 block font-sans uppercase font-black tracking-wider">Time Remaining</span>
-              <div id="smartTimerDisplay" class="text-3xl font-black text-amber-300 font-mono tracking-widest mt-0.5">00:00</div>
-              <span class="text-[9px] text-slate-400 font-sans mt-0.5">Seconds to lock &amp; draw</span>
-            </div>
-
-            <!-- 3. Big AI Signal -->
-            <div class="p-3 bg-purple-950/60 rounded-xl border border-purple-800/30 flex flex-col justify-center">
-              <span class="text-[9px] text-slate-400 block font-sans uppercase font-bold tracking-wider">AI Signal Target</span>
-              <div id="smartAiSignal" class="text-xl font-black text-white mt-0.5">WAITING...</div>
-              <span id="smartAiEngineTag" class="text-[9px] text-emerald-400 font-mono mt-0.5">5-Engine Consensus</span>
-            </div>
-          </div>
-
-          <!-- Secondary Metric Chips: Next Stake | Session PnL | Martingale Level | Quick Bot Action -->
-          <div class="grid grid-cols-4 gap-2 text-center font-mono text-[10px] pt-1 border-t border-purple-900/30">
-            <div class="p-2 bg-slate-900/70 rounded-xl border border-purple-900/30">
-              <span class="text-[8.5px] text-slate-400 block font-sans">TEST / BOT STAKE</span>
-              <b id="smartNextStake" class="text-emerald-400 text-xs font-black">₹1.00</b>
-            </div>
-            <div class="p-2 bg-slate-900/70 rounded-xl border border-purple-900/30">
-              <span class="text-[8.5px] text-slate-400 block font-sans">SESSION PNL</span>
-              <b id="smartSessionPnl" class="text-emerald-400 text-xs font-black">+₹0.00</b>
-            </div>
-            <div class="p-2 bg-slate-900/70 rounded-xl border border-purple-900/30">
-              <span class="text-[8.5px] text-slate-400 block font-sans">MARTINGALE LVL</span>
-              <b id="smartMartingaleLvl" class="text-amber-400 text-xs font-black">Lvl 0</b>
-            </div>
-            <button onclick="toggleAutoBet()" id="smartQuickBotBtn" class="p-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black text-[10px] shadow hover:brightness-110 active:scale-95 transition flex flex-col items-center justify-center">
-              <span>🚀 TEST BOT</span>
-            </button>
-          </div>
-
-          <!-- Integrated Trend Ribbon (Last 20 Results Mini Road) -->
-          <div class="bg-purple-950/40 rounded-xl p-2.5 border border-purple-900/30">
-            <div class="flex items-center justify-between text-[9px] text-slate-400 mb-1.5 font-bold">
-              <span><i class="fa-solid fa-chart-line text-amber-400 mr-1"></i> TREND ROAD MAP (Recent 20 Rounds)</span>
-              <div class="flex gap-2">
-                <span id="smartBigSmallRatio" class="text-amber-300 font-mono">BIG: —% | SMALL: —%</span>
-              </div>
-            </div>
-            <div id="smartTrendStrip" class="flex items-center gap-1.5 overflow-x-auto pb-1">
-              <span class="text-slate-500 text-[9px] italic">Loading trend road...</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Smart Unified History Table (Period | Number | Color | Size | AI Prediction | Bet Placed | Outcome & PnL) -->
-        <div class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-xl">
+      <!-- ── UNIFIED SIDE-BY-SIDE VIEW: REAL HISTORY (LEFT) + TREND ROAD MAP (RIGHT) ── -->
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-3 items-start">
+        
+        <!-- SIDE 1: SMART REAL HISTORY FEED -->
+        <div class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-xl flex flex-col">
           <div class="p-3 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border-b border-purple-900/40 flex items-center justify-between">
             <div class="flex items-center gap-2">
-              <i class="fa-solid fa-bolt text-amber-400"></i>
-              <span class="font-black text-xs text-white">Smart Unified Live Feed</span>
-              <span class="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">Auto-Synced</span>
+              <i class="fa-solid fa-list-check text-amber-400 text-xs"></i>
+              <span class="font-black text-xs text-white">Live Real History</span>
+              <span id="historyLiveStatusBadge" class="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">Auto-Synced</span>
             </div>
-            <span class="text-[10px] text-slate-400 font-mono">History + Bets + AI Combined</span>
+            <span class="text-[9.5px] text-slate-400 font-mono">Single Num + Color + AI Signals</span>
           </div>
           <div class="grid grid-cols-12 py-2 px-3 bg-purple-950/80 text-slate-300 font-bold text-[9.5px] border-b border-purple-900/30 font-mono">
-            <div class="col-span-2">Period</div>
+            <div class="col-span-3">Period</div>
             <div class="col-span-3 text-center">Result &amp; Color</div>
-            <div class="col-span-3 text-center">AI Prediction</div>
-            <div class="col-span-2 text-center">Your Bet</div>
-            <div class="col-span-2 text-right">Outcome</div>
+            <div class="col-span-3 text-center">AI Signal</div>
+            <div class="col-span-3 text-right pr-1">Bet &amp; Outcome</div>
           </div>
-          <div id="smartHistoryRows" class="divide-y divide-purple-900/30 text-[10px] font-mono max-h-[480px] overflow-y-auto"></div>
+          <div id="smartHistoryRows" class="divide-y divide-purple-900/30 text-[10px] font-mono max-h-[640px] overflow-y-auto" style="scrollbar-width:thin;scrollbar-color:#4c1d95 transparent;"></div>
+          <!-- Hidden fallback hook for any legacy calls -->
+          <div id="gameHistoryRows" class="hidden"></div>
+          <div class="flex items-center justify-between p-2.5 bg-app-surface border-t border-purple-900/40 text-xs text-purple-300 font-mono">
+            <span id="rowCountBadge" class="text-[10px] font-bold text-slate-400">0 records</span>
+            <button onclick="downloadCSVReport()" class="text-amber-400 hover:text-amber-300 font-bold text-[10.5px] flex items-center gap-1 active:scale-95 transition">
+              <i class="fa-solid fa-download"></i> Export CSV
+            </button>
+          </div>
         </div>
+
+        <!-- SIDE 2: TREND GRAPH & NUMBER ROAD MAP -->
+        <div class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-xl flex flex-col">
+          <div class="p-3 bg-gradient-to-r from-amber-500/20 via-purple-950 to-slate-900 border-b border-purple-900/40 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-chart-line text-amber-400 text-xs"></i>
+              <span class="font-black text-xs text-white">Trend Graph &amp; Number Road</span>
+              <span class="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30 font-mono">0-9 Connected</span>
+            </div>
+            <span class="text-[9.5px] text-slate-400 font-mono">Dhaniwin Pattern Matrix</span>
+          </div>
+
+          <!-- Statistic Header Row -->
+          <div class="bg-gradient-to-r from-amber-400 to-amber-500 px-3 py-1.5">
+            <div class="grid grid-cols-12 text-[9.5px] font-black text-slate-900">
+              <div class="col-span-3">Statistic</div>
+              <div class="text-center">0</div><div class="text-center">1</div><div class="text-center">2</div>
+              <div class="text-center">3</div><div class="text-center">4</div><div class="text-center">5</div>
+              <div class="text-center">6</div><div class="text-center">7</div><div class="text-center">8</div>
+              <div class="text-center">9</div>
+            </div>
+          </div>
+          <div id="chartStatsRows" class="divide-y divide-purple-900/30 px-3 text-[9px] font-mono bg-purple-950/40"></div>
+
+          <!-- Grid Columns -->
+          <div class="grid gap-0 px-2 pt-2 pb-1 bg-purple-950/60 border-t border-purple-900/30" style="grid-template-columns:60px repeat(10,1fr) 26px 26px 26px">
+            <div class="text-[9px] text-slate-400 font-bold font-mono">Period</div>
+            <div class="text-[9px] text-center text-slate-300 font-bold">0</div>
+            <div class="text-[9px] text-center text-slate-300 font-bold">1</div>
+            <div class="text-[9px] text-center text-slate-300 font-bold">2</div>
+            <div class="text-[9px] text-center text-slate-300 font-bold">3</div>
+            <div class="text-[9px] text-center text-slate-300 font-bold">4</div>
+            <div class="text-[9px] text-center text-slate-300 font-bold">5</div>
+            <div class="text-[9px] text-center text-slate-300 font-bold">6</div>
+            <div class="text-[9px] text-center text-slate-300 font-bold">7</div>
+            <div class="text-[9px] text-center text-slate-300 font-bold">8</div>
+            <div class="text-[9px] text-center text-slate-300 font-bold">9</div>
+            <div class="text-[9px] text-center text-amber-400 font-bold">B/S</div>
+            <div class="text-[9px] text-center text-indigo-300 font-bold">AI</div>
+            <div class="text-[9px] text-center text-purple-300 font-bold">Bet</div>
+          </div>
+
+          <!-- SVG Connector & 0-9 Road Grid -->
+          <div class="relative px-2 pb-2 max-h-[530px] overflow-y-auto" id="numberRoadContainer" style="scrollbar-width:thin;scrollbar-color:#4c1d95 transparent;">
+            <svg id="roadConnectorSvg" class="absolute inset-0 pointer-events-none" style="width:100%;height:100%;overflow:visible;"></svg>
+            <div id="numberRoadRows" class="relative z-10 space-y-0.5"></div>
+          </div>
+
+          <!-- Summary Stats Footer -->
+          <div class="grid grid-cols-3 gap-2 p-2.5 border-t border-purple-900/40 text-center text-xs font-mono bg-purple-950/30">
+            <div class="p-1.5 bg-purple-950/70 rounded-xl border border-purple-800/30"><span class="text-[8.5px] text-slate-400 block font-sans">BIG RATIO</span><b id="chartBigPct" class="text-amber-400">50%</b></div>
+            <div class="p-1.5 bg-purple-950/70 rounded-xl border border-purple-800/30"><span class="text-[8.5px] text-slate-400 block font-sans">SMALL RATIO</span><b id="chartSmallPct" class="text-sky-400">50%</b></div>
+            <div class="p-1.5 bg-purple-950/70 rounded-xl border border-purple-800/30"><span class="text-[8.5px] text-slate-400 block font-sans">WIN ACCURACY</span><b id="chartWinRatio" class="text-emerald-400">—</b></div>
+          </div>
+        </div>
+
       </div>
 
-      <!-- ── PATTERN & AI ANALYTICS PAGE (DETAILED PATTERN CODES, FREQUENCY, REPEATS, PREDICTION AUDIT) ── -->
-      <div id="view-analyse" class="space-y-3 hidden">
-        <!-- AI Performance Audit Scorecard -->
-        <div class="p-4 bg-app-card rounded-2xl border border-purple-900/40 shadow-xl space-y-3">
-          <div class="flex items-center justify-between border-b border-purple-900/40 pb-2">
-            <div class="flex items-center gap-2">
-              <i class="fa-solid fa-brain text-amber-400 text-sm"></i>
-              <span class="font-black text-xs text-white uppercase tracking-wider">AI Prediction Accuracy Audit</span>
-            </div>
-            <span class="text-[10px] text-slate-400 font-mono">Real vs Predicted Verification</span>
-          </div>
-
-          <div class="grid grid-cols-4 gap-2 text-center font-mono">
-            <div class="p-2.5 bg-purple-950/60 rounded-xl border border-purple-800/30">
-              <span class="text-[8.5px] text-slate-400 block font-sans">TOTAL PREDICTIONS</span>
-              <b id="auditTotalPreds" class="text-white text-base">0</b>
-            </div>
-            <div class="p-2.5 bg-emerald-950/40 rounded-xl border border-emerald-500/30">
-              <span class="text-[8.5px] text-slate-400 block font-sans">CORRECT SIGNALS</span>
-              <b id="auditCorrectPreds" class="text-emerald-400 text-base">0</b>
-            </div>
-            <div class="p-2.5 bg-rose-950/40 rounded-xl border border-rose-500/30">
-              <span class="text-[8.5px] text-slate-400 block font-sans">WRONG SIGNALS</span>
-              <b id="auditWrongPreds" class="text-rose-400 text-base">0</b>
-            </div>
-            <div class="p-2.5 bg-amber-950/40 rounded-xl border border-amber-500/30">
-              <span class="text-[8.5px] text-slate-400 block font-sans">WIN ACCURACY</span>
-              <b id="auditAccuracyPct" class="text-amber-300 text-base">—</b>
-            </div>
-          </div>
-        </div>
-
-        <!-- Pattern Detection Library & Repeat Frequency -->
-        <div class="p-4 bg-app-card rounded-2xl border border-purple-900/40 shadow-xl space-y-3">
-          <div class="flex items-center justify-between border-b border-purple-900/40 pb-2">
-            <div class="flex items-center gap-2">
-              <i class="fa-solid fa-dna text-indigo-400 text-sm"></i>
-              <span class="font-black text-xs text-white uppercase tracking-wider">Detected Pattern Library &amp; Codes</span>
-            </div>
-            <span class="text-[9.5px] text-slate-400 font-mono">Repeat Count &amp; Frequency</span>
-          </div>
-
-          <div id="patternLibraryList" class="grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px] font-mono">
-            <!-- Injected by renderPatternAnalytics() -->
-          </div>
-        </div>
-
-        <!-- Number Frequency & Distribution Analysis -->
-        <div class="p-4 bg-app-card rounded-2xl border border-purple-900/40 shadow-xl space-y-3">
-          <div class="flex items-center justify-between border-b border-purple-900/40 pb-2">
-            <div class="flex items-center gap-2">
-              <i class="fa-solid fa-chart-pie text-emerald-400 text-sm"></i>
-              <span class="font-black text-xs text-white uppercase tracking-wider">Number &amp; Color Frequency Audit</span>
-            </div>
-            <span class="text-[9.5px] text-slate-400 font-mono">Statistical Deviation</span>
-          </div>
-          <div id="auditNumberDistGrid" class="grid grid-cols-10 gap-1.5 text-center font-mono">
-            <!-- Injected by renderPatternAnalytics() -->
-          </div>
-        </div>
-      </div>
+    </div>
+  </main>
 
   <!-- ╔══════════════════════════════════════════════════════════
        RIGHT PANEL — Apple Minimalist Liquid Glass Telemetry Hub
@@ -750,7 +659,37 @@
         </div>
       </div>
 
-      <!-- ── 2. 5-ENGINE VOTING & CONSENSUS MATRIX ── -->
+      <!-- ── 2. DETECTED PATTERN LIBRARY & REPEAT CODES (PLACED IN RIGHT EMPTY SPACE) ── -->
+      <div class="liquid-glass-card p-3.5 space-y-2.5">
+        <div class="flex items-center justify-between pb-2 border-b border-white/10">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-dna text-indigo-400 text-xs"></i>
+            <span class="text-[10px] font-black uppercase tracking-wider text-white">Detected Patterns &amp; Codes</span>
+          </div>
+          <span class="text-[8.5px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 font-mono border border-indigo-500/20">Live Stream</span>
+        </div>
+
+        <div id="patternLibraryList" class="space-y-2 text-[10px] font-mono max-h-[220px] overflow-y-auto pr-1" style="scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.2) transparent;">
+          <!-- Injected by renderPatternAnalytics() -->
+        </div>
+      </div>
+
+      <!-- ── 3. NUMBER & COLOR FREQUENCY AUDIT (0-9) (PLACED IN RIGHT EMPTY SPACE) ── -->
+      <div class="liquid-glass-card p-3.5 space-y-2.5">
+        <div class="flex items-center justify-between pb-2 border-b border-white/10">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-chart-pie text-emerald-400 text-xs"></i>
+            <span class="text-[10px] font-black uppercase tracking-wider text-white">Number Frequency Audit (0-9)</span>
+          </div>
+          <span class="text-[8.5px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 font-mono border border-emerald-500/20">Distribution</span>
+        </div>
+
+        <div id="auditNumberDistGrid" class="grid grid-cols-5 gap-1.5 text-center font-mono">
+          <!-- Injected by renderPatternAnalytics() -->
+        </div>
+      </div>
+
+      <!-- ── 4. 5-ENGINE CONSENSUS & AI ACCURACY AUDIT ── -->
       <div class="liquid-glass-card p-3.5 space-y-2.5">
         <div class="flex items-center justify-between pb-2 border-b border-white/10">
           <div class="flex items-center gap-2">
@@ -769,15 +708,16 @@
           <div class="p-2 bg-white/[0.03] rounded-xl border border-white/5 flex justify-between items-center"><span class="text-slate-400">6. OpenRouter AI:</span> <b id="diagEngineOR" class="text-indigo-300">—</b></div>
         </div>
 
-        <!-- Testing & Accuracy Mini Telemetry -->
-        <div class="grid grid-cols-3 gap-1.5 text-center font-mono text-[9px] pt-1">
-          <div class="p-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl"><span class="text-slate-400 block text-[8px]">CORRECT</span><b id="diagCorrectCount" class="text-emerald-400">0</b></div>
-          <div class="p-1.5 bg-rose-500/10 border border-rose-500/20 rounded-xl"><span class="text-slate-400 block text-[8px]">WRONG</span><b id="diagWrongCount" class="text-rose-400">0</b></div>
-          <div class="p-1.5 bg-white/[0.04] border border-white/10 rounded-xl"><span class="text-slate-400 block text-[8px]">ACCURACY</span><b id="diagAccPct" class="text-amber-300">—</b></div>
+        <!-- AI Accuracy Scorecard -->
+        <div class="grid grid-cols-4 gap-1.5 text-center font-mono text-[9px] pt-1">
+          <div class="p-1.5 bg-white/[0.03] border border-white/5 rounded-xl"><span class="text-slate-400 block text-[7.5px]">TOTAL</span><b id="auditTotalPreds" class="text-slate-200">0</b></div>
+          <div class="p-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl"><span class="text-slate-400 block text-[7.5px]">CORRECT</span><b id="auditCorrectPreds" class="text-emerald-400">0</b></div>
+          <div class="p-1.5 bg-rose-500/10 border border-rose-500/20 rounded-xl"><span class="text-slate-400 block text-[7.5px]">WRONG</span><b id="auditWrongPreds" class="text-rose-400">0</b></div>
+          <div class="p-1.5 bg-amber-500/10 border border-amber-500/20 rounded-xl"><span class="text-slate-400 block text-[7.5px]">WIN ACC</span><b id="auditAccuracyPct" class="text-amber-300">—</b></div>
         </div>
       </div>
 
-      <!-- ── 3. MARTINGALE RECOVERY LADDER & SENTINEL ── -->
+      <!-- ── 5. MARTINGALE RECOVERY LADDER & SENTINEL ── -->
       <div class="liquid-glass-card p-3.5 space-y-2.5">
         <div class="flex items-center justify-between pb-2 border-b border-white/10">
           <div class="flex items-center gap-2">
@@ -818,7 +758,7 @@
         </div>
       </div>
 
-      <!-- ── 4. SESSION TELEMETRY & CONTROLS ── -->
+      <!-- ── 6. SESSION TELEMETRY & CONTROLS ── -->
       <div class="liquid-glass-card p-3.5 space-y-2.5">
         <div class="flex items-center justify-between pb-2 border-b border-white/10">
           <div class="flex items-center gap-2">
@@ -1540,25 +1480,26 @@ function getSizeForNum(n) { return n >= 5 ? 'BIG' : 'SMALL'; }
 let lastPeriod = null;
 
 function computeRTState() {
-  const now   = new Date();
-  const istMs = now.getTime() + (5.5 * 3600 * 1000);
-  const ist   = new Date(istMs);
+  const nowMs    = Date.now();
+  const istMs    = nowMs + (5.5 * 3600 * 1000);
+  const totalSec = Math.floor(istMs / 1000) % 86400;
+  const dur      = S.durationSeconds || 30;
+  const periodIdx = Math.floor(totalSec / dur) + 1;
+  const elapsed  = totalSec % dur;
+  const secsLeft = dur - elapsed;
 
-  const h = ist.getUTCHours(), m = ist.getUTCMinutes(), se = ist.getUTCSeconds();
-  const totalSec = h*3600 + m*60 + se;
-  const dur = S.durationSeconds;
-  const periodIdx  = Math.floor(totalSec / dur) + 1;
-  const elapsed    = totalSec % dur;
-  const secsLeft   = dur - elapsed;
+  const ist = new Date(istMs);
+  const y   = ist.getUTCFullYear();
+  const mo  = String(ist.getUTCMonth() + 1).padStart(2, '0');
+  const d   = String(ist.getUTCDate()).padStart(2, '0');
+  const tfCode = { '30s': '10005', '1m': '10001', '3m': '10003', '5m': '10004' }[S.timeframe] || '10005';
+  const periodStr = `${y}${mo}${d}${tfCode}${String(periodIdx).padStart(5, '0')}`;
 
-  const y  = ist.getUTCFullYear();
-  const mo = String(ist.getUTCMonth()+1).padStart(2,'0');
-  const d  = String(ist.getUTCDate()).padStart(2,'0');
-  const tfCode = { '30s':'10005','1m':'10001','3m':'10003','5m':'10004' }[S.timeframe]||'10005';
-  const periodStr = `${y}${mo}${d}${tfCode}${String(periodIdx).padStart(5,'0')}`;
-
-  const hh = String(h).padStart(2,'0'), mm = String(m).padStart(2,'0'), ss = String(se).padStart(2,'0');
-  const clockStr = `${hh}:${mm}:${ss} UTC+5:30`;
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const se = totalSec % 60;
+  const hh = String(h).padStart(2, '0'), mm = String(m).padStart(2, '0'), ss = String(se).padStart(2, '0');
+  const clockStr = `${hh}:${mm}:${ss} IST`;
 
   return { secsLeft, periodStr, clockStr };
 }
@@ -1571,7 +1512,7 @@ function startRTEngine() {
       const clockEl = document.getElementById('realWorldClock');
       if (clockEl) clockEl.textContent = clockStr;
 
-      // Period rollover detection
+      // Period rollover detection (instantaneous, 200ms reactive loop)
       if (lastPeriod && lastPeriod !== periodStr) {
         // Snapshot prediction for the finished period before recalculating for new period
         if (lastPeriod && S.aiSignal && S.aiSignal.target && (!S.aiPredictionMap || !S.aiPredictionMap[lastPeriod])) {
@@ -1620,7 +1561,7 @@ function startRTEngine() {
     } catch (e) {
       console.warn('RT Timer error:', e);
     }
-  }, 1000);
+  }, 200);
 }
 
 function updateTimerUI() {
@@ -2120,6 +2061,8 @@ function runAI() {
   }
 
   renderAIPanel();
+  renderSmartView();
+  renderPatternAnalytics();
 }
 
 function renderAIPanel() {
@@ -3148,22 +3091,9 @@ function toggleAIGlow() {
 }
 
 function switchSubTab(tab) {
-  ['smart','analyse','history','chart','my','ai'].forEach(t => {
-    const btn = document.getElementById(`subtab-${t}`);
-    if (btn) {
-      btn.className = t===tab
-        ? 'py-2 px-1 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black shadow truncate text-center'
-        : 'py-2 px-1 rounded-xl bg-app-card text-purple-300 font-bold hover:text-white truncate text-center';
-    }
-    const view = document.getElementById(`view-${t}`);
-    if (view) {
-      t===tab ? view.classList.remove('hidden') : view.classList.add('hidden');
-    }
-  });
-  if (tab==='smart') renderSmartView();
-  if (tab==='analyse') renderPatternAnalytics();
-  if (tab==='chart') setTimeout(renderNumberRoad, 50);
-  if (tab==='ai') renderAITrackRecord();
+  renderSmartView();
+  renderPatternAnalytics();
+  setTimeout(renderNumberRoad, 50);
 }
 
 function renderAITrackRecord() {
@@ -3395,9 +3325,13 @@ function renderSmartView() {
   const container = document.getElementById('smartHistoryRows');
   if (!container) return;
 
-  const realHistDesc = realHistAsc.slice(-50).reverse();
+  const realHistDesc = realHistAsc.slice().reverse();
+  const rowCountBadge = document.getElementById('rowCountBadge');
+  if (rowCountBadge) rowCountBadge.textContent = `${realHistAsc.length} real records`;
+
   if (!realHistDesc.length) {
     container.innerHTML = '<div class="text-center py-6 text-slate-500 text-xs italic">No game rounds recorded yet...</div>';
+    renderNumberRoad();
     return;
   }
 
@@ -3411,7 +3345,7 @@ function renderSmartView() {
 
     // AI Prediction
     const aiPred = getAIPredictionForPeriod(row.period);
-    let aiHtml = '<span class="text-slate-600">—</span>';
+    let aiHtml = '<span class="text-slate-600 text-[9px]">—</span>';
     if (aiPred && aiPred.target) {
       const isCorrect = aiPred.target === size;
       const probPct = Math.round((aiPred.prob || 0.55) * 100);
@@ -3420,33 +3354,36 @@ function renderSmartView() {
 
     // Bet placed
     const bet = S.myBets.find(b => b.period === row.period);
-    let betHtml = '<span class="text-slate-600 text-[9px]">No Bet</span>';
     let outcomeHtml = '<span class="text-slate-600 text-[9px]">—</span>';
 
     if (bet) {
-      betHtml = `<span class="font-bold text-slate-200">₹${bet.stake.toFixed(0)} on ${bet.choice}</span>`;
       if (bet.status === 'WON') {
         const profit = bet.payout - bet.stake;
-        outcomeHtml = `<span class="text-emerald-400 font-black">+₹${profit.toFixed(1)} WIN</span>`;
+        outcomeHtml = `<span class="text-emerald-400 font-black">₹${bet.stake.toFixed(0)} ${bet.choice} +₹${profit.toFixed(1)} W</span>`;
       } else if (bet.status === 'LOST') {
-        outcomeHtml = `<span class="text-rose-400 font-black">-₹${bet.stake.toFixed(1)} LOSS</span>`;
+        outcomeHtml = `<span class="text-rose-400 font-black">₹${bet.stake.toFixed(0)} ${bet.choice} -₹${bet.stake.toFixed(1)} L</span>`;
       } else {
-        outcomeHtml = `<span class="text-amber-400 font-bold animate-pulse">PENDING</span>`;
+        outcomeHtml = `<span class="text-amber-400 font-bold animate-pulse">₹${bet.stake.toFixed(0)} ${bet.choice} ?</span>`;
       }
     }
 
-    return `<div class="grid grid-cols-12 py-2 px-3 items-center hover:bg-white/5 transition">
-      <div class="col-span-2 text-slate-400 font-mono font-bold">${periodShort}</div>
+    return `<div onclick="editHistoryRow('${row.period}')" class="grid grid-cols-12 py-2 px-3 items-center hover:bg-white/5 cursor-pointer transition" title="Period ${row.period} (Click to edit)">
+      <div class="col-span-3 text-slate-400 font-mono font-bold flex items-center gap-1">
+        <span>${periodShort}</span>
+        <span class="opacity-0 hover:opacity-100 text-amber-400 text-[8px]">✏️</span>
+      </div>
       <div class="col-span-3 text-center flex items-center justify-center gap-1.5">
         <span class="text-xs">${colorDot}</span>
-        <b class="${numColor} text-xs font-black">${n}</b>
+        <b class="${numColor} text-sm font-black">${n}</b>
         <span class="text-[9px] px-1.5 py-0.2 rounded font-black ${size==='BIG' ? 'bg-amber-500/20 text-amber-300' : 'bg-sky-500/20 text-sky-300'}">${size}</span>
       </div>
       <div class="col-span-3 text-center">${aiHtml}</div>
-      <div class="col-span-2 text-center text-[9px]">${betHtml}</div>
-      <div class="col-span-2 text-right text-[9px]">${outcomeHtml}</div>
+      <div class="col-span-3 text-right pr-1 text-[9px]">${outcomeHtml}</div>
     </div>`;
   }).join('');
+
+  // Keep trend road map updated in sync with real history
+  renderNumberRoad();
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -3472,14 +3409,19 @@ function renderPatternAnalytics() {
   _setEl('auditWrongPreds', wrongPreds);
   _setEl('auditAccuracyPct', totalPreds > 0 ? `${accPct}%` : '—');
 
+  // Also sync diag counts
+  _setEl('diagCorrectCount', correctPreds);
+  _setEl('diagWrongCount', wrongPreds);
+  _setEl('diagAccPct', totalPreds > 0 ? `${accPct}%` : '—');
+
   // ── 2. Pattern Detection & Repeat Library ──
   const patterns = [
-    { code: 'DRAGON_BIG', name: 'Big Dragon Streak (3+ Bigs)', regex: /B{3,}/g, color: 'text-amber-400', desc: 'Sustained upward momentum run' },
-    { code: 'DRAGON_SMALL', name: 'Small Dragon Streak (3+ Smalls)', regex: /S{3,}/g, color: 'text-sky-400', desc: 'Sustained downward momentum run' },
-    { code: 'CHOP_BS', name: 'Chop Zig-Zag (BSBS alternating)', regex: /(?:BS){2,}|(?:SB){2,}/g, color: 'text-purple-400', desc: 'Mean-reverting ping-pong market' },
-    { code: 'DOUBLE_PAIR', name: 'Double Pair (BBSS / SSBB)', regex: /B{2}S{2}|S{2}B{2}/g, color: 'text-emerald-400', desc: 'Harmonic two-by-two repeat rhythm' },
-    { code: 'TRIPLE_CHOP', name: '3-1 Trend Break (BBB-S / SSS-B)', regex: /B{3}S|S{3}B/g, color: 'text-rose-400', desc: 'Exhaustion reversal pivot pattern' },
-    { code: 'MIRROR_SANDWICH', name: 'Sandwich (BSB / SBS)', regex: /BSB|SBS/g, color: 'text-indigo-300', desc: 'Fakeout trap pattern' }
+    { code: 'DRAGON_BIG', name: 'Big Dragon Streak', regex: /B{3,}/g, color: 'text-amber-400', desc: 'Sustained 3+ upward momentum run' },
+    { code: 'DRAGON_SMALL', name: 'Small Dragon Streak', regex: /S{3,}/g, color: 'text-sky-400', desc: 'Sustained 3+ downward momentum run' },
+    { code: 'CHOP_BS', name: 'Chop Zig-Zag', regex: /(?:BS){2,}|(?:SB){2,}/g, color: 'text-purple-400', desc: 'Alternating ping-pong flow' },
+    { code: 'DOUBLE_PAIR', name: 'Double Pair Rhythm', regex: /B{2}S{2}|S{2}B{2}/g, color: 'text-emerald-400', desc: 'BBSS / SSBB harmonic rhythm' },
+    { code: 'TRIPLE_CHOP', name: '3-1 Trend Break', regex: /B{3}S|S{3}B/g, color: 'text-rose-400', desc: 'Exhaustion reversal pivot' },
+    { code: 'MIRROR_SANDWICH', name: 'Sandwich Pivot', regex: /BSB|SBS/g, color: 'text-indigo-300', desc: 'Fakeout trap pattern' }
   ];
 
   const seq = realHist.map(r => r.size === 'BIG' ? 'B' : 'S').join('');
@@ -3488,13 +3430,13 @@ function renderPatternAnalytics() {
     listEl.innerHTML = patterns.map(pat => {
       const matches = seq.match(pat.regex) || [];
       const count = matches.length;
-      return `<div class="p-3 bg-purple-950/60 rounded-xl border border-purple-800/40 flex flex-col justify-between">
+      return `<div class="p-2.5 bg-white/[0.03] rounded-xl border border-white/5 flex flex-col justify-between hover:bg-white/[0.05] transition">
         <div class="flex items-center justify-between">
-          <span class="font-black ${pat.color} text-xs">${pat.name}</span>
-          <span class="px-2 py-0.5 rounded-full bg-white/10 text-white font-bold text-[9px]">${count} Repeats</span>
+          <span class="font-black ${pat.color} text-[10.5px]">${pat.name}</span>
+          <span class="px-2 py-0.5 rounded-full bg-white/10 text-white font-bold text-[8.5px]">${count} Repeats</span>
         </div>
-        <div class="text-slate-400 text-[9px] mt-1 italic font-sans">${pat.desc}</div>
-        <div class="mt-2 text-[8px] text-slate-500 font-mono flex items-center justify-between border-t border-purple-900/30 pt-1">
+        <div class="text-slate-400 text-[8.5px] mt-0.5 italic font-sans">${pat.desc}</div>
+        <div class="mt-1.5 text-[7.5px] text-slate-500 font-mono flex items-center justify-between border-t border-white/5 pt-1">
           <span>CODE: <b class="text-slate-300 font-mono">${pat.code}</b></span>
           <span class="text-amber-400/80">Freq: ${realHist.length > 0 ? Math.round(count / (realHist.length / 5 || 1) * 10) : 0}%</span>
         </div>
@@ -3511,10 +3453,10 @@ function renderPatternAnalytics() {
       const pct = Math.round(c / (realHist.length || 1) * 100);
       const isHot = c / maxC > 0.7;
       const numC = (n===0||n===5) ? 'text-purple-300' : (n%2===1 ? 'text-emerald-300' : 'text-rose-300');
-      return `<div class="p-2 rounded-xl bg-purple-950/70 border ${isHot ? 'border-amber-400/60 shadow-lg' : 'border-purple-900/30'} flex flex-col items-center">
-        <b class="${numC} text-sm">${n}</b>
-        <span class="text-slate-300 text-[10px] font-bold mt-0.5">${c}×</span>
-        <span class="text-slate-500 text-[8px] font-mono">${pct}%</span>
+      return `<div class="p-1.5 rounded-xl bg-white/[0.03] border ${isHot ? 'border-amber-400/60 shadow-lg' : 'border-white/5'} flex flex-col items-center">
+        <b class="${numC} text-xs font-black">${n}</b>
+        <span class="text-slate-300 text-[9px] font-bold mt-0.5">${c}×</span>
+        <span class="text-slate-500 text-[7.5px] font-mono">${pct}%</span>
       </div>`;
     }).join('');
   }
