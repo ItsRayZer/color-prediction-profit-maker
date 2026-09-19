@@ -19,8 +19,8 @@
      * Compute current period and remaining seconds strictly in real time
      * @param {Date} [nowUtc] - UTC Date object (defaults to current UTC time)
      */
-    computeRealTimeState(nowUtc) {
-      const now = nowUtc || new Date();
+    computeRealTimeState(nowUtc, offsetSeconds = 0) {
+      const now = new Date((nowUtc || new Date()).getTime() + (Number(offsetSeconds) || 0) * 1000);
       const totalSecUtc = now.getUTCHours() * 3600 + now.getUTCMinutes() * 60 + now.getUTCSeconds();
       const elapsed = totalSecUtc % this.duration;
       const secsLeft = Math.max(0, (this.duration - 1) - elapsed);

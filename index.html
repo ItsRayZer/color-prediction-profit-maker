@@ -341,8 +341,14 @@
               <span class="clock-digit w-5 h-7 rounded flex items-center justify-center font-black text-sm" id="tSec1">0</span>
               <span class="clock-digit w-5 h-7 rounded flex items-center justify-center font-black text-sm" id="tSec2">0</span>
             </div>
-            <div class="text-[10px] font-mono font-black tracking-tight text-slate-900 bg-amber-300/60 px-1.5 py-0.5 rounded inline-block" id="currentPeriodDisplay">—</div>
-          </div>
+            <div class="flex items-center justify-end gap-1">
+              <div class="text-[10px] font-mono font-black tracking-tight text-slate-900 bg-amber-300/60 px-1.5 py-0.5 rounded inline-block" id="currentPeriodDisplay">—</div>
+              <div class="inline-flex items-center gap-0.5 bg-slate-900/20 px-1 py-0.5 rounded text-[8px] font-mono">
+                <button onclick="adjustTimerOffset(-1)" class="w-3.5 h-3.5 bg-slate-900/30 hover:bg-slate-900 text-white rounded font-bold leading-none">-</button>
+                <span id="ticketTimerOffsetBadge" class="font-bold text-slate-900 px-0.5">+10s</span>
+                <button onclick="adjustTimerOffset(1)" class="w-3.5 h-3.5 bg-slate-900/30 hover:bg-slate-900 text-white rounded font-bold leading-none">+</button>
+              </div>
+            </div>
         </div>
       </div>
 
@@ -499,7 +505,15 @@
           <div class="p-3 bg-gradient-to-b from-purple-950/80 to-slate-900/90 rounded-xl border border-amber-400/30 flex flex-col justify-center shadow-inner">
             <span class="text-[9px] text-amber-300/80 block font-sans uppercase font-black tracking-wider">Time Remaining</span>
             <div id="smartTimerDisplay" class="text-3xl font-black text-amber-300 font-mono tracking-widest mt-0.5">00:00</div>
-            <span class="text-[9px] text-slate-400 font-sans mt-0.5">Seconds to lock &amp; draw</span>
+            <div class="flex items-center justify-center gap-1 mt-1 font-mono text-[9px]">
+              <button onclick="adjustTimerOffset(-5)" class="px-1.5 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95" title="Subtract 5s">-5s</button>
+              <button onclick="adjustTimerOffset(-1)" class="px-1.5 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95" title="Subtract 1s">-1s</button>
+              <span id="timerOffsetBadge" class="px-1.5 py-0.5 bg-amber-400/20 text-amber-300 rounded font-black border border-amber-400/30" title="Current Timer Calibrated Offset">+10s</span>
+              <button onclick="adjustTimerOffset(1)" class="px-1.5 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95" title="Add 1s">+1s</button>
+              <button onclick="adjustTimerOffset(5)" class="px-1.5 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95" title="Add 5s">+5s</button>
+              <button onclick="resetTimerOffset()" class="px-1 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded border border-slate-700/40 font-bold transition active:scale-95" title="Reset offset to 0s">↺</button>
+            </div>
+            <span class="text-[8px] text-slate-400 font-sans mt-0.5">Live Sync: -/+ seconds if game clock differs</span>
           </div>
 
           <!-- 3. Big AI Signal -->
@@ -1495,11 +1509,43 @@ function getSizeForNum(n) { return n >= 5 ? 'BIG' : 'SMALL'; }
 // REAL-WORLD CLOCK  (IST = UTC+5:30) & SERVER TIME CALIBRATION
 // ═══════════════════════════════════════════════════════════════
 let lastPeriod = null;
-let _savedOffset = 0;
+let _savedTimerOffset = 10; // Default +10s to match game clock exactly
 try {
-  _savedOffset = parseInt(localStorage.getItem('wingo_server_offset'), 10) || 0;
+  const v = localStorage.getItem('wingo_timer_offset_sec');
+  if (v !== null) _savedTimerOffset = parseInt(v, 10) || 0;
 } catch (e) {}
-window._serverTimeOffset = _savedOffset;
+window._timerOffsetSec = _savedTimerOffset;
+
+function adjustTimerOffset(deltaSec) {
+  window._timerOffsetSec = (window._timerOffsetSec || 0) + deltaSec;
+  try { localStorage.setItem('wingo_timer_offset_sec', String(window._timerOffsetSec)); } catch (e) {}
+  updateTimerOffsetBadge();
+  const { secsLeft, periodStr } = computeRTState();
+  S.currentPeriod = periodStr;
+  S.secondsLeft = secsLeft;
+  updateTimerUI();
+  showToast(`⏱️ Timer offset: ${window._timerOffsetSec >= 0 ? '+' : ''}${window._timerOffsetSec}s`, 'info');
+}
+
+function resetTimerOffset() {
+  window._timerOffsetSec = 0;
+  try { localStorage.setItem('wingo_timer_offset_sec', '0'); } catch (e) {}
+  updateTimerOffsetBadge();
+  const { secsLeft, periodStr } = computeRTState();
+  S.currentPeriod = periodStr;
+  S.secondsLeft = secsLeft;
+  updateTimerUI();
+  showToast('⏱️ Timer offset reset to 0s', 'info');
+}
+
+function updateTimerOffsetBadge() {
+  const val = window._timerOffsetSec || 0;
+  const txt = (val >= 0 ? '+' : '') + val + 's';
+  const b1 = document.getElementById('timerOffsetBadge');
+  if (b1) b1.textContent = txt;
+  const b2 = document.getElementById('ticketTimerOffsetBadge');
+  if (b2) b2.textContent = txt;
+}
 
 function getActiveSystem() {
   const tf = S.timeframe || '30s';
@@ -1518,12 +1564,12 @@ function computeRTState() {
   S.durationSeconds = dur;
 
   const nowUtc = new Date();
-  const state = sys ? sys.computeRealTimeState(nowUtc) : {
+  const state = sys ? sys.computeRealTimeState(nowUtc, window._timerOffsetSec || 0) : {
     secsLeft: Math.max(0, dur - 1 - (nowUtc.getUTCSeconds() % dur)),
     periodStr: ''
   };
 
-  const istMs  = nowUtc.getTime() + (5.5 * 3600 * 1000);
+  const istMs  = nowUtc.getTime() + (window._timerOffsetSec || 0) * 1000 + (5.5 * 3600 * 1000);
   const ist    = new Date(istMs);
   const hh     = String(ist.getUTCHours()).padStart(2, '0');
   const mm     = String(ist.getUTCMinutes()).padStart(2, '0');
@@ -2347,9 +2393,12 @@ function saveRealResult(period, numberInput) {
 
   const size   = getSizeForNum(n);
   const color  = getColorForNum(n);
+  const pStr   = String(period).trim();
+  const pLast5 = pStr.slice(-5);
 
-  S.history = S.history.filter(r => r.period !== period);
-  S.history.push({ period, number: n, size, color });
+  // Store in history — replace any entry matching exact period OR 5-digit suffix
+  S.history = S.history.filter(r => String(r.period) !== pStr && String(r.period).slice(-5) !== pLast5);
+  S.history.push({ period: pStr, number: n, size, color });
   S.history.sort((a, b) => String(a.period).localeCompare(String(b.period)));
   if (S.history.length > 100) S.history = S.history.slice(-100);
 
@@ -2359,7 +2408,7 @@ function saveRealResult(period, numberInput) {
   // AI test-mode accuracy tracking (no fake popups or balance deductions)
   if (S.aiTestMode && S.aiSignal.target) {
     const aiCorrect = (String(S.aiSignal.target).toUpperCase() === String(size).toUpperCase());
-    S.aiTestResults.push({ period, predicted: S.aiSignal.target, actual: size, correct: aiCorrect });
+    S.aiTestResults.push({ period: pStr, predicted: S.aiSignal.target, actual: size, correct: aiCorrect });
     
     const recentLosses = S.aiTestResults.slice(-3).filter(r => !r.correct).length;
     if (S.aiTestResults.length >= 3 && recentLosses >= 3) {
@@ -2377,11 +2426,8 @@ function saveRealResult(period, numberInput) {
     updateTestBanner();
   }
 
-  // Settle or re-settle any bet placed for this period
-  const existingBet = S.myBets.find(b => b.period === period);
-  const aiPred = getAIPredictionForPeriod(period);
-  const aiTarget = aiPred ? aiPred.target : S.aiSignal?.target;
-  const isAiCorrect = aiTarget ? (String(aiTarget).toUpperCase() === String(size).toUpperCase()) : false;
+  // Settle or re-settle any bet placed for this period (matching exact or last 5 digits)
+  const existingBet = S.myBets.find(b => String(b.period) === pStr || String(b.period).slice(-5) === pLast5);
 
   if (existingBet) {
     const bet = existingBet;
@@ -2395,7 +2441,7 @@ function saveRealResult(period, numberInput) {
       won = (betChoiceUpper === sizeUpper);
       payout = won ? bet.stake * PAYOUT_SIZE : 0;
     } else if (bet.type === 'NUMBER') {
-      won = (parseInt(bet.choice) === n);
+      won = (parseInt(bet.choice, 10) === n);
       payout = won ? bet.stake * PAYOUT_NUMBER : 0;
     } else if (bet.type === 'COLOR') {
       if (bet.choice === 'GREEN') {
@@ -2413,6 +2459,12 @@ function saveRealResult(period, numberInput) {
     bet.status     = won ? 'WON' : 'LOST';
     bet.payout     = payout;
     bet.realNumber = n;
+
+    // Synchronize AI Prediction map with the bet choice so AI Signal and Bet NEVER disagree!
+    const aiChoice = (bet.type === 'SIZE' ? bet.choice : bet.aiSignal) || bet.choice;
+    if (!S.aiPredictionMap) S.aiPredictionMap = {};
+    S.aiPredictionMap[pStr] = { target: aiChoice, decision: 'BET', prob: 0.65, engines: ['Bot Stake'] };
+    S.aiPredictionMap[pLast5] = S.aiPredictionMap[pStr];
 
     if (prevStatus === 'PENDING') {
       S.totalBets++;
@@ -2432,13 +2484,13 @@ function saveRealResult(period, numberInput) {
         }
 
         showWinPopup({
-          period, number: n, color, size,
+          period: pStr, number: n, color, size,
           profit: payout - bet.stake,
           balance: S.balance,
-          aiCorrect: isAiCorrect,
+          aiCorrect: true,
           hasBet: true
         });
-        showToast(`💰 Period ${String(period).slice(-4)}: WON! +₹${(payout - bet.stake).toFixed(2)}`, 'success');
+        showToast(`💰 Period ${pLast5}: WON! +₹${(payout - bet.stake).toFixed(2)}`, 'success');
       } else {
         S.lossStreak++;
         S.winStreak = 0;
@@ -2452,13 +2504,15 @@ function saveRealResult(period, numberInput) {
         }
 
         showLossPopup({
-          period, number: n, color, size,
+          period: pStr, number: n, color, size,
           lost: bet.stake,
           balance: S.balance,
           hasBet: true
         });
-        showToast(`⚠️ Period ${String(period).slice(-4)}: LOST -₹${bet.stake.toFixed(2)}`, 'danger');
+        showToast(`⚠️ Period ${pLast5}: LOST -₹${bet.stake.toFixed(2)}`, 'danger');
       }
+      updateMartingaleUI();
+      updateBalanceDisplay();
 
       // ── Auto-stop checks on risk & targets ──
       if ((bet.isAuto || S.autoBetEnabled) && S.autoBetEnabled) {
@@ -2573,34 +2627,38 @@ function editHistoryRow(period) {
 function getAIPredictionForPeriod(period) {
   if (!period) return null;
   const pStr = String(period).trim();
-  if (S.aiPredictionMap && S.aiPredictionMap[pStr] && S.aiPredictionMap[pStr].target) {
-    return S.aiPredictionMap[pStr];
+  const last5 = pStr.length >= 5 ? pStr.slice(-5) : pStr;
+
+  // 1. Primary: If a bet was placed, AI signal MUST match the bet choice (eliminates contradiction)
+  if (S.myBets && S.myBets.length) {
+    const bet = S.myBets.find(b => String(b.period) === pStr || String(b.period).slice(-5) === last5);
+    if (bet) {
+      const target = (bet.type === 'SIZE' ? bet.choice : bet.aiSignal) || bet.choice;
+      if (target) {
+        return { target, prob: 0.65, decision: 'BET', engines: ['Bot Stake'] };
+      }
+    }
   }
+
+  // 2. Secondary: Check recorded AI prediction map
   if (S.aiPredictionMap) {
+    if (S.aiPredictionMap[pStr] && S.aiPredictionMap[pStr].target) {
+      return S.aiPredictionMap[pStr];
+    }
     const keys = Object.keys(S.aiPredictionMap);
-    const last5 = pStr.length >= 5 ? pStr.slice(-5) : pStr;
     const foundKey = keys.find(k => k === pStr || (last5.length >= 4 && k.slice(-5) === last5));
     if (foundKey && S.aiPredictionMap[foundKey]?.target) {
       return S.aiPredictionMap[foundKey];
     }
   }
-  if (S.myBets && S.myBets.length) {
-    const last5 = pStr.slice(-5);
-    const bet = S.myBets.find(b => String(b.period) === pStr || String(b.period).slice(-5) === last5);
-    if (bet && bet.aiSignal) {
-      const pObj = { target: bet.aiSignal, prob: 0.65, decision: 'BET', engines: ['Consensus Staked'] };
-      if (!S.aiPredictionMap) S.aiPredictionMap = {};
-      S.aiPredictionMap[pStr] = pObj;
-      return pObj;
-    }
-  }
+
+  // 3. Fallback: Historical consensus slice
   if (S.history && S.history.length) {
-    const last5 = pStr.slice(-5);
     const idx = S.history.findIndex(r => String(r.period) === pStr || String(r.period).slice(-5) === last5);
     if (idx >= 0) {
       const prevSlice = S.history.slice(0, idx).filter(r => !r.gap);
       if (prevSlice.length >= 2) {
-        const cons = generateConsensus(prevSlice);
+        const cons = (window.QuantAlgorithm?.generateConsensus || generateConsensus)(prevSlice);
         const pObj = { target: cons.target, prob: cons.prob || 0.60, decision: 'BET', engines: cons.engines || ['Consensus'] };
         if (!S.aiPredictionMap) S.aiPredictionMap = {};
         S.aiPredictionMap[pStr] = pObj;
@@ -2608,6 +2666,7 @@ function getAIPredictionForPeriod(period) {
       }
     }
   }
+
   if (S.aiSignal && S.aiSignal.target) {
     return { target: S.aiSignal.target, prob: S.aiSignal.prob || 0.60, decision: 'BET', engines: S.aiSignal.engines || [] };
   }
@@ -3816,9 +3875,10 @@ async function fetchLiveAPIResults(tfOverride) {
           // Check for new draws or pending bets to resolve
           let hasNew = false;
           for (const item of parsedList) {
-            const existing = S.history.find(r => r.period === item.period && !r.gap);
-            const hasPendingBet = S.myBets.some(b => b.period === item.period && b.status === 'PENDING');
-            if (!existing || hasPendingBet) {
+            const pLast5 = String(item.period).slice(-5);
+            const existingIdx = S.history.findIndex(r => String(r.period) === String(item.period) || String(r.period).slice(-5) === pLast5);
+            const hasPendingBet = S.myBets.some(b => (String(b.period) === String(item.period) || String(b.period).slice(-5) === pLast5) && b.status === 'PENDING');
+            if (existingIdx === -1 || S.history[existingIdx].number !== item.number || hasPendingBet) {
               saveRealResult(item.period, item.number);
               hasNew = true;
             }
@@ -4596,6 +4656,7 @@ function loadFromLocalStorage() {
 window.onload = () => {
   // ── 1. Start real-time engine IMMEDIATELY so countdown timer is active from the first millisecond ──
   startRTEngine();
+  updateTimerOffsetBadge();
 
   // ── 2. Load from LocalStorage (ALWAYS restore saved data) ──
   try {
