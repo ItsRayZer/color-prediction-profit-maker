@@ -505,15 +505,18 @@
           <div class="p-3 bg-gradient-to-b from-purple-950/80 to-slate-900/90 rounded-xl border border-amber-400/30 flex flex-col justify-center shadow-inner">
             <span class="text-[9px] text-amber-300/80 block font-sans uppercase font-black tracking-wider">Time Remaining</span>
             <div id="smartTimerDisplay" class="text-3xl font-black text-amber-300 font-mono tracking-widest mt-0.5">00:00</div>
-            <div class="flex items-center justify-center gap-1 mt-1 font-mono text-[9px]">
-              <button onclick="adjustTimerOffset(-5)" class="px-1.5 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95" title="Subtract 5s">-5s</button>
+            <div class="flex items-center justify-center gap-1 mt-1 font-mono text-[9px] flex-wrap">
+              <button onclick="adjustTimerOffset(-3)" class="px-1.5 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95" title="Subtract 3s">-3s</button>
+              <button onclick="adjustTimerOffset(-2)" class="px-1.5 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95" title="Subtract 2s">-2s</button>
               <button onclick="adjustTimerOffset(-1)" class="px-1.5 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95" title="Subtract 1s">-1s</button>
-              <span id="timerOffsetBadge" class="px-1.5 py-0.5 bg-amber-400/20 text-amber-300 rounded font-black border border-amber-400/30" title="Current Timer Calibrated Offset">+10s</span>
+              <span id="timerOffsetBadge" class="px-1.5 py-0.5 bg-amber-400/20 text-amber-300 rounded font-black border border-amber-400/30" title="Current Timer Calibrated Offset">+0s</span>
               <button onclick="adjustTimerOffset(1)" class="px-1.5 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95" title="Add 1s">+1s</button>
               <button onclick="adjustTimerOffset(5)" class="px-1.5 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95" title="Add 5s">+5s</button>
-              <button onclick="resetTimerOffset()" class="px-1 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded border border-slate-700/40 font-bold transition active:scale-95" title="Reset offset to 0s">↺</button>
+              <button onclick="adjustTimerOffset(10)" class="px-1.5 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95" title="Add 10s">+10s</button>
+              <button id="timerPauseBtn" onclick="toggleTimerPause()" class="px-1.5 py-0.5 bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 font-bold transition active:scale-95" title="Pause / Resume timer">⏸</button>
+              <button onclick="resetTimerOffset()" class="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded border border-slate-700/40 font-bold transition active:scale-95" title="Reset offset to 0s">↺</button>
             </div>
-            <span class="text-[8px] text-slate-400 font-sans mt-0.5">Live Sync: -/+ seconds if game clock differs</span>
+            <span class="text-[8px] text-slate-400 font-sans mt-0.5">Live Sync: -/+ seconds, Pause, or ↺ Reset</span>
           </div>
 
           <!-- 3. Big AI Signal -->
@@ -1529,13 +1532,80 @@ function adjustTimerOffset(deltaSec) {
 
 function resetTimerOffset() {
   window._timerOffsetSec = 0;
+  window._timerPaused = false;
   try { localStorage.setItem('wingo_timer_offset_sec', '0'); } catch (e) {}
   updateTimerOffsetBadge();
+  const pauseBtn = document.getElementById('timerPauseBtn');
+  if (pauseBtn) {
+    pauseBtn.innerHTML = '⏸';
+    pauseBtn.classList.remove('bg-amber-500/40', 'text-amber-300', 'border-amber-400');
+    pauseBtn.classList.add('bg-purple-900/60', 'text-slate-300', 'border-purple-700/40');
+  }
   const { secsLeft, periodStr } = computeRTState();
   S.currentPeriod = periodStr;
   S.secondsLeft = secsLeft;
   updateTimerUI();
   showToast('⏱️ Timer offset reset to 0s', 'info');
+}
+
+function toggleTimerPause() {
+  window._timerPaused = !window._timerPaused;
+  const btn = document.getElementById('timerPauseBtn');
+  if (window._timerPaused) {
+    window._pausedSecsLeft = (S.secondsLeft !== undefined) ? S.secondsLeft : 59;
+    if (btn) {
+      btn.innerHTML = '▶';
+      btn.classList.add('bg-amber-500/40', 'text-amber-300', 'border-amber-400');
+      btn.classList.remove('bg-purple-900/60', 'text-slate-300', 'border-purple-700/40');
+    }
+    showToast('⏸️ Timer Paused', 'warning');
+  } else {
+    // Resume from paused remaining seconds
+    const sys = getActiveSystem();
+    const dur = sys ? sys.duration : 60;
+    const nowUtc = new Date();
+    const totalSecUtc = nowUtc.getUTCHours() * 3600 + nowUtc.getUTCMinutes() * 60 + nowUtc.getUTCSeconds();
+    const desiredElapsed = Math.max(0, (dur - 1) - (window._pausedSecsLeft || 0));
+    const curElapsed = totalSecUtc % dur;
+    let diff = desiredElapsed - curElapsed;
+    window._timerOffsetSec = (window._timerOffsetSec || 0) + diff;
+    try { localStorage.setItem('wingo_timer_offset_sec', String(window._timerOffsetSec)); } catch (e) {}
+    updateTimerOffsetBadge();
+    if (btn) {
+      btn.innerHTML = '⏸';
+      btn.classList.remove('bg-amber-500/40', 'text-amber-300', 'border-amber-400');
+      btn.classList.add('bg-purple-900/60', 'text-slate-300', 'border-purple-700/40');
+    }
+    showToast('▶️ Timer Resumed', 'success');
+  }
+  updateTimerUI();
+}
+
+/**
+ * Instantly snaps timer to 59s (or duration - 1) the moment a new result arrives.
+ */
+function snapTimerToNewRound() {
+  const sys = getActiveSystem();
+  const dur = sys ? sys.duration : 60;
+  const targetSec = (dur === 60) ? 59 : (dur - 1);
+
+  const nowUtc = new Date();
+  const totalSecUtc = nowUtc.getUTCHours() * 3600 + nowUtc.getUTCMinutes() * 60 + nowUtc.getUTCSeconds();
+  const curElapsed = totalSecUtc % dur;
+  window._timerOffsetSec = -curElapsed;
+  window._timerPaused = false;
+  try { localStorage.setItem('wingo_timer_offset_sec', String(window._timerOffsetSec)); } catch (e) {}
+
+  const pauseBtn = document.getElementById('timerPauseBtn');
+  if (pauseBtn) {
+    pauseBtn.innerHTML = '⏸';
+    pauseBtn.classList.remove('bg-amber-500/40', 'text-amber-300', 'border-amber-400');
+    pauseBtn.classList.add('bg-purple-900/60', 'text-slate-300', 'border-purple-700/40');
+  }
+
+  updateTimerOffsetBadge();
+  S.secondsLeft = targetSec;
+  updateTimerUI();
 }
 
 function updateTimerOffsetBadge() {
@@ -1592,17 +1662,23 @@ function startRTEngine() {
     try {
       const { secsLeft, periodStr, clockStr, dur } = computeRTState();
       
-      // 1. ALWAYS update clock, period, and timer UI immediately & unconditionally
-      S.currentPeriod = periodStr;
-      S.secondsLeft = secsLeft;
-
       const clockEl = document.getElementById('realWorldClock');
       if (clockEl) clockEl.textContent = clockStr;
       const periodEl = document.getElementById('currentPeriodDisplay');
-      if (periodEl) periodEl.textContent = S.currentPeriod;
+      if (periodEl) periodEl.textContent = S.currentPeriod || periodStr;
       const smartPEl = document.getElementById('smartPeriodDisplay');
-      if (smartPEl) smartPEl.textContent = S.currentPeriod ? S.currentPeriod.slice(-5) : '—';
-      
+      if (smartPEl) smartPEl.textContent = (S.currentPeriod || periodStr) ? (S.currentPeriod || periodStr).slice(-5) : '—';
+
+      // If timer is paused by user, freeze countdown display and do not advance
+      if (window._timerPaused) {
+        S.secondsLeft = (window._pausedSecsLeft !== undefined) ? window._pausedSecsLeft : secsLeft;
+        updateTimerUI();
+        return;
+      }
+
+      // 1. ALWAYS update clock, period, and timer UI immediately & unconditionally
+      S.currentPeriod = periodStr;
+      S.secondsLeft = secsLeft;
       updateTimerUI();
 
       // 5-second bet block: lock down when 5 seconds or less remaining (5, 4, 3, 2, 1, 0)
@@ -2033,6 +2109,12 @@ function runAI() {
   S.aiSignal = {
     decision,
     target: outcome.target,
+    type: outcome.type || (['RED', 'GREEN'].includes(outcome.target) ? 'COLOR' : 'SIZE'),
+    sizeTarget: outcome.sizeTarget,
+    sizeProb: outcome.sizeProb,
+    colorTarget: outcome.colorTarget,
+    colorProb: outcome.colorProb,
+    patternStrength: outcome.patternStrength,
     stake: outcome.stake,
     prob: outcome.prob,
     entropy: outcome.entropy,
@@ -2044,15 +2126,23 @@ function runAI() {
   };
   S.aiReady = !isLowAcc;
 
-  // Store AI Prediction for current period (with isTest flag)
+  // Store AI Prediction for current period (both full string and 5-digit suffix)
   if (S.currentPeriod) {
-    S.aiPredictionMap[S.currentPeriod] = {
+    const pStr = String(S.currentPeriod);
+    const pLast5 = pStr.slice(-5);
+    const predRecord = {
       target: outcome.target,
+      type: outcome.type || (['RED', 'GREEN'].includes(outcome.target) ? 'COLOR' : 'SIZE'),
+      sizeTarget: outcome.sizeTarget,
+      colorTarget: outcome.colorTarget,
       decision: isTest ? 'TEST' : 'BET',
       prob: outcome.prob,
       engines: outcome.engines || [],
       isTest
     };
+    if (!S.aiPredictionMap) S.aiPredictionMap = {};
+    S.aiPredictionMap[pStr] = predRecord;
+    S.aiPredictionMap[pLast5] = predRecord;
   }
 
   // Update AI Diagnostics Drawer if currently open
@@ -2092,7 +2182,7 @@ function runAI() {
       S.roundBet = {
         id: Date.now(),
         period: S.currentPeriod,
-        type: 'SIZE',
+        type: ['RED', 'GREEN', 'VIOLET'].includes(S.aiSignal.target) ? 'COLOR' : 'SIZE',
         choice: S.aiSignal.target,
         stake: autoStake,
         status: 'PENDING',
@@ -2126,6 +2216,8 @@ function renderAIPanel() {
 
   // Verdict text (Show prediction even in test mode!)
   const vEl = document.getElementById('signalVerdict');
+  const targetColor = sig.target === 'BIG' ? 'text-amber-400' : sig.target === 'SMALL' ? 'text-sky-400' : sig.target === 'GREEN' ? 'text-emerald-400' : 'text-rose-400';
+
   if (!S.aiReady && S.history.length < MIN_DATA_TO_PREDICT) {
     vEl.textContent  = 'GATHERING DATA...';
     vEl.className    = 'text-xl font-black text-slate-400 mt-0.5';
@@ -2134,22 +2226,27 @@ function renderAIPanel() {
     vEl.className    = 'text-xl font-black text-slate-400 mt-0.5';
   } else if (sig.isTest && sig.target) {
     vEl.textContent  = `🧪 TEST: PREDICT ${sig.target}`;
-    vEl.className    = `text-xl font-black mt-0.5 ${sig.target==='BIG' ? 'text-amber-300' : 'text-sky-300'}`;
+    vEl.className    = `text-xl font-black mt-0.5 ${targetColor}`;
   } else if (sig.decision === 'BET' && sig.target) {
     vEl.textContent  = `PREDICT: ${sig.target}`;
-    vEl.className    = `text-xl font-black mt-0.5 ${sig.target==='BIG' ? 'text-amber-400' : 'text-sky-400'}`;
+    vEl.className    = `text-xl font-black mt-0.5 ${targetColor}`;
   } else if (sig.target) {
     vEl.textContent  = `PREDICT: ${sig.target}`;
-    vEl.className    = `text-xl font-black mt-0.5 ${sig.target==='BIG' ? 'text-amber-400' : 'text-sky-400'}`;
+    vEl.className    = `text-xl font-black mt-0.5 ${targetColor}`;
   } else {
     vEl.textContent  = 'SKIP THIS ROUND';
     vEl.className    = 'text-xl font-black text-slate-400 mt-0.5';
   }
 
-  // Size pill
+  // Size / Target pill
   const sp = document.getElementById('aiSizePill');
   if (sig.target) {
-    sp.className = `ai-signal-pill ${sig.target==='BIG' ? 'ai-big' : 'ai-small'}`;
+    let pillClass = 'ai-signal-pill ';
+    if (sig.target === 'BIG') pillClass += 'ai-big';
+    else if (sig.target === 'SMALL') pillClass += 'ai-small';
+    else if (sig.target === 'GREEN') pillClass += 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50';
+    else if (sig.target === 'RED') pillClass += 'bg-rose-500/30 text-rose-300 border border-rose-500/50';
+    sp.className = pillClass;
     sp.innerHTML = `<i class="fa-solid fa-chart-bar text-[10px]"></i> ${sig.target}`;
   } else {
     sp.className = 'ai-signal-pill ai-wait';
@@ -2396,19 +2493,112 @@ function saveRealResult(period, numberInput) {
   const pStr   = String(period).trim();
   const pLast5 = pStr.slice(-5);
 
-  // Store in history — replace any entry matching exact period OR 5-digit suffix
+  // 1. Resolve and permanently freeze AI Prediction for this period so it NEVER mutates or flips!
+  let existingPred = (S.aiPredictionMap && (S.aiPredictionMap[pStr] || S.aiPredictionMap[pLast5]));
+
+  const oldHistRow = S.history.find(r => String(r.period) === pStr || String(r.period).slice(-5) === pLast5);
+  if (!existingPred && oldHistRow && oldHistRow.aiTarget) {
+    existingPred = {
+      target: oldHistRow.aiTarget,
+      type: oldHistRow.aiType || 'SIZE',
+      sizeTarget: oldHistRow.aiSizeTarget,
+      colorTarget: oldHistRow.aiColorTarget,
+      prob: oldHistRow.aiProb || 0.60,
+      engines: oldHistRow.aiEngines || ['Quant AI']
+    };
+  }
+
+  // Check if a bet was placed for this period
+  const existingBet = S.myBets.find(b => String(b.period) === pStr || String(b.period).slice(-5) === pLast5);
+  if (!existingPred && existingBet) {
+    const aiChoice = (existingBet.type === 'SIZE' ? existingBet.choice : existingBet.aiSignal) || existingBet.choice;
+    existingPred = {
+      target: aiChoice,
+      type: existingBet.type || 'SIZE',
+      sizeTarget: existingBet.type === 'SIZE' ? aiChoice : null,
+      colorTarget: existingBet.type === 'COLOR' ? aiChoice : null,
+      prob: 0.65,
+      engines: ['Bot Stake']
+    };
+  }
+
+  // If this is current/recent period, capture S.aiSignal
+  if (!existingPred && S.aiSignal && S.aiSignal.target) {
+    existingPred = {
+      target: S.aiSignal.target,
+      type: S.aiSignal.type || (['RED', 'GREEN'].includes(S.aiSignal.target) ? 'COLOR' : 'SIZE'),
+      sizeTarget: S.aiSignal.sizeTarget || (['BIG', 'SMALL'].includes(S.aiSignal.target) ? S.aiSignal.target : null),
+      colorTarget: S.aiSignal.colorTarget || (['RED', 'GREEN'].includes(S.aiSignal.target) ? S.aiSignal.target : null),
+      prob: S.aiSignal.prob || 0.60,
+      engines: S.aiSignal.engines || []
+    };
+  }
+
+  // Historical fallback: evaluate consensus strictly from history BEFORE this period
+  if (!existingPred) {
+    const priorHist = S.history.filter(r => !r.gap && String(r.period) < pStr);
+    if (priorHist.length >= 5 && window.QuantAlgorithm) {
+      const p = window.QuantAlgorithm.predictNextBet({ history: priorHist, balance: S.balance, lossStreak: 0 });
+      if (p && p.target) {
+        existingPred = {
+          target: p.target,
+          type: p.type || 'SIZE',
+          sizeTarget: p.sizeTarget,
+          colorTarget: p.colorTarget,
+          prob: p.prob || 0.60,
+          engines: p.engines || []
+        };
+      }
+    }
+  }
+
+  const aiMainTarget  = existingPred ? existingPred.target : null;
+  const aiType        = existingPred ? (existingPred.type || (['RED','GREEN'].includes(aiMainTarget) ? 'COLOR' : 'SIZE')) : 'SIZE';
+  const aiSizeTarget  = existingPred ? (existingPred.sizeTarget || (['BIG','SMALL'].includes(aiMainTarget) ? aiMainTarget : null)) : null;
+  const aiColorTarget = existingPred ? (existingPred.colorTarget || (['RED','GREEN'].includes(aiMainTarget) ? aiMainTarget : null)) : null;
+
+  const isGreen = [1, 3, 7, 9, 5].includes(n);
+  const isRed   = [2, 4, 6, 8, 0].includes(n);
+  const aiSizeCorrect  = aiSizeTarget ? (String(aiSizeTarget).toUpperCase() === String(size).toUpperCase()) : null;
+  const aiColorCorrect = aiColorTarget ? ((aiColorTarget === 'GREEN' && isGreen) || (aiColorTarget === 'RED' && isRed)) : null;
+  const aiMainCorrect  = (aiType === 'COLOR') ? aiColorCorrect : (aiType === 'SIZE' ? aiSizeCorrect : (aiMainTarget === size));
+
+  // Store in history with immutable stamped AI prediction
   S.history = S.history.filter(r => String(r.period) !== pStr && String(r.period).slice(-5) !== pLast5);
-  S.history.push({ period: pStr, number: n, size, color });
+  S.history.push({
+    period: pStr,
+    number: n,
+    size,
+    color,
+    aiTarget: aiMainTarget,
+    aiType,
+    aiSizeTarget,
+    aiColorTarget,
+    aiCorrect: aiMainCorrect,
+    aiSizeCorrect,
+    aiColorCorrect,
+    aiProb: existingPred ? existingPred.prob : 0.60,
+    aiEngines: existingPred ? (existingPred.engines || []) : []
+  });
   S.history.sort((a, b) => String(a.period).localeCompare(String(b.period)));
   if (S.history.length > 100) S.history = S.history.slice(-100);
 
   if (!S.historyByTimeframe) S.historyByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
   S.historyByTimeframe[S.timeframe] = [...S.history];
 
+  // Save to prediction map as well
+  if (!S.aiPredictionMap) S.aiPredictionMap = {};
+  if (existingPred) {
+    S.aiPredictionMap[pStr] = existingPred;
+    S.aiPredictionMap[pLast5] = existingPred;
+  }
+
+  // Snap timer to 59s immediately on new result
+  snapTimerToNewRound();
+
   // AI test-mode accuracy tracking (no fake popups or balance deductions)
-  if (S.aiTestMode && S.aiSignal.target) {
-    const aiCorrect = (String(S.aiSignal.target).toUpperCase() === String(size).toUpperCase());
-    S.aiTestResults.push({ period: pStr, predicted: S.aiSignal.target, actual: size, correct: aiCorrect });
+  if (S.aiTestMode && aiMainTarget) {
+    S.aiTestResults.push({ period: pStr, predicted: aiMainTarget, actual: (aiType === 'COLOR' ? color : size), correct: !!aiMainCorrect });
     
     const recentLosses = S.aiTestResults.slice(-3).filter(r => !r.correct).length;
     if (S.aiTestResults.length >= 3 && recentLosses >= 3) {
@@ -2427,8 +2617,6 @@ function saveRealResult(period, numberInput) {
   }
 
   // Settle or re-settle any bet placed for this period (matching exact or last 5 digits)
-  const existingBet = S.myBets.find(b => String(b.period) === pStr || String(b.period).slice(-5) === pLast5);
-
   if (existingBet) {
     const bet = existingBet;
     let won = false;
@@ -2623,24 +2811,48 @@ function editHistoryRow(period) {
   showResultPrompt(period, preNum);
 }
 
-// Universal AI prediction lookup (matches exact period, 5-digit suffix, bet history, or generates consensus)
+// Universal AI prediction lookup (matches exact period, 5-digit suffix, bet history, or frozen history row)
 function getAIPredictionForPeriod(period) {
   if (!period) return null;
   const pStr = String(period).trim();
   const last5 = pStr.length >= 5 ? pStr.slice(-5) : pStr;
 
-  // 1. Primary: If a bet was placed, AI signal MUST match the bet choice (eliminates contradiction)
+  // 1. Primary & Immutable: Check recorded history row first!
+  if (S.history && S.history.length) {
+    const row = S.history.find(r => String(r.period) === pStr || String(r.period).slice(-5) === last5);
+    if (row && row.aiTarget) {
+      return {
+        target: row.aiTarget,
+        type: row.aiType || (['RED', 'GREEN'].includes(row.aiTarget) ? 'COLOR' : 'SIZE'),
+        sizeTarget: row.aiSizeTarget,
+        colorTarget: row.aiColorTarget,
+        prob: row.aiProb || 0.60,
+        engines: row.aiEngines || ['Quant AI'],
+        correct: row.aiCorrect,
+        sizeCorrect: row.aiSizeCorrect,
+        colorCorrect: row.aiColorCorrect
+      };
+    }
+  }
+
+  // 2. Bet placed
   if (S.myBets && S.myBets.length) {
     const bet = S.myBets.find(b => String(b.period) === pStr || String(b.period).slice(-5) === last5);
     if (bet) {
       const target = (bet.type === 'SIZE' ? bet.choice : bet.aiSignal) || bet.choice;
       if (target) {
-        return { target, prob: 0.65, decision: 'BET', engines: ['Bot Stake'] };
+        return {
+          target,
+          type: bet.type || (['RED', 'GREEN'].includes(target) ? 'COLOR' : 'SIZE'),
+          prob: 0.65,
+          decision: 'BET',
+          engines: ['Bot Stake']
+        };
       }
     }
   }
 
-  // 2. Secondary: Check recorded AI prediction map
+  // 3. Stored AI prediction map
   if (S.aiPredictionMap) {
     if (S.aiPredictionMap[pStr] && S.aiPredictionMap[pStr].target) {
       return S.aiPredictionMap[pStr];
@@ -2652,24 +2864,21 @@ function getAIPredictionForPeriod(period) {
     }
   }
 
-  // 3. Fallback: Historical consensus slice
-  if (S.history && S.history.length) {
-    const idx = S.history.findIndex(r => String(r.period) === pStr || String(r.period).slice(-5) === last5);
-    if (idx >= 0) {
-      const prevSlice = S.history.slice(0, idx).filter(r => !r.gap);
-      if (prevSlice.length >= 2) {
-        const cons = (window.QuantAlgorithm?.generateConsensus || generateConsensus)(prevSlice);
-        const pObj = { target: cons.target, prob: cons.prob || 0.60, decision: 'BET', engines: cons.engines || ['Consensus'] };
-        if (!S.aiPredictionMap) S.aiPredictionMap = {};
-        S.aiPredictionMap[pStr] = pObj;
-        return pObj;
-      }
+  // 4. Current upcoming round ONLY
+  if (S.currentPeriod && (pStr === String(S.currentPeriod) || last5 === String(S.currentPeriod).slice(-5))) {
+    if (S.aiSignal && S.aiSignal.target) {
+      return {
+        target: S.aiSignal.target,
+        type: S.aiSignal.type || (['RED', 'GREEN'].includes(S.aiSignal.target) ? 'COLOR' : 'SIZE'),
+        sizeTarget: S.aiSignal.sizeTarget,
+        colorTarget: S.aiSignal.colorTarget,
+        prob: S.aiSignal.prob || 0.60,
+        decision: S.aiSignal.decision || 'BET',
+        engines: S.aiSignal.engines || []
+      };
     }
   }
 
-  if (S.aiSignal && S.aiSignal.target) {
-    return { target: S.aiSignal.target, prob: S.aiSignal.prob || 0.60, decision: 'BET', engines: S.aiSignal.engines || [] };
-  }
   return null;
 }
 
@@ -2694,12 +2903,18 @@ function renderHistoryTable() {
     const numClass = (row.number===0||row.number===5) ? 'text-purple-400' : (row.number%2===1 ? 'text-emerald-400' : 'text-rose-400');
     let colorBadge = row.color === 'RED' ? '🔴' : row.color === 'GREEN' ? '🟢' : '🟣';
 
-    // AI Prediction details (universal resolver guarantees predictions are displayed without %)
+    // AI Prediction details (immutable & dual size/color aware)
     const aiPred = getAIPredictionForPeriod(row.period);
     let aiText = '<span class="text-slate-500 text-[9px]">—</span>';
     if (aiPred && aiPred.target) {
-      const isCorrect = aiPred.target === row.size;
-      aiText = `<span class="px-1.5 py-0.5 rounded font-black text-[9px] ${isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">${aiPred.target} ${isCorrect ? '✓' : '✗'}</span>`;
+      const isCorrect = (row.aiCorrect !== undefined && row.aiCorrect !== null)
+        ? row.aiCorrect
+        : ((aiPred.type === 'COLOR')
+          ? ([1,3,7,9,5].includes(row.number) ? aiPred.target === 'GREEN' : aiPred.target === 'RED')
+          : aiPred.target === row.size);
+
+      const targetLabel = aiPred.target === 'GREEN' ? '🟢 GREEN' : (aiPred.target === 'RED' ? '🔴 RED' : aiPred.target);
+      aiText = `<span class="px-1.5 py-0.5 rounded font-black text-[9px] ${isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">${targetLabel} ${isCorrect ? '✓' : '✗'}</span>`;
     }
 
     // Bet & Result details
@@ -3353,8 +3568,34 @@ function renderSmartView() {
 
   if (signalEl) {
     const target = S.aiSignal?.target;
+    const type = S.aiSignal?.type || (['RED','GREEN'].includes(target) ? 'COLOR' : 'SIZE');
+    const sizeT = S.aiSignal?.sizeTarget;
+    const colorT = S.aiSignal?.colorTarget;
+    const pStr = S.aiSignal?.patternStrength;
+
     if (target) {
-      signalEl.innerHTML = `<span class="${target==='BIG' ? 'text-amber-400' : 'text-sky-400'} font-black text-2xl">${target}</span>`;
+      let targetColor = 'text-amber-400';
+      let icon = '';
+      if (target === 'BIG') targetColor = 'text-amber-400';
+      else if (target === 'SMALL') targetColor = 'text-sky-400';
+      else if (target === 'GREEN') { targetColor = 'text-emerald-400'; icon = '🟢'; }
+      else if (target === 'RED') { targetColor = 'text-rose-400'; icon = '🔴'; }
+
+      const subInfo = (sizeT && colorT)
+        ? `<div class="text-[9.5px] font-sans text-slate-300 mt-1 flex items-center justify-center gap-2 flex-wrap">
+            <span class="${sizeT==='BIG'?'text-amber-300':'text-sky-300'} font-bold">Size: ${sizeT}</span>
+            <span class="text-slate-600">|</span>
+            <span class="${colorT==='GREEN'?'text-emerald-300':'text-rose-300'} font-bold">Color: ${colorT}</span>
+            <span class="text-[8.5px] px-1.5 py-0.5 rounded ${type === 'COLOR' ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/40' : 'bg-amber-950/80 text-amber-300 border border-amber-500/40'} font-mono font-bold">
+              ★ Stronger Pattern: ${type === 'COLOR' ? (pStr?.colorPattern || 'Color') : (pStr?.sizePattern || 'Size')}
+            </span>
+          </div>`
+        : '';
+
+      signalEl.innerHTML = `<div class="flex flex-col items-center">
+        <span class="${targetColor} font-black text-2xl tracking-wider">${target} ${icon}</span>
+        ${subInfo}
+      </div>`;
     } else {
       signalEl.innerHTML = '<span class="text-slate-400 text-sm italic">ANALYZING...</span>';
     }
@@ -3446,12 +3687,18 @@ function renderSmartView() {
     const colorDot = color === 'RED' ? '🔴' : color === 'GREEN' ? '🟢' : '🟣';
     const numColor = (n===0||n===5) ? 'text-purple-400' : (n%2===1 ? 'text-emerald-400' : 'text-rose-400');
 
-    // AI Prediction (clean without %)
+    // AI Prediction (immutable & dual size/color aware)
     const aiPred = getAIPredictionForPeriod(row.period);
     let aiHtml = '<span class="text-slate-600 text-[9px]">—</span>';
     if (aiPred && aiPred.target) {
-      const isCorrect = aiPred.target === size;
-      aiHtml = `<span class="px-2 py-0.5 rounded-full font-black text-[9px] ${isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">${aiPred.target} ${isCorrect ? '✓' : '✗'}</span>`;
+      const isCorrect = (row.aiCorrect !== undefined && row.aiCorrect !== null)
+        ? row.aiCorrect
+        : ((aiPred.type === 'COLOR')
+          ? ([1,3,7,9,5].includes(row.number) ? aiPred.target === 'GREEN' : aiPred.target === 'RED')
+          : aiPred.target === row.size);
+
+      const targetLabel = aiPred.target === 'GREEN' ? '🟢 GREEN' : (aiPred.target === 'RED' ? '🔴 RED' : aiPred.target);
+      aiHtml = `<span class="px-2 py-0.5 rounded-full font-black text-[9px] ${isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">${targetLabel} ${isCorrect ? '✓' : '✗'}</span>`;
     }
 
     // Bet placed
@@ -3887,6 +4134,7 @@ async function fetchLiveAPIResults(tfOverride) {
           S.historyByTimeframe[tf] = [...S.history];
 
           if (hasNew) {
+            snapTimerToNewRound();
             renderHistoryTable();
             renderSmartView();
             renderMiniBalls();

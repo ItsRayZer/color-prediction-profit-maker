@@ -124,6 +124,231 @@
     return { signal: 'NEUTRAL', weight: 0 };
   }
 
+  // =========================================================================
+  // COLOR PATTERN ENGINES (RED vs GREEN)
+  // WinGo colors: 1,3,7,9 = GREEN | 2,4,6,8 = RED | 0 = RED/VIOLET | 5 = GREEN/VIOLET
+  // =========================================================================
+  function getColorForNum(n) {
+    if (n === null || n === undefined) return null;
+    const num = Number(n);
+    if ([1, 3, 7, 9, 5].includes(num)) return 'GREEN';
+    if ([2, 4, 6, 8, 0].includes(num)) return 'RED';
+    return null;
+  }
+
+  function calcColorEntropy(colors) {
+    if (!colors || !colors.length) return 1.0;
+    const valid = colors.filter(c => c === 'GREEN' || c === 'RED');
+    if (!valid.length) return 1.0;
+    const p = valid.filter(c => c === 'GREEN').length / valid.length;
+    const q = 1 - p;
+    if (p === 0 || q === 0) return 0;
+    return -(p * Math.log2(p) + q * Math.log2(q));
+  }
+
+  // -- COLOR ENGINE 1: Sum Modulo Parity -> Color Bias ----------------------
+  function engineColorSum(hist) {
+    if (!hist || hist.length < 2) return { signal: 'NEUTRAL', weight: 0 };
+    const s = (hist[hist.length - 1].number + hist[hist.length - 2].number) % 10;
+    // Odd digits (1,3,5,7,9) have 100% green representation
+    const sig = (s % 2 === 1) ? 'GREEN' : 'RED';
+    return { signal: sig, weight: CONFIG.DEFAULT_WEIGHTS.Sum || 20, engine: 'ColorSum' };
+  }
+
+  // -- COLOR ENGINE 2: Color Trend / Dragon / Chop / 2-2 Cycle --------------
+  function engineColorTrend(hist) {
+    if (!hist || hist.length < 3) return { signal: 'NEUTRAL', weight: 0 };
+    const colors = hist.map(r => r.color || getColorForNum(r.number)).filter(Boolean);
+    if (colors.length < 3) return { signal: 'NEUTRAL', weight: 0 };
+
+    const cur = colors[colors.length - 1];
+    let streak = 1;
+    for (let k = colors.length - 2; k >= 0 && k >= colors.length - 8; k--) {
+      if (colors[k] === cur) streak++;
+      else break;
+    }
+
+    // Dragon streak (3+ consecutive identical colors)
+    if (streak >= 3) {
+      return { signal: cur, weight: (CONFIG.DEFAULT_WEIGHTS.Trend || 35) + streak * 3, engine: 'ColorDragon', streak };
+    }
+
+    // Chop / Alternation pattern (e.g. R-G-R-G)
+    let alt = 1;
+    for (let k = colors.length - 1; k >= 1; k--) {
+      if (colors[k] !== colors[k - 1]) alt++;
+      else break;
+    }
+    if (alt >= 3) {
+      const nextChop = cur === 'GREEN' ? 'RED' : 'GREEN';
+      return { signal: nextChop, weight: 30 + alt * 4, engine: 'ColorChop', alt };
+    }
+
+    // 2-2 Double pattern (e.g. R-R-G-G-R -> second R)
+    if (colors.length >= 5) {
+      const [c1, c2, c3, c4, c5] = colors.slice(-5);
+      if (c1 === c2 && c2 !== c3 && c3 === c4 && c4 !== c5) {
+        return { signal: c5, weight: 28, engine: 'Color2x2' };
+      }
+    }
+
+    return { signal: 'NEUTRAL', weight: 0 };
+  }
+
+  // -- COLOR ENGINE 3: Number-to-Color Transition Matrix (Color DNA) ---------
+  function engineColorDNA(hist) {
+    if (!hist || hist.length < 8) return { signal: 'NEUTRAL', weight: 0 };
+    const trigger = hist[hist.length - 1].number;
+    let greenAfter = 0, redAfter = 0;
+
+    for (let i = 0; i < hist.length - 1; i++) {
+      if (hist[i].number === trigger) {
+        const nextColor = hist[i + 1].color || getColorForNum(hist[i + 1].number);
+        if (nextColor === 'GREEN') greenAfter++;
+        else if (nextColor === 'RED') redAfter++;
+      }
+    }
+
+    const total = greenAfter + redAfter;
+    if (total < 3) return { signal: 'NEUTRAL', weight: 0 };
+    const greenRate = greenAfter / total;
+    if (greenRate >= 0.60) return { signal: 'GREEN', weight: CONFIG.DEFAULT_WEIGHTS.DNA || 45, engine: 'ColorDNA' };
+    if (greenRate <= 0.40) return { signal: 'RED', weight: CONFIG.DEFAULT_WEIGHTS.DNA || 45, engine: 'ColorDNA' };
+    return { signal: 'NEUTRAL', weight: 0 };
+  }
+
+  // -- COLOR ENGINE 4: 2nd-Order Markov Chain on Colors ----------------------
+  function engineColorMarkov2(hist) {
+    if (!hist || hist.length < 5) return { signal: 'NEUTRAL', weight: 0, prob: 0.5 };
+    const colors = hist.map(r => r.color || getColorForNum(r.number)).filter(Boolean);
+    if (colors.length < 5) return { signal: 'NEUTRAL', weight: 0, prob: 0.5 };
+
+    const k1 = colors[colors.length - 2];
+    const k2 = colors[colors.length - 1];
+    const key = k1 + '_' + k2;
+
+    let matches = 0, greenNext = 0;
+    for (let i = 2; i < colors.length - 1; i++) {
+      if ((colors[i - 2] + '_' + colors[i - 1]) === key) {
+        matches++;
+        if (colors[i] === 'GREEN') greenNext++;
+      }
+    }
+
+    if (matches < 3) return { signal: 'NEUTRAL', weight: 0, prob: 0.5 };
+    const p = greenNext / matches;
+    if (Math.abs(p - 0.5) < 0.12) return { signal: 'NEUTRAL', weight: 0, prob: p };
+    return {
+      signal: p > 0.5 ? 'GREEN' : 'RED',
+      weight: CONFIG.DEFAULT_WEIGHTS.Markov || 40,
+      prob: p,
+      engine: 'ColorMarkov'
+    };
+  }
+
+  // -- COLOR ENGINE 5: Rolling Imbalance Windows on Colors -------------------
+  function engineColorRolling(hist) {
+    if (!hist) return { signal: 'NEUTRAL', weight: 0 };
+    const colors = hist.map(r => r.color || getColorForNum(r.number)).filter(Boolean);
+    const w10 = colors.slice(-10);
+    const w20 = colors.slice(-20);
+    if (w10.length < 8) return { signal: 'NEUTRAL', weight: 0 };
+
+    const rate10 = w10.filter(c => c === 'GREEN').length / w10.length;
+    const rate20 = w20.length >= 15 ? w20.filter(c => c === 'GREEN').length / w20.length : 0.5;
+
+    if (rate10 >= 0.70 && rate20 >= 0.60) return { signal: 'GREEN', weight: CONFIG.DEFAULT_WEIGHTS.Rolling || 25, engine: 'ColorRolling' };
+    if (rate10 <= 0.30 && rate20 <= 0.40) return { signal: 'RED', weight: CONFIG.DEFAULT_WEIGHTS.Rolling || 25, engine: 'ColorRolling' };
+    return { signal: 'NEUTRAL', weight: 0 };
+  }
+
+  // -- COLOR CONSENSUS COMBINER ----------------------------------------------
+  function generateColorConsensus(hist) {
+    const eSum    = engineColorSum(hist);
+    const eTrend  = engineColorTrend(hist);
+    const eDNA    = engineColorDNA(hist);
+    const eMarkov = engineColorMarkov2(hist);
+    const eRoll   = engineColorRolling(hist);
+
+    const engines = [eSum, eTrend, eDNA, eMarkov, eRoll];
+    let greenScore = 0, redScore = 0;
+    const reasons = [];
+
+    for (const e of engines) {
+      if (e.signal === 'GREEN') { greenScore += e.weight; if (e.engine) reasons.push(e.engine + '→G'); }
+      if (e.signal === 'RED')   { redScore   += e.weight; if (e.engine) reasons.push(e.engine + '→R'); }
+    }
+
+    let leading = greenScore >= redScore ? 'GREEN' : 'RED';
+    const leadScore = Math.max(greenScore, redScore);
+
+    if (leadScore === 0 && hist.length > 0) {
+      const lastNum = hist[hist.length - 1].number;
+      leading = getColorForNum(lastNum) || 'GREEN';
+      reasons.push('ColorFallback→' + leading[0]);
+    }
+
+    const totalScore = greenScore + redScore || 20;
+    const rawRatio   = Math.max(greenScore, redScore) / totalScore;
+    const mappedProb = Math.min(0.75, Math.max(0.53, 0.50 + (rawRatio - 0.5) * 0.5 + (leadScore / 220)));
+
+    return {
+      target: leading,
+      prob: mappedProb,
+      engines: reasons,
+      scores: { green: greenScore, red: redScore },
+      leadScore
+    };
+  }
+
+  // -- PATTERN SEQUENCE STRENGTH EVALUATOR ----------------------------------
+  /**
+   * Quantifies the pattern sequence strength for Size (BIG/SMALL) or Color (RED/GREEN).
+   * Computes streak momentum, alternation chop, and cycle regularity.
+   */
+  function evaluatePatternSequence(hist, type) {
+    const seq = (hist || []).map(r => type === 'COLOR' ? (r.color || getColorForNum(r.number)) : r.size).filter(Boolean);
+    if (seq.length === 0) return { streak: 0, chop: 0, score: 0, patternName: 'None' };
+
+    const last = seq[seq.length - 1];
+    let streak = 1;
+    for (let i = seq.length - 2; i >= 0 && i >= seq.length - 10; i--) {
+      if (seq[i] === last) streak++;
+      else break;
+    }
+
+    let chop = 0;
+    for (let i = seq.length - 1; i >= 1 && i >= seq.length - 8; i--) {
+      if (seq[i] !== seq[i - 1]) chop++;
+      else break;
+    }
+
+    let patternScore = 0;
+    let patternName = 'Standard';
+
+    if (streak >= 4) {
+      patternScore = 65 + streak * 8;
+      patternName = `${streak}x Dragon Streak`;
+    } else if (streak === 3) {
+      patternScore = 48;
+      patternName = '3x Dragon Streak';
+    } else if (chop >= 4) {
+      patternScore = 55 + chop * 7;
+      patternName = `${chop}x Chop Alternation`;
+    } else if (chop === 3) {
+      patternScore = 42;
+      patternName = '3x Chop Alternation';
+    } else if (seq.length >= 5) {
+      const [a, b, c, d, e] = seq.slice(-5);
+      if (a === b && b !== c && c === d && d !== e) {
+        patternScore = 38;
+        patternName = '2-2 Pattern Cycle';
+      }
+    }
+
+    return { streak, chop, patternScore, patternName };
+  }
+
   // -- ADAPTIVE ENGINE WEIGHT TUNING -----------------------------------------
   function updateAdaptiveEngineWeights(hist, currentWeights) {
     const weights = Object.assign({}, CONFIG.DEFAULT_WEIGHTS, currentWeights || {});
@@ -315,16 +540,31 @@
     // 4. Update adaptive weights
     const adaptiveWeights = updateAdaptiveEngineWeights(history, state.engineWeights);
 
-    // 5. Generate consensus from all 5 statistical engines
-    const consensus = generateConsensus(history, adaptiveWeights, extraSignals);
-    const { target, prob, engines: engineList, scores } = consensus;
+    // 5. Generate consensus for BOTH Size (BIG/SMALL) and Color (RED/GREEN)
+    const sizeConsensus = generateConsensus(history, adaptiveWeights, extraSignals);
+    const colorConsensus = generateColorConsensus(history);
 
-    // 6. Z-Score Statistical Confidence Validation
-    const pWin = Math.max(prob, CONFIG.BREAKEVEN_P + 0.01);
+    // 6. Evaluate Pattern Sequence Strength for both
+    const sizePattern  = evaluatePatternSequence(history, 'SIZE');
+    const colorPattern = evaluatePatternSequence(history, 'COLOR');
+
+    // Total sequence scores (pattern regularity + consensus weight agreement + win prob bonus)
+    const sizeSeqScore  = sizePattern.patternScore + (sizeConsensus.leadScore * 0.4) + Math.round((sizeConsensus.prob - 0.5) * 80);
+    const colorSeqScore = colorPattern.patternScore + (colorConsensus.leadScore * 0.4) + Math.round((colorConsensus.prob - 0.5) * 80);
+
+    // Compare: Which one has the stronger pattern sequence?
+    const dominantType = colorSeqScore > sizeSeqScore ? 'COLOR' : 'SIZE';
+    const recommendedTarget = dominantType === 'COLOR' ? colorConsensus.target : sizeConsensus.target;
+    const dominantProb = dominantType === 'COLOR' ? colorConsensus.prob : sizeConsensus.prob;
+    const dominantEngines = dominantType === 'COLOR' ? colorConsensus.engines : sizeConsensus.engines;
+    const dominantScores = dominantType === 'COLOR' ? colorConsensus.scores : sizeConsensus.scores;
+
+    // 7. Z-Score Statistical Confidence Validation
+    const pWin = Math.max(dominantProb, CONFIG.BREAKEVEN_P + 0.01);
     const zScore = (pWin - 0.5) / Math.sqrt(0.25 / Math.max(n, 1));
     const reqZ = requiredZScore(state.lossStreak || 0);
 
-    // 7. Recent balance trend detection
+    // 8. Recent balance trend detection
     const resolvedBets = (state.myBets || []).filter(b => b.status === 'WON' || b.status === 'LOST').slice(0, 10);
     let balanceTrend = 0;
     if (resolvedBets.length >= 3) {
@@ -335,7 +575,7 @@
       balanceTrend = recent > older ? 1 : recent < older ? -1 : 0;
     }
 
-    // 8. Staking calculation
+    // 9. Staking calculation
     const staking = calculateStake({
       balance: state.balance || 1000,
       initialBalance: state.initialBalance || 1000,
@@ -345,9 +585,13 @@
       balanceTrend
     });
 
-    // 9. Filter decision (BET vs SKIP)
+    // 10. Filter decision (BET vs SKIP)
     let decision = 'BET';
     let reason = '';
+
+    const patternNote = dominantType === 'COLOR'
+      ? `Color [${colorPattern.patternName}] stronger sequence (${colorSeqScore} vs Size ${sizeSeqScore})`
+      : `Size [${sizePattern.patternName}] stronger sequence (${sizeSeqScore} vs Color ${colorSeqScore})`;
 
     if (zScore < reqZ && (state.lossStreak || 0) >= 2) {
       decision = 'SKIP';
@@ -360,25 +604,37 @@
     } else if (staking.stopLossRecovery) {
       reason = 'Recovery zone - reduced stake';
     } else if ((state.lossStreak || 0) >= 2) {
-      reason = 'Recovery x' + Math.round(staking.fraction * 100) + '% (' + state.lossStreak + ' loss streak, Z-req ' + reqZ + ')';
+      reason = 'Recovery x' + Math.round(staking.fraction * 100) + '% (' + state.lossStreak + ' loss streak) | ' + patternNote;
     } else if ((state.winStreak || 0) >= 3) {
-      reason = 'Win streak ' + state.winStreak + 'x - boosted stake';
+      reason = 'Win streak ' + state.winStreak + 'x | ' + patternNote;
     } else {
-      const topEngine = engineList[0] || 'Quant';
-      reason = topEngine + ' + Consensus ' + Math.round(prob * 100) + '% win rate';
+      const topEngine = dominantEngines[0] || (dominantType === 'COLOR' ? 'Color' : 'Quant');
+      reason = topEngine + ' | ' + patternNote + ' (' + Math.round(dominantProb * 100) + '% Win Rate)';
     }
 
     return {
       ready: true,
       decision,
-      target,
+      target: recommendedTarget,
+      type: dominantType,
+      sizeTarget: sizeConsensus.target,
+      sizeProb: sizeConsensus.prob,
+      colorTarget: colorConsensus.target,
+      colorProb: colorConsensus.prob,
+      patternStrength: {
+        size: sizeSeqScore,
+        color: colorSeqScore,
+        dominant: dominantType,
+        sizePattern: sizePattern.patternName,
+        colorPattern: colorPattern.patternName
+      },
       stake: decision === 'BET' ? staking.stake : 0,
-      prob,
+      prob: dominantProb,
       entropy,
       zScore,
       reqZ,
-      engines: engineList,
-      scores,
+      engines: dominantEngines,
+      scores: dominantScores,
       adaptiveWeights,
       reason
     };
@@ -387,22 +643,38 @@
   // Export as QuantAlgorithm
   const QuantAlgorithm = {
     CONFIG,
+    getColorForNum,
     calcEntropy,
+    calcColorEntropy,
     requiredZScore,
     engineSum,
     engineTrend,
     engineDNA,
     engineMarkov2,
     engineRolling,
+    engineColorSum,
+    engineColorTrend,
+    engineColorDNA,
+    engineColorMarkov2,
+    engineColorRolling,
     updateAdaptiveEngineWeights,
     generateConsensus,
+    generateColorConsensus,
+    evaluatePatternSequence,
     calculateStake,
     predictNextBet
   };
 
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = QuantAlgorithm;
-  } else {
+  }
+  if (typeof global !== 'undefined') {
     global.QuantAlgorithm = QuantAlgorithm;
+  }
+  if (typeof window !== 'undefined') {
+    window.QuantAlgorithm = QuantAlgorithm;
+  }
+  if (typeof globalThis !== 'undefined') {
+    globalThis.QuantAlgorithm = QuantAlgorithm;
   }
 })(typeof window !== 'undefined' ? window : globalThis);
