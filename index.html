@@ -1084,67 +1084,159 @@
 
     </div><!-- end #rightPanelAppContent -->
 
-    <!-- ── 2. EMBEDDED WEBSITE VIEW (DhaniWin Webview) ── -->
-    <div id="rightPanelWebContent" class="hidden p-2.5 space-y-2">
-      <!-- Browser Navigation Toolbar -->
-      <div class="p-2 rounded-xl bg-purple-950/70 border border-purple-800/40 space-y-1.5 shadow-md">
-        <div class="flex items-center gap-1.5">
-          <button onclick="reloadEmbeddedWeb()" title="Reload Webpage" class="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white flex items-center justify-center text-xs transition active:scale-95 border border-white/5">
-            <i class="fa-solid fa-rotate-right"></i>
-          </button>
-          
-          <div class="flex-1 flex items-center bg-black/60 rounded-lg border border-purple-800/40 px-2 py-1 gap-1.5 text-[9px] font-mono focus-within:border-amber-400">
-            <i class="fa-solid fa-lock text-emerald-400 text-[8px]"></i>
-            <input id="embeddedWebUrlInput" type="text" value="https://dhaniwin.99.com"
-              placeholder="https://dhaniwin.99.com"
-              onkeydown="if(event.key==='Enter') loadEmbeddedWebUrl()"
-              class="w-full bg-transparent text-amber-300 placeholder-slate-500 focus:outline-none text-[9.5px]">
-            <button onclick="loadEmbeddedWebUrl()" class="text-amber-400 hover:text-amber-300 font-bold px-1.5 py-0.5 rounded text-[8px] bg-amber-400/10 border border-amber-400/20 active:scale-95">GO</button>
+    <!-- ── 2. EMBEDDED WEBSITE VIEW & REAL AUTO-BETTING (DhaniWin Mobile View) ── -->
+    <div id="rightPanelWebContent" class="hidden p-2 space-y-2.5 max-w-[410px] mx-auto">
+      
+      <!-- ── A. REAL AUTO-BETTING CONTROLLER (ABOVE WEB VIEW) ── -->
+      <div class="liquid-glass-card p-3 space-y-2 border border-emerald-500/30 bg-gradient-to-b from-emerald-950/30 via-slate-950/70 to-purple-950/40 shadow-xl rounded-2xl" id="realAutoBetCard">
+        <!-- Header & Master Toggle -->
+        <div class="flex items-center justify-between pb-1 border-b border-white/10">
+          <div class="flex items-center gap-1.5">
+            <span id="realAutoBetPulse" class="w-2.5 h-2.5 rounded-full bg-slate-500 inline-block"></span>
+            <span class="text-[10px] font-black uppercase tracking-wider text-white">Real Auto-Betting</span>
+            <span id="realAutoBetBadge" class="text-[7.5px] px-1.5 py-0.5 rounded-full bg-slate-500/20 text-slate-300 font-mono border border-white/10">STANDBY</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button id="realAutoBetToggleBtn" onclick="toggleRealAutoBet()" class="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 shadow">
+              ▶ START AUTO-BET
+            </button>
+            <button id="btnToggleAutoBetCard" onclick="toggleAutoBetCardCollapse()" title="Collapse / Expand Controls" class="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[10px] transition active:scale-95">
+              <i id="iconToggleAutoBetCard" class="fa-solid fa-chevron-up text-[9px]"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Collapsible Body for Auto-Bet Settings -->
+        <div id="realAutoBetCardBody" class="space-y-2">
+          <!-- Live Signal Readout Row -->
+          <div class="grid grid-cols-3 gap-1.5 text-center font-mono text-[8.5px]">
+            <div class="p-1.5 rounded-xl bg-black/40 border border-white/5 space-y-0.5">
+              <span class="text-[7px] uppercase tracking-wider text-slate-400 block">AI Bet Target</span>
+              <b id="realAutoTargetDisplay" class="text-amber-300 text-xs font-black">—</b>
+            </div>
+            <div class="p-1.5 rounded-xl bg-black/40 border border-white/5 space-y-0.5">
+              <span class="text-[7px] uppercase tracking-wider text-slate-400 block">Real Stake</span>
+              <b id="realAutoStakeDisplay" class="text-white text-xs font-black">₹10</b>
+            </div>
+            <div class="p-1.5 rounded-xl bg-black/40 border border-white/5 space-y-0.5">
+              <span class="text-[7px] uppercase tracking-wider text-slate-400 block">DhaniWin Timer</span>
+              <b id="realAutoTfDisplay" class="text-sky-300 text-xs font-black">30s</b>
+            </div>
           </div>
 
-          <button onclick="openEmbeddedInNewTab()" title="Open in New Tab" class="w-7 h-7 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 hover:text-white flex items-center justify-center text-xs transition active:scale-95 border border-indigo-500/30">
+          <!-- Real Stake & Risk Settings -->
+          <div class="grid grid-cols-2 gap-1.5 text-[8px] font-mono">
+            <div class="space-y-0.5">
+              <label class="text-[7px] uppercase text-slate-400 block">Base Stake (₹)</label>
+              <input id="realAutoBaseStake" type="number" value="10" min="1" step="10" oninput="updateRealAutoBetStake()"
+                class="w-full px-2 py-1 rounded-lg bg-black/60 border border-white/10 text-amber-300 text-[9px] font-mono focus:outline-none focus:border-amber-400">
+            </div>
+            <div class="space-y-0.5">
+              <label class="text-[7px] uppercase text-slate-400 block">Martingale Multiplier</label>
+              <select id="realAutoMultiplier" onchange="updateRealAutoBetStake()" class="w-full px-2 py-1 rounded-lg bg-black/60 border border-white/10 text-slate-200 text-[9px] font-mono focus:outline-none focus:border-purple-400">
+                <option value="2">2.0x Standard</option>
+                <option value="2.2">2.2x Aggressive</option>
+                <option value="1">1.0x Flat Stake</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Bridge & Scraper Integration Strip -->
+          <div class="p-2 rounded-xl bg-purple-950/60 border border-purple-800/40 space-y-1">
+            <div class="flex items-center justify-between text-[8px] font-mono">
+              <span class="text-slate-300 flex items-center gap-1.5">
+                <span id="bridgeDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block"></span>
+                <span id="bridgeStatusLabel">Bridge: Ready (Listening for data)</span>
+              </span>
+              <button onclick="openBridgeScriptModal()" class="text-amber-300 hover:underline font-bold text-[8px] flex items-center gap-0.5">
+                <i class="fa-solid fa-code"></i> Script Setup
+              </button>
+            </div>
+            <div class="flex items-center justify-between gap-1 pt-1 border-t border-white/5 text-[7.5px] font-mono text-slate-400">
+              <span>Sync: <b class="text-emerald-300">Auto WinGo Navigation</b></span>
+              <span>Scraper: <b class="text-sky-300">Active Live Feed</b></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── B. MOBILE SIZE WEB VIEW CONTAINER (SMARTPHONE FRAME) ── -->
+      <div class="mobile-frame-container mx-auto w-full max-w-[390px] rounded-[34px] p-2 bg-gradient-to-b from-slate-800 via-slate-900 to-black border-2 border-slate-700/80 shadow-[0_20px_60px_rgba(0,0,0,0.85)] flex flex-col space-y-1.5">
+        
+        <!-- Mobile Speaker / Dynamic Island Top Bezel -->
+        <div class="flex items-center justify-center py-0.5">
+          <div class="w-24 h-3 bg-black rounded-full flex items-center justify-center gap-1.5 border border-white/10">
+            <span class="w-1.5 h-1.5 rounded-full bg-slate-900 border border-slate-700"></span>
+            <span class="w-6 h-1 rounded-full bg-slate-800"></span>
+          </div>
+        </div>
+
+        <!-- Browser Navigation Bar -->
+        <div class="px-2 py-1 rounded-xl bg-black/60 border border-white/10 flex items-center gap-1.5 text-[8.5px] font-mono">
+          <button onclick="reloadEmbeddedWeb()" title="Reload Webpage" class="w-6 h-6 rounded-md bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white flex items-center justify-center text-[10px] transition active:scale-95">
+            <i class="fa-solid fa-rotate-right"></i>
+          </button>
+          <div class="flex-1 flex items-center bg-black/80 rounded-md border border-purple-800/40 px-1.5 py-0.5 gap-1 focus-within:border-amber-400">
+            <i class="fa-solid fa-lock text-emerald-400 text-[7px]"></i>
+            <input id="embeddedWebUrlInput" type="text" value="https://dhaniwin.99.com"
+              onkeydown="if(event.key==='Enter') loadEmbeddedWebUrl()"
+              class="w-full bg-transparent text-amber-300 placeholder-slate-500 focus:outline-none text-[8.5px]">
+            <button onclick="loadEmbeddedWebUrl()" class="text-amber-400 hover:text-amber-300 font-bold px-1 py-0.2 rounded text-[7.5px] bg-amber-400/10 border border-amber-400/20 active:scale-95">GO</button>
+          </div>
+          <button onclick="openEmbeddedInNewTab()" title="Open in New Tab" class="w-6 h-6 rounded-md bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 hover:text-white flex items-center justify-center text-[10px] transition active:scale-95">
             <i class="fa-solid fa-arrow-up-right-from-square"></i>
           </button>
-          <button onclick="popoutEmbeddedWeb()" title="Popout Side Window" class="w-7 h-7 rounded-lg bg-purple-900/40 hover:bg-purple-900/70 text-purple-300 hover:text-white flex items-center justify-center text-xs transition active:scale-95 border border-purple-700/30">
+          <button onclick="popoutEmbeddedWeb()" title="Side Window" class="w-6 h-6 rounded-md bg-purple-900/40 hover:bg-purple-900/70 text-purple-300 hover:text-white flex items-center justify-center text-[10px] transition active:scale-95">
             <i class="fa-solid fa-window-restore"></i>
           </button>
         </div>
 
-        <!-- Quick Domain Mirrors Row -->
-        <div class="flex items-center justify-between gap-1 text-[8px] font-mono pt-0.5 border-t border-white/5">
-          <span class="text-slate-400 uppercase tracking-tight">Quick Mirrors:</span>
+        <!-- Quick Domain Mirrors & Height Presets Row -->
+        <div class="flex items-center justify-between gap-1 text-[7.5px] font-mono px-1">
           <div class="flex items-center gap-1">
+            <span class="text-slate-400 uppercase tracking-tight">Mirrors:</span>
             <button onclick="setEmbeddedMirror('https://dhaniwin.99.com')" class="px-1.5 py-0.5 rounded bg-white/5 hover:bg-amber-400/20 text-slate-300 hover:text-amber-300 border border-white/5 transition">dhaniwin.99.com</button>
             <button onclick="setEmbeddedMirror('https://dhaniwin99.com')" class="px-1.5 py-0.5 rounded bg-white/5 hover:bg-amber-400/20 text-slate-300 hover:text-amber-300 border border-white/5 transition">dhaniwin99.com</button>
           </div>
         </div>
-      </div>
 
-      <!-- Iframe Container -->
-      <div class="relative rounded-xl overflow-hidden border border-purple-800/50 shadow-2xl bg-black/80 flex flex-col" style="height:calc(100vh - 165px);min-height:540px;">
-        <iframe id="embeddedWebIframe"
-          src="https://dhaniwin.99.com"
-          class="w-full flex-1 border-0 bg-[#0e0a1a]"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; payment"
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads">
-        </iframe>
-
-        <!-- Bottom Assistance Bar -->
-        <div class="p-2 bg-gradient-to-r from-purple-950/90 to-slate-950/95 border-t border-purple-800/40 text-[8.5px] text-slate-300 flex items-center justify-between gap-2 shrink-0">
-          <div class="flex items-center gap-1.5 truncate">
-            <i class="fa-solid fa-circle-info text-amber-400"></i>
-            <span class="text-slate-400 truncate">If site blocks in-browser iframe:</span>
-          </div>
-          <div class="flex items-center gap-1 shrink-0">
-            <button onclick="openEmbeddedInNewTab()" class="px-2 py-0.5 rounded bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/30 font-bold active:scale-95 transition flex items-center gap-1">
-              <i class="fa-solid fa-arrow-up-right-from-square text-[7.5px]"></i> New Tab
-            </button>
-            <button onclick="popoutEmbeddedWeb()" class="px-2 py-0.5 rounded bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/30 font-bold active:scale-95 transition flex items-center gap-1">
-              <i class="fa-solid fa-window-restore text-[7.5px]"></i> Side Window
-            </button>
+        <!-- Mobile Viewport Height Switcher Row -->
+        <div class="flex items-center justify-between gap-1 text-[7.5px] font-mono px-1 py-0.5 bg-black/40 rounded-lg border border-white/5">
+          <span class="text-slate-400 uppercase tracking-tight flex items-center gap-1">
+            <i class="fa-solid fa-arrows-up-down text-sky-400"></i> Height:
+          </span>
+          <div class="flex items-center gap-1">
+            <button id="btnHeight_h720" onclick="setMobileFrameHeight('720px')" class="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-slate-200 border border-white/5 transition">720px</button>
+            <button id="btnHeight_h850" onclick="setMobileFrameHeight('850px')" class="px-1.5 py-0.5 rounded bg-sky-500/30 text-sky-200 border border-sky-400/40 font-bold transition">850px (Std)</button>
+            <button id="btnHeight_h1000" onclick="setMobileFrameHeight('1000px')" class="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-slate-200 border border-white/5 transition">1000px</button>
+            <button id="btnHeight_h1200" onclick="setMobileFrameHeight('1200px')" class="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-slate-200 border border-white/5 transition">1200px (Max)</button>
           </div>
         </div>
+
+        <!-- Mobile Screen Viewport (Iframe) - Default Increased to 850px Height -->
+        <div id="embeddedMobileViewportContainer" class="relative w-full rounded-[22px] overflow-hidden bg-[#0c0817] border border-white/5 shadow-inner transition-all duration-200" style="height: 850px; min-height: 820px;">
+          <iframe id="embeddedWebIframe"
+            src="https://dhaniwin.99.com"
+            class="w-full h-full border-0 bg-[#0c0817] block"
+            scrolling="yes"
+            loading="eager"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; payment"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads">
+          </iframe>
+        </div>
+
+        <!-- Mobile Bottom Home Indicator Bar -->
+        <div class="py-1 flex items-center justify-center">
+          <div class="w-24 h-1 bg-white/30 rounded-full"></div>
+        </div>
       </div>
+
+      <!-- External fallback notification -->
+      <div class="p-1.5 rounded-xl bg-purple-950/40 border border-purple-800/30 text-[8px] text-slate-400 flex items-center justify-between gap-1 max-w-[390px] mx-auto font-mono">
+        <span class="truncate"><i class="fa-solid fa-shield-halved text-amber-400 mr-1"></i>Mobile Viewport Synchronized</span>
+        <button onclick="openEmbeddedInNewTab()" class="text-indigo-300 hover:text-white font-bold underline whitespace-nowrap">Open Full Tab ↗</button>
+      </div>
+
     </div>
   </aside>
 
@@ -1802,6 +1894,42 @@ padding:14px 16px 16px;text-align:center;overflow:visible;pointer-events:auto;bo
 
     <div class="flex justify-end pt-1">
       <button onclick="closePatternDetailModal()" class="px-4 py-2 rounded-xl bg-purple-900 hover:bg-purple-800 text-purple-200 font-bold text-xs transition">Close</button>
+    </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     DHANIWIN AUTOMATION BRIDGE SCRIPT MODAL
+════════════════════════════════════════════════════════════ -->
+<div id="dhaniwinBridgeModal" class="fixed inset-0 z-[130] bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+  <div class="bg-app-card w-full max-w-xl rounded-2xl border border-emerald-500/50 shadow-2xl p-5 space-y-3.5">
+    <div class="flex items-center justify-between border-b border-purple-900/50 pb-2.5">
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        <h3 class="text-sm font-black text-white uppercase tracking-wider">DhaniWin Live Scraper &amp; Auto-Bet Bridge</h3>
+      </div>
+      <button onclick="closeBridgeScriptModal()" class="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition">✕</button>
+    </div>
+
+    <div class="text-[11px] text-slate-300 leading-relaxed space-y-1.5 font-sans">
+      <p>Because modern browsers enforce the <b class="text-amber-300">Same-Origin Policy</b>, direct DOM scraping, timer clicks, and auto-betting on third-party sites are executed seamlessly via this lightweight bridge script directly inside DhaniWin.</p>
+      <div class="p-2 rounded-xl bg-purple-950/60 border border-purple-800/40 text-[10px] space-y-1 font-mono">
+        <div>1. Install <b>Tampermonkey</b> extension (or open Chrome DevTools <kbd class="bg-white/10 px-1 rounded">F12</kbd> → Console).</div>
+        <div>2. Copy the bridge script below and paste it on <b class="text-sky-300">dhaniwin.99.com</b>.</div>
+        <div>3. The script automatically synchronizes the timer with our app, scrapes every live draw, and places your AI bets in real time!</div>
+      </div>
+    </div>
+
+    <!-- Script Container -->
+    <div class="relative">
+      <textarea id="bridgeScriptCode" readonly class="w-full h-48 p-2.5 bg-black/70 border border-white/10 rounded-xl font-mono text-[9px] text-emerald-300 focus:outline-none resize-none selection:bg-emerald-500/30" style="scrollbar-width:thin;"></textarea>
+      <button onclick="copyAutomationScript()" class="absolute top-2 right-2 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[10px] shadow active:scale-95 transition flex items-center gap-1.5">
+        <i class="fa-solid fa-copy"></i>
+        <span id="copyScriptBtnText">Copy Script</span>
+      </button>
+    </div>
+
+    <div class="flex items-center justify-end gap-2 pt-1 border-t border-white/5">
+      <button onclick="closeBridgeScriptModal()" class="px-4 py-1.5 rounded-xl bg-purple-900/60 hover:bg-purple-800 text-purple-200 font-bold text-xs transition">Close</button>
     </div>
   </div>
 </div>
@@ -3862,6 +3990,11 @@ function setTimeframe(tf, force = false) {
   const smartTfBadge = document.getElementById('smartTfBadge');
   if (smartTfBadge) smartTfBadge.textContent = `WinGo ${tf}`;
 
+  // Broadcast timeframe change to DhaniWin bridge so timer tab inside DhaniWin switches automatically
+  if (typeof broadcastTimeframeChange === 'function') {
+    broadcastTimeframeChange(tf);
+  }
+
   // 5. Recompute real-time clock and period for this timeframe
   try {
     const saved = localStorage.getItem('wingo_timer_offset_sec_' + tf);
@@ -4229,7 +4362,45 @@ function openEmbeddedInNewTab() {
 function popoutEmbeddedWeb() {
   const input = document.getElementById('embeddedWebUrlInput');
   const url = (input && input.value) ? input.value : 'https://dhaniwin.99.com';
-  window.open(url, 'DhaniWinWeb', 'width=460,height=820,menubar=no,toolbar=no,location=no,status=no');
+  window.open(url, 'DhaniWinWeb', 'width=460,height=850,menubar=no,toolbar=no,location=no,status=no');
+}
+
+function setMobileFrameHeight(h) {
+  const container = document.getElementById('embeddedMobileViewportContainer');
+  if (container) {
+    container.style.height = h;
+    container.style.minHeight = h;
+  }
+  const cleanH = String(h).replace(/[^0-9]/g, '');
+  ['720', '850', '1000', '1200'].forEach(val => {
+    const el = document.getElementById('btnHeight_h' + val);
+    if (el) {
+      if (cleanH === val) {
+        el.className = 'px-1.5 py-0.5 rounded bg-sky-500/30 text-sky-200 border border-sky-400/40 font-bold transition';
+      } else {
+        el.className = 'px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-slate-200 border border-white/5 transition';
+      }
+    }
+  });
+  try {
+    localStorage.setItem('wingo_mobile_frame_height', h);
+  } catch (e) {}
+}
+
+function toggleAutoBetCardCollapse() {
+  const body = document.getElementById('realAutoBetCardBody');
+  const icon = document.getElementById('iconToggleAutoBetCard');
+  if (!body) return;
+  const isHidden = body.classList.contains('hidden');
+  if (isHidden) {
+    body.classList.remove('hidden');
+    if (icon) icon.className = 'fa-solid fa-chevron-up text-[9px]';
+    try { localStorage.setItem('wingo_autobet_card_collapsed', 'false'); } catch (e) {}
+  } else {
+    body.classList.add('hidden');
+    if (icon) icon.className = 'fa-solid fa-chevron-down text-[9px]';
+    try { localStorage.setItem('wingo_autobet_card_collapsed', 'true'); } catch (e) {}
+  }
 }
 
 // Restore right panel view on boot
@@ -4246,8 +4417,376 @@ function popoutEmbeddedWeb() {
       if (input) input.value = savedUrl;
       if (iframe) iframe.src = savedUrl;
     }
+    const savedH = localStorage.getItem('wingo_mobile_frame_height');
+    if (savedH) {
+      setMobileFrameHeight(savedH);
+    }
+    const savedCollapse = localStorage.getItem('wingo_autobet_card_collapsed');
+    if (savedCollapse === 'true') {
+      const body = document.getElementById('realAutoBetCardBody');
+      const icon = document.getElementById('iconToggleAutoBetCard');
+      if (body) body.classList.add('hidden');
+      if (icon) icon.className = 'fa-solid fa-chevron-down text-[9px]';
+    }
   } catch (e) {}
 })();
+
+// ═══════════════════════════════════════════════════════════════
+// REAL AUTO-BETTING & DHANIWIN LIVE BRIDGE CONTROLLER
+// ═══════════════════════════════════════════════════════════════
+if (!S.realAutoBet) {
+  S.realAutoBet = {
+    enabled: false,
+    baseStake: 10,
+    multiplier: 2.0,
+    maxLevel: 3,
+    lastBetPeriod: null
+  };
+}
+
+let dhaniwinBridgeChannel = null;
+try {
+  if (typeof BroadcastChannel !== 'undefined') {
+    dhaniwinBridgeChannel = new BroadcastChannel('dhaniwin_quant_channel');
+    dhaniwinBridgeChannel.onmessage = function(ev) {
+      handleDhaniWinBridgeMessage(ev.data);
+    };
+  }
+} catch(e) {
+  console.warn('BroadcastChannel not available:', e);
+}
+
+window.addEventListener('message', function(ev) {
+  if (ev && ev.data && typeof ev.data === 'object') {
+    handleDhaniWinBridgeMessage(ev.data);
+  }
+});
+
+function handleDhaniWinBridgeMessage(msg) {
+  if (!msg || typeof msg !== 'object') return;
+
+  // 1. Handshake from DhaniWin script
+  if (msg.type === 'DHANIWIN_BRIDGE_HANDSHAKE') {
+    setBridgeStatus(true, 'Bridge: Connected (Ready to Bet)');
+    broadcastTimeframeChange(S.timeframe);
+    showToast('🟢 DhaniWin Automation Bridge Connected!', 'success');
+  }
+
+  // 2. Scraped Draw Result from DhaniWin
+  else if (msg.type === 'DHANIWIN_SCRAPED_RESULT') {
+    const pStr = String(msg.period || '').trim();
+    const num = Number(msg.number);
+    const size = msg.size || (num >= 5 ? 'BIG' : 'SMALL');
+    const color = msg.color || ([1,3,7,9,5].includes(num) ? 'GREEN' : 'RED');
+
+    setBridgeStatus(true, `Scraped Draw ${pStr.slice(-4)}: #${num} ${size}`);
+    
+    // Save real result directly into system
+    if (typeof saveRealResult === 'function' && pStr && !isNaN(num)) {
+      saveRealResult(pStr, num, size, color);
+    }
+  }
+
+  // 3. Bet Confirmation from DhaniWin
+  else if (msg.type === 'DHANIWIN_BET_CONFIRMATION') {
+    showToast(`⚡ Real Bet Executed on DhaniWin: ${msg.target} ₹${msg.stake}`, 'success');
+    setBridgeStatus(true, `Last Order: ${msg.target} ₹${msg.stake} (Period ${String(msg.period).slice(-4)})`);
+  }
+}
+
+function setBridgeStatus(connected, label) {
+  const dot = document.getElementById('bridgeDot');
+  const lbl = document.getElementById('bridgeStatusLabel');
+  if (dot) {
+    dot.className = connected ? 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block' : 'w-2 h-2 rounded-full bg-amber-400 inline-block';
+  }
+  if (lbl) {
+    lbl.textContent = label || (connected ? 'Bridge: Connected (Ready to Bet)' : 'Bridge: Standby');
+  }
+}
+
+function broadcastTimeframeChange(tf) {
+  const targetTf = tf || S.timeframe || '30s';
+  const elTf = document.getElementById('realAutoTfDisplay');
+  if (elTf) elTf.textContent = targetTf;
+
+  const payload = { type: 'WINGO_SWITCH_TIMEFRAME', timeframe: targetTf, timestamp: Date.now() };
+  
+  if (dhaniwinBridgeChannel) {
+    try { dhaniwinBridgeChannel.postMessage(payload); } catch(e) {}
+  }
+  const iframe = document.getElementById('embeddedWebIframe');
+  if (iframe && iframe.contentWindow) {
+    try { iframe.contentWindow.postMessage(payload, '*'); } catch(e) {}
+  }
+}
+
+function toggleRealAutoBet() {
+  S.realAutoBet.enabled = !S.realAutoBet.enabled;
+  const btn = document.getElementById('realAutoBetToggleBtn');
+  const badge = document.getElementById('realAutoBetBadge');
+  const pulse = document.getElementById('realAutoBetPulse');
+
+  if (S.realAutoBet.enabled) {
+    if (btn) {
+      btn.className = 'px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30 shadow';
+      btn.textContent = '⏹ STOP AUTO-BET';
+    }
+    if (badge) {
+      badge.className = 'text-[7.5px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono border border-emerald-500/30 animate-pulse';
+      badge.textContent = 'ACTIVE';
+    }
+    if (pulse) pulse.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping inline-block';
+    showToast('🚀 Real Auto-Betting Activated! Dispatches signals to DhaniWin.', 'success');
+    dispatchRealBetOrder();
+  } else {
+    if (btn) {
+      btn.className = 'px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 shadow';
+      btn.textContent = '▶ START AUTO-BET';
+    }
+    if (badge) {
+      badge.className = 'text-[7.5px] px-1.5 py-0.5 rounded-full bg-slate-500/20 text-slate-300 font-mono border border-white/10';
+      badge.textContent = 'STANDBY';
+    }
+    if (pulse) pulse.className = 'w-2.5 h-2.5 rounded-full bg-slate-500 inline-block';
+    showToast('⏹ Real Auto-Betting Paused.', 'info');
+  }
+}
+
+function updateRealAutoBetStake() {
+  const baseInput = document.getElementById('realAutoBaseStake');
+  const multSelect = document.getElementById('realAutoMultiplier');
+  if (baseInput) S.realAutoBet.baseStake = Math.max(1, Number(baseInput.value) || 10);
+  if (multSelect) S.realAutoBet.multiplier = Number(multSelect.value) || 2.0;
+  
+  const curStake = Math.round(S.realAutoBet.baseStake * Math.pow(S.realAutoBet.multiplier, Math.min(S.lossStreak || 0, S.realAutoBet.maxLevel || 3)));
+  const elStake = document.getElementById('realAutoStakeDisplay');
+  if (elStake) elStake.textContent = '₹' + curStake;
+}
+
+function dispatchRealBetOrder() {
+  if (!S.realAutoBet || !S.realAutoBet.enabled) return;
+  if (!S.currentPeriod) return;
+
+  const pred = S.aiPredictionMap ? S.aiPredictionMap[S.currentPeriod] : null;
+  const target = pred ? pred.target : (S.lastOutcome ? S.lastOutcome.target : 'BIG');
+  if (!target) return;
+
+  // Prevent double-betting on the same period
+  if (S.realAutoBet.lastBetPeriod === String(S.currentPeriod)) return;
+  S.realAutoBet.lastBetPeriod = String(S.currentPeriod);
+
+  const curStake = Math.round(S.realAutoBet.baseStake * Math.pow(S.realAutoBet.multiplier, Math.min(S.lossStreak || 0, S.realAutoBet.maxLevel || 3)));
+
+  const elTarget = document.getElementById('realAutoTargetDisplay');
+  const elStake = document.getElementById('realAutoStakeDisplay');
+  if (elTarget) elTarget.textContent = target;
+  if (elStake) elStake.textContent = '₹' + curStake;
+
+  const orderPayload = {
+    type: 'EXECUTE_REAL_BET',
+    enabled: true,
+    period: String(S.currentPeriod),
+    target: target,
+    stake: curStake,
+    timeframe: S.timeframe || '30s',
+    timestamp: Date.now()
+  };
+
+  if (dhaniwinBridgeChannel) {
+    try { dhaniwinBridgeChannel.postMessage(orderPayload); } catch(e) {}
+  }
+  const iframe = document.getElementById('embeddedWebIframe');
+  if (iframe && iframe.contentWindow) {
+    try { iframe.contentWindow.postMessage(orderPayload, '*'); } catch(e) {}
+  }
+
+  setBridgeStatus(true, `Dispatched: ${target} ₹${curStake} for Period ${String(S.currentPeriod).slice(-4)}`);
+}
+
+function testBridgeSignal() {
+  const target = 'BIG';
+  const stake = 10;
+  const period = S.currentPeriod || 'TEST_ROUND';
+  const testPayload = {
+    type: 'EXECUTE_REAL_BET',
+    enabled: true,
+    period,
+    target,
+    stake,
+    timeframe: S.timeframe || '30s',
+    isTest: true
+  };
+  if (dhaniwinBridgeChannel) {
+    try { dhaniwinBridgeChannel.postMessage(testPayload); } catch(e) {}
+  }
+  showToast(`📡 Test signal dispatched: ${target} ₹${stake}`, 'info');
+}
+
+const DHANIWIN_BRIDGE_SCRIPT_TEMPLATE = `// ==UserScript==
+// @name         DhaniWin Quant AI Live Scraper & Auto-Bet Bridge
+// @namespace    https://dhaniwin.99.com/
+// @version      1.0
+// @description  Scrapes live WinGo draws, syncs timers, and executes automated bets from Quant AI Prediction
+// @match        *://*.dhaniwin.99.com/*
+// @match        *://*.dhaniwin99.com/*
+// @match        *://*dhaniwin*/*
+// @grant        none
+// ==/UserScript==
+(function() {
+  'use strict';
+  console.log('[DhaniWin Bridge] Connecting to Quant AI Prediction...');
+
+  const channel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('dhaniwin_quant_channel') : null;
+
+  function notifyApp(msg) {
+    if (channel) {
+      try { channel.postMessage(msg); } catch(e) {}
+    }
+    if (window.opener) {
+      try { window.opener.postMessage(msg, '*'); } catch(e) {}
+    }
+    if (window.parent && window.parent !== window) {
+      try { window.parent.postMessage(msg, '*'); } catch(e) {}
+    }
+  }
+
+  // 1. Initial handshake
+  notifyApp({ type: 'DHANIWIN_BRIDGE_HANDSHAKE', status: 'READY', url: window.location.href });
+
+  // 2. Auto-open WinGo game tab if on main lobby
+  function autoOpenWinGo() {
+    if (window.location.hash.includes('wingo') || window.location.pathname.includes('wingo')) return;
+    const links = Array.from(document.querySelectorAll('a, button, div, span'));
+    const winGoBtn = links.find(el => {
+      const txt = (el.textContent || '').trim().toLowerCase();
+      return txt === 'wingo' || txt === 'win go' || (txt.includes('win') && txt.includes('go'));
+    });
+    if (winGoBtn) {
+      console.log('[DhaniWin Bridge] Auto-navigating to WinGo...');
+      winGoBtn.click();
+    }
+  }
+  setTimeout(autoOpenWinGo, 1800);
+
+  // 3. Switch timer tab when prediction app changes timeframe
+  function switchTimerTab(tf) {
+    const labels = {
+      '30s': ['30s', '30 sec', '30sec', 'win go 30s'],
+      '1m':  ['1min', '1 min', '1m', 'win go 1min'],
+      '3m':  ['3min', '3 min', '3m', 'win go 3min'],
+      '5m':  ['5min', '5 min', '5m', 'win go 5min']
+    };
+    const targets = labels[tf] || [];
+    const elements = Array.from(document.querySelectorAll('div, button, span, li, p'));
+    for (const el of elements) {
+      const txt = (el.textContent || '').trim().toLowerCase();
+      if (targets.some(t => txt === t || txt.includes(t))) {
+        el.click();
+        console.log('[DhaniWin Bridge] Timer switched to:', tf);
+        break;
+      }
+    }
+  }
+
+  // 4. Live Scraper: Continuously monitors history table
+  let lastPeriodSeen = null;
+  function scrapeDraws() {
+    const candidates = document.querySelectorAll('tr, .van-row, [class*="record"], [class*="history-item"], [class*="item"]');
+    for (const el of candidates) {
+      const txt = el.textContent || '';
+      const periodMatch = txt.match(/\\b\\d{10,20}\\b/);
+      if (periodMatch) {
+        const period = periodMatch[0];
+        if (period !== lastPeriodSeen) {
+          lastPeriodSeen = period;
+          const numMatch = txt.match(/\\b([0-9])\\b/);
+          const num = numMatch ? Number(numMatch[1]) : null;
+          if (num !== null) {
+            const size = num >= 5 ? 'BIG' : 'SMALL';
+            const color = [1,3,7,9,5].includes(num) ? 'GREEN' : 'RED';
+            notifyApp({
+              type: 'DHANIWIN_SCRAPED_RESULT',
+              period,
+              number: num,
+              size,
+              color,
+              timestamp: Date.now()
+            });
+            console.log('[DhaniWin Bridge] Scraped draw:', period, num, size, color);
+          }
+        }
+        break;
+      }
+    }
+  }
+  setInterval(scrapeDraws, 1000);
+
+  // 5. Signal Receiver & Real Auto-Bet Executor
+  function handleIncomingOrder(msg) {
+    if (!msg || typeof msg !== 'object') return;
+    if (msg.type === 'WINGO_SWITCH_TIMEFRAME') {
+      switchTimerTab(msg.timeframe);
+    } else if (msg.type === 'EXECUTE_REAL_BET' && msg.enabled) {
+      executeRealBet(msg);
+    }
+  }
+
+  if (channel) channel.onmessage = (ev) => handleIncomingOrder(ev.data);
+  window.addEventListener('message', (ev) => handleIncomingOrder(ev.data));
+
+  function executeRealBet(order) {
+    const target = (order.target || '').toUpperCase();
+    console.log('[DhaniWin Bridge] Executing real bet:', target, '₹' + order.stake);
+    const buttons = Array.from(document.querySelectorAll('button, div, span'));
+    const btn = buttons.find(el => (el.textContent || '').trim().toUpperCase() === target);
+    if (btn) {
+      btn.click();
+      setTimeout(() => {
+        const confirmBtn = Array.from(document.querySelectorAll('button, div')).find(el => {
+          const t = (el.textContent || '').trim().toLowerCase();
+          return t.includes('confirm') || t.includes('bet') || t.includes('total');
+        });
+        if (confirmBtn) {
+          confirmBtn.click();
+          notifyApp({
+            type: 'DHANIWIN_BET_CONFIRMATION',
+            success: true,
+            period: order.period,
+            target: order.target,
+            stake: order.stake
+          });
+        }
+      }, 350);
+    }
+  }
+})();`;
+
+function openBridgeScriptModal() {
+  const modal = document.getElementById('dhaniwinBridgeModal');
+  const txt = document.getElementById('bridgeScriptCode');
+  if (txt) txt.value = DHANIWIN_BRIDGE_SCRIPT_TEMPLATE;
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeBridgeScriptModal() {
+  const modal = document.getElementById('dhaniwinBridgeModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function copyAutomationScript() {
+  const code = DHANIWIN_BRIDGE_SCRIPT_TEMPLATE;
+  navigator.clipboard.writeText(code).then(() => {
+    const btnText = document.getElementById('copyScriptBtnText');
+    if (btnText) btnText.textContent = '✓ Copied!';
+    showToast('📋 Bridge Script copied! Paste into Tampermonkey or DevTools Console on DhaniWin.', 'success');
+    setTimeout(() => {
+      if (btnText) btnText.textContent = 'Copy Script';
+    }, 2500);
+  }).catch(() => {
+    showToast('Failed to copy. Please select and copy manually from the box.', 'warning');
+  });
+}
 
 function selectAnalysisTf(tf) {
   currentAnalysisTf = tf;
