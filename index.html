@@ -1125,20 +1125,41 @@
           </div>
 
           <!-- Real Stake & Risk Settings -->
-          <div class="grid grid-cols-2 gap-1.5 text-[8px] font-mono">
+          <div class="grid grid-cols-3 gap-1.5 text-[8px] font-mono">
             <div class="space-y-0.5">
               <label class="text-[7px] uppercase text-slate-400 block">Base Stake (₹)</label>
               <input id="realAutoBaseStake" type="number" value="10" min="1" step="10" oninput="updateRealAutoBetStake()"
                 class="w-full px-2 py-1 rounded-lg bg-black/60 border border-white/10 text-amber-300 text-[9px] font-mono focus:outline-none focus:border-amber-400">
             </div>
             <div class="space-y-0.5">
-              <label class="text-[7px] uppercase text-slate-400 block">Martingale Multiplier</label>
-              <select id="realAutoMultiplier" onchange="updateRealAutoBetStake()" class="w-full px-2 py-1 rounded-lg bg-black/60 border border-white/10 text-slate-200 text-[9px] font-mono focus:outline-none focus:border-purple-400">
-                <option value="2">2.0x Standard</option>
-                <option value="2.2">2.2x Aggressive</option>
-                <option value="1">1.0x Flat Stake</option>
+              <label class="text-[7px] uppercase text-slate-400 block">Multiplier</label>
+              <select id="realAutoMultiplier" onchange="updateRealAutoBetStake()" class="w-full px-1.5 py-1 rounded-lg bg-black/60 border border-white/10 text-slate-200 text-[8.5px] font-mono focus:outline-none focus:border-purple-400">
+                <option value="2">2.0x Std</option>
+                <option value="2.2">2.2x High</option>
+                <option value="1">1.0x Flat</option>
               </select>
             </div>
+            <div class="space-y-0.5">
+              <label class="text-[7px] uppercase text-slate-400 block">Max Level</label>
+              <select id="realAutoMaxLevel" onchange="updateRealAutoBetStake()" class="w-full px-1.5 py-1 rounded-lg bg-black/60 border border-white/10 text-slate-200 text-[8.5px] font-mono focus:outline-none focus:border-purple-400">
+                <option value="3">3 Lvl (Max 8x)</option>
+                <option value="4">4 Lvl (Max 16x)</option>
+                <option value="5">5 Lvl (Max 32x)</option>
+                <option value="2">2 Lvl (Max 4x)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Quick Actions: Test Auto-Bet & 1-Click Inject -->
+          <div class="grid grid-cols-2 gap-1.5 font-mono text-[8px]">
+            <button onclick="testBridgeSignal()" class="py-1 px-2 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 font-bold flex items-center justify-center gap-1 transition active:scale-95 shadow" title="Test Auto-Bet Click & Confirm">
+              <i class="fa-solid fa-bolt text-amber-400"></i>
+              <span>Test Bet Now</span>
+            </button>
+            <button onclick="copyQuickInjectCode()" class="py-1 px-2 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/40 font-bold flex items-center justify-center gap-1 transition active:scale-95 shadow" title="Copy 1-line script to paste in DhaniWin Console">
+              <i class="fa-solid fa-code"></i>
+              <span>1-Click Inject</span>
+            </button>
           </div>
 
           <!-- Bridge & Scraper Integration Strip -->
@@ -1149,7 +1170,7 @@
                 <span id="bridgeStatusLabel">Bridge: Ready (Listening for data)</span>
               </span>
               <button onclick="openBridgeScriptModal()" class="text-amber-300 hover:underline font-bold text-[8px] flex items-center gap-0.5">
-                <i class="fa-solid fa-code"></i> Script Setup
+                <i class="fa-solid fa-gears"></i> Setup
               </button>
             </div>
             <div class="flex items-center justify-between gap-1 pt-1 border-t border-white/5 text-[7.5px] font-mono text-slate-400">
@@ -2323,6 +2344,13 @@ function startRTEngine() {
         setTimeout(() => fetchLiveAPIResults(S.timeframe).catch(() => {}), 2500);
       }
 
+      // ── Real Auto-Betting Continuous Supervisor ──
+      if (S.realAutoBet && S.realAutoBet.enabled && S.currentPeriod && S.secondsLeft > 5) {
+        if (S.realAutoBet.lastBetPeriod !== String(S.currentPeriod)) {
+          try { dispatchRealBetOrder(); } catch(e) { console.warn('RealAutoBet tick:', e); }
+        }
+      }
+
       // ── Live countdown bar for result prompt ──
       const modal = document.getElementById('resultPromptModal');
       if (modal && modal.style.display === 'flex') {
@@ -2841,6 +2869,11 @@ function runAI() {
       renderSmartView();
       showToast(`🤖 Auto-Bet placed: -₹${autoStake.toFixed(2)} on ${S.aiSignal.target}`, 'success');
     }
+  }
+
+  // ── REAL AUTO-BETTING DISPATCH (DhaniWin Live Bridge) ──
+  if (S.realAutoBet && S.realAutoBet.enabled) {
+    try { dispatchRealBetOrder(); } catch(e) { console.warn('RealAutoBet pred dispatch:', e); }
   }
 
   // ── PROMPT POPUP: Suggest starting auto-betting when AI accuracy is strong & not in test mode ──
@@ -4556,8 +4589,10 @@ function toggleRealAutoBet() {
 function updateRealAutoBetStake() {
   const baseInput = document.getElementById('realAutoBaseStake');
   const multSelect = document.getElementById('realAutoMultiplier');
+  const maxLvlSelect = document.getElementById('realAutoMaxLevel');
   if (baseInput) S.realAutoBet.baseStake = Math.max(1, Number(baseInput.value) || 10);
   if (multSelect) S.realAutoBet.multiplier = Number(multSelect.value) || 2.0;
+  if (maxLvlSelect) S.realAutoBet.maxLevel = Number(maxLvlSelect.value) || 3;
   
   const curStake = Math.round(S.realAutoBet.baseStake * Math.pow(S.realAutoBet.multiplier, Math.min(S.lossStreak || 0, S.realAutoBet.maxLevel || 3)));
   const elStake = document.getElementById('realAutoStakeDisplay');
@@ -4568,7 +4603,7 @@ function dispatchRealBetOrder() {
   if (!S.realAutoBet || !S.realAutoBet.enabled) return;
   if (!S.currentPeriod) return;
 
-  const pred = S.aiPredictionMap ? S.aiPredictionMap[S.currentPeriod] : null;
+  const pred = (S.aiPredictionMap && (S.aiPredictionMap[S.currentPeriod] || S.aiPredictionMap[String(S.currentPeriod).slice(-5)])) || S.aiSignal;
   const target = pred ? pred.target : (S.lastOutcome ? S.lastOutcome.target : 'BIG');
   if (!target) return;
 
@@ -4600,44 +4635,83 @@ function dispatchRealBetOrder() {
   if (iframe && iframe.contentWindow) {
     try { iframe.contentWindow.postMessage(orderPayload, '*'); } catch(e) {}
   }
+  try { window.postMessage(orderPayload, '*'); } catch(e) {}
 
   setBridgeStatus(true, `Dispatched: ${target} ₹${curStake} for Period ${String(S.currentPeriod).slice(-4)}`);
+  showToast(`⚡ Real Auto-Bet Dispatched: ${target} ₹${curStake} (Period ${String(S.currentPeriod).slice(-4)})`, 'info');
 }
 
 function testBridgeSignal() {
-  const target = 'BIG';
-  const stake = 10;
+  const pred = (S.aiPredictionMap && (S.aiPredictionMap[S.currentPeriod] || S.aiPredictionMap[String(S.currentPeriod).slice(-5)])) || S.aiSignal;
+  const target = pred ? pred.target : 'BIG';
+  const stake = (S.realAutoBet && S.realAutoBet.baseStake) ? S.realAutoBet.baseStake : 10;
   const period = S.currentPeriod || 'TEST_ROUND';
   const testPayload = {
     type: 'EXECUTE_REAL_BET',
     enabled: true,
-    period,
-    target,
-    stake,
+    period: String(period),
+    target: target,
+    stake: stake,
     timeframe: S.timeframe || '30s',
-    isTest: true
+    isTest: true,
+    timestamp: Date.now()
   };
   if (dhaniwinBridgeChannel) {
     try { dhaniwinBridgeChannel.postMessage(testPayload); } catch(e) {}
   }
-  showToast(`📡 Test signal dispatched: ${target} ₹${stake}`, 'info');
+  const iframe = document.getElementById('embeddedWebIframe');
+  if (iframe && iframe.contentWindow) {
+    try { iframe.contentWindow.postMessage(testPayload, '*'); } catch(e) {}
+  }
+  try { window.postMessage(testPayload, '*'); } catch(e) {}
+  showToast(`📡 Test Auto-Bet order dispatched: ${target} ₹${stake}!`, 'info');
+}
+
+function copyQuickInjectCode() {
+  const code = `javascript:(function(){const s=document.createElement('script');s.src='http://localhost:5173/dhaniwin-bridge.js?t='+Date.now();document.head.appendChild(s);})();`;
+  navigator.clipboard.writeText(code).then(() => {
+    showToast('📋 1-Click Code Copied! Paste into DhaniWin Console or Address Bar to take control.', 'success');
+  }).catch(() => {
+    showToast('Failed to copy. Open Setup for full script.', 'warning');
+  });
 }
 
 const DHANIWIN_BRIDGE_SCRIPT_TEMPLATE = `// ==UserScript==
 // @name         DhaniWin Quant AI Live Scraper & Auto-Bet Bridge
 // @namespace    https://dhaniwin.99.com/
-// @version      1.0
+// @version      2.0
 // @description  Scrapes live WinGo draws, syncs timers, and executes automated bets from Quant AI Prediction
 // @match        *://*.dhaniwin.99.com/*
 // @match        *://*.dhaniwin99.com/*
 // @match        *://*dhaniwin*/*
+// @run-at       document-idle
 // @grant        none
 // ==/UserScript==
 (function() {
   'use strict';
-  console.log('[DhaniWin Bridge] Connecting to Quant AI Prediction...');
+  console.log('%c[Quant AI Bridge] 🚀 Initializing DhaniWin Real Auto-Betting Engine v2.0...', 'color:#10b981;font-weight:bold;font-size:12px;');
 
   const channel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('dhaniwin_quant_channel') : null;
+
+  // Floating On-Screen HUD on DhaniWin
+  function updateFloatingHud(statusText, color) {
+    let hud = document.getElementById('quant-ai-hud');
+    if (!hud) {
+      hud = document.createElement('div');
+      hud.id = 'quant-ai-hud';
+      hud.style.cssText = 'position:fixed;bottom:75px;left:12px;right:12px;z-index:999999;background:rgba(12,8,25,0.94);backdrop-filter:blur(10px);border:1.5px solid #10b981;border-radius:16px;padding:8px 14px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:#fff;font-size:11px;font-weight:bold;box-shadow:0 12px 36px rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:space-between;pointer-events:none;transition:all 0.3s ease;';
+      document.body.appendChild(hud);
+    }
+    const colorHex = color === 'amber' ? '#f59e0b' : color === 'rose' ? '#f43f5e' : '#10b981';
+    hud.style.borderColor = colorHex;
+    hud.innerHTML = \`
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="width:8px;height:8px;border-radius:50%;background:\${colorHex};box-shadow:0 0 10px \${colorHex};display:inline-block;"></span>
+        <span style="letter-spacing:0.5px;color:#fff;">QUANT AI AUTO-BET</span>
+      </div>
+      <span style="color:\${colorHex};font-size:10.5px;font-family:monospace;">\${statusText}</span>
+    \`;
+  }
 
   function notifyApp(msg) {
     if (channel) {
@@ -4651,25 +4725,32 @@ const DHANIWIN_BRIDGE_SCRIPT_TEMPLATE = `// ==UserScript==
     }
   }
 
-  // 1. Initial handshake
+  // 1. Initial Handshake
   notifyApp({ type: 'DHANIWIN_BRIDGE_HANDSHAKE', status: 'READY', url: window.location.href });
+  updateFloatingHud('Connected & Ready (Listening for Signals)', 'emerald');
 
-  // 2. Auto-open WinGo game tab if on main lobby
+  // Heartbeat every 2s
+  setInterval(() => {
+    notifyApp({ type: 'DHANIWIN_BRIDGE_HEARTBEAT', timestamp: Date.now() });
+  }, 2000);
+
+  // 2. Auto-Navigate to WinGo if on main lobby
   function autoOpenWinGo() {
     if (window.location.hash.includes('wingo') || window.location.pathname.includes('wingo')) return;
     const links = Array.from(document.querySelectorAll('a, button, div, span'));
     const winGoBtn = links.find(el => {
-      const txt = (el.textContent || '').trim().toLowerCase();
+      const txt = (el.innerText || el.textContent || '').trim().toLowerCase();
       return txt === 'wingo' || txt === 'win go' || (txt.includes('win') && txt.includes('go'));
     });
     if (winGoBtn) {
-      console.log('[DhaniWin Bridge] Auto-navigating to WinGo...');
-      winGoBtn.click();
+      console.log('[Quant AI Bridge] Auto-navigating to WinGo...');
+      simulateClick(winGoBtn);
+      updateFloatingHud('Navigating to WinGo...', 'amber');
     }
   }
-  setTimeout(autoOpenWinGo, 1800);
+  setTimeout(autoOpenWinGo, 1500);
 
-  // 3. Switch timer tab when prediction app changes timeframe
+  // 3. Switch Timer Tab (30s, 1m, 3m, 5m)
   function switchTimerTab(tf) {
     const labels = {
       '30s': ['30s', '30 sec', '30sec', 'win go 30s'],
@@ -4680,10 +4761,11 @@ const DHANIWIN_BRIDGE_SCRIPT_TEMPLATE = `// ==UserScript==
     const targets = labels[tf] || [];
     const elements = Array.from(document.querySelectorAll('div, button, span, li, p'));
     for (const el of elements) {
-      const txt = (el.textContent || '').trim().toLowerCase();
+      const txt = (el.innerText || el.textContent || '').trim().toLowerCase();
       if (targets.some(t => txt === t || txt.includes(t))) {
-        el.click();
-        console.log('[DhaniWin Bridge] Timer switched to:', tf);
+        simulateClick(el);
+        console.log('[Quant AI Bridge] Timer switched to:', tf);
+        updateFloatingHud(\`Timeframe: \${tf}\`, 'emerald');
         break;
       }
     }
@@ -4694,7 +4776,7 @@ const DHANIWIN_BRIDGE_SCRIPT_TEMPLATE = `// ==UserScript==
   function scrapeDraws() {
     const candidates = document.querySelectorAll('tr, .van-row, [class*="record"], [class*="history-item"], [class*="item"]');
     for (const el of candidates) {
-      const txt = el.textContent || '';
+      const txt = el.innerText || el.textContent || '';
       const periodMatch = txt.match(/\\b\\d{10,20}\\b/);
       if (periodMatch) {
         const period = periodMatch[0];
@@ -4713,14 +4795,58 @@ const DHANIWIN_BRIDGE_SCRIPT_TEMPLATE = `// ==UserScript==
               color,
               timestamp: Date.now()
             });
-            console.log('[DhaniWin Bridge] Scraped draw:', period, num, size, color);
+            console.log('[Quant AI Bridge] Scraped draw:', period, num, size, color);
           }
         }
         break;
       }
     }
   }
-  setInterval(scrapeDraws, 1000);
+  setInterval(scrapeDraws, 800);
+
+  // Helper: Dispatch touch, pointer, and click events
+  function simulateClick(element) {
+    if (!element) return;
+    ['pointerdown', 'touchstart', 'mousedown', 'mouseup', 'touchend', 'click'].forEach(evtType => {
+      try {
+        const evt = new MouseEvent(evtType, { bubbles: true, cancelable: true, view: window });
+        element.dispatchEvent(evt);
+      } catch (e) {
+        try {
+          const touch = new Event(evtType, { bubbles: true });
+          element.dispatchEvent(touch);
+        } catch (e2) {}
+      }
+    });
+    if (typeof element.click === 'function') {
+      try { element.click(); } catch(e) {}
+    }
+  }
+
+  // Helper: Find target bet button
+  function findTargetButton(target) {
+    const tgt = String(target).trim().toUpperCase();
+    const all = Array.from(document.querySelectorAll('button, div, span, [role="button"], [class*="btn"]'));
+    
+    // Exact text match
+    let match = all.find(el => {
+      const t = (el.innerText || el.textContent || '').trim().toUpperCase();
+      return t === tgt;
+    });
+    if (match) return match;
+
+    // Attribute or class match
+    const tgtLower = tgt.toLowerCase();
+    match = document.querySelector(\`[data-type="\${tgtLower}"], [data-bet="\${tgtLower}"], .btn-\${tgtLower}, .\${tgtLower}-btn, .bet-\${tgtLower}\`);
+    if (match) return match;
+
+    // Starts with target
+    match = all.find(el => {
+      const t = (el.innerText || el.textContent || '').trim().toUpperCase();
+      return t.startsWith(tgt);
+    });
+    return match;
+  }
 
   // 5. Signal Receiver & Real Auto-Bet Executor
   function handleIncomingOrder(msg) {
@@ -4735,32 +4861,92 @@ const DHANIWIN_BRIDGE_SCRIPT_TEMPLATE = `// ==UserScript==
   if (channel) channel.onmessage = (ev) => handleIncomingOrder(ev.data);
   window.addEventListener('message', (ev) => handleIncomingOrder(ev.data));
 
+  // Core Auto-Betting Engine
   function executeRealBet(order) {
     const target = (order.target || '').toUpperCase();
-    console.log('[DhaniWin Bridge] Executing real bet:', target, '₹' + order.stake);
-    const buttons = Array.from(document.querySelectorAll('button, div, span'));
-    const btn = buttons.find(el => (el.textContent || '').trim().toUpperCase() === target);
-    if (btn) {
-      btn.click();
+    const stake = Math.max(1, Number(order.stake) || 10);
+    console.log('%c[Quant AI Bridge] ⚡ EXECUTING REAL BET:', 'color:#f59e0b;font-weight:bold;', target, '₹' + stake);
+    updateFloatingHud(\`Placing Bet: \${target} ₹\${stake}...\`, 'amber');
+
+    const btn = findTargetButton(target);
+    if (!btn) {
+      console.warn('[Quant AI Bridge] ❌ Bet button for ' + target + ' not found!');
+      updateFloatingHud(\`Btn \${target} Not Found\`, 'rose');
+      return;
+    }
+
+    // Step 1: Click the target bet button to open sheet
+    simulateClick(btn);
+
+    // Step 2: In popup, adjust stake and click confirm
+    setTimeout(() => {
+      const popups = document.querySelectorAll('.van-popup, [class*="popup"], [class*="dialog"], [class*="sheet"], [class*="drawer"], [role="dialog"], body');
+      const activePopup = Array.from(popups).reverse().find(p => p.offsetParent !== null) || document.body;
+
+      // Enter stake into stepper input
+      const inputs = activePopup.querySelectorAll('input.van-stepper__input, input[type="number"], input[type="tel"], input.amount-input, input[class*="input"]');
+      if (inputs.length > 0) {
+        const input = inputs[0];
+        input.value = stake;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        input.dispatchEvent(new Event('blur', { bubbles: true }));
+      }
+
+      // Ensure agree checkbox is checked if present
+      const checkboxes = activePopup.querySelectorAll('.van-checkbox, input[type="checkbox"]');
+      checkboxes.forEach(cb => {
+        if (!cb.classList.contains('van-checkbox--checked') && !cb.checked) {
+          simulateClick(cb);
+        }
+      });
+
+      // Step 3: Click Confirm / Bet button
       setTimeout(() => {
-        const confirmBtn = Array.from(document.querySelectorAll('button, div')).find(el => {
-          const t = (el.textContent || '').trim().toLowerCase();
-          return t.includes('confirm') || t.includes('bet') || t.includes('total');
+        const buttons = Array.from(activePopup.querySelectorAll('button, div, span, [role="button"]'));
+        const confirmBtn = buttons.find(el => {
+          const t = (el.innerText || el.textContent || '').trim().toLowerCase();
+          return (
+            t.includes('total amount') ||
+            t.includes('confirm') ||
+            t.includes('bet') ||
+            t.includes('presale') ||
+            (el.className && typeof el.className === 'string' && (el.className.includes('van-button--danger') || el.className.includes('submit') || el.className.includes('confirm')))
+          );
         });
+
         if (confirmBtn) {
-          confirmBtn.click();
+          simulateClick(confirmBtn);
+          console.log('%c[Quant AI Bridge] ✅ Bet Confirm Clicked! Target: ' + target + ', Stake: ₹' + stake, 'color:#10b981;font-weight:bold;');
+          updateFloatingHud(\`✅ Bet Placed: \${target} ₹\${stake}\`, 'emerald');
           notifyApp({
             type: 'DHANIWIN_BET_CONFIRMATION',
             success: true,
             period: order.period,
-            target: order.target,
-            stake: order.stake
+            target: target,
+            stake: stake,
+            timestamp: Date.now()
           });
+        } else {
+          // Fallback to primary button
+          const primaryBtn = activePopup.querySelector('.van-button--danger, .van-button--primary, button[type="submit"]');
+          if (primaryBtn) {
+            simulateClick(primaryBtn);
+            updateFloatingHud(\`✅ Bet Placed: \${target} ₹\${stake}\`, 'emerald');
+            notifyApp({
+              type: 'DHANIWIN_BET_CONFIRMATION',
+              success: true,
+              period: order.period,
+              target: target,
+              stake: stake,
+              timestamp: Date.now()
+            });
+          }
         }
-      }, 350);
-    }
+      }, 250);
+    }, 300);
   }
-})();`;
+})();\`;
 
 function openBridgeScriptModal() {
   const modal = document.getElementById('dhaniwinBridgeModal');
