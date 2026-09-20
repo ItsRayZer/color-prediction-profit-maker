@@ -76,14 +76,14 @@
     return { signal: 'NEUTRAL', weight: 0 };
   }
 
-  // -- ENGINE 2B: Dragon Streak Rider (Ride Until It Dies) -------------------
+  // -- ENGINE 2B: Dragon Streak Rider (Calibrated Momentum) -----------------
   function engineDragonRider(hist) {
     if (!hist || hist.length < 3) return { isDragon: false, sizeSignal: 'NEUTRAL', colorSignal: 'NEUTRAL', weight: 0 };
     const real = hist.filter(r => !r.gap && r.number !== null && r.number !== undefined);
     const n = real.length;
     if (n < 3) return { isDragon: false, sizeSignal: 'NEUTRAL', colorSignal: 'NEUTRAL', weight: 0 };
 
-    // 1. Detect Size Streak (e.g. BIG-BIG-BIG or SMALL-SMALL-SMALL)
+    // 1. Detect Size Streak (requires >= 4 for confirmed dragon momentum)
     const lastSize = real[n - 1].size;
     let sizeStreak = 1;
     for (let i = n - 2; i >= 0; i--) {
@@ -91,7 +91,7 @@
       else break;
     }
 
-    // 2. Detect Color Streak (e.g. RED-RED-RED or GREEN-GREEN-GREEN)
+    // 2. Detect Color Streak (requires >= 5 because colors chop 65-67% at 2-3x)
     function getPureColor(r) {
       if (r.color) {
         if (r.color.includes('GREEN')) return 'GREEN';
@@ -111,24 +111,23 @@
       }
     }
 
-    const isSizeDragon = sizeStreak >= 3;
-    const isColorDragon = colorStreak >= 3;
+    const isSizeDragon = sizeStreak >= 4;
+    const isColorDragon = colorStreak >= 5;
     const isDragon = isSizeDragon || isColorDragon;
 
     let sizeWeight = 0;
     let sizeProb = 0.5;
     if (isSizeDragon) {
       if (sizeStreak >= 6) { sizeWeight = 95; sizeProb = 0.82; }
-      else if (sizeStreak >= 4) { sizeWeight = 80; sizeProb = 0.74; }
-      else { sizeWeight = 65; sizeProb = 0.66; }
+      else if (sizeStreak >= 4) { sizeWeight = 85; sizeProb = 0.76; }
+      else { sizeWeight = 70; sizeProb = 0.68; }
     }
 
     let colorWeight = 0;
     let colorProb = 0.5;
     if (isColorDragon) {
-      if (colorStreak >= 6) { colorWeight = 95; colorProb = 0.82; }
-      else if (colorStreak >= 4) { colorWeight = 80; colorProb = 0.74; }
-      else { colorWeight = 65; colorProb = 0.66; }
+      if (colorStreak >= 6) { colorWeight = 90; colorProb = 0.78; }
+      else { colorWeight = 75; colorProb = 0.70; }
     }
 
     return {
@@ -144,8 +143,85 @@
       sizeProb,
       colorProb,
       reason: isSizeDragon 
-        ? `🐉 DRAGON RIDER: ${sizeStreak}x consecutive ${lastSize} streak. Riding dragon until it dies!` 
+        ? `🐉 DRAGON RIDER: ${sizeStreak}x consecutive ${lastSize} streak (Riding confirmed trend)` 
         : (isColorDragon ? `🐉 COLOR DRAGON RIDER: ${colorStreak}x consecutive ${lastColor} streak.` : null)
+    };
+  }
+
+  // -- ENGINE 2C: Empirical Regime & Sequence Pattern Intelligence -----------
+  function engineRegimeAndPatterns(hist) {
+    if (!hist || hist.length < 5) return { active: false, signal: 'NEUTRAL', isHighConfidence: false, weight: 0 };
+    const real = hist.filter(r => !r.gap && r.number !== null && r.number !== undefined);
+    const n = real.length;
+    if (n < 5) return { active: false, signal: 'NEUTRAL', isHighConfidence: false, weight: 0 };
+
+    const sStr = real.map(r => r.size === 'BIG' ? 'B' : 'S').join('');
+    
+    // 1. Regime Detection (Chop vs Trend over last 14 draws)
+    const recentWindow = sStr.slice(-14);
+    const recentRuns = recentWindow.match(/(B+|S+)/g) || [];
+    const avgRunLen = recentRuns.length > 0 ? (recentRuns.reduce((acc, r) => acc + r.length, 0) / recentRuns.length) : 2.0;
+    const isChopRegime = avgRunLen <= 1.85;
+
+    // Active trailing streak
+    let streak = 1;
+    const lastChar = sStr[n - 1];
+    for (let j = n - 2; j >= 0; j--) {
+      if (sStr[j] === lastChar) streak++;
+      else break;
+    }
+
+    const c3 = sStr.slice(-3);
+    const c2 = sStr.slice(-2);
+
+    let signal = 'NEUTRAL';
+    let reason = '';
+    let isHighConfidence = false;
+    let weight = 0;
+
+    // High confidence empirical 3-gram patterns (60-64% win frequency)
+    if (c3 === 'BBS') {
+      signal = 'BIG'; reason = 'BBS→B sequence pattern (64% empirical frequency)'; isHighConfidence = true; weight = 85;
+    } else if (c3 === 'SBB') {
+      signal = 'SMALL'; reason = 'SBB→S sequence pattern (64% empirical frequency)'; isHighConfidence = true; weight = 85;
+    } else if (c3 === 'SBS') {
+      signal = 'SMALL'; reason = 'SBS→S sequence pattern (64% empirical frequency)'; isHighConfidence = true; weight = 85;
+    } else if (c3 === 'SSB') {
+      signal = 'BIG'; reason = 'SSB→B sequence pattern (58% empirical frequency)'; isHighConfidence = true; weight = 75;
+    } else if (streak === 3) {
+      // 3x runs: in chop regime they flip (60% probability), in trend regime they continue
+      signal = isChopRegime ? (lastChar === 'B' ? 'SMALL' : 'BIG') : (lastChar === 'B' ? 'BIG' : 'SMALL');
+      reason = `${lastChar}3 (${isChopRegime ? 'Chop Regime Reversal' : 'Trend Regime Expansion'})`;
+      isHighConfidence = true;
+      weight = 80;
+    } else if (streak === 2) {
+      // 2x runs: in chop regime they flip (56-60%), in trend regime they continue
+      signal = isChopRegime ? (lastChar === 'B' ? 'SMALL' : 'BIG') : (lastChar === 'B' ? 'BIG' : 'SMALL');
+      reason = `2x (${isChopRegime ? 'Run Exhaustion Chop' : 'Trend Continuation'})`;
+      weight = 65;
+    } else if (streak === 1) {
+      // Markov transition on c2
+      let countB = 0, countS = 0;
+      for (let k = 0; k <= sStr.length - 3; k++) {
+        if (sStr.substring(k, k + 2) === c2) {
+          if (sStr[k + 2] === 'B') countB++;
+          else countS++;
+        }
+      }
+      if (countB > countS && (countB + countS >= 3)) {
+        signal = 'BIG'; reason = `Rolling Markov ${c2}→B (${countB} vs ${countS})`; weight = 60;
+      } else if (countS > countB && (countB + countS >= 3)) {
+        signal = 'SMALL'; reason = `Rolling Markov ${c2}→S (${countS} vs ${countB})`; weight = 60;
+      }
+    }
+
+    return {
+      active: signal !== 'NEUTRAL',
+      signal,
+      reason,
+      isHighConfidence,
+      isChopRegime,
+      weight
     };
   }
 
@@ -1394,8 +1470,8 @@
     const sizeSeqScore  = sizePattern.patternScore + (sizeConsensus.leadScore * 0.4) + Math.round((sizeConsensus.prob - 0.5) * 80);
     const colorSeqScore = colorPattern.patternScore + (colorConsensus.leadScore * 0.4) + Math.round((colorConsensus.prob - 0.5) * 80);
 
-    // Compare: Which one has the stronger pattern sequence?
-    const dominantType = colorSeqScore > sizeSeqScore ? 'COLOR' : 'SIZE';
+    // Compare: Size is a pure binary 50/50 without violet hazard, so Color requires a clear edge (+25 score)
+    const dominantType = (colorSeqScore > sizeSeqScore + 25) ? 'COLOR' : 'SIZE';
     const recommendedTarget = dominantType === 'COLOR' ? colorConsensus.target : sizeConsensus.target;
     const dominantProb = dominantType === 'COLOR' ? colorConsensus.prob : sizeConsensus.prob;
     const dominantEngines = dominantType === 'COLOR' ? colorConsensus.engines : sizeConsensus.engines;
@@ -1454,23 +1530,48 @@
       ? `Color [${colorPattern.patternName}] stronger (${colorSeqScore} vs Size ${sizeSeqScore})`
       : `Size [${sizePattern.patternName}] stronger (${sizeSeqScore} vs Color ${colorSeqScore})`;
 
-    // Check 1: Dragon Streak Rider (Ride Until It Dies)
+    // Check 1: Confirmed Dragon Streak Rider (>=4x Size, >=5x Color)
     const dragonRider = engineDragonRider(history);
+
+    // Check 2: Empirical Regime & Sequence Pattern Intelligence
+    const regimePatterns = engineRegimeAndPatterns(history);
+
+    let isPatternProtected = false;
 
     if (dragonRider.isDragon) {
       if (dragonRider.isSizeDragon) {
         finalTarget = dragonRider.sizeSignal;
         finalDominantType = 'SIZE';
         finalReason = `${dragonRider.reason} | Max Profit Stake ₹${staking.stake}`;
+        isPatternProtected = true;
       } else if (dragonRider.isColorDragon) {
         finalTarget = dragonRider.colorSignal;
         finalDominantType = 'COLOR';
         finalReason = `${dragonRider.reason} | Max Profit Stake ₹${staking.stake}`;
+        isPatternProtected = true;
       }
+    } else if (regimePatterns.active && regimePatterns.isHighConfidence) {
+      finalTarget = regimePatterns.signal;
+      finalDominantType = 'SIZE';
+      finalReason = `📈 ${regimePatterns.reason} | Stake ₹${staking.stake}`;
+      isPatternProtected = true;
+    } else if (regimePatterns.active && regimePatterns.weight >= 65) {
+      finalTarget = regimePatterns.signal;
+      finalDominantType = 'SIZE';
+      finalReason = `📊 ${regimePatterns.reason} | Stake ₹${staking.stake}`;
+    } else if (candidateData && candidateData.bestCandidate) {
+      const best = candidateData.bestCandidate;
+      finalReason = `📊 History Match ${best.code} (${best.exactSequence}) OOS ${Math.round(best.outOfSampleAccuracy * 100)}% | ${patternNote}`;
+    } else {
+      const topEngine = dominantEngines[0] || (dominantType === 'COLOR' ? 'Color' : 'Quant');
+      finalReason = `${topEngine} | ${patternNote} (${Math.round(dominantProb * 100)}% Win Rate)`;
     }
-    // Check 2: Adaptive Opposite Inversion (When in loss streak >= 2, predict opposite of model to prevent >4 losses)
-    else if (effectiveLossStreak >= 2) {
-      const unFlippedTarget = shieldResult.isShieldActive ? shieldResult.target : recommendedTarget;
+
+    // Check 3: Pattern-Protected Adaptive Opposite Inversion
+    // When effectiveLossStreak >= 3, if not protected by a high-confidence structural pattern,
+    // invert the target to break the adversary house phase!
+    if (effectiveLossStreak >= 3 && !isPatternProtected) {
+      const unFlippedTarget = finalTarget;
       let flippedTarget = unFlippedTarget;
       if (unFlippedTarget === 'BIG') flippedTarget = 'SMALL';
       else if (unFlippedTarget === 'SMALL') flippedTarget = 'BIG';
@@ -1479,23 +1580,17 @@
 
       finalTarget = flippedTarget;
       finalDominantType = ['RED', 'GREEN'].includes(flippedTarget) ? 'COLOR' : 'SIZE';
-      finalReason = `🔄 ADAPTIVE OPPOSITE INVERSION (${effectiveLossStreak}L streak): Flipped ${unFlippedTarget} → ${flippedTarget} to break house phase & prevent >4 losses! | Stake ₹${staking.stake}`;
+      finalReason = `🔄 ADAPTIVE OPPOSITE INVERSION (${effectiveLossStreak}L streak): Flipped ${unFlippedTarget} → ${flippedTarget} to break house phase! | Stake ₹${staking.stake}`;
     }
-    // Check 3: Critical 4-Loss Prevention Fortress Shield
-    else if (shieldResult.isShieldActive) {
+    // Check 4: Critical 4-Loss Prevention Fortress Shield (only if not protected by verified pattern)
+    else if (shieldResult.isShieldActive && !isPatternProtected) {
       finalTarget = shieldResult.target;
       finalDominantType = 'SIZE';
       finalReason = `${shieldResult.shieldReason} | Loss Prevention Stake ₹${staking.stake}`;
-    } else if (v5Ensemble && v5Ensemble.isSafetyOverride) {
+    } else if (v5Ensemble && v5Ensemble.isSafetyOverride && !isPatternProtected) {
       finalTarget = v5Ensemble.sizePick;
       finalDominantType = 'SIZE';
       finalReason = `🛡️ ${v5Ensemble.sizeSource} | Recovery Stake ₹${staking.stake}`;
-    } else if (candidateData && candidateData.bestCandidate) {
-      const best = candidateData.bestCandidate;
-      finalReason = `📊 History Match ${best.code} (${best.exactSequence}) OOS ${Math.round(best.outOfSampleAccuracy * 100)}% | ${patternNote}`;
-    } else {
-      const topEngine = dominantEngines[0] || (dominantType === 'COLOR' ? 'Color' : 'Quant');
-      finalReason = `${topEngine} | ${patternNote} (${Math.round(dominantProb * 100)}% Win Rate)`;
     }
 
     const pickDesc = `🎯 Target: ${finalTarget}`;
@@ -1547,6 +1642,7 @@
     engineSum,
     engineTrend,
     engineDragonRider,
+    engineRegimeAndPatterns,
     engineDNA,
     engineMarkov2,
     engineRolling,
