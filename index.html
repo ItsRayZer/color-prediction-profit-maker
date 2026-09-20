@@ -182,6 +182,32 @@
       text-orientation: mixed;
       letter-spacing: 0.18em;
     }
+    body.is-v-resizing {
+      cursor: row-resize !important;
+      user-select: none !important;
+    }
+    body.is-v-resizing * {
+      user-select: none !important;
+      cursor: row-resize !important;
+    }
+    .active-v-resizing {
+      background: rgba(245, 158, 11, 0.25) !important;
+    }
+    :fullscreen, ::backdrop {
+      background-color: #0c0817 !important;
+    }
+    .is-fullscreen-card {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      max-height: 100vh !important;
+      z-index: 9999 !important;
+      background: #0c0817 !important;
+      padding: 16px !important;
+      overflow-y: auto !important;
+      border-radius: 0 !important;
+    }
   </style>
 </head>
 <body class="bg-app-bg min-h-screen text-white overflow-x-hidden relative">
@@ -245,6 +271,26 @@
       <button onclick="resetWindowLayout()" class="p-1 px-2 rounded-xl text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/10 transition active:scale-95 border border-transparent hover:border-white/10" title="Reset all 3 windows to equal size">
         <i class="fa-solid fa-rotate-left text-[9px]"></i>
       </button>
+
+      <!-- + Add Element Dropdown -->
+      <div class="relative inline-block ml-1">
+        <button id="btnAddElementsDropdown" onclick="toggleAddElementsMenu(event)" class="px-2 py-1 rounded-xl text-[9px] font-black uppercase transition active:scale-95 flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-500/30 shadow-sm" title="Add / Restore closed window elements">
+          <i class="fa-solid fa-plus text-[8.5px]"></i>
+          <span>Add Element</span>
+          <span id="closedElementsCountBadge" class="hidden px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[7.5px] font-mono font-bold">0</span>
+        </button>
+
+        <!-- Dropdown Menu -->
+        <div id="addElementsDropdownMenu" class="hidden absolute right-0 mt-2 w-72 bg-[#120a24]/95 backdrop-blur-2xl border border-purple-800/60 rounded-2xl shadow-2xl p-2.5 z-50 text-[10px] space-y-2">
+          <div class="flex items-center justify-between pb-1.5 border-b border-white/10 font-mono">
+            <span class="font-bold text-white uppercase text-[9px] flex items-center gap-1.5"><i class="fa-solid fa-layer-group text-amber-400"></i> Manage Window Elements</span>
+            <button onclick="restoreAllElements()" class="text-[8px] text-amber-400 hover:underline font-bold">Restore All</button>
+          </div>
+          <div id="addElementsList" class="space-y-1 max-h-72 overflow-y-auto" style="scrollbar-width:thin;scrollbar-color:#6b21a8 transparent;">
+            <!-- Injected dynamically by updateAddElementsMenu() -->
+          </div>
+        </div>
+      </div>
     </div>
 
     <button onclick="toggleResultPopup()" id="popupToggleBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 hover:text-white font-black text-xs transition active:scale-95 shadow" title="Toggle Result Popup ON or OFF">
@@ -579,22 +625,27 @@
   <section id="col1Container" class="overflow-y-auto overflow-x-hidden p-3 space-y-3 bg-[#0a0615] lg:border-r border-purple-900/30 flex-col" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
     
     <!-- ── LIVE PERFORMANCE & STREAK AUDIT (ABOVE LIVE HISTORY) ── -->
-    <div class="bg-app-card rounded-2xl p-2.5 border border-purple-900/40 shadow-xl space-y-2">
+    <div id="card-col1-audit" class="bg-app-card rounded-2xl p-2.5 border border-purple-900/40 shadow-xl space-y-2 relative transition-all">
       <div class="flex items-center justify-between pb-1.5 border-b border-purple-900/30">
         <div class="flex items-center gap-1.5">
           <i class="fa-solid fa-chart-line text-amber-400 text-xs"></i>
           <span class="text-[10px] font-black uppercase tracking-wider text-white">Live Prediction Audit</span>
         </div>
-        <div class="flex items-center gap-1.5">
+        <div class="flex items-center gap-1">
           <span id="perfAuditTfBadge" class="text-[8px] px-1.5 py-0.5 rounded-full bg-purple-900/50 text-purple-300 font-mono border border-purple-700/40">WinGo 30s</span>
           <button onclick="resetLiveAudit()" title="Reset session metrics without modifying draw history" class="px-1.5 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-mono text-[8px] font-bold border border-rose-500/30 active:scale-95 transition flex items-center gap-1">
             <i class="fa-solid fa-rotate-left text-[7.5px]"></i> Reset
           </button>
-          <button onclick="toggleWindowCol('col1')" title="Hide Window (gives other windows more space)" class="hidden lg:flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 font-mono text-[8px] font-bold border border-white/10 active:scale-95 transition">
-            <i class="fa-solid fa-window-minimize text-[7px]"></i> Hide
+          <button onclick="toggleCardCollapse('card-col1-audit-body', this)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition" title="Minimize / Expand">
+            <i class="fa-solid fa-chevron-up text-[7.5px]"></i>
+          </button>
+          <button onclick="closeCardElement('col1-audit')" class="w-5 h-5 rounded bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 flex items-center justify-center text-[9px] transition font-bold" title="Close element (can re-add via + button at top)">
+            <i class="fa-solid fa-xmark text-[8.5px]"></i>
           </button>
         </div>
       </div>
+
+      <div id="card-col1-audit-body" class="space-y-2">
 
       <!-- Metric Grid: Accuracy & AI Streaks -->
       <div class="grid grid-cols-3 gap-1.5 text-center font-mono text-[9px]">
@@ -645,10 +696,11 @@
           <b id="liveAuditMaxPatternStreak" class="text-[11px] font-black text-indigo-300">—</b>
         </div>
       </div>
+      </div><!-- end card-col1-audit-body -->
     </div>
 
     <!-- 1. LIVE REAL HISTORY FEED & TREND ROAD TAB -->
-    <div class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-xl flex flex-col">
+    <div id="card-col1-history" class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-xl flex flex-col relative transition-all">
       <div class="p-2 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border-b border-purple-900/40 flex items-center justify-between flex-wrap gap-1.5">
         <div class="flex items-center gap-1.5">
           <!-- Segmented Tab Switcher: Live History vs Trend Graph -->
@@ -663,7 +715,37 @@
             </button>
           </div>
         </div>
-        <span id="historyLiveStatusBadge" class="text-[8.5px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">Auto-Synced</span>
+        
+        <div class="flex items-center gap-1.5">
+          <!-- Height Controls (Increase / Decrease Height) -->
+          <div class="flex items-center bg-black/60 p-0.5 rounded-lg border border-purple-800/40 text-[8px] font-mono" title="Adjust Live History Height">
+            <button onclick="adjustHistoryHeight(-80)" class="w-4 h-4 flex items-center justify-center rounded hover:bg-white/10 text-slate-300 hover:text-white transition active:scale-95" title="Decrease Height (-80px)">
+              <i class="fa-solid fa-minus text-[6.5px]"></i>
+            </button>
+            <span id="historyHeightLabel" class="px-1 font-bold text-amber-400 select-none text-[8px]">520px</span>
+            <button onclick="adjustHistoryHeight(100)" class="w-4 h-4 flex items-center justify-center rounded hover:bg-white/10 text-slate-300 hover:text-white transition active:scale-95" title="Increase Height (+100px)">
+              <i class="fa-solid fa-plus text-[6.5px]"></i>
+            </button>
+            <button onclick="toggleHistoryMaxHeight()" class="w-4 h-4 flex items-center justify-center rounded hover:bg-white/10 text-slate-300 hover:text-amber-400 transition active:scale-95 ml-0.5" title="Toggle Full / Tall Height">
+              <i class="fa-solid fa-up-right-and-down-left-from-center text-[6.5px]"></i>
+            </button>
+          </div>
+
+          <!-- Full Screen Button -->
+          <button onclick="toggleFullscreen('card-col1-history')" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-300 hover:text-sky-300 flex items-center justify-center text-[8px] transition active:scale-95" title="Full Screen Live History">
+            <i class="fa-solid fa-expand text-[7.5px]"></i>
+          </button>
+
+          <!-- Open in Separate Tab Button -->
+          <button onclick="openElementInNewTab('history')" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-300 hover:text-emerald-300 flex items-center justify-center text-[8px] transition active:scale-95" title="Open Live History in Separate Tab">
+            <i class="fa-solid fa-arrow-up-right-from-square text-[7.5px]"></i>
+          </button>
+
+          <!-- Close Element Button -->
+          <button onclick="closeCardElement('col1-history')" class="w-5 h-5 rounded bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 flex items-center justify-center text-[9px] transition font-bold" title="Close element (can re-add via + button at top)">
+            <i class="fa-solid fa-xmark text-[8.5px]"></i>
+          </button>
+        </div>
       </div>
 
       <!-- Tab View A: Live History Feed Table -->
@@ -730,33 +812,61 @@
           <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block font-sans">WIN ACCURACY</span><b id="chartWinRatio" class="text-emerald-400">—</b></div>
         </div>
       </div>
+
+      <!-- Draggable Bottom Resize Grip for Live History & Trend Road -->
+      <div id="historyBottomResizeGrip" class="w-full py-1.5 bg-gradient-to-r from-purple-950/60 via-slate-900 to-indigo-950/60 hover:bg-amber-500/20 active:bg-amber-500/30 border-t border-purple-800/40 cursor-row-resize flex items-center justify-center select-none transition group" title="Drag up or down to resize Live History & Trend Road height">
+        <div class="flex items-center gap-1.5 text-[8px] text-slate-500 group-hover:text-amber-400 transition font-mono font-bold">
+          <i class="fa-solid fa-arrows-up-down text-[7px]"></i>
+          <span class="text-[7.5px] uppercase tracking-wider">Drag Height</span>
+        </div>
+      </div>
     </div>
 
     <!-- 2. REPEATED COLOR & DIGIT ANALYSIS -->
-    <div class="bg-app-card rounded-2xl p-3 border border-purple-900/40 shadow-xl space-y-2">
+    <div id="card-col1-repeated" class="bg-app-card rounded-2xl p-3 border border-purple-900/40 shadow-xl space-y-2 relative transition-all">
       <div class="flex items-center justify-between pb-1.5 border-b border-purple-900/30">
         <div class="flex items-center gap-1.5">
           <i class="fa-solid fa-palette text-amber-400 text-xs"></i>
           <span class="text-[10px] font-black uppercase tracking-wider text-white">Repeated Color &amp; Digit Analysis</span>
         </div>
-        <span class="text-[8px] px-1.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-mono border border-amber-400/30">Pattern Edge</span>
+        <div class="flex items-center gap-1">
+          <span class="text-[8px] px-1.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-mono border border-amber-400/30">Pattern Edge</span>
+          <button onclick="toggleCardCollapse('card-col1-repeated-body', this)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition" title="Minimize / Expand">
+            <i class="fa-solid fa-chevron-up text-[7.5px]"></i>
+          </button>
+          <button onclick="closeCardElement('col1-repeated')" class="w-5 h-5 rounded bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 flex items-center justify-center text-[9px] transition font-bold" title="Close element (can re-add via + button at top)">
+            <i class="fa-solid fa-xmark text-[8.5px]"></i>
+          </button>
+        </div>
       </div>
-      <div id="repeatedColorDigitAudit" class="grid grid-cols-2 gap-1.5 font-mono text-[9px]">
-        <!-- Injected by renderPatternAnalytics() -->
+      <div id="card-col1-repeated-body">
+        <div id="repeatedColorDigitAudit" class="grid grid-cols-2 gap-1.5 font-mono text-[9px]">
+          <!-- Injected by renderPatternAnalytics() -->
+        </div>
       </div>
     </div>
 
     <!-- 3. NUMBER FREQUENCY AUDIT (0-9) -->
-    <div class="bg-app-card rounded-2xl p-3 border border-purple-900/40 shadow-xl space-y-2">
+    <div id="card-col1-frequency" class="bg-app-card rounded-2xl p-3 border border-purple-900/40 shadow-xl space-y-2 relative transition-all">
       <div class="flex items-center justify-between pb-1.5 border-b border-purple-900/30">
         <div class="flex items-center gap-1.5">
           <i class="fa-solid fa-chart-pie text-emerald-400 text-xs"></i>
           <span class="text-[10px] font-black uppercase tracking-wider text-white">Number Frequency Audit (0-9)</span>
         </div>
-        <span class="text-[8px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono border border-emerald-500/30">Distribution</span>
+        <div class="flex items-center gap-1">
+          <span class="text-[8px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono border border-emerald-500/30">Distribution</span>
+          <button onclick="toggleCardCollapse('card-col1-frequency-body', this)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition" title="Minimize / Expand">
+            <i class="fa-solid fa-chevron-up text-[7.5px]"></i>
+          </button>
+          <button onclick="closeCardElement('col1-frequency')" class="w-5 h-5 rounded bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 flex items-center justify-center text-[9px] transition font-bold" title="Close element (can re-add via + button at top)">
+            <i class="fa-solid fa-xmark text-[8.5px]"></i>
+          </button>
+        </div>
       </div>
-      <div id="auditNumberDistGrid" class="grid grid-cols-5 gap-1.5 text-center font-mono">
-        <!-- Injected by renderPatternAnalytics() -->
+      <div id="card-col1-frequency-body">
+        <div id="auditNumberDistGrid" class="grid grid-cols-5 gap-1.5 text-center font-mono">
+          <!-- Injected by renderPatternAnalytics() -->
+        </div>
       </div>
     </div>
 
@@ -784,7 +894,7 @@
   <main id="col2Container" class="overflow-y-auto overflow-x-hidden p-3 space-y-3 bg-[#0a0615] lg:border-r border-purple-900/30 flex-col" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
     
     <!-- ── COMPACT PRO HERO WINGO WINDOW (TOP MIDDLE ONLY) ── -->
-    <div class="p-2 bg-app-card/90 backdrop-blur-xl rounded-xl border border-purple-900/40 shadow-md space-y-1.5">
+    <div id="card-col2-hero" class="p-2 bg-app-card/90 backdrop-blur-xl rounded-xl border border-purple-900/40 shadow-md space-y-1.5 relative transition-all">
       <div class="flex items-center justify-between border-b border-purple-900/30 pb-1 flex-wrap gap-1.5">
         <div class="flex items-center gap-1.5 flex-wrap">
           <span class="px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-300 font-black text-[9px] border border-amber-400/30 uppercase tracking-wide">
@@ -798,15 +908,15 @@
             <button onclick="setTimeframe('5m')" id="proTf-5m" class="px-2 py-0.5 rounded font-bold text-[8.5px] transition active:scale-95 text-slate-400 hover:text-white">5m</button>
           </div>
         </div>
-        <div class="flex items-center gap-1.5 text-[8.5px] font-mono text-slate-400">
+        <div class="flex items-center gap-1 text-[8.5px] font-mono text-slate-400">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span class="text-emerald-300 font-semibold">Live</span>
-          <button onclick="toggleWindowCol('col2')" title="Hide Window (gives other windows more space)" class="hidden lg:flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 font-mono text-[8px] font-bold border border-white/10 active:scale-95 transition">
-            <i class="fa-solid fa-window-minimize text-[7px]"></i> Hide
-          </button>
+          <span class="text-emerald-300 font-semibold mr-1">Live</span>
+          <button onclick="toggleCardCollapse('card-col2-hero-body', this)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition" title="Minimize / Expand"><i class="fa-solid fa-chevron-up text-[7.5px]"></i></button>
+          <button onclick="closeCardElement('col2-hero')" class="w-5 h-5 rounded bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 flex items-center justify-center text-[9px] transition font-bold" title="Close element (can re-add via + button at top)"><i class="fa-solid fa-xmark text-[8.5px]"></i></button>
         </div>
       </div>
 
+      <div id="card-col2-hero-body" class="space-y-1.5">
       <!-- Compact Core Row: Active Period | Countdown + Instant Calibration | AI Target Signal -->
       <div class="grid grid-cols-3 gap-1.5 text-center font-mono items-center">
         <!-- 1. Active Period -->
@@ -828,18 +938,21 @@
           </div>
           <div class="flex items-center justify-center gap-1 font-mono text-[7.5px]">
             <button onclick="adjustTimerOffset(-2)" class="px-1 bg-purple-900/50 hover:bg-purple-800 text-slate-300 rounded">-2s</button>
+            <button onclick="adjustTimerOffset(-0.5)" class="px-1 bg-purple-900/50 hover:bg-purple-800 text-slate-300 rounded">-0.5s</button>
+            <button onclick="adjustTimerOffset(0.5)" class="px-1 bg-purple-900/50 hover:bg-purple-800 text-slate-300 rounded">+0.5s</button>
             <button onclick="adjustTimerOffset(2)" class="px-1 bg-purple-900/50 hover:bg-purple-800 text-slate-300 rounded">+2s</button>
-            <button onclick="adjustTimerOffset(5)" class="px-1 bg-purple-900/50 hover:bg-purple-800 text-slate-300 rounded">+5s</button>
-            <button id="timerPauseBtn" onclick="toggleTimerPause()" class="px-1 bg-purple-900/50 hover:bg-purple-800 text-slate-300 rounded" title="Pause / Resume">⏸</button>
-            <button onclick="resetTimerOffset()" class="px-1 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded" title="Reset offset">↺</button>
           </div>
         </div>
 
-        <!-- 3. AI Signal Target -->
-        <div class="p-1.5 bg-purple-950/60 rounded-lg border border-purple-800/30 flex flex-col justify-center">
-          <span class="text-[7.5px] text-slate-400 block font-sans uppercase font-bold tracking-wider">AI Target</span>
-          <div id="smartAiSignal" class="text-xs font-black text-white mt-0.5 leading-tight">WAITING...</div>
-          <span id="smartAiEngineTag" class="text-[7.5px] text-emerald-400 font-mono mt-0.5">8-Engine Adaptive AI Matrix</span>
+        <!-- 3. AI Target Signal -->
+        <div class="p-1.5 bg-gradient-to-br from-amber-500/10 via-purple-950/80 to-indigo-950/80 rounded-lg border border-amber-400/30 flex flex-col justify-center">
+          <span class="text-[7.5px] text-amber-300 block font-sans uppercase font-bold tracking-wider">AI Target</span>
+          <b id="smartSignalTarget" class="text-amber-400 text-sm font-mono font-black tracking-tight mt-0.5">WAITING...</b>
+          <div class="flex items-center justify-center gap-1 mt-0.5 text-[7px] text-slate-400 font-mono">
+            <span>Conf: <b id="smartSignalConf" class="text-emerald-400">—</b></span>
+            <span>|</span>
+            <span id="smartSignalType" class="text-purple-300 font-bold">—</span>
+          </div>
         </div>
       </div>
 
@@ -855,7 +968,7 @@
         </div>
       </div>
 
-      <!-- Hidden container preserving legacy IDs for background script safe calls -->
+      <!-- Hidden fallbacks for legacy references -->
       <div class="hidden">
         <b id="smartNextStake">₹1.00</b>
         <b id="smartSessionPnl">+₹0.00</b>
@@ -863,10 +976,11 @@
         <button id="smartQuickBotBtn"></button>
         <div id="smartRiskSummary"><span id="smartRiskBadge"></span></div>
       </div>
+      </div><!-- end card-col2-hero-body -->
     </div>
 
     <!-- ── TRADINGVIEW CANDLESTICK TRADING CHART (COLUMN 2) ── -->
-    <div class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-2xl flex flex-col">
+    <div id="card-col2-chart" class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-2xl flex flex-col relative transition-all">
       <!-- Top Control Bar -->
       <div class="p-2 bg-gradient-to-r from-purple-950 via-slate-900 to-[#131722] border-b border-purple-900/40 flex items-center justify-between flex-wrap gap-1.5">
         <div class="flex items-center gap-1.5">
@@ -901,6 +1015,28 @@
           <button onclick="tradingChartZoom(1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white text-[9px]" title="Zoom In"><i class="fa-solid fa-plus"></i></button>
           <button onclick="tradingChartZoom(-1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white text-[9px]" title="Zoom Out"><i class="fa-solid fa-minus"></i></button>
           <button onclick="tradingChartReset()" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-amber-400 text-[9px]" title="Auto-Fit"><i class="fa-solid fa-expand"></i></button>
+
+          <!-- Chart Height Resizer (+ / -) -->
+          <div class="flex items-center bg-black/60 p-0.5 rounded border border-purple-800/50 text-[8px] font-mono ml-0.5" title="Adjust Chart Height">
+            <button onclick="adjustChartHeight(-60)" class="w-4 h-4 flex items-center justify-center rounded hover:bg-white/10 text-slate-300 hover:text-white transition active:scale-95" title="Decrease Chart Height (-60px)"><i class="fa-solid fa-minus text-[6.5px]"></i></button>
+            <span id="chartHeightLabel" class="px-1 text-amber-400 select-none font-bold text-[8px]">480px</span>
+            <button onclick="adjustChartHeight(80)" class="w-4 h-4 flex items-center justify-center rounded hover:bg-white/10 text-slate-300 hover:text-white transition active:scale-95" title="Increase Chart Height (+80px)"><i class="fa-solid fa-plus text-[6.5px]"></i></button>
+          </div>
+
+          <!-- Fullscreen button -->
+          <button onclick="toggleFullscreen('card-col2-chart')" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-sky-300 text-[9px] transition active:scale-95" title="Fullscreen Chart">
+            <i class="fa-solid fa-expand"></i>
+          </button>
+
+          <!-- Open in Separate Tab button -->
+          <button onclick="openTradingChartNewTab()" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-emerald-300 text-[9px] transition active:scale-95" title="Open Trading Chart in Separate Tab">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+          </button>
+
+          <!-- Close button -->
+          <button onclick="closeCardElement('col2-chart')" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-rose-500/30 text-rose-300 text-[9px] transition font-bold" title="Close element (can re-add via + button at top)">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
         </div>
       </div>
 
@@ -922,7 +1058,7 @@
       </div>
 
       <!-- Canvas Chart Container -->
-      <div class="relative w-full bg-[#131722]" style="height: 480px;">
+      <div id="tradingChartCanvasWrapper" class="relative w-full bg-[#131722]" style="height: 480px;">
         <div id="tradingCandleChartContainer" style="width: 100%; height: 100%;"></div>
       </div>
 
@@ -943,6 +1079,14 @@
         <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30">
           <span class="text-[7.5px] text-slate-400 block font-sans">ACTIVE STREAK</span>
           <b id="tradingActiveStreak" class="text-amber-400 font-black text-xs">—</b>
+        </div>
+      </div>
+
+      <!-- Draggable Bottom Resize Grip for Trading Station -->
+      <div id="chartBottomResizeGrip" class="w-full py-1.5 bg-gradient-to-r from-purple-950/60 via-slate-900 to-indigo-950/60 hover:bg-amber-500/20 active:bg-amber-500/30 border-t border-purple-800/40 cursor-row-resize flex items-center justify-center select-none transition group" title="Drag up or down to resize Trading Chart height">
+        <div class="flex items-center gap-1.5 text-[8px] text-slate-500 group-hover:text-amber-400 transition font-mono font-bold">
+          <i class="fa-solid fa-arrows-up-down text-[7px]"></i>
+          <span class="text-[7.5px] uppercase tracking-wider">Drag Chart Height</span>
         </div>
       </div>
     </div>
@@ -994,7 +1138,7 @@
     <div id="rightPanelAppContent" class="p-3.5 space-y-3.5">
 
       <!-- ── 1. SIMULATION TEST MODE BOT ── -->
-      <div class="liquid-glass-card p-3 space-y-2" id="simBotCard">
+      <div class="liquid-glass-card p-3 space-y-2" id="card-col3-simbot">
         <!-- Header -->
         <div class="flex items-center justify-between pb-1.5 border-b border-white/10">
           <div class="flex items-center gap-1.5">
@@ -1004,11 +1148,21 @@
             <span class="text-[10px] font-black uppercase tracking-wider text-white">Simulation Test Bot</span>
             <span class="text-[8px] px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-mono border border-indigo-500/30">Martingale</span>
           </div>
-          <button id="simBotToggleBtn" onclick="simBotToggle()" class="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30">
-            ▶ START
-          </button>
+          <div class="flex items-center gap-1">
+            <button id="simBotToggleBtn" onclick="simBotToggle()" class="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30">
+              ▶ START
+            </button>
+            <button onclick="toggleCardCollapse('card-col3-simbot-body', this)" title="Minimize / Expand" class="w-5 h-5 rounded-md bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition active:scale-95">
+              <i class="fa-solid fa-chevron-up text-[8px]"></i>
+            </button>
+            <button onclick="closeCardElement('col3-simbot')" title="Close Element" class="w-5 h-5 rounded-md bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 flex items-center justify-center text-[9px] transition active:scale-95">
+              <i class="fa-solid fa-xmark text-[8px]"></i>
+            </button>
+          </div>
         </div>
 
+        <!-- Body wrapper -->
+        <div id="card-col3-simbot-body" class="space-y-2">
         <!-- Config Row (shown when stopped) -->
         <div id="simBotConfig" class="space-y-1.5">
           <div class="grid grid-cols-2 gap-1.5">
@@ -1126,10 +1280,11 @@
           <div id="simStopStats" class="text-[8px] text-slate-400 font-mono"></div>
           <button onclick="simBotReset()" class="mt-1 px-3 py-1 rounded-lg bg-indigo-600/60 text-indigo-200 text-[8.5px] font-bold border border-indigo-500/40 hover:bg-indigo-500/40 transition active:scale-95">↺ Reset</button>
         </div>
+        </div><!-- end #card-col3-simbot-body -->
       </div>
 
       <!-- ── GAME HISTORY & PATTERN INTELLIGENCE ENGINE (RIGHT PANEL) ── -->
-      <div class="liquid-glass-card p-3.5 space-y-2.5">
+      <div class="liquid-glass-card p-3.5 space-y-2.5" id="card-col3-patternhub">
         <!-- Header -->
         <div class="flex items-center justify-between pb-2 border-b border-white/10 flex-wrap gap-1.5">
           <div class="flex items-center gap-1.5">
@@ -1141,8 +1296,16 @@
             <span id="ghActiveTfBadge" class="text-[9px] px-2 py-0.5 rounded-md bg-amber-400 text-slate-950 font-black border border-amber-400/50 shadow">30s</span>
             <button onclick="exportGameAnalysisJSON()" class="px-1.5 py-0.5 rounded-lg bg-purple-950/70 text-purple-200 text-[9px] font-mono border border-purple-800/40 active:scale-95 transition" title="Export JSON"><i class="fa-solid fa-file-code text-amber-400"></i></button>
             <button onclick="exportGameAnalysisCSV()" class="px-1.5 py-0.5 rounded-lg bg-purple-950/70 text-purple-200 text-[9px] font-mono border border-purple-800/40 active:scale-95 transition" title="Export CSV"><i class="fa-solid fa-file-csv text-emerald-400"></i></button>
+            <button onclick="toggleCardCollapse('card-col3-patternhub-body', this)" title="Minimize / Expand" class="w-5 h-5 rounded-md bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition active:scale-95">
+              <i class="fa-solid fa-chevron-up text-[8px]"></i>
+            </button>
+            <button onclick="closeCardElement('col3-patternhub')" title="Close Element" class="w-5 h-5 rounded-md bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 flex items-center justify-center text-[9px] transition active:scale-95">
+              <i class="fa-solid fa-xmark text-[8px]"></i>
+            </button>
           </div>
         </div>
+        <!-- Body wrapper -->
+        <div id="card-col3-patternhub-body" class="space-y-2.5">
         <!-- Stat Cards -->
         <div class="grid grid-cols-4 gap-1 font-mono text-center text-[9px]">
           <div class="p-1.5 bg-purple-950/60 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block uppercase">Total</span><b id="ghStatTotal" class="text-amber-400 text-xs font-black">0</b></div>
@@ -1279,6 +1442,7 @@
           🔄 Retry Connection
         </button>
       </div>
+      </div><!-- end #card-col3-patternhub-body -->
 
     </div><!-- end #rightPanelAppContent -->
 
@@ -1286,7 +1450,7 @@
     <div id="rightPanelWebContent" class="hidden p-2 space-y-2.5 max-w-[410px] mx-auto">
       
       <!-- ── A. REAL AUTO-BETTING CONTROLLER (ABOVE WEB VIEW) ── -->
-      <div class="liquid-glass-card p-3 space-y-2 border border-emerald-500/30 bg-gradient-to-b from-emerald-950/30 via-slate-950/70 to-purple-950/40 shadow-xl rounded-2xl" id="realAutoBetCard">
+      <div class="liquid-glass-card p-3 space-y-2 border border-emerald-500/30 bg-gradient-to-b from-emerald-950/30 via-slate-950/70 to-purple-950/40 shadow-xl rounded-2xl" id="card-col3-autobet">
         <!-- Header & Master Toggle -->
         <div class="flex items-center justify-between pb-1 border-b border-white/10">
           <div class="flex items-center gap-1.5">
@@ -1300,6 +1464,9 @@
             </button>
             <button id="btnToggleAutoBetCard" onclick="toggleAutoBetCardCollapse()" title="Collapse / Expand Controls" class="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[10px] transition active:scale-95">
               <i id="iconToggleAutoBetCard" class="fa-solid fa-chevron-up text-[9px]"></i>
+            </button>
+            <button onclick="closeCardElement('col3-autobet')" title="Close Element" class="w-6 h-6 rounded-lg bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 flex items-center justify-center text-[10px] transition active:scale-95">
+              <i class="fa-solid fa-xmark text-[9px]"></i>
             </button>
           </div>
         </div>
@@ -1380,7 +1547,8 @@
       </div>
 
       <!-- ── B. MOBILE SIZE WEB VIEW CONTAINER (SMARTPHONE FRAME) ── -->
-      <div class="mobile-frame-container mx-auto w-full max-w-[390px] rounded-[34px] p-2 bg-gradient-to-b from-slate-800 via-slate-900 to-black border-2 border-slate-700/80 shadow-[0_20px_60px_rgba(0,0,0,0.85)] flex flex-col space-y-1.5">
+      <div id="card-col3-webview" class="space-y-1.5">
+        <div class="mobile-frame-container mx-auto w-full max-w-[390px] rounded-[34px] p-2 bg-gradient-to-b from-slate-800 via-slate-900 to-black border-2 border-slate-700/80 shadow-[0_20px_60px_rgba(0,0,0,0.85)] flex flex-col space-y-1.5">
         
         <!-- Mobile Speaker / Dynamic Island Top Bezel -->
         <div class="flex items-center justify-center py-0.5">
@@ -1391,7 +1559,7 @@
         </div>
 
         <!-- Browser Navigation Bar -->
-        <div class="px-2 py-1 rounded-xl bg-black/60 border border-white/10 flex items-center gap-1.5 text-[8.5px] font-mono">
+        <div class="px-2 py-1 rounded-xl bg-black/60 border border-white/10 flex items-center gap-1 text-[8.5px] font-mono">
           <button onclick="reloadEmbeddedWeb()" title="Reload Webpage" class="w-6 h-6 rounded-md bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white flex items-center justify-center text-[10px] transition active:scale-95">
             <i class="fa-solid fa-rotate-right"></i>
           </button>
@@ -1402,11 +1570,17 @@
               class="w-full bg-transparent text-amber-300 placeholder-slate-500 focus:outline-none text-[8.5px]">
             <button onclick="loadEmbeddedWebUrl()" class="text-amber-400 hover:text-amber-300 font-bold px-1 py-0.2 rounded text-[7.5px] bg-amber-400/10 border border-amber-400/20 active:scale-95">GO</button>
           </div>
-          <button onclick="openEmbeddedInNewTab()" title="Open in New Tab" class="w-6 h-6 rounded-md bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 hover:text-white flex items-center justify-center text-[10px] transition active:scale-95">
+          <button onclick="openElementInNewTab('webview')" title="Open in New Tab" class="w-6 h-6 rounded-md bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 hover:text-white flex items-center justify-center text-[10px] transition active:scale-95">
             <i class="fa-solid fa-arrow-up-right-from-square"></i>
+          </button>
+          <button onclick="toggleFullscreen('card-col3-webview')" title="Fullscreen Mode" class="w-6 h-6 rounded-md bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white flex items-center justify-center text-[10px] transition active:scale-95">
+            <i class="fa-solid fa-expand"></i>
           </button>
           <button onclick="popoutEmbeddedWeb()" title="Side Window" class="w-6 h-6 rounded-md bg-purple-900/40 hover:bg-purple-900/70 text-purple-300 hover:text-white flex items-center justify-center text-[10px] transition active:scale-95">
             <i class="fa-solid fa-window-restore"></i>
+          </button>
+          <button onclick="closeCardElement('col3-webview')" title="Close Element" class="w-6 h-6 rounded-md bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 flex items-center justify-center text-[10px] transition active:scale-95">
+            <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
 
@@ -1422,12 +1596,15 @@
         <div class="flex items-center justify-between gap-1 text-[7.5px] font-mono px-1 py-0.5 bg-black/40 rounded-lg border border-white/5">
           <span class="text-slate-400 uppercase tracking-tight flex items-center gap-1">
             <i class="fa-solid fa-arrows-up-down text-sky-400"></i> Height:
+            <span id="webViewHeightLabel" class="text-sky-300 font-bold">850px</span>
           </span>
           <div class="flex items-center gap-1">
-            <button id="btnHeight_h720" onclick="setMobileFrameHeight('720px')" class="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-slate-200 border border-white/5 transition">720px</button>
-            <button id="btnHeight_h850" onclick="setMobileFrameHeight('850px')" class="px-1.5 py-0.5 rounded bg-sky-500/30 text-sky-200 border border-sky-400/40 font-bold transition">850px (Std)</button>
-            <button id="btnHeight_h1000" onclick="setMobileFrameHeight('1000px')" class="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-slate-200 border border-white/5 transition">1000px</button>
-            <button id="btnHeight_h1200" onclick="setMobileFrameHeight('1200px')" class="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-slate-200 border border-white/5 transition">1200px (Max)</button>
+            <button onclick="adjustWebViewHeight(-50)" class="w-4 h-4 rounded bg-white/5 hover:bg-white/15 text-slate-300 flex items-center justify-center font-bold text-[9px]" title="Decrease height">-</button>
+            <button onclick="adjustWebViewHeight(50)" class="w-4 h-4 rounded bg-white/5 hover:bg-white/15 text-slate-300 flex items-center justify-center font-bold text-[9px]" title="Increase height">+</button>
+            <button id="btnHeight_h720" onclick="setMobileFrameHeight('720px')" class="px-1 py-0.5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-slate-200 border border-white/5 transition text-[7px]">720</button>
+            <button id="btnHeight_h850" onclick="setMobileFrameHeight('850px')" class="px-1 py-0.5 rounded bg-sky-500/30 text-sky-200 border border-sky-400/40 font-bold transition text-[7px]">850</button>
+            <button id="btnHeight_h1000" onclick="setMobileFrameHeight('1000px')" class="px-1 py-0.5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-slate-200 border border-white/5 transition text-[7px]">1000</button>
+            <button id="btnHeight_h1200" onclick="setMobileFrameHeight('1200px')" class="px-1 py-0.5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-slate-200 border border-white/5 transition text-[7px]">1200</button>
           </div>
         </div>
 
@@ -1449,11 +1626,21 @@
         </div>
       </div>
 
+      <!-- Draggable bottom grip for height resizing -->
+      <div id="webPhoneBottomResizeGrip" class="w-full max-w-[390px] mx-auto py-1 flex items-center justify-center cursor-ns-resize group select-none touch-none hover:bg-white/5 rounded-b-2xl transition" title="Drag to resize viewport height">
+        <div class="flex items-center gap-1 px-3 py-0.5 rounded-full bg-slate-800/80 border border-white/10 group-hover:border-purple-500/50 group-hover:bg-purple-950/40">
+          <i class="fa-solid fa-grip-lines text-[9px] text-slate-400 group-hover:text-purple-300"></i>
+          <span class="text-[7.5px] font-mono text-slate-400 group-hover:text-slate-200">Drag Height</span>
+        </div>
+      </div>
+
       <!-- External fallback notification -->
       <div class="p-1.5 rounded-xl bg-purple-950/40 border border-purple-800/30 text-[8px] text-slate-400 flex items-center justify-between gap-1 max-w-[390px] mx-auto font-mono">
         <span class="truncate"><i class="fa-solid fa-shield-halved text-amber-400 mr-1"></i>Mobile Viewport Synchronized</span>
-        <button onclick="openEmbeddedInNewTab()" class="text-indigo-300 hover:text-white font-bold underline whitespace-nowrap">Open Full Tab ↗</button>
+        <button onclick="openElementInNewTab('webview')" class="text-indigo-300 hover:text-white font-bold underline whitespace-nowrap">Open Full Tab ↗</button>
       </div>
+
+    </div><!-- end #card-col3-webview -->
 
     </div>
   </aside>
@@ -4424,6 +4611,634 @@ function initWindowResizers() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// INDIVIDUAL WINDOW ELEMENT MANAGER (Close, Collapse, Add/Restore)
+// ═══════════════════════════════════════════════════════════════
+const REGISTERED_ELEMENTS = {
+  'col1-audit': { name: 'Live Prediction Audit', col: 'Window 1', elId: 'card-col1-audit' },
+  'col1-history': { name: 'Live History & Trend Road', col: 'Window 1', elId: 'card-col1-history' },
+  'col1-repeated': { name: 'Repeated Color & Digit Analysis', col: 'Window 1', elId: 'card-col1-repeated' },
+  'col1-frequency': { name: 'Number Frequency Audit (0-9)', col: 'Window 1', elId: 'card-col1-frequency' },
+  'col2-hero': { name: 'Hero WinGo Countdown & AI Target', col: 'Window 2', elId: 'card-col2-hero' },
+  'col2-chart': { name: 'Trading Candlestick Chart Station', col: 'Window 2', elId: 'card-col2-chart' },
+  'col3-simbot': { name: 'Simulation Test Bot', col: 'Window 3', elId: 'card-col3-simbot' },
+  'col3-patternhub': { name: 'Pattern Intelligence Hub', col: 'Window 3', elId: 'card-col3-patternhub' },
+  'col3-autobet': { name: 'Real Auto-Betting Engine', col: 'Window 3', elId: 'card-col3-autobet' },
+  'col3-webview': { name: 'Embedded DhaniWin Mobile View', col: 'Window 3', elId: 'card-col3-webview' }
+};
+
+let closedElements = {};
+
+function saveClosedElementsState() {
+  try {
+    localStorage.setItem('dhaniwin_closed_elements_v1', JSON.stringify(closedElements));
+  } catch(e) {}
+}
+
+function loadClosedElementsState() {
+  try {
+    const raw = localStorage.getItem('dhaniwin_closed_elements_v1');
+    if (raw) {
+      closedElements = JSON.parse(raw) || {};
+    }
+  } catch(e) {
+    closedElements = {};
+  }
+  applyClosedElementsState();
+}
+
+function applyClosedElementsState() {
+  Object.keys(REGISTERED_ELEMENTS).forEach(key => {
+    const cfg = REGISTERED_ELEMENTS[key];
+    const el = document.getElementById(cfg.elId);
+    if (!el) return;
+    if (closedElements[key]) {
+      el.style.display = 'none';
+      el.classList.add('is-closed-card');
+    } else {
+      el.style.display = '';
+      el.classList.remove('is-closed-card');
+    }
+  });
+  updateAddElementsMenu();
+}
+
+function closeCardElement(key) {
+  if (!REGISTERED_ELEMENTS[key]) return;
+  const cfg = REGISTERED_ELEMENTS[key];
+  closedElements[key] = true;
+  saveClosedElementsState();
+  applyClosedElementsState();
+  if (typeof showToast === 'function') {
+    showToast(`Closed "${cfg.name}". Restore via '+ Add Element'`, 'info');
+  }
+}
+
+function restoreCardElement(key) {
+  if (!REGISTERED_ELEMENTS[key]) return;
+  const cfg = REGISTERED_ELEMENTS[key];
+  delete closedElements[key];
+  saveClosedElementsState();
+  applyClosedElementsState();
+  if (typeof showToast === 'function') {
+    showToast(`Restored "${cfg.name}" to ${cfg.col}`, 'success');
+  }
+}
+
+function restoreAllElements() {
+  closedElements = {};
+  saveClosedElementsState();
+  applyClosedElementsState();
+  if (typeof showToast === 'function') {
+    showToast('All window elements restored', 'success');
+  }
+}
+
+function toggleCardCollapse(bodyId, btn) {
+  const body = document.getElementById(bodyId);
+  if (!body) return;
+  const isHidden = body.classList.contains('hidden') || body.style.display === 'none';
+  if (isHidden) {
+    body.classList.remove('hidden');
+    body.style.display = '';
+    if (btn) {
+      const icon = btn.querySelector('i');
+      if (icon) icon.className = 'fa-solid fa-chevron-up text-[8px]';
+    }
+  } else {
+    body.classList.add('hidden');
+    body.style.display = 'none';
+    if (btn) {
+      const icon = btn.querySelector('i');
+      if (icon) icon.className = 'fa-solid fa-chevron-down text-[8px]';
+    }
+  }
+}
+
+function toggleAddElementsMenu(e) {
+  if (e) e.stopPropagation();
+  const menu = document.getElementById('addElementsDropdownMenu');
+  if (!menu) return;
+  const isHidden = menu.classList.contains('hidden');
+  if (isHidden) {
+    updateAddElementsMenu();
+    menu.classList.remove('hidden');
+  } else {
+    menu.classList.add('hidden');
+  }
+}
+
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('addElementsDropdownMenu');
+  const btn = document.getElementById('btnAddElementsDropdown');
+  if (!menu || !btn) return;
+  if (!menu.contains(e.target) && !btn.contains(e.target)) {
+    menu.classList.add('hidden');
+  }
+});
+
+function updateAddElementsMenu() {
+  const list = document.getElementById('addElementsList');
+  const badge = document.getElementById('closedElementsCountBadge');
+  const closedKeys = Object.keys(closedElements).filter(k => closedElements[k]);
+  
+  if (badge) {
+    if (closedKeys.length > 0) {
+      badge.textContent = closedKeys.length;
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+  }
+
+  if (!list) return;
+  list.innerHTML = '';
+
+  const allKeys = Object.keys(REGISTERED_ELEMENTS);
+  allKeys.forEach(key => {
+    const cfg = REGISTERED_ELEMENTS[key];
+    const isClosed = !!closedElements[key];
+    const row = document.createElement('div');
+    row.className = 'flex items-center justify-between p-1.5 rounded-xl transition ' + 
+      (isClosed ? 'bg-rose-950/40 border border-rose-800/40' : 'bg-black/40 border border-white/5 opacity-70');
+    
+    row.innerHTML = `
+      <div class="flex items-center gap-2 truncate pr-2">
+        <span class="w-1.5 h-1.5 rounded-full ${isClosed ? 'bg-rose-500' : 'bg-emerald-400'}"></span>
+        <div class="truncate">
+          <div class="font-bold text-[9.5px] text-white truncate">${cfg.name}</div>
+          <div class="text-[7.5px] text-slate-400 font-mono">${cfg.col}</div>
+        </div>
+      </div>
+      <div>
+        ${isClosed ? `
+          <button onclick="restoreCardElement('${key}')" class="px-2 py-0.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-black text-[8px] uppercase tracking-wider border border-emerald-500/40 active:scale-95 transition">
+            + Add
+          </button>
+        ` : `
+          <button onclick="closeCardElement('${key}')" class="px-2 py-0.5 rounded-lg bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 font-bold text-[8px] uppercase border border-white/10 active:scale-95 transition">
+            Hide
+          </button>
+        `}
+      </div>
+    `;
+    list.appendChild(row);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ELEMENT HEIGHT RESIZERS (Live History, Trading Chart, WebView)
+// ═══════════════════════════════════════════════════════════════
+let elementHeights = {
+  history: 520,
+  chart: 480,
+  webview: 850
+};
+
+function saveElementHeights() {
+  try {
+    localStorage.setItem('dhaniwin_element_heights_v1', JSON.stringify(elementHeights));
+  } catch(e) {}
+}
+
+function loadElementHeights() {
+  try {
+    const raw = localStorage.getItem('dhaniwin_element_heights_v1');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.history) elementHeights.history = Number(parsed.history);
+      if (parsed.chart) elementHeights.chart = Number(parsed.chart);
+      if (parsed.webview) elementHeights.webview = Number(parsed.webview);
+    }
+  } catch(e) {}
+  applyElementHeights();
+}
+
+function applyElementHeights() {
+  setHistoryHeight(elementHeights.history, false);
+  setChartHeight(elementHeights.chart, false);
+  setWebViewHeight(elementHeights.webview, false);
+}
+
+function adjustHistoryHeight(delta) {
+  const newH = Math.max(260, Math.min(1600, (elementHeights.history || 520) + delta));
+  setHistoryHeight(newH, true);
+}
+
+function setHistoryHeight(h, save = true) {
+  elementHeights.history = h;
+  const tableWrapper = document.getElementById('historyTableScrollWrapper');
+  const label = document.getElementById('historyHeightLabel');
+  if (tableWrapper) {
+    tableWrapper.style.maxHeight = h + 'px';
+    tableWrapper.style.height = h + 'px';
+  }
+  if (label) {
+    label.textContent = h + 'px';
+  }
+  if (save) saveElementHeights();
+}
+
+let historyIsMaximized = false;
+let historyPrevHeight = 520;
+function toggleHistoryMaxHeight() {
+  const btn = document.getElementById('btnHistoryMaxHeight');
+  if (!historyIsMaximized) {
+    historyPrevHeight = elementHeights.history || 520;
+    const windowH = Math.max(700, window.innerHeight - 180);
+    setHistoryHeight(windowH, true);
+    historyIsMaximized = true;
+    if (btn) btn.classList.add('bg-amber-400/30', 'text-amber-300');
+    if (typeof showToast === 'function') showToast('Live History expanded to maximum height', 'info');
+  } else {
+    setHistoryHeight(historyPrevHeight, true);
+    historyIsMaximized = false;
+    if (btn) btn.classList.remove('bg-amber-400/30', 'text-amber-300');
+  }
+}
+
+function adjustChartHeight(delta) {
+  const newH = Math.max(300, Math.min(1400, (elementHeights.chart || 480) + delta));
+  setChartHeight(newH, true);
+}
+
+function setChartHeight(h, save = true) {
+  elementHeights.chart = h;
+  const chartContainer = document.getElementById('tradingCandleChartContainer');
+  const canvasWrapper = document.getElementById('tradingChartCanvasWrapper');
+  const label = document.getElementById('chartHeightLabel');
+  if (chartContainer) {
+    chartContainer.style.height = h + 'px';
+  }
+  if (canvasWrapper) {
+    canvasWrapper.style.height = (h + 36) + 'px';
+  }
+  if (label) {
+    label.textContent = h + 'px';
+  }
+  if (save) saveElementHeights();
+  if (tradingChartInstance) {
+    setTimeout(() => {
+      try {
+        const cw = chartContainer ? chartContainer.clientWidth : 0;
+        if (cw > 0) tradingChartInstance.applyOptions({ width: cw, height: h });
+        tradingChartInstance.timeScale().fitContent();
+      } catch(e) {}
+    }, 50);
+  }
+}
+
+function adjustWebViewHeight(delta) {
+  const newH = Math.max(450, Math.min(1600, (elementHeights.webview || 850) + delta));
+  setWebViewHeight(newH, true);
+}
+
+function setWebViewHeight(h, save = true) {
+  elementHeights.webview = h;
+  const container = document.getElementById('embeddedMobileViewportContainer');
+  const label = document.getElementById('webViewHeightLabel');
+  if (container) {
+    container.style.height = h + 'px';
+    container.style.minHeight = h + 'px';
+  }
+  if (label) {
+    label.textContent = h + 'px';
+  }
+  if (save) saveElementHeights();
+}
+
+function initElementHeightResizers() {
+  function setupVerticalResize(gripId, getHeight, setHeight) {
+    const grip = document.getElementById(gripId);
+    if (!grip) return;
+
+    let isDragging = false;
+    let startY = 0;
+    let startHeight = 0;
+
+    const onPointerDown = (e) => {
+      isDragging = true;
+      startY = e.touches ? e.touches[0].clientY : e.clientY;
+      startHeight = getHeight();
+      document.body.classList.add('body-v-resizing');
+      grip.classList.add('active-v-resizing');
+
+      const onPointerMove = (evt) => {
+        if (!isDragging) return;
+        if (evt.cancelable) evt.preventDefault();
+        const currentY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+        const deltaY = currentY - startY;
+        const targetH = Math.max(260, Math.min(1800, Math.round(startHeight + deltaY)));
+        setHeight(targetH);
+      };
+
+      const onPointerUp = () => {
+        if (!isDragging) return;
+        isDragging = false;
+        document.body.classList.remove('body-v-resizing');
+        grip.classList.remove('active-v-resizing');
+        document.removeEventListener('mousemove', onPointerMove);
+        document.removeEventListener('touchmove', onPointerMove);
+        document.removeEventListener('mouseup', onPointerUp);
+        document.removeEventListener('touchend', onPointerUp);
+        saveElementHeights();
+      };
+
+      document.addEventListener('mousemove', onPointerMove);
+      document.addEventListener('touchmove', onPointerMove, { passive: false });
+      document.addEventListener('mouseup', onPointerUp);
+      document.addEventListener('touchend', onPointerUp);
+    };
+
+    grip.addEventListener('mousedown', onPointerDown);
+    grip.addEventListener('touchstart', onPointerDown, { passive: false });
+  }
+
+  setupVerticalResize('historyBottomResizeGrip', () => elementHeights.history || 520, (h) => setHistoryHeight(h, false));
+  setupVerticalResize('chartBottomResizeGrip', () => elementHeights.chart || 480, (h) => setChartHeight(h, false));
+  setupVerticalResize('webPhoneBottomResizeGrip', () => elementHeights.webview || 850, (h) => setWebViewHeight(h, false));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FULLSCREEN CONTROLLER (History, Trading Chart, Web View)
+// ═══════════════════════════════════════════════════════════════
+function toggleFullscreen(elId) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+
+  if (document.fullscreenElement) {
+    document.exitFullscreen().catch(err => {
+      console.warn('Error exiting fullscreen:', err);
+    });
+  } else {
+    if (el.requestFullscreen) {
+      el.requestFullscreen().catch(err => {
+        console.warn('Native requestFullscreen denied, falling back to CSS fullscreen:', err);
+        el.classList.toggle('is-fullscreen-card');
+      });
+    } else {
+      el.classList.toggle('is-fullscreen-card');
+    }
+  }
+}
+
+document.addEventListener('fullscreenchange', () => {
+  const isFull = !!document.fullscreenElement;
+  ['card-col1-history', 'card-col2-chart', 'card-col3-webview'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (document.fullscreenElement === el) {
+      el.classList.add('is-fullscreen-card');
+    } else {
+      el.classList.remove('is-fullscreen-card');
+    }
+  });
+  if (tradingChartInstance) {
+    setTimeout(() => {
+      const c = document.getElementById('tradingCandleChartContainer');
+      if (c && c.clientWidth > 0) {
+        tradingChartInstance.applyOptions({ width: c.clientWidth, height: c.clientHeight || (elementHeights.chart || 480) });
+        try { tradingChartInstance.timeScale().fitContent(); } catch(e){}
+      }
+    }, 100);
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// OPEN IN SEPARATE TAB / WINDOW (History, Trading Chart, Web View)
+// ═══════════════════════════════════════════════════════════════
+function openElementInNewTab(type) {
+  if (type === 'webview') {
+    window.open('https://dhaniwin99.com', '_blank', 'noopener,noreferrer');
+    return;
+  }
+  if (type === 'chart') {
+    openTradingChartNewTab();
+    return;
+  }
+  if (type === 'history') {
+    openHistoryNewTab();
+    return;
+  }
+}
+
+function openHistoryNewTab() {
+  const popup = window.open('', 'DhaniWin_LiveHistoryTab', 'width=960,height=900,menubar=no,toolbar=no,location=no,status=no');
+  if (!popup) {
+    alert('Popup was blocked by browser. Please allow popups for this site.');
+    return;
+  }
+  
+  popup.document.write(`<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <title>DhaniWin — Live History &amp; Trend Road [Separate Tab]</title>
+  <script src="https://cdn.tailwindcss.com"><\/script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { background: #080411; color: #e2e8f0; font-family: ui-sans-serif, system-ui, sans-serif; }
+    .neon-border { box-shadow: 0 0 20px rgba(168, 85, 247, 0.2); }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: #6b21a8; border-radius: 4px; }
+  </style>
+</head>
+<body class="p-4 space-y-4 min-h-screen">
+  <div class="flex items-center justify-between p-3 rounded-2xl bg-[#120a24] border border-purple-800/40 shadow-xl">
+    <div class="flex items-center gap-2">
+      <span class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></span>
+      <h1 class="text-sm font-black uppercase tracking-wider text-white">Live History &amp; Outcome Stream</h1>
+      <span class="text-[10px] px-2 py-0.5 rounded-full bg-purple-900/60 text-purple-300 font-mono border border-purple-700/40">Synced Tab</span>
+    </div>
+    <div class="flex items-center gap-2 text-xs font-mono">
+      <span id="tabStatus" class="text-emerald-400">● Realtime Sync Active</span>
+      <button onclick="refreshHistoryData()" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 text-xs transition">🔄 Sync Now</button>
+    </div>
+  </div>
+
+  <div id="statsRow" class="grid grid-cols-4 gap-2 text-center text-xs font-mono">
+    <div class="p-2 rounded-xl bg-purple-950/40 border border-purple-800/30"><span class="text-[9px] text-slate-400 block uppercase">Total History</span><b id="tabTotal" class="text-amber-400 text-sm">0</b></div>
+    <div class="p-2 rounded-xl bg-purple-950/40 border border-purple-800/30"><span class="text-[9px] text-slate-400 block uppercase">BIG Outcomes</span><b id="tabBig" class="text-amber-300 text-sm">0</b></div>
+    <div class="p-2 rounded-xl bg-purple-950/40 border border-purple-800/30"><span class="text-[9px] text-slate-400 block uppercase">SMALL Outcomes</span><b id="tabSmall" class="text-sky-300 text-sm">0</b></div>
+    <div class="p-2 rounded-xl bg-purple-950/40 border border-purple-800/30"><span class="text-[9px] text-slate-400 block uppercase">Current Streak</span><b id="tabStreak" class="text-emerald-400 text-sm">—</b></div>
+  </div>
+
+  <div class="overflow-x-auto rounded-2xl border border-white/10 bg-[#0e071c] shadow-2xl">
+    <table class="w-full text-xs text-left">
+      <thead class="bg-purple-950/60 text-slate-400 font-mono uppercase text-[10px] border-b border-white/10 sticky top-0">
+        <tr>
+          <th class="py-2 px-3">Period</th>
+          <th class="py-2 px-3 text-center">Number</th>
+          <th class="py-2 px-3 text-center">Size</th>
+          <th class="py-2 px-3 text-center">Color</th>
+          <th class="py-2 px-3 text-right">Time</th>
+        </tr>
+      </thead>
+      <tbody id="tabHistoryTbody" class="divide-y divide-white/5 font-mono">
+        <tr><td colspan="5" class="py-8 text-center text-slate-500">Connecting to parent window history...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    function refreshHistoryData() {
+      try {
+        if (!window.opener || window.opener.closed) {
+          document.getElementById('tabStatus').innerHTML = '<span class="text-rose-400">⚠ Parent window disconnected</span>';
+          return;
+        }
+        const history = window.opener.S ? window.opener.S.history : [];
+        const tbody = document.getElementById('tabHistoryTbody');
+        if (!history || !history.length) {
+          tbody.innerHTML = '<tr><td colspan="5" class="py-8 text-center text-slate-500">No history records available yet.</td></tr>';
+          return;
+        }
+
+        let bigCount = 0, smallCount = 0;
+        let html = '';
+        history.forEach((row, i) => {
+          const num = Number(row.number);
+          const isBig = row.size === 'BIG' || num >= 5;
+          if (isBig) bigCount++; else smallCount++;
+
+          const color = row.color || (num === 0 ? 'violet-red' : num === 5 ? 'violet-green' : num % 2 === 0 ? 'red' : 'green');
+          let colorBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">GREEN</span>';
+          if (color.includes('red') && color.includes('violet')) {
+            colorBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-rose-500/30 to-purple-500/30 text-rose-300 border border-rose-500/30">RED+V</span>';
+          } else if (color.includes('green') && color.includes('violet')) {
+            colorBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-emerald-500/30 to-purple-500/30 text-emerald-300 border border-emerald-500/30">GRN+V</span>';
+          } else if (color.includes('red')) {
+            colorBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">RED</span>';
+          }
+
+          const sizeBadge = isBig 
+            ? '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-400/20 text-amber-300 border border-amber-400/40">BIG</span>'
+            : '<span class="px-2 py-0.5 rounded text-[10px] font-black bg-sky-400/20 text-sky-300 border border-sky-400/40">SMALL</span>';
+
+          html += '<tr class="hover:bg-white/5 transition">' +
+            '<td class="py-2 px-3 font-black text-white">' + (row.period || ('#' + (history.length - i))) + '</td>' +
+            '<td class="py-2 px-3 text-center"><span class="inline-block w-6 h-6 leading-6 rounded-full font-black text-center text-xs ' + (isBig ? 'bg-amber-500/20 text-amber-300 border border-amber-400/30' : 'bg-sky-500/20 text-sky-300 border border-sky-400/30') + '">' + num + '</span></td>' +
+            '<td class="py-2 px-3 text-center">' + sizeBadge + '</td>' +
+            '<td class="py-2 px-3 text-center">' + colorBadge + '</td>' +
+            '<td class="py-2 px-3 text-right text-slate-400 text-[10px]">' + (row.time || '--:--:--') + '</td>' +
+          '</tr>';
+        });
+
+        tbody.innerHTML = html;
+        document.getElementById('tabTotal').textContent = history.length;
+        document.getElementById('tabBig').textContent = bigCount + ' (' + Math.round((bigCount/history.length)*100) + '%)';
+        document.getElementById('tabSmall').textContent = smallCount + ' (' + Math.round((smallCount/history.length)*100) + '%)';
+      } catch(e) {
+        console.error(e);
+      }
+    }
+    refreshHistoryData();
+    setInterval(refreshHistoryData, 1500);
+  <\/script>
+</body>
+</html>`);
+  popup.document.close();
+}
+
+function openTradingChartNewTab() {
+  const popup = window.open('', 'DhaniWin_TradingChartTab', 'width=1200,height=820,menubar=no,toolbar=no,location=no,status=no');
+  if (!popup) {
+    alert('Popup was blocked by browser. Please allow popups for this site.');
+    return;
+  }
+
+  popup.document.write(`<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <title>DhaniWin — Professional Trading Station [Separate Tab]</title>
+  <script src="https://cdn.tailwindcss.com"><\/script>
+  <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"><\/script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { background: #070314; color: #f8fafc; font-family: ui-sans-serif, system-ui, sans-serif; overflow: hidden; margin: 0; }
+  </style>
+</head>
+<body class="flex flex-col h-screen">
+  <!-- Top Bar -->
+  <div class="flex items-center justify-between p-3 bg-[#110927] border-b border-purple-800/40 z-10">
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-1.5">
+        <i class="fa-solid fa-chart-line text-amber-400"></i>
+        <span class="font-black text-sm text-white uppercase tracking-wider">DhaniWin Candlestick Trading Station</span>
+        <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-mono border border-amber-400/40">PRO TAB</span>
+      </div>
+      <div class="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10 text-xs font-mono">
+        <button class="px-2.5 py-1 rounded-lg bg-amber-400 text-slate-950 font-black">30s</button>
+        <button class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white">1m</button>
+        <button class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white">3m</button>
+        <button class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white">5m</button>
+      </div>
+    </div>
+    <div class="flex items-center gap-3 font-mono text-xs">
+      <span class="text-emerald-400 flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> Live Candle Feed Synced</span>
+      <button onclick="window.close()" class="px-3 py-1 rounded-xl bg-white/10 hover:bg-rose-500/20 hover:text-rose-300 text-slate-300 transition">✕ Close Tab</button>
+    </div>
+  </div>
+
+  <!-- Chart Container -->
+  <div id="proChartContainer" class="flex-1 w-full bg-[#070314]"></div>
+
+  <script>
+    const chartContainer = document.getElementById('proChartContainer');
+    const chart = LightweightCharts.createChart(chartContainer, {
+      width: window.innerWidth,
+      height: window.innerHeight - 60,
+      layout: {
+        background: { type: 'solid', color: '#070314' },
+        textColor: '#94a3b8'
+      },
+      grid: {
+        vertLines: { color: 'rgba(255, 255, 255, 0.05)' },
+        horzLines: { color: 'rgba(255, 255, 255, 0.05)' }
+      },
+      timeScale: {
+        timeVisible: true,
+        secondsVisible: true,
+        borderColor: 'rgba(255, 255, 255, 0.1)'
+      }
+    });
+
+    const candleSeries = chart.addCandlestickSeries({
+      upColor: '#10b981',
+      downColor: '#ef4444',
+      borderUpColor: '#10b981',
+      borderDownColor: '#ef4444',
+      wickUpColor: '#10b981',
+      wickDownColor: '#ef4444'
+    });
+
+    function syncCandles() {
+      try {
+        if (!window.opener || window.opener.closed) return;
+        const parentSeries = window.opener.candlestickDataSeries;
+        if (parentSeries && parentSeries.length) {
+          candleSeries.setData(parentSeries);
+          chart.timeScale().fitContent();
+        }
+      } catch(e) {}
+    }
+
+    syncCandles();
+    setInterval(syncCandles, 2000);
+
+    window.addEventListener('resize', () => {
+      chart.applyOptions({
+        width: window.innerWidth,
+        height: window.innerHeight - 60
+      });
+    });
+  <\/script>
+</body>
+</html>`);
+  popup.document.close();
+}
+
+// ═══════════════════════════════════════════════════════════════
 // COLUMN 1 TAB SWITCHER (Live History <-> Trend Road Map 0-9)
 // ═══════════════════════════════════════════════════════════════
 let currentCol1Tab = 'history';
@@ -4765,6 +5580,7 @@ function renderTradingCandleChart() {
   } else {
     tradingMainSeries.setData(candles);
   }
+  window.candlestickDataSeries = candles;
 
   try {
     if (typeof window.LightweightCharts.createSeriesMarkers === 'function') {
@@ -8738,6 +9554,15 @@ function simBotReset()  { SimBot.reset(); }
   // Automatic bootup after DOM is ready
   setTimeout(() => {
     try {
+      if (typeof loadElementHeights === 'function') {
+        loadElementHeights();
+      }
+      if (typeof initElementHeightResizers === 'function') {
+        initElementHeightResizers();
+      }
+      if (typeof loadClosedElementsState === 'function') {
+        loadClosedElementsState();
+      }
       if (typeof initWindowResizers === 'function') {
         initWindowResizers();
       }
