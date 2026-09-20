@@ -2490,8 +2490,19 @@ function runAI() {
       stake: lockedPred.stake || 1
     };
   } else if (window.QuantAlgorithm && typeof window.QuantAlgorithm.predictNextBet === 'function') {
-    outcome = window.QuantAlgorithm.predictNextBet(S, _orSignal ? [_orSignal] : []);
+    const aiState = Object.assign({}, S, {
+      lossStreak: Math.max(S.lossStreak || 0, S.aiPredictionLossStreak || 0),
+      winStreak: Math.max(S.winStreak || 0, S.aiPredictionWinStreak || 0)
+    });
+    outcome = window.QuantAlgorithm.predictNextBet(aiState, _orSignal ? [_orSignal] : []);
     if (outcome.adaptiveWeights) S.engineWeights = outcome.adaptiveWeights;
+    if (outcome.effectiveLossStreak !== undefined) {
+      S.aiPredictionLossStreak = outcome.effectiveLossStreak;
+      S.lossStreak = Math.max(S.lossStreak || 0, outcome.effectiveLossStreak);
+    }
+    if (outcome.effectiveWinStreak !== undefined) {
+      S.aiPredictionWinStreak = outcome.effectiveWinStreak;
+    }
   } else {
     outcome = {
       ready: true,
@@ -2526,6 +2537,10 @@ function runAI() {
     sizeProb: outcome.sizeProb,
     colorTarget: outcome.colorTarget,
     colorProb: outcome.colorProb,
+    isShieldActive: outcome.isShieldActive,
+    shieldReason: outcome.shieldReason,
+    effectiveLossStreak: outcome.effectiveLossStreak,
+    effectiveWinStreak: outcome.effectiveWinStreak,
     patternStrength: outcome.patternStrength,
     stake: outcome.stake || 1,
     prob: outcome.prob || 0.55,
@@ -3155,6 +3170,21 @@ function saveRealResult(period, numberInput, isLiveRound = false) {
     }
 
     if (S.roundBet && S.roundBet.period === period) S.roundBet = null;
+  }
+
+  // Ground-truth AI prediction streak tracking (learns from outputs each time)
+  if (aiMainTarget && aiMainCorrect !== null && aiMainCorrect !== undefined) {
+    if (aiMainCorrect === true) {
+      S.aiPredictionWinStreak = (S.aiPredictionWinStreak || 0) + 1;
+      S.aiPredictionLossStreak = 0;
+    } else {
+      S.aiPredictionLossStreak = (S.aiPredictionLossStreak || 0) + 1;
+      S.aiPredictionWinStreak = 0;
+    }
+    // Synchronize so S.lossStreak catches AI consecutive misses even when user is not betting
+    if ((S.lossStreak || 0) < S.aiPredictionLossStreak) {
+      S.lossStreak = S.aiPredictionLossStreak;
+    }
   }
 
   // Record settled round in TimeframeManager for timeframe-isolated stats
@@ -3859,9 +3889,11 @@ function updateAIDiagnosticsDrawer() {
   const eDNA     = (QA.engineDNA || engineDNA)(realHist);
   const eM2      = (QA.engineMarkov2 || engineMarkov2)(realHist);
   const eRoll    = (QA.engineRolling || engineRolling)(realHist);
-  const eNN      = QA.engineNeuralNetwork ? QA.engineNeuralNetwork(realHist) : { signal: 'NEUTRAL', prob: 0.5, weight: 0 };
-  const eHouse   = QA.engineHouseAdversary ? QA.engineHouseAdversary(realHist, S.lossStreak || 0) : { signal: 'NEUTRAL', trapDetected: false, weight: 0 };
-  const eMeta    = QA.engineMetacognition ? QA.engineMetacognition(realHist, S.lossStreak || 0) : { regime: 'BALANCED' };
+  const effectiveLS = Math.max(S.lossStreak || 0, S.aiPredictionLossStreak || 0);
+  const effectiveWS = Math.max(S.winStreak || 0, S.aiPredictionWinStreak || 0);
+  const eNN      = QA.engineNeuralNetwork ? QA.engineNeuralNetwork(realHist, effectiveWS, effectiveLS) : { signal: 'NEUTRAL', prob: 0.5, weight: 0 };
+  const eHouse   = QA.engineHouseAdversary ? QA.engineHouseAdversary(realHist, effectiveLS) : { signal: 'NEUTRAL', trapDetected: false, weight: 0 };
+  const eMeta    = QA.engineMetacognition ? QA.engineMetacognition(realHist, effectiveLS) : { regime: 'BALANCED' };
 
   const elSum    = document.getElementById('diagEngineSum');
   const elTrend  = document.getElementById('diagEngineTrend');

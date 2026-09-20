@@ -127,14 +127,14 @@
     return { signal: 'NEUTRAL', weight: 0 };
   }
 
-  // -- ENGINE 6: Online Adaptive Neural Perceptron Network -------------------
-  function engineNeuralNetwork(hist) {
+  // -- ENGINE 6: 2-Layer Adaptive Neural Network with Dynamic Synaptic Rewiring --
+  function engineNeuralNetwork(hist, winStreak = 0, lossStreak = 0) {
     if (!hist || hist.length < 5) return { signal: 'NEUTRAL', weight: 0, prob: 0.5 };
     const realHist = hist.filter(r => !r.gap);
     const n = realHist.length;
     if (n < 5) return { signal: 'NEUTRAL', weight: 0, prob: 0.5 };
 
-    function extractFeatures(slice) {
+    function extractFeatures(slice, wStreak = 0, lStreak = 0) {
       const len = slice.length;
       if (len < 4) return null;
       const w5 = slice.slice(-5);
@@ -176,6 +176,11 @@
       const accel = r5 - r12;
       const spring = (0.5 - r25) * 2;
 
+      // Streak-aware dynamic momentum and anti-phase features
+      const winStreakFeat = Math.min(5, wStreak) / 5;
+      const lossStreakFeat = Math.min(4, lStreak) / 4;
+      const phaseAntiLag = (chopRate > 0.6 && streak === 1) ? 1.0 : (streak >= 3 ? -1.0 : 0.0);
+
       return [
         r5 - 0.5,
         r12 - 0.5,
@@ -187,46 +192,106 @@
         markovP - 0.5,
         entropy - 0.5,
         accel,
-        spring
+        spring,
+        winStreakFeat,
+        lossStreakFeat,
+        phaseAntiLag
       ];
     }
 
-    let weights = [1.2, 0.8, -0.6, 1.4, -0.9, 0.5, 0.7, 1.1, -0.4, 0.8, 1.0];
-    let bias = 0.05;
-    const lr = 0.12;
+    const numInputs = 14;
+    const numHidden = 4;
 
-    const trainWindow = Math.min(20, n - 4);
+    // Hidden Layer initial weights: [H1: Trend, H2: Chop, H3: Win Momentum, H4: Loss Anti-Phase]
+    let W_h = [
+      [0.8, 0.6, -0.4, 1.2, -0.7, 0.4, 0.5, 0.8, -0.3, 0.6, 0.7, 0.5, -0.4, -0.8],
+      [-0.5, -0.3, 0.2, -1.0, 1.3, -0.3, -0.4, -0.7, 0.6, -0.5, -0.6, -0.2, 0.6, 1.1],
+      [0.4, 0.5, 0.1, 0.7, -0.2, 0.6, 0.4, 0.5, -0.2, 0.3, 0.4, 1.2, -0.5, 0.0],
+      [-0.6, -0.4, 0.3, -0.8, 0.9, -0.2, -0.3, -0.6, 0.5, -0.4, -0.5, -0.4, 1.5, 1.2]
+    ];
+    let b_h = [0.05, -0.05, 0.05, -0.05];
+
+    // Output weights: [h1, h2, h3, h4]
+    let W_o = [0.9, -0.8, 0.7, -0.9];
+    let b_o = 0.05;
+
+    // Dynamic Learning Rate based on win/loss streak for real-time plastic adaptation
+    const lr0 = 0.12;
+    const lr = lr0 * (1 + (lossStreak * 0.55) + Math.min(3, winStreak) * 0.18);
+
+    function leakyRelu(x) { return x >= 0 ? x : 0.1 * x; }
+    function dLeakyRelu(x) { return x >= 0 ? 1.0 : 0.1; }
+
+    const trainWindow = Math.min(22, n - 4);
     for (let i = n - trainWindow; i < n; i++) {
       const trainSlice = realHist.slice(0, i);
-      const feats = extractFeatures(trainSlice);
+      const feats = extractFeatures(trainSlice, winStreak, lossStreak);
       if (!feats) continue;
       const actualY = realHist[i].size === 'BIG' ? 1.0 : 0.0;
 
-      let z = bias;
-      for (let f = 0; f < feats.length; f++) z += weights[f] * feats[f];
-      const yHat = 1 / (1 + Math.exp(-Math.max(-8, Math.min(8, z))));
+      // Forward pass to hidden layer
+      const h_raw = new Array(numHidden);
+      const h_act = new Array(numHidden);
+      for (let j = 0; j < numHidden; j++) {
+        let sum = b_h[j];
+        for (let f = 0; f < numInputs; f++) sum += W_h[j][f] * feats[f];
+        h_raw[j] = sum;
+        h_act[j] = leakyRelu(sum);
+      }
+
+      let z_out = b_o;
+      for (let j = 0; j < numHidden; j++) z_out += W_o[j] * h_act[j];
+      const yHat = 1 / (1 + Math.exp(-Math.max(-8, Math.min(8, z_out))));
 
       const err = actualY - yHat;
-      for (let f = 0; f < feats.length; f++) weights[f] += lr * err * feats[f];
-      bias += lr * err * 0.2;
+      const dOut = err;
+
+      // Output layer update
+      for (let j = 0; j < numHidden; j++) W_o[j] += lr * dOut * h_act[j];
+      b_o += lr * dOut * 0.2;
+
+      // Hidden layer backprop
+      for (let j = 0; j < numHidden; j++) {
+        const dH = dOut * W_o[j] * dLeakyRelu(h_raw[j]);
+        for (let f = 0; f < numInputs; f++) {
+          W_h[j][f] += lr * dH * feats[f];
+        }
+        b_h[j] += lr * dH * 0.2;
+      }
     }
 
-    const currentFeats = extractFeatures(realHist);
+    // Adaptive Synaptic Rewiring: amplify anti-phase neuron on loss streak, boost momentum on win streak
+    if (lossStreak >= 2) {
+      W_o[3] *= (1 + lossStreak * 0.4);
+      W_o[0] *= 0.7; // dampen lagging trend chasing
+    } else if (winStreak >= 2) {
+      W_o[2] *= (1 + Math.min(4, winStreak) * 0.25);
+    }
+
+    const currentFeats = extractFeatures(realHist, winStreak, lossStreak);
     if (!currentFeats) return { signal: 'NEUTRAL', weight: 0, prob: 0.5 };
 
-    let currentZ = bias;
-    for (let f = 0; f < currentFeats.length; f++) currentZ += weights[f] * currentFeats[f];
-    const activation = 1 / (1 + Math.exp(-Math.max(-8, Math.min(8, currentZ))));
+    const final_h = new Array(numHidden);
+    for (let j = 0; j < numHidden; j++) {
+      let sum = b_h[j];
+      for (let f = 0; f < numInputs; f++) sum += W_h[j][f] * currentFeats[f];
+      final_h[j] = leakyRelu(sum);
+    }
+
+    let final_z = b_o;
+    for (let j = 0; j < numHidden; j++) final_z += W_o[j] * final_h[j];
+    const activation = 1 / (1 + Math.exp(-Math.max(-8, Math.min(8, final_z))));
 
     const signal = activation >= 0.50 ? 'BIG' : 'SMALL';
-    const prob = Math.min(0.85, 0.50 + Math.abs(activation - 0.50) * 0.44);
-    const weight = Math.round(45 * (1 + Math.abs(activation - 0.50)));
+    const prob = Math.min(0.86, 0.50 + Math.abs(activation - 0.50) * 0.46);
+    const weight = Math.round(50 * (1 + Math.abs(activation - 0.50)));
 
     return {
       signal,
       prob,
       weight,
       activation,
+      hiddenActivations: final_h,
       engine: 'NeuralNet'
     };
   }
@@ -350,7 +415,7 @@
     };
   }
 
-  // -- 4-LOSS PREVENTION SHIELD ENFORCER -------------------------------------
+  // -- ABSOLUTE 4-LOSS PREVENTION FORTRESS SHIELD ----------------------------
   function enforceLossPreventionShield(hist, lossStreak, candidateTarget, v5Ensemble, houseAdversary, neuralNet) {
     if (lossStreak < 3) {
       return {
@@ -360,52 +425,69 @@
       };
     }
 
-    const realHist = (hist || []).filter(r => !r.gap);
+    const realHist = (hist || []).filter(r => !r.gap && r.number !== null && r.number !== undefined);
     const n = realHist.length;
-    if (n < 3) {
+    if (n < 4) {
       return {
         target: candidateTarget,
         isShieldActive: true,
-        shieldReason: '🛡️ CRITICAL 4-LOSS SHIELD: Insufficient history, retaining candidate'
+        shieldReason: '🛡️ FORTRESS SHIELD: Insufficient history, retaining candidate'
       };
     }
 
-    const last3 = realHist.slice(-3);
-    const lastSizes = last3.map(r => r.size);
-    const isLast3Same = (lastSizes[0] === lastSizes[1] && lastSizes[1] === lastSizes[2]);
+    const r1 = realHist[n - 3].size;
+    const r2 = realHist[n - 2].size;
+    const r3 = realHist[n - 1].size;
+
+    const isDragon3 = (r1 === r2 && r2 === r3);
+    const isChop3 = (r1 !== r2 && r2 !== r3);
 
     let shieldTarget = candidateTarget;
     let strategy = '';
 
-    if (isLast3Same) {
-      shieldTarget = lastSizes[2];
-      strategy = `Ride persistent structural drift (${lastSizes[2]})`;
-    } else if (houseAdversary && houseAdversary.trapDetected && houseAdversary.signal !== 'NEUTRAL') {
+    // Priority 1: House Psychological Trap Inversion
+    if (houseAdversary && houseAdversary.trapDetected && houseAdversary.signal !== 'NEUTRAL') {
       shieldTarget = houseAdversary.signal;
       strategy = `House Adversary Inversion (${houseAdversary.trapType} → ${shieldTarget})`;
-    } else if (neuralNet && neuralNet.signal && neuralNet.prob >= 0.54) {
+    }
+    // Priority 2: Persistent Dragon Continuation (Breaks Gambler's Fallacy Trap)
+    else if (isDragon3) {
+      shieldTarget = r3;
+      strategy = `Dragon Continuation (${r3} Persistence)`;
+    }
+    // Priority 3: Alternating Chop Synchronization (Breaks Phase Lag Trap)
+    else if (isChop3) {
+      shieldTarget = (r3 === 'BIG' ? 'SMALL' : 'BIG');
+      strategy = `Chop Phase Alignment (${r3} → ${shieldTarget})`;
+    }
+    // Priority 4: 2-Layer Adaptive Neural Network Anti-Phase Inference
+    else if (neuralNet && neuralNet.signal && neuralNet.prob >= 0.52) {
       shieldTarget = neuralNet.signal;
-      strategy = `Deep Neural Perceptron (${shieldTarget} ${(neuralNet.prob * 100).toFixed(0)}%)`;
-    } else if (v5Ensemble && v5Ensemble.sizePick) {
+      strategy = `2-Layer Neural Anti-Phase (${shieldTarget} ${(neuralNet.prob * 100).toFixed(0)}%)`;
+    }
+    // Priority 5: Top Historical Python v5 Expert
+    else if (v5Ensemble && v5Ensemble.sizePick) {
       shieldTarget = v5Ensemble.sizePick;
-      strategy = `Top Reliability Expert (${v5Ensemble.sizeSource})`;
-    } else {
-      const lastOutcome = realHist[n - 1].size;
-      let countBigAfter = 0, countSmallAfter = 0;
-      for (let i = 0; i < n - 1; i++) {
-        if (realHist[i].size === lastOutcome) {
-          if (realHist[i + 1].size === 'BIG') countBigAfter++;
-          else countSmallAfter++;
+      strategy = `V5 Ensemble Expert (${v5Ensemble.sizeSource})`;
+    }
+    // Priority 6: Empirical Markov Attractor on 2-gram
+    else {
+      const key = r2 + '_' + r3;
+      let bAfter = 0, sAfter = 0;
+      for (let i = 2; i < n - 1; i++) {
+        if ((realHist[i - 1].size + '_' + realHist[i].size) === key) {
+          if (realHist[i + 1].size === 'BIG') bAfter++;
+          else sAfter++;
         }
       }
-      shieldTarget = countBigAfter >= countSmallAfter ? 'BIG' : 'SMALL';
-      strategy = `Empirical Bayesian Prior (${shieldTarget})`;
+      shieldTarget = bAfter >= sAfter ? 'BIG' : 'SMALL';
+      strategy = `2-Gram Empirical Attractor [${key}→${shieldTarget}]`;
     }
 
     return {
       target: shieldTarget,
       isShieldActive: true,
-      shieldReason: `🛡️ CRITICAL 4-LOSS PREVENTION SHIELD: ${strategy}`
+      shieldReason: `🛡️ FORTRESS 4-LOSS PREVENTION SHIELD: ${strategy}`
     };
   }
 
@@ -634,8 +716,8 @@
     return { streak, chop, patternScore, patternName };
   }
 
-  // -- ADAPTIVE ENGINE WEIGHT TUNING -----------------------------------------
-  function updateAdaptiveEngineWeights(hist, currentWeights) {
+  // -- ADAPTIVE ENGINE WEIGHT TUNING (STREAK-AWARE SYNAPTIC REWIRING) ---------
+  function updateAdaptiveEngineWeights(hist, currentWeights, winStreak = 0, lossStreak = 0) {
     const weights = Object.assign({}, CONFIG.DEFAULT_WEIGHTS, currentWeights || {});
     const realHist = (hist || []).filter(r => !r.gap);
     if (realHist.length < 15) return weights;
@@ -660,8 +742,8 @@
       const eD = engineDNA(subHist);
       const eM = engineMarkov2(subHist);
       const eR = engineRolling(subHist);
-      const eNN = engineNeuralNetwork(subHist);
-      const eH  = engineHouseAdversary(subHist, 0);
+      const eNN = engineNeuralNetwork(subHist, winStreak, lossStreak);
+      const eH  = engineHouseAdversary(subHist, lossStreak);
 
       if (eS.signal !== 'NEUTRAL') { perf.Sum.t++; if (eS.signal === actual) perf.Sum.c++; }
       if (eT.signal !== 'NEUTRAL') { perf.Trend.t++; if (eT.signal === actual) perf.Trend.c++; }
@@ -677,20 +759,30 @@
       if (p.t >= 4) {
         const acc = p.c / p.t;
         if (acc >= 0.58) {
-          weights[key] = Math.min(75, Math.round((CONFIG.DEFAULT_WEIGHTS[key] || 30) * (1 + (acc - 0.5) * 1.5)));
+          weights[key] = Math.min(85, Math.round((CONFIG.DEFAULT_WEIGHTS[key] || 30) * (1 + (acc - 0.5) * 1.8)));
         } else if (acc <= 0.42) {
-          weights[key] = Math.max(10, Math.round((CONFIG.DEFAULT_WEIGHTS[key] || 30) * (acc / 0.5)));
+          weights[key] = Math.max(8, Math.round((CONFIG.DEFAULT_WEIGHTS[key] || 30) * (acc / 0.5)));
         } else {
           weights[key] = CONFIG.DEFAULT_WEIGHTS[key] || 30;
         }
       }
     });
 
+    // Dynamic Synaptic Rewiring on Streaks:
+    if (lossStreak >= 2) {
+      weights.HouseAdversary = Math.min(95, (weights.HouseAdversary || 45) + lossStreak * 15);
+      weights.NeuralNet = Math.min(95, (weights.NeuralNet || 45) + lossStreak * 10);
+      weights.Trend = Math.max(10, Math.round((weights.Trend || 25) * 0.5));
+    } else if (winStreak >= 2) {
+      weights.Trend = Math.min(70, (weights.Trend || 25) + winStreak * 8);
+      weights.NeuralNet = Math.min(80, (weights.NeuralNet || 45) + winStreak * 6);
+    }
+
     return weights;
   }
 
   // -- CONSENSUS COMBINER ---------------------------------------------------
-  function generateConsensus(hist, adaptiveWeights, extraSignals, lossStreak = 0) {
+  function generateConsensus(hist, adaptiveWeights, extraSignals, lossStreak = 0, winStreak = 0) {
     const weights = adaptiveWeights || CONFIG.DEFAULT_WEIGHTS;
     const eSum    = engineSum(hist);     if (eSum.signal !== 'NEUTRAL') eSum.weight = weights.Sum || 15;
     const eTrend  = engineTrend(hist);   if (eTrend.signal !== 'NEUTRAL') eTrend.weight = weights.Trend || 25;
@@ -698,7 +790,7 @@
     const eMarkov = engineMarkov2(hist); if (eMarkov.signal !== 'NEUTRAL') eMarkov.weight = weights.Markov || 30;
     const eRoll   = engineRolling(hist); if (eRoll.signal !== 'NEUTRAL') eRoll.weight = weights.Rolling || 20;
 
-    const eNN     = engineNeuralNetwork(hist);
+    const eNN     = engineNeuralNetwork(hist, winStreak, lossStreak);
     if (eNN.signal !== 'NEUTRAL') eNN.weight = weights.NeuralNet || eNN.weight || 45;
 
     const eHouse  = engineHouseAdversary(hist, lossStreak);
@@ -711,6 +803,13 @@
     if (eMeta.boostEngine === 'Markov' && eMarkov.signal !== 'NEUTRAL') eMarkov.weight += 20;
     if (eMeta.boostEngine === 'HouseAdversary' && eHouse.signal !== 'NEUTRAL') eHouse.weight += 25;
     if (eMeta.boostEngine === 'NeuralNet' && eNN.signal !== 'NEUTRAL') eNN.weight += 20;
+
+    // Direct synaptic weight reinforcement on loss streak
+    if (lossStreak >= 2) {
+      if (eHouse.signal !== 'NEUTRAL') eHouse.weight += 20;
+      if (eNN.signal !== 'NEUTRAL') eNN.weight += 15;
+      if (eTrend.signal !== 'NEUTRAL') eTrend.weight = Math.max(10, Math.round(eTrend.weight * 0.5));
+    }
 
     const engines = [eSum, eTrend, eDNA, eMarkov, eRoll, eNN, eHouse];
     if (extraSignals && Array.isArray(extraSignals)) {
@@ -1089,6 +1188,57 @@
     };
   }
 
+  // -- GROUND-TRUTH PREDICTION STREAK EVALUATOR ------------------------------
+  /**
+   * Directly audits historical finished draws to compute exact consecutive prediction win/loss streak.
+   * Guarantees the AI is never blind to losses even if user placed no bets or reset local balance.
+   */
+  function computeGroundTruthStreak(hist, predMap, state) {
+    let lossStreak = 0;
+    let winStreak = 0;
+
+    const userLossStreak = (state && (state.aiPredictionLossStreak !== undefined ? state.aiPredictionLossStreak : state.lossStreak)) || 0;
+    const userWinStreak = (state && (state.aiPredictionWinStreak !== undefined ? state.aiPredictionWinStreak : state.winStreak)) || 0;
+
+    const realHist = (hist || []).filter(r => !r.gap && r.number !== null && r.number !== undefined);
+    const n = realHist.length;
+    if (n === 0) {
+      return { lossStreak: userLossStreak, winStreak: userWinStreak };
+    }
+
+    // Inspect historical finished rounds from newest to oldest
+    for (let i = n - 1; i >= 0; i--) {
+      const row = realHist[i];
+      let isWin = row.aiCorrect;
+      if (isWin === undefined || isWin === null) {
+        const pred = (predMap && (predMap[row.period] || predMap[String(row.period).slice(-5)]));
+        if (pred && pred.target) {
+          if (pred.type === 'COLOR') {
+            const isGreen = [1, 3, 7, 9, 5].includes(Number(row.number));
+            isWin = pred.target === 'GREEN' ? isGreen : !isGreen;
+          } else {
+            isWin = String(pred.target).toUpperCase() === String(row.size).toUpperCase();
+          }
+        }
+      }
+
+      if (isWin === true) {
+        if (lossStreak > 0) break;
+        winStreak++;
+      } else if (isWin === false) {
+        if (winStreak > 0) break;
+        lossStreak++;
+      } else {
+        break;
+      }
+    }
+
+    return {
+      lossStreak: Math.max(lossStreak, userLossStreak),
+      winStreak: Math.max(winStreak, userWinStreak)
+    };
+  }
+
   // -- BET PREDICTION DECISION ENGINE (ZERO SKIP GUARANTEE) ------------------
   /**
    * Main entry point to predict the next bet.
@@ -1133,12 +1283,17 @@
       }
     } catch (e) {}
 
+    // 1b. Determine ground-truth prediction streak directly from history
+    const groundTruth = computeGroundTruthStreak(history, state.aiPredictionMap, state);
+    const effectiveLossStreak = groundTruth.lossStreak;
+    const effectiveWinStreak = groundTruth.winStreak;
+
     // 2. Calculate entropy of recent window
     const recentSizes = history.slice(-20).map(r => r.size);
     const entropy = calcEntropy(recentSizes);
 
-    // 3. Update adaptive weights
-    const adaptiveWeights = updateAdaptiveEngineWeights(history, state.engineWeights);
+    // 3. Update adaptive weights with streak rewiring
+    const adaptiveWeights = updateAdaptiveEngineWeights(history, state.engineWeights, effectiveWinStreak, effectiveLossStreak);
 
     // 4. Inject validated candidate pattern from GameHistoryAnalysis as extra signal if present
     const combinedSignals = Array.isArray(extraSignals) ? [...extraSignals] : [];
@@ -1152,7 +1307,7 @@
     }
 
     // 5. Generate consensus for BOTH Size (BIG/SMALL) and Color (RED/GREEN)
-    const sizeConsensus = generateConsensus(history, adaptiveWeights, combinedSignals, state.lossStreak || 0);
+    const sizeConsensus = generateConsensus(history, adaptiveWeights, combinedSignals, effectiveLossStreak, effectiveWinStreak);
     const colorConsensus = generateColorConsensus(history);
 
     // 6. Evaluate Pattern Sequence Strength for both
@@ -1176,14 +1331,14 @@
       confidence: sizePattern.streak >= 3 ? 0.85 : 0.75
     };
 
-    const v5Ensemble = evaluateV5Ensemble(history, activePatObj, state.lossStreak || 0);
+    const v5Ensemble = evaluateV5Ensemble(history, activePatObj, effectiveLossStreak);
 
-    // 7b. CRITICAL 4-LOSS PREVENTION SHIELD ENFORCER
+    // 7b. CRITICAL 4-LOSS PREVENTION FORTRESS SHIELD ENFORCER
     // Prevents loss streaks of 4 or more in a row by detecting house psychological traps,
-    // analyzing persistent structural drift, or aligning with deep neural perceptron.
+    // inverting phase lag, analyzing persistent structural drift, or aligning with 2-layer neural anti-phase.
     const shieldResult = enforceLossPreventionShield(
       history,
-      state.lossStreak || 0,
+      effectiveLossStreak,
       recommendedTarget,
       v5Ensemble,
       sizeConsensus.houseAdversary,
@@ -1193,7 +1348,7 @@
     // 8. Staking calculation
     const pWin = Math.max(dominantProb, CONFIG.BREAKEVEN_P + 0.01);
     const zScore = (pWin - 0.5) / Math.sqrt(0.25 / Math.max(n, 1));
-    const reqZ = requiredZScore(state.lossStreak || 0);
+    const reqZ = requiredZScore(effectiveLossStreak);
 
     const resolvedBets = (state.myBets || []).filter(b => b.status === 'WON' || b.status === 'LOST').slice(0, 10);
     let balanceTrend = 0;
@@ -1209,8 +1364,8 @@
       balance: state.balance || 1000,
       initialBalance: state.initialBalance || 1000,
       pWin,
-      lossStreak: state.lossStreak || 0,
-      winStreak: state.winStreak || 0,
+      lossStreak: effectiveLossStreak,
+      winStreak: effectiveWinStreak,
       balanceTrend
     });
 
@@ -1253,6 +1408,8 @@
       colorProb: colorConsensus.prob,
       isShieldActive: shieldResult.isShieldActive,
       shieldReason: shieldResult.shieldReason,
+      effectiveLossStreak,
+      effectiveWinStreak,
       metacognition: sizeConsensus.meta,
       neuralNet: sizeConsensus.neuralNet,
       houseAdversary: sizeConsensus.houseAdversary,
@@ -1293,6 +1450,7 @@
     engineHouseAdversary,
     engineMetacognition,
     enforceLossPreventionShield,
+    computeGroundTruthStreak,
     engineColorSum,
     engineColorTrend,
     engineColorDNA,
