@@ -148,6 +148,113 @@
       background: rgba(88, 28, 135, 0.4);
     }
 
+    /* ── Apple Premium Capsule Buttons ── */
+    .apple-btn {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      user-select: none;
+    }
+    .apple-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.22);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+      transform: translateY(-0.5px);
+    }
+    .apple-btn:active {
+      transform: scale(0.96) translateY(0);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+    .apple-btn-amber {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.22) 0%, rgba(217, 119, 6, 0.14) 100%);
+      border-color: rgba(245, 158, 11, 0.4);
+      color: #fef3c7;
+      box-shadow: 0 4px 16px rgba(245, 158, 11, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+    .apple-btn-amber:hover {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.35) 0%, rgba(217, 119, 6, 0.25) 100%);
+      border-color: rgba(245, 158, 11, 0.6);
+      box-shadow: 0 6px 24px rgba(245, 158, 11, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      color: #ffffff;
+    }
+    .apple-btn-emerald {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.14) 100%);
+      border-color: rgba(16, 185, 129, 0.4);
+      color: #d1fae5;
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+    .apple-btn-emerald:hover {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.35) 0%, rgba(5, 150, 105, 0.25) 100%);
+      border-color: rgba(16, 185, 129, 0.6);
+      box-shadow: 0 6px 24px rgba(16, 185, 129, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      color: #ffffff;
+    }
+    .apple-btn-indigo {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.22) 0%, rgba(79, 70, 229, 0.14) 100%);
+      border-color: rgba(99, 102, 241, 0.4);
+      color: #e0e7ff;
+      box-shadow: 0 4px 16px rgba(99, 102, 241, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+    .apple-btn-indigo:hover {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.35) 0%, rgba(79, 70, 229, 0.25) 100%);
+      border-color: rgba(99, 102, 241, 0.6);
+      box-shadow: 0 6px 24px rgba(99, 102, 241, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      color: #ffffff;
+    }
+    .apple-btn-blue {
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.25) 0%, rgba(29, 78, 216, 0.15) 100%);
+      border-color: rgba(59, 130, 246, 0.45);
+      color: #dbeafe;
+      box-shadow: 0 4px 16px rgba(37, 99, 235, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+    .apple-btn-blue:hover {
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.4) 0%, rgba(29, 78, 216, 0.28) 100%);
+      border-color: rgba(59, 130, 246, 0.65);
+      box-shadow: 0 6px 24px rgba(37, 99, 235, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      color: #ffffff;
+    }
+
+    /* ── TradingView Drawing Tools Palette ── */
+    .chart-draw-tool-btn {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      color: #94a3b8;
+      background: transparent;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+      cursor: pointer;
+      position: relative;
+    }
+    .chart-draw-tool-btn:hover {
+      color: #f8fafc;
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+    .chart-draw-tool-btn.is-active-tool {
+      color: #0f172a !important;
+      background: #f59e0b !important;
+      border-color: #fbbf24 !important;
+      box-shadow: 0 0 12px rgba(245, 158, 11, 0.6);
+    }
+    .chart-drawing-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 15;
+      touch-action: none;
+    }
+    .chart-drawing-overlay.drawing-interactive {
+      pointer-events: auto;
+      cursor: crosshair;
+    }
+
     /* ── 3-D Balls ── */
     .ball-3d {
       box-shadow: inset -3px -3px 6px rgba(0,0,0,.45), inset 3px 3px 6px rgba(255,255,255,.35), 0 4px 8px rgba(0,0,0,.35);
@@ -339,30 +446,30 @@
       <span class="text-[9px] font-mono text-slate-400 pl-2 pr-1 uppercase font-bold flex items-center gap-1">
         <i class="fa-solid fa-table-columns text-purple-400 text-[9.5px]"></i> Windows
       </span>
-      <button id="dockCol1Btn" onclick="toggleWindowCol('col1')" class="px-2 py-1 rounded-xl text-[9px] font-black uppercase transition active:scale-95 flex items-center gap-1 bg-amber-400/20 text-amber-300 border border-amber-400/50 shadow-sm" title="Toggle Live History & Audit (Column 1)">
+      <button id="dockCol1Btn" onclick="toggleWindowCol('col1')" class="apple-btn apple-btn-amber px-2.5 py-1 rounded-xl text-[9px] font-black uppercase flex items-center gap-1 shadow-sm" title="Toggle Live History & Audit (Column 1)">
         <i class="fa-solid fa-eye text-amber-400 text-[8.5px]"></i>
         <span>1. History</span>
       </button>
-      <button id="dockCol2Btn" onclick="toggleWindowCol('col2')" class="px-2 py-1 rounded-xl text-[9px] font-black uppercase transition active:scale-95 flex items-center gap-1 bg-amber-400/20 text-amber-300 border border-amber-400/50 shadow-sm" title="Toggle WinGo Hero & Trading Chart (Column 2)">
+      <button id="dockCol2Btn" onclick="toggleWindowCol('col2')" class="apple-btn apple-btn-amber px-2.5 py-1 rounded-xl text-[9px] font-black uppercase flex items-center gap-1 shadow-sm" title="Toggle WinGo Hero & Trading Chart (Column 2)">
         <i class="fa-solid fa-eye text-amber-400 text-[8.5px]"></i>
         <span>2. Chart</span>
       </button>
-      <button id="dockCol3Btn" onclick="toggleWindowCol('col3')" class="px-2 py-1 rounded-xl text-[9px] font-black uppercase transition active:scale-95 flex items-center gap-1 bg-amber-400/20 text-amber-300 border border-amber-400/50 shadow-sm" title="Toggle Intelligence Hub & Web View (Column 3)">
+      <button id="dockCol3Btn" onclick="toggleWindowCol('col3')" class="apple-btn apple-btn-amber px-2.5 py-1 rounded-xl text-[9px] font-black uppercase flex items-center gap-1 shadow-sm" title="Toggle Intelligence Hub & Web View (Column 3)">
         <i class="fa-solid fa-eye text-amber-400 text-[8.5px]"></i>
         <span>3. Hub</span>
       </button>
-      <button onclick="resetWindowLayout()" class="p-1 px-2 rounded-xl text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/10 transition active:scale-95 border border-transparent hover:border-white/10 flex items-center gap-1" title="Reset all 3 windows to default equal widths">
+      <button onclick="resetWindowLayout()" class="apple-btn px-2 py-1 rounded-xl text-[9px] font-bold text-slate-300 hover:text-white flex items-center gap-1" title="Reset all 3 windows to default equal widths">
         <i class="fa-solid fa-rotate-left text-[8.5px]"></i>
         <span>Cols</span>
       </button>
-      <button onclick="resetCardPositions()" class="p-1 px-2 rounded-xl text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/10 transition active:scale-95 border border-transparent hover:border-white/10 flex items-center gap-1" title="Reset cards to default positions">
+      <button onclick="resetCardPositions()" class="apple-btn px-2 py-1 rounded-xl text-[9px] font-bold text-slate-300 hover:text-white flex items-center gap-1" title="Reset cards to default positions">
         <i class="fa-solid fa-grip text-[8.5px] text-amber-400"></i>
         <span>Cards</span>
       </button>
 
       <!-- + Add Element Dropdown -->
-      <div class="relative inline-block ml-1">
-        <button id="btnAddElementsDropdown" onclick="toggleAddElementsMenu(event)" class="px-2 py-1 rounded-xl text-[9px] font-black uppercase transition active:scale-95 flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-500/30 shadow-sm" title="Add / Restore closed window elements">
+      <div class="relative inline-block ml-0.5">
+        <button id="btnAddElementsDropdown" onclick="toggleAddElementsMenu(event)" class="apple-btn apple-btn-emerald px-2.5 py-1 rounded-xl text-[9px] font-black uppercase flex items-center gap-1.5 shadow-sm" title="Add / Restore closed window elements">
           <i class="fa-solid fa-plus text-[8.5px]"></i>
           <span>Add Element</span>
           <span id="closedElementsCountBadge" class="hidden px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[7.5px] font-mono font-bold">0</span>
@@ -381,30 +488,30 @@
       </div>
     </div>
 
-    <button onclick="toggleResultPopup()" id="popupToggleBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 hover:text-white font-black text-xs transition active:scale-95 shadow" title="Toggle Result Popup ON or OFF">
+    <button onclick="toggleResultPopup()" id="popupToggleBtn" class="apple-btn apple-btn-emerald flex items-center gap-1.5 px-3 py-1.5 rounded-2xl font-black text-xs shadow" title="Toggle Result Popup ON or OFF">
       <i class="fa-solid fa-bell text-xs"></i>
       <span id="popupToggleText">Popup: ON</span>
     </button>
-    <button onclick="toggleProMode()" id="proModeToggleBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-white/10 backdrop-blur-xl border border-amber-400/50 text-amber-300 hover:text-white font-black text-xs transition shadow-[0_0_15px_rgba(245,158,11,0.2)] active:scale-95" title="Switch between Pro and Normal view">
+    <button onclick="toggleProMode()" id="proModeToggleBtn" class="apple-btn apple-btn-amber flex items-center gap-1.5 px-3 py-1.5 rounded-2xl font-black text-xs shadow" title="Switch between Pro and Normal view">
       <i class="fa-solid fa-layer-group text-amber-400 text-xs"></i>
       <span id="proModeBtnText">⚡ PRO MODE: ON</span>
     </button>
-    <button onclick="toggleRightPanelView()" id="headerWebToggleBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 hover:text-white font-black text-xs transition active:scale-95 shadow" title="Toggle Website View (dhaniwin99.com) in Right Panel">
+    <button onclick="toggleRightPanelView()" id="headerWebToggleBtn" class="apple-btn apple-btn-indigo flex items-center gap-1.5 px-3 py-1.5 rounded-2xl font-black text-xs shadow" title="Toggle Website View (dhaniwin99.com) in Right Panel">
       <i class="fa-solid fa-globe text-sky-400"></i>
       <span id="headerWebToggleText">Web View</span>
     </button>
-    <div class="hidden lg:flex items-center gap-1 text-[10px] text-slate-400 font-mono bg-white/5 px-3 py-1.5 rounded-2xl border border-white/10">
+    <div class="hidden lg:flex items-center gap-1 text-[10px] text-slate-400 font-mono apple-btn px-3 py-1.5 rounded-2xl">
       <i class="fa-solid fa-circle text-[6px] text-emerald-400 animate-pulse"></i>
       <span id="liveStatusText">Connecting...</span>
     </div>
-    <button onclick="toggleAutoBet()" id="autoBetToggleBtn" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-slate-300 hover:text-emerald-400 transition border border-white/10" title="Martingale Auto-Bet">
+    <button onclick="toggleAutoBet()" id="autoBetToggleBtn" class="apple-btn w-8 h-8 flex items-center justify-center rounded-full text-slate-300 hover:text-emerald-400" title="Martingale Auto-Bet">
       <i class="fa-solid fa-robot text-xs"></i>
     </button>
-    <button onclick="openImportModal()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-slate-300 hover:text-white transition border border-white/10" title="Data Import">
+    <button onclick="openImportModal()" class="apple-btn w-8 h-8 flex items-center justify-center rounded-full text-slate-300 hover:text-white" title="Data Import">
       <i class="fa-solid fa-database text-xs"></i>
     </button>
-    <a href="/" class="px-2.5 py-1.5 flex items-center gap-1.5 rounded-2xl bg-blue-600/30 text-blue-300 hover:text-white hover:bg-blue-600/50 transition border border-blue-500/40 text-xs font-bold" title="Open TradingView Prediction Chart">
-      <i class="fa-solid fa-chart-line text-blue-400"></i>
+    <a href="/" class="apple-btn apple-btn-blue px-3 py-1.5 flex items-center gap-1.5 rounded-2xl text-xs font-bold" title="Open TradingView Prediction Chart">
+      <i class="fa-solid fa-chart-line text-blue-300"></i>
       <span>Trading Chart</span>
     </a>
   </div>
@@ -1201,9 +1308,73 @@
         </div>
       </div>
 
-      <!-- Canvas Chart Container -->
-      <div id="tradingChartCanvasWrapper" class="relative w-full bg-[#131722]" style="height: 480px;">
-        <div id="tradingCandleChartContainer" style="width: 100%; height: 100%;"></div>
+      <!-- Canvas Chart Container with Left Drawing Tools Toolbar and Drawing Overlay -->
+      <div id="tradingChartCanvasWrapper" class="relative w-full bg-[#131722] flex overflow-hidden" style="height: 480px;">
+        
+        <!-- Left Side Floating Apple Glass Drawing Tools Bar -->
+        <div id="chartDrawToolbar" class="absolute left-2 top-2 bottom-2 z-20 flex flex-col items-center py-2 px-1 rounded-2xl bg-[#0e0a1ad9] backdrop-blur-xl border border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.65)] space-y-1.5 select-none" style="width: 36px;">
+          <!-- Cursor / Navigate Tool -->
+          <button id="tool_cursor" onclick="selectChartDrawTool('cursor')" class="chart-draw-tool-btn is-active-tool" title="Cursor / Normal Chart Nav">
+            <i class="fa-solid fa-arrow-pointer text-xs"></i>
+          </button>
+          
+          <!-- Freehand Pencil Tool -->
+          <button id="tool_pencil" onclick="selectChartDrawTool('pencil')" class="chart-draw-tool-btn" title="Freehand Pencil / Pen">
+            <i class="fa-solid fa-pencil text-xs"></i>
+          </button>
+
+          <!-- Trend Line Tool -->
+          <button id="tool_line" onclick="selectChartDrawTool('line')" class="chart-draw-tool-btn" title="Trend Line (Click 2 points)">
+            <i class="fa-solid fa-slash text-xs"></i>
+          </button>
+
+          <!-- Horizontal Support/Resistance Level -->
+          <button id="tool_horizontal" onclick="selectChartDrawTool('horizontal')" class="chart-draw-tool-btn" title="Horizontal Support / Resistance Ray">
+            <i class="fa-solid fa-grip-lines text-xs"></i>
+          </button>
+
+          <!-- Vertical Time Cycle / Round Marker -->
+          <button id="tool_vertical" onclick="selectChartDrawTool('vertical')" class="chart-draw-tool-btn" title="Vertical Round / Time Line">
+            <i class="fa-solid fa-grip-lines-vertical text-xs"></i>
+          </button>
+
+          <!-- Ray / Arrow Line Tool -->
+          <button id="tool_arrow" onclick="selectChartDrawTool('arrow')" class="chart-draw-tool-btn" title="Target Arrow / Ray">
+            <i class="fa-solid fa-arrow-trend-up text-xs"></i>
+          </button>
+
+          <!-- Rectangle Box Range Zone -->
+          <button id="tool_box" onclick="selectChartDrawTool('box')" class="chart-draw-tool-btn" title="Box / Consolidation Zone">
+            <i class="fa-regular fa-square text-xs"></i>
+          </button>
+
+          <!-- Divider -->
+          <div class="w-5 h-[1px] bg-white/10 my-0.5"></div>
+
+          <!-- Color Switcher -->
+          <button id="tool_color_btn" onclick="cycleChartDrawColor()" class="w-5 h-5 rounded-full border border-white/20 shadow transition active:scale-90" style="background:#f59e0b;" title="Click to cycle Draw Color"></button>
+
+          <!-- Future Prediction Space Drag Extender -->
+          <button id="btnToggleFutureSpace" onclick="toggleFuturePredictionSpace()" class="chart-draw-tool-btn" title="Toggle Future Prediction Space (+35 Future Candles)">
+            <i class="fa-solid fa-forward text-[11px] text-sky-400"></i>
+          </button>
+
+          <!-- Undo Last Drawing -->
+          <button onclick="undoChartDrawing()" class="chart-draw-tool-btn" title="Undo Last Drawing (Ctrl+Z)">
+            <i class="fa-solid fa-rotate-left text-xs"></i>
+          </button>
+
+          <!-- Clear All Drawings -->
+          <button onclick="clearChartDrawings()" class="chart-draw-tool-btn hover:text-rose-400" title="Clear All Drawings (Saved in LocalStorage)">
+            <i class="fa-solid fa-trash-can text-xs"></i>
+          </button>
+        </div>
+
+        <!-- Lightweight Charts Mount Target -->
+        <div id="tradingCandleChartContainer" class="w-full h-full"></div>
+
+        <!-- Interactive Vector Drawing Layer (SVG + Canvas) -->
+        <svg id="chartDrawingSvgOverlay" class="chart-drawing-overlay w-full h-full"></svg>
       </div>
 
       <!-- Footer Statistics -->
@@ -6062,6 +6233,380 @@ function renderTradingCandleChart() {
 function renderTrendChart() {
   if (typeof renderNumberRoad === 'function') renderNumberRoad();
   if (typeof renderTradingCandleChart === 'function') renderTradingCandleChart();
+  if (typeof renderChartDrawings === 'function') renderChartDrawings();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TRADING CHART DRAWING TOOLS & FUTURE PREDICTION SPACE ENGINE
+// ═══════════════════════════════════════════════════════════════
+let activeChartDrawTool = 'cursor'; // 'cursor', 'pencil', 'line', 'horizontal', 'vertical', 'arrow', 'box'
+let currentChartDrawColor = '#f59e0b';
+const CHART_DRAW_COLORS = ['#f59e0b', '#38bdf8', '#10b981', '#ef4444', '#a855f7', '#ffffff'];
+let chartDrawings = []; // Array of { id, tool, color, points: [{x, y, ...}], createdAtRound, timeframe }
+let activeDrawingTemp = null;
+let isFuturePredictionSpaceEnabled = false;
+
+function saveChartDrawings() {
+  try {
+    const tf = S?.timeframe || '30s';
+    const key = `dhaniwin_chart_drawings_${tf}`;
+    localStorage.setItem(key, JSON.stringify(chartDrawings));
+  } catch(e) {}
+}
+
+function loadChartDrawings() {
+  try {
+    const tf = S?.timeframe || '30s';
+    const key = `dhaniwin_chart_drawings_${tf}`;
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        chartDrawings = parsed;
+      }
+    } else {
+      chartDrawings = [];
+    }
+  } catch(e) {
+    chartDrawings = [];
+  }
+  renderChartDrawings();
+}
+
+function cycleChartDrawColor() {
+  const curIdx = CHART_DRAW_COLORS.indexOf(currentChartDrawColor);
+  const nextIdx = (curIdx + 1) % CHART_DRAW_COLORS.length;
+  currentChartDrawColor = CHART_DRAW_COLORS[nextIdx];
+  const btn = document.getElementById('tool_color_btn');
+  if (btn) btn.style.background = currentChartDrawColor;
+}
+
+function selectChartDrawTool(toolName) {
+  activeChartDrawTool = toolName;
+  activeDrawingTemp = null;
+
+  // Update Toolbar UI buttons
+  const allToolButtons = document.querySelectorAll('#chartDrawToolbar .chart-draw-tool-btn');
+  allToolButtons.forEach(btn => btn.classList.remove('is-active-tool'));
+  const activeBtn = document.getElementById(`tool_${toolName}`);
+  if (activeBtn) activeBtn.classList.add('is-active-tool');
+
+  // Update overlay interactivity
+  const overlay = document.getElementById('chartDrawingSvgOverlay');
+  if (overlay) {
+    if (toolName === 'cursor') {
+      overlay.classList.remove('drawing-interactive');
+    } else {
+      overlay.classList.add('drawing-interactive');
+    }
+  }
+
+  // Update chart crosshair / drag lock when drawing
+  if (tradingChartInstance) {
+    tradingChartInstance.applyOptions({
+      handleScroll: toolName === 'cursor',
+      handleScale: toolName === 'cursor'
+    });
+  }
+}
+
+function toggleFuturePredictionSpace() {
+  isFuturePredictionSpaceEnabled = !isFuturePredictionSpaceEnabled;
+  const btn = document.getElementById('btnToggleFutureSpace');
+  if (btn) {
+    if (isFuturePredictionSpaceEnabled) {
+      btn.classList.add('is-active-tool');
+      if (typeof showToast === 'function') showToast('Future prediction space extended (+35 candles)', 'info');
+    } else {
+      btn.classList.remove('is-active-tool');
+      if (typeof showToast === 'function') showToast('Future prediction space reset to normal', 'info');
+    }
+  }
+  if (tradingChartInstance) {
+    tradingChartInstance.applyOptions({
+      timeScale: {
+        rightOffset: isFuturePredictionSpaceEnabled ? 35 : 8
+      }
+    });
+  }
+}
+
+function undoChartDrawing() {
+  if (chartDrawings.length > 0) {
+    chartDrawings.pop();
+    saveChartDrawings();
+    renderChartDrawings();
+    if (typeof showToast === 'function') showToast('Last drawing removed', 'info');
+  }
+}
+
+function clearChartDrawings() {
+  if (chartDrawings.length === 0) return;
+  if (confirm('Clear all drawings on this chart?')) {
+    chartDrawings = [];
+    activeDrawingTemp = null;
+    saveChartDrawings();
+    renderChartDrawings();
+    if (typeof showToast === 'function') showToast('Chart drawings cleared', 'info');
+  }
+}
+
+function pruneDrawingsOlderThan100Rounds() {
+  const curPeriod = Number(S?.currentPeriod || 0);
+  if (!curPeriod || !chartDrawings.length) return;
+  const beforeLen = chartDrawings.length;
+  chartDrawings = chartDrawings.filter(d => {
+    if (!d.periodCreated) return true; // keep if period not tagged
+    return (curPeriod - Number(d.periodCreated)) <= 100;
+  });
+  if (chartDrawings.length !== beforeLen) {
+    saveChartDrawings();
+    renderChartDrawings();
+  }
+}
+
+function renderChartDrawings() {
+  const svg = document.getElementById('chartDrawingSvgOverlay');
+  if (!svg) return;
+  svg.innerHTML = '';
+
+  const allToRender = [...chartDrawings];
+  if (activeDrawingTemp) allToRender.push(activeDrawingTemp);
+
+  allToRender.forEach(d => {
+    if (!d || !d.points || !d.points.length) return;
+    const color = d.color || '#f59e0b';
+
+    if (d.tool === 'pencil') {
+      const pathData = d.points.map((pt, idx) => `${idx === 0 ? 'M' : 'L'} ${pt.x} ${pt.y}`).join(' ');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', pathData);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', color);
+      path.setAttribute('stroke-width', '2.5');
+      path.setAttribute('stroke-linecap', 'round');
+      path.setAttribute('stroke-linejoin', 'round');
+      path.setAttribute('opacity', '0.9');
+      svg.appendChild(path);
+    } else if (d.tool === 'line') {
+      if (d.points.length >= 2) {
+        const p1 = d.points[0];
+        const p2 = d.points[1];
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', p1.x);
+        line.setAttribute('y1', p1.y);
+        line.setAttribute('x2', p2.x);
+        line.setAttribute('y2', p2.y);
+        line.setAttribute('stroke', color);
+        line.setAttribute('stroke-width', '2');
+        line.setAttribute('stroke-linecap', 'round');
+        svg.appendChild(line);
+
+        // Endpoint dots
+        [p1, p2].forEach(p => {
+          const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          dot.setAttribute('cx', p.x);
+          dot.setAttribute('cy', p.y);
+          dot.setAttribute('r', '3.5');
+          dot.setAttribute('fill', color);
+          svg.appendChild(dot);
+        });
+      }
+    } else if (d.tool === 'horizontal') {
+      const p = d.points[0];
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', '0');
+      line.setAttribute('y1', p.y);
+      line.setAttribute('x2', '100%');
+      line.setAttribute('y2', p.y);
+      line.setAttribute('stroke', color);
+      line.setAttribute('stroke-width', '1.8');
+      line.setAttribute('stroke-dasharray', '4,3');
+      svg.appendChild(line);
+
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('x', '45');
+      label.setAttribute('y', Math.max(14, p.y - 4));
+      label.setAttribute('fill', color);
+      label.setAttribute('font-size', '9px');
+      label.setAttribute('font-family', 'monospace');
+      label.setAttribute('font-weight', 'bold');
+      label.textContent = `H-LEVEL (${Math.round(p.y)}px)`;
+      svg.appendChild(label);
+    } else if (d.tool === 'vertical') {
+      const p = d.points[0];
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', p.x);
+      line.setAttribute('y1', '0');
+      line.setAttribute('x2', p.x);
+      line.setAttribute('y2', '100%');
+      line.setAttribute('stroke', color);
+      line.setAttribute('stroke-width', '1.8');
+      line.setAttribute('stroke-dasharray', '4,3');
+      svg.appendChild(line);
+
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('x', Math.min(svg.clientWidth - 50, p.x + 4));
+      label.setAttribute('y', '20');
+      label.setAttribute('fill', color);
+      label.setAttribute('font-size', '8.5px');
+      label.setAttribute('font-family', 'monospace');
+      label.setAttribute('font-weight', 'bold');
+      label.textContent = 'CYCLE';
+      svg.appendChild(label);
+    } else if (d.tool === 'arrow') {
+      if (d.points.length >= 2) {
+        const p1 = d.points[0];
+        const p2 = d.points[1];
+        
+        // Marker definition for arrowhead if needed
+        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+        const markerId = `arrowhead_${color.replace('#','')}`;
+        marker.setAttribute('id', markerId);
+        marker.setAttribute('markerWidth', '8');
+        marker.setAttribute('markerHeight', '8');
+        marker.setAttribute('refX', '6');
+        marker.setAttribute('refY', '3');
+        marker.setAttribute('orient', 'auto');
+        const markerPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        markerPath.setAttribute('d', 'M0,0 L0,6 L8,3 z');
+        markerPath.setAttribute('fill', color);
+        marker.appendChild(markerPath);
+        defs.appendChild(marker);
+        svg.appendChild(defs);
+
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', p1.x);
+        line.setAttribute('y1', p1.y);
+        line.setAttribute('x2', p2.x);
+        line.setAttribute('y2', p2.y);
+        line.setAttribute('stroke', color);
+        line.setAttribute('stroke-width', '2.5');
+        line.setAttribute('marker-end', `url(#${markerId})`);
+        svg.appendChild(line);
+      }
+    } else if (d.tool === 'box') {
+      if (d.points.length >= 2) {
+        const p1 = d.points[0];
+        const p2 = d.points[1];
+        const x = Math.min(p1.x, p2.x);
+        const y = Math.min(p1.y, p2.y);
+        const w = Math.abs(p2.x - p1.x);
+        const h = Math.abs(p2.y - p1.y);
+
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', x);
+        rect.setAttribute('y', y);
+        rect.setAttribute('width', w);
+        rect.setAttribute('height', h);
+        rect.setAttribute('fill', color);
+        rect.setAttribute('fill-opacity', '0.15');
+        rect.setAttribute('stroke', color);
+        rect.setAttribute('stroke-width', '1.8');
+        rect.setAttribute('rx', '4');
+        svg.appendChild(rect);
+      }
+    }
+  });
+}
+
+function initTradingChartDrawings() {
+  const overlay = document.getElementById('chartDrawingSvgOverlay');
+  if (!overlay) return;
+
+  loadChartDrawings();
+
+  let isInteracting = false;
+
+  const getSvgCoordinates = (e) => {
+    const rect = overlay.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: Math.round(clientX - rect.left),
+      y: Math.round(clientY - rect.top)
+    };
+  };
+
+  const onPointerDown = (e) => {
+    if (activeChartDrawTool === 'cursor') return;
+    if (e.target.closest('#chartDrawToolbar')) return;
+    if (e.cancelable) e.preventDefault();
+
+    isInteracting = true;
+    const pt = getSvgCoordinates(e);
+
+    const newDrawing = {
+      id: 'draw_' + Date.now() + '_' + Math.floor(Math.random()*1000),
+      tool: activeChartDrawTool,
+      color: currentChartDrawColor,
+      points: [pt],
+      periodCreated: S?.currentPeriod || null,
+      timeframe: S?.timeframe || '30s'
+    };
+
+    if (activeChartDrawTool === 'horizontal' || activeChartDrawTool === 'vertical') {
+      // Instant single click tool
+      chartDrawings.push(newDrawing);
+      saveChartDrawings();
+      renderChartDrawings();
+      isInteracting = false;
+      return;
+    }
+
+    activeDrawingTemp = newDrawing;
+    renderChartDrawings();
+  };
+
+  const onPointerMove = (e) => {
+    if (!isInteracting || !activeDrawingTemp) return;
+    if (e.cancelable) e.preventDefault();
+
+    const pt = getSvgCoordinates(e);
+
+    if (activeDrawingTemp.tool === 'pencil') {
+      activeDrawingTemp.points.push(pt);
+    } else if (['line', 'arrow', 'box'].includes(activeDrawingTemp.tool)) {
+      if (activeDrawingTemp.points.length === 1) {
+        activeDrawingTemp.points.push(pt);
+      } else {
+        activeDrawingTemp.points[1] = pt;
+      }
+    }
+    renderChartDrawings();
+  };
+
+  const onPointerUp = (e) => {
+    if (!isInteracting || !activeDrawingTemp) return;
+    isInteracting = false;
+
+    if (activeDrawingTemp.points.length >= 2 || activeDrawingTemp.tool === 'horizontal' || activeDrawingTemp.tool === 'vertical') {
+      chartDrawings.push(activeDrawingTemp);
+      saveChartDrawings();
+    }
+    activeDrawingTemp = null;
+    renderChartDrawings();
+  };
+
+  overlay.addEventListener('mousedown', onPointerDown);
+  overlay.addEventListener('touchstart', onPointerDown, { passive: false });
+
+  document.addEventListener('mousemove', onPointerMove);
+  document.addEventListener('touchmove', onPointerMove, { passive: false });
+
+  document.addEventListener('mouseup', onPointerUp);
+  document.addEventListener('touchend', onPointerUp);
+
+  // Keyboard shortcut Ctrl+Z to undo
+  window.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+      if (activeChartDrawTool !== 'cursor' && chartDrawings.length > 0) {
+        e.preventDefault();
+        undoChartDrawing();
+      }
+    }
+  });
 }
 
 
@@ -9908,13 +10453,14 @@ const SimBot = (() => {
 function simBotToggle() { SimBot.isRunning() ? SimBot.stop() : SimBot.start(); }
 function simBotReset()  { SimBot.reset(); }
 
-// ── Hook setTimeframe to also switch SimBot context ─────────────
+// ── Hook setTimeframe to also switch SimBot context and Chart Drawings ──
 ;(function patchSetTimeframeForSimBot() {
   const _orig = window.setTimeframe;
   if (typeof _orig === 'function') {
     window.setTimeframe = function(tf) {
       const ret = _orig.call(this, tf);
       try { SimBot.switchTimeframe(tf); } catch(e) {}
+      try { if (typeof loadChartDrawings === 'function') loadChartDrawings(); } catch(e) {}
       return ret;
     };
   }
@@ -9928,6 +10474,7 @@ function simBotReset()  { SimBot.reset(); }
     window.saveRealResult = function(period, num, ...rest) {
       const ret = _origSave.call(this, period, num, ...rest);
       try { SimBot.processResult(num, period, window.S?.timeframe); } catch(e) {}
+      try { if (typeof pruneDrawingsOlderThan100Rounds === 'function') pruneDrawingsOlderThan100Rounds(); } catch(e) {}
       return ret;
     };
   }
@@ -9945,6 +10492,7 @@ function simBotReset()  { SimBot.reset(); }
           }
         }
       } catch(e) {}
+      try { if (typeof pruneDrawingsOlderThan100Rounds === 'function') pruneDrawingsOlderThan100Rounds(); } catch(e) {}
       return ret;
     };
   }
@@ -9992,6 +10540,9 @@ function simBotReset()  { SimBot.reset(); }
       }
       if (typeof renderTradingCandleChart === 'function') {
         renderTradingCandleChart();
+      }
+      if (typeof initTradingChartDrawings === 'function') {
+        initTradingChartDrawings();
       }
     } catch(e) {}
   }, 350);
