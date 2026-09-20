@@ -1267,6 +1267,8 @@
           <button onclick="tradingChartZoom(-1, 3)" ondblclick="tradingChartLongZoom(-1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white text-[9px]" title="Zoom Out (Double-click for Long Zoom Out)"><i class="fa-solid fa-minus"></i></button>
           <button onclick="tradingChartLongZoom(1)" class="px-1 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[7.5px] font-mono font-bold" title="Long Zoom In (+7 steps)">Zoom+</button>
           <button onclick="tradingChartLongZoom(-1)" class="px-1 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[7.5px] font-mono font-bold" title="Long Zoom Out (-7 steps)">Zoom-</button>
+          <button onclick="panChartVertical(-1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-slate-200 text-[8px]" title="Pan Chart Up (▲)"><i class="fa-solid fa-chevron-up"></i></button>
+          <button onclick="panChartVertical(1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-slate-200 text-[8px]" title="Pan Chart Down (▼)"><i class="fa-solid fa-chevron-down"></i></button>
           <button onclick="tradingChartReset()" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-amber-400 text-[9px]" title="Auto-Fit & Rearrange Middle-Right"><i class="fa-solid fa-expand"></i></button>
 
           <!-- Chart Height Resizer (+ / -) -->
@@ -5894,35 +5896,62 @@ function toggleTradingIndicator(ind) {
 
 let priceScaleVerticalShift = 0;
 
-function applyPriceScaleShift(deltaY) {
+function getAutoscalePriceRange() {
+  const candles = window.candlestickDataSeries || [];
+  if (!candles.length) return null;
+
+  const latestCandle = candles[candles.length - 1];
+  const latestPrice = latestCandle ? latestCandle.close : 0;
+
+  // Recent candles to determine realistic price span
+  const recent = candles.slice(-25);
+  let minP = latestPrice;
+  let maxP = latestPrice;
+  for (let i = 0; i < recent.length; i++) {
+    if (recent[i].low < minP) minP = recent[i].low;
+    if (recent[i].high > maxP) maxP = recent[i].high;
+  }
+
+  // Generous halfSpan ensures the newest candle is always comfortably in the vertical middle (50%)
+  const halfSpan = Math.max(9, (maxP - minP) * 0.95);
+  const centerPrice = latestPrice + priceScaleVerticalShift;
+
+  return {
+    priceRange: {
+      minValue: centerPrice - halfSpan,
+      maxValue: centerPrice + halfSpan,
+    },
+    margins: {
+      top: 0.22,
+      bottom: 0.22,
+    }
+  };
+}
+
+function applyPriceScaleShift(deltaPrice = 0) {
   if (!tradingMainSeries || !tradingChartInstance) return;
-  priceScaleVerticalShift += deltaY;
+  priceScaleVerticalShift += deltaPrice;
   try {
     tradingMainSeries.applyOptions({
       autoscaleInfoProvider: (original) => {
-        const res = original();
-        if (!res || !res.priceRange) return res;
-        return {
-          priceRange: {
-            minValue: res.priceRange.minValue + priceScaleVerticalShift,
-            maxValue: res.priceRange.maxValue + priceScaleVerticalShift,
-          },
-          margins: res.margins,
-        };
+        const custom = getAutoscalePriceRange();
+        return custom || (original ? original() : null);
       }
     });
   } catch(e) {}
 }
 
+function panChartVertical(dir) {
+  // dir: -1 (pan up) or +1 (pan down)
+  applyPriceScaleShift(dir * 4.5);
+  if (typeof showToast === 'function') {
+    showToast(dir < 0 ? '▲ Panned View Up' : '▼ Panned View Down', 'info');
+  }
+}
+
 function resetPriceScaleShift() {
   priceScaleVerticalShift = 0;
-  if (tradingMainSeries) {
-    try {
-      tradingMainSeries.applyOptions({
-        autoscaleInfoProvider: undefined
-      });
-    } catch(e) {}
-  }
+  applyPriceScaleShift(0);
 }
 
 function rearrangeTradingViewToMiddleRight() {
@@ -5958,6 +5987,7 @@ function rearrangeTradingViewToMiddleRight() {
   } catch(e) {
     try { timeScale.scrollToRealTime(); } catch(e2) {}
   }
+  applyPriceScaleShift(0);
 }
 
 function tradingChartZoom(dir, multiplier = 3) {
@@ -6116,7 +6146,11 @@ function initTradingCandleChart() {
     },
     rightPriceScale: {
       borderColor: '#2a2e39',
-      autoScale: true
+      autoScale: true,
+      scaleMargins: {
+        top: 0.22,
+        bottom: 0.22
+      }
     },
     timeScale: {
       borderColor: '#2a2e39',
@@ -6245,20 +6279,13 @@ function rebuildTradingSeries() {
     });
   }
 
-  // Attach autoscaleInfoProvider to support vertical pan/shift (wiping with two fingers up/down)
+  // Attach autoscaleInfoProvider to support vertical middle centering and pan/shift
   if (tradingMainSeries) {
     try {
       tradingMainSeries.applyOptions({
         autoscaleInfoProvider: (original) => {
-          const res = original();
-          if (!res || !res.priceRange) return res;
-          return {
-            priceRange: {
-              minValue: res.priceRange.minValue + priceScaleVerticalShift,
-              maxValue: res.priceRange.maxValue + priceScaleVerticalShift,
-            },
-            margins: res.margins,
-          };
+          const custom = getAutoscalePriceRange();
+          return custom || (original ? original() : null);
         }
       });
     } catch(e) {}
