@@ -1263,9 +1263,11 @@
           <button id="btnToggleBB" onclick="toggleTradingIndicator('bb')" class="px-1.5 py-0.5 rounded bg-purple-600/30 text-purple-300 border border-purple-500/40 text-[8.5px] font-bold">BB</button>
 
           <!-- Zoom & Fit -->
-          <button onclick="tradingChartZoom(1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white text-[9px]" title="Zoom In"><i class="fa-solid fa-plus"></i></button>
-          <button onclick="tradingChartZoom(-1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white text-[9px]" title="Zoom Out"><i class="fa-solid fa-minus"></i></button>
-          <button onclick="tradingChartReset()" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-amber-400 text-[9px]" title="Auto-Fit"><i class="fa-solid fa-expand"></i></button>
+          <button onclick="tradingChartZoom(1, 3)" ondblclick="tradingChartLongZoom(1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white text-[9px]" title="Zoom In (Double-click for Long Zoom In)"><i class="fa-solid fa-plus"></i></button>
+          <button onclick="tradingChartZoom(-1, 3)" ondblclick="tradingChartLongZoom(-1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white text-[9px]" title="Zoom Out (Double-click for Long Zoom Out)"><i class="fa-solid fa-minus"></i></button>
+          <button onclick="tradingChartLongZoom(1)" class="px-1 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[7.5px] font-mono font-bold" title="Long Zoom In (+7 steps)">Zoom+</button>
+          <button onclick="tradingChartLongZoom(-1)" class="px-1 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[7.5px] font-mono font-bold" title="Long Zoom Out (-7 steps)">Zoom-</button>
+          <button onclick="tradingChartReset()" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-amber-400 text-[9px]" title="Auto-Fit & Rearrange Middle-Right"><i class="fa-solid fa-expand"></i></button>
 
           <!-- Chart Height Resizer (+ / -) -->
           <div class="flex items-center bg-black/60 p-0.5 rounded border border-purple-800/50 text-[8px] font-mono ml-0.5" title="Adjust Chart Height">
@@ -5890,18 +5892,198 @@ function toggleTradingIndicator(ind) {
   }
 }
 
-function tradingChartZoom(dir) {
+let priceScaleVerticalShift = 0;
+
+function applyPriceScaleShift(deltaY) {
+  if (!tradingMainSeries || !tradingChartInstance) return;
+  priceScaleVerticalShift += deltaY;
+  try {
+    tradingMainSeries.applyOptions({
+      autoscaleInfoProvider: (original) => {
+        const res = original();
+        if (!res || !res.priceRange) return res;
+        return {
+          priceRange: {
+            minValue: res.priceRange.minValue + priceScaleVerticalShift,
+            maxValue: res.priceRange.maxValue + priceScaleVerticalShift,
+          },
+          margins: res.margins,
+        };
+      }
+    });
+  } catch(e) {}
+}
+
+function resetPriceScaleShift() {
+  priceScaleVerticalShift = 0;
+  if (tradingMainSeries) {
+    try {
+      tradingMainSeries.applyOptions({
+        autoscaleInfoProvider: undefined
+      });
+    } catch(e) {}
+  }
+}
+
+function rearrangeTradingViewToMiddleRight() {
+  if (!tradingChartInstance) return;
+  const timeScale = tradingChartInstance.timeScale();
+  const hist = (S.history || []).filter(r => !r.gap && r.size);
+  const N = hist.length;
+  if (!N) return;
+
+  const container = document.getElementById('tradingCandleChartContainer');
+  const width = container ? container.clientWidth : 400;
+  const currentRange = timeScale.getVisibleLogicalRange();
+
+  let visibleSpan = 26;
+  if (currentRange && (currentRange.to - currentRange.from) > 4) {
+    visibleSpan = currentRange.to - currentRange.from;
+  } else {
+    visibleSpan = Math.max(16, Math.round(width / 12));
+  }
+
+  const futureSpaceBoost = isFuturePredictionSpaceEnabled ? 15 : 0;
+
+  // Position newest candle (index N - 1) at ~66% across viewport (middle right),
+  // leaving ~34% open breathing space on the right for future projection and drawings.
+  const leftBars = Math.round(visibleSpan * 0.66);
+  const rightBars = Math.round(visibleSpan * 0.34) + futureSpaceBoost;
+
+  const from = (N - 1) - leftBars;
+  const to = (N - 1) + rightBars;
+
+  try {
+    timeScale.setVisibleLogicalRange({ from, to });
+  } catch(e) {
+    try { timeScale.scrollToRealTime(); } catch(e2) {}
+  }
+}
+
+function tradingChartZoom(dir, multiplier = 3) {
   if (tradingChartInstance) {
     const timeScale = tradingChartInstance.timeScale();
-    if (dir > 0) timeScale.zoomIn();
-    else timeScale.zoomOut();
+    for (let i = 0; i < multiplier; i++) {
+      if (dir > 0) timeScale.zoomIn();
+      else timeScale.zoomOut();
+    }
+  }
+}
+
+function tradingChartLongZoom(dir) {
+  tradingChartZoom(dir, 7);
+  if (typeof showToast === 'function') {
+    showToast(dir > 0 ? '🔍 Long Zoom In' : '🔭 Long Zoom Out', 'info');
   }
 }
 
 function tradingChartReset() {
   if (tradingChartInstance) {
+    resetPriceScaleShift();
     tradingChartInstance.timeScale().fitContent();
+    rearrangeTradingViewToMiddleRight();
   }
+}
+
+let _twoFingerGesturesInitialized = false;
+function initChartTwoFingerGestures() {
+  if (_twoFingerGesturesInitialized) return;
+  const container = document.getElementById('tradingCandleChartContainer');
+  const overlay = document.getElementById('chartDrawingSvgOverlay');
+  if (!container && !overlay) return;
+
+  _twoFingerGesturesInitialized = true;
+  const targets = [container, overlay].filter(Boolean);
+
+  let initialDistance = 0;
+  let initialMidY = 0;
+  let lastTouchY = 0;
+  let isTwoFingerDragging = false;
+  let gestureRaf = null;
+
+  const onTouchStart = (e) => {
+    if (e.touches && e.touches.length === 2) {
+      isTwoFingerDragging = true;
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+
+      initialDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      initialMidY = (t1.clientY + t2.clientY) / 2;
+      lastTouchY = initialMidY;
+
+      if (e.cancelable) e.preventDefault();
+    } else {
+      isTwoFingerDragging = false;
+    }
+  };
+
+  const onTouchMove = (e) => {
+    if (e.touches && e.touches.length === 2 && isTwoFingerDragging) {
+      if (e.cancelable) e.preventDefault();
+
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+
+      const currentDistance = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      const currentMidY = (t1.clientY + t2.clientY) / 2;
+      const deltaY = currentMidY - lastTouchY;
+      const distDelta = currentDistance - initialDistance;
+
+      lastTouchY = currentMidY;
+
+      if (gestureRaf) cancelAnimationFrame(gestureRaf);
+      gestureRaf = requestAnimationFrame(() => {
+        gestureRaf = null;
+
+        // 1. Two-finger wipe UP / DOWN -> Shift price scale view up/down
+        if (Math.abs(deltaY) >= 1.5) {
+          const chartH = container ? container.clientHeight || 450 : 450;
+          const priceSpanFactor = 28 / chartH;
+          const shiftAmount = deltaY * priceSpanFactor;
+          applyPriceScaleShift(shiftAmount);
+        }
+
+        // 2. Two-finger Pinch IN / OUT -> Long Zoom In / Out
+        if (Math.abs(distDelta) > 18) {
+          if (tradingChartInstance) {
+            const timeScale = tradingChartInstance.timeScale();
+            if (distDelta > 0) {
+              timeScale.zoomIn();
+              timeScale.zoomIn();
+            } else {
+              timeScale.zoomOut();
+              timeScale.zoomOut();
+            }
+          }
+          initialDistance = currentDistance;
+        }
+      });
+    }
+  };
+
+  const onTouchEnd = (e) => {
+    if (!e.touches || e.touches.length < 2) {
+      isTwoFingerDragging = false;
+    }
+  };
+
+  const onWheel = (e) => {
+    if (!tradingChartInstance) return;
+    if (e.shiftKey || e.altKey) {
+      e.preventDefault();
+      const chartH = container ? container.clientHeight || 450 : 450;
+      const priceSpanFactor = 16 / chartH;
+      applyPriceScaleShift((e.deltaY > 0 ? -15 : 15) * priceSpanFactor);
+    }
+  };
+
+  targets.forEach(el => {
+    el.addEventListener('touchstart', onTouchStart, { passive: false });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd);
+    el.addEventListener('touchcancel', onTouchEnd);
+    el.addEventListener('wheel', onWheel, { passive: false });
+  });
 }
 
 function initTradingCandleChart() {
@@ -5921,7 +6103,7 @@ function initTradingCandleChart() {
       background: { color: '#131722' },
       textColor: '#d1d4dc',
       fontSize: 10,
-      fontFamily: 'Inter, -apple-system, sans-serif'
+      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif'
     },
     grid: {
       vertLines: { color: '#1e222d' },
@@ -5929,8 +6111,8 @@ function initTradingCandleChart() {
     },
     crosshair: {
       mode: window.LightweightCharts.CrosshairMode.Normal,
-      vertLine: { color: '#2962ff', width: 1, style: 2 },
-      horzLine: { color: '#2962ff', width: 1, style: 2 }
+      vertLine: { color: 'rgba(245, 158, 11, 0.7)', width: 1, style: 2 },
+      horzLine: { color: 'rgba(245, 158, 11, 0.7)', width: 1, style: 2 }
     },
     rightPriceScale: {
       borderColor: '#2a2e39',
@@ -5940,8 +6122,26 @@ function initTradingCandleChart() {
       borderColor: '#2a2e39',
       timeVisible: true,
       secondsVisible: true,
-      rightOffset: 8,
-      barSpacing: 8
+      rightOffset: isFuturePredictionSpaceEnabled ? 35 : 18,
+      barSpacing: 10,
+      minBarSpacing: 0.15, // Allows ultra-wide long zoom out to fit hundreds of rounds
+      maxBarSpacing: 80,   // Allows deep long zoom in for single candle inspection
+      fixLeftEdge: false
+    },
+    kineticScroll: {
+      touch: true,
+      mouse: true
+    },
+    handleScroll: {
+      mouseWheel: true,
+      pressedMouseMove: true,
+      horzTouchDrag: true,
+      vertTouchDrag: true
+    },
+    handleScale: {
+      axisPressedMouseMove: { time: true, price: true },
+      mouseWheel: true,
+      pinch: true
     }
   });
 
@@ -5972,16 +6172,24 @@ function initTradingCandleChart() {
     }
   });
 
+  let _chartResizeRaf = null;
   const ro = new ResizeObserver(entries => {
     if (entries && entries[0] && chart) {
-      const { width, height } = entries[0].contentRect;
-      chart.applyOptions({ width, height });
+      if (_chartResizeRaf) cancelAnimationFrame(_chartResizeRaf);
+      _chartResizeRaf = requestAnimationFrame(() => {
+        _chartResizeRaf = null;
+        const { width, height } = entries[0].contentRect;
+        if (width > 0 && height > 0) {
+          chart.applyOptions({ width, height });
+        }
+      });
     }
   });
   ro.observe(container);
 
   tradingChartInstance = chart;
   rebuildTradingSeries();
+  initChartTwoFingerGestures();
   return chart;
 }
 
@@ -6037,6 +6245,25 @@ function rebuildTradingSeries() {
     });
   }
 
+  // Attach autoscaleInfoProvider to support vertical pan/shift (wiping with two fingers up/down)
+  if (tradingMainSeries) {
+    try {
+      tradingMainSeries.applyOptions({
+        autoscaleInfoProvider: (original) => {
+          const res = original();
+          if (!res || !res.priceRange) return res;
+          return {
+            priceRange: {
+              minValue: res.priceRange.minValue + priceScaleVerticalShift,
+              maxValue: res.priceRange.maxValue + priceScaleVerticalShift,
+            },
+            margins: res.margins,
+          };
+        }
+      });
+    } catch(e) {}
+  }
+
   // Add indicator series if enabled
   if (tradingIndicators.sma) {
     tradingSMAIndicatorSeries = chart.addSeries(LC.LineSeries, { color: '#2962ff', lineWidth: 1.5, title: 'SMA 14' });
@@ -6053,7 +6280,18 @@ function rebuildTradingSeries() {
   renderTradingCandleChart();
 }
 
-function renderTradingCandleChart() {
+let _lastTradingChartFingerprint = '';
+let _chartRenderRaf = null;
+
+function renderTradingCandleChart(force = false) {
+  if (_chartRenderRaf) return;
+  _chartRenderRaf = requestAnimationFrame(() => {
+    _chartRenderRaf = null;
+    _renderTradingCandleChartCore(force);
+  });
+}
+
+function _renderTradingCandleChartCore(force = false) {
   if (!tradingChartInstance) {
     initTradingCandleChart();
     if (!tradingChartInstance) return;
@@ -6062,6 +6300,10 @@ function renderTradingCandleChart() {
 
   const realHist = (S.history || []).filter(r => !r.gap && r.size);
   if (!realHist.length) return;
+
+  const latestRow = realHist[realHist.length - 1];
+  const currentFingerprint = `${realHist.length}_${latestRow ? latestRow.period : ''}_${latestRow ? latestRow.number : ''}_${tradingChartScaleMode}_${tradingChartType}_${JSON.stringify(tradingIndicators)}`;
+  const isDataChanged = force || (currentFingerprint !== _lastTradingChartFingerprint);
 
   const candles = [];
   const markers = [];
@@ -6091,9 +6333,6 @@ function renderTradingCandleChart() {
     let low = open;
 
     if (tradingChartScaleMode === 'dynamic') {
-      // Ball weighted movement:
-      // Ball 5 -> +1, Ball 6 -> +2, Ball 7 -> +3, Ball 8 -> +4, Ball 9 -> +5
-      // Ball 4 -> -1, Ball 3 -> -2, Ball 2 -> -3, Ball 1 -> -4, Ball 0 -> -5
       if (isBig) {
         const delta = Math.max(1, num >= 5 ? (num - 4) : 1);
         close = open + delta;
@@ -6106,7 +6345,6 @@ function renderTradingCandleChart() {
         low = close - 0.4;
       }
     } else {
-      // Fixed ±1 step
       if (isBig) {
         close = open + 1.0;
         high = close;
@@ -6148,59 +6386,71 @@ function renderTradingCandleChart() {
     });
   }
 
-  if (tradingChartType === 'line' || tradingChartType === 'area') {
-    tradingMainSeries.setData(candles.map(c => ({ time: c.time, value: c.close })));
-  } else {
-    tradingMainSeries.setData(candles);
-  }
-  window.candlestickDataSeries = candles;
+  // Only recreate series and recalculate indicators if data or mode changed
+  if (isDataChanged) {
+    _lastTradingChartFingerprint = currentFingerprint;
 
-  try {
-    if (typeof window.LightweightCharts.createSeriesMarkers === 'function') {
-      window.LightweightCharts.createSeriesMarkers(tradingMainSeries, markers);
-    } else if (typeof tradingMainSeries.setMarkers === 'function') {
-      tradingMainSeries.setMarkers(markers);
+    if (tradingChartType === 'line' || tradingChartType === 'area') {
+      tradingMainSeries.setData(candles.map(c => ({ time: c.time, value: c.close })));
+    } else {
+      tradingMainSeries.setData(candles);
     }
-  } catch(e) {
-    console.warn('Marker plot note:', e);
-  }
+    window.candlestickDataSeries = candles;
 
-  // Calculate & Set Indicators
-  if (tradingSMAIndicatorSeries && candles.length >= 14) {
-    const smaData = [];
-    let sum = 0;
-    for (let i = 0; i < candles.length; i++) {
-      sum += candles[i].close;
-      if (i >= 14) sum -= candles[i - 14].close;
-      if (i >= 13) smaData.push({ time: candles[i].time, value: Number((sum / 14).toFixed(2)) });
+    try {
+      if (typeof window.LightweightCharts.createSeriesMarkers === 'function') {
+        window.LightweightCharts.createSeriesMarkers(tradingMainSeries, markers);
+      } else if (typeof tradingMainSeries.setMarkers === 'function') {
+        tradingMainSeries.setMarkers(markers);
+      }
+    } catch(e) {
+      console.warn('Marker plot note:', e);
     }
-    tradingSMAIndicatorSeries.setData(smaData);
-  }
 
-  if (tradingEMAIndicatorSeries && candles.length >= 9) {
-    const emaData = [];
-    const k = 2 / 10;
-    let prev = candles[0].close;
-    for (let i = 0; i < candles.length; i++) {
-      prev = candles[i].close * k + prev * (1 - k);
-      if (i >= 8) emaData.push({ time: candles[i].time, value: Number(prev.toFixed(2)) });
+    // Calculate & Set Indicators
+    if (tradingSMAIndicatorSeries && candles.length >= 14) {
+      const smaData = [];
+      let sum = 0;
+      for (let i = 0; i < candles.length; i++) {
+        sum += candles[i].close;
+        if (i >= 14) sum -= candles[i - 14].close;
+        if (i >= 13) smaData.push({ time: candles[i].time, value: Number((sum / 14).toFixed(2)) });
+      }
+      tradingSMAIndicatorSeries.setData(smaData);
     }
-    tradingEMAIndicatorSeries.setData(emaData);
-  }
 
-  if (tradingBBMiddleSeries && tradingBBUpperSeries && tradingBBLowerSeries && candles.length >= 20) {
-    const midData = [], upData = [], lowData = [];
-    for (let i = 19; i < candles.length; i++) {
-      const slice = candles.slice(i - 19, i + 1);
-      const mean = slice.reduce((a, b) => a + b.close, 0) / 20;
-      const sd = Math.sqrt(slice.reduce((a, b) => a + Math.pow(b.close - mean, 2), 0) / 20);
-      midData.push({ time: candles[i].time, value: Number(mean.toFixed(2)) });
-      upData.push({ time: candles[i].time, value: Number((mean + 2 * sd).toFixed(2)) });
-      lowData.push({ time: candles[i].time, value: Number((mean - 2 * sd).toFixed(2)) });
+    if (tradingEMAIndicatorSeries && candles.length >= 9) {
+      const emaData = [];
+      const k = 2 / 10;
+      let prev = candles[0].close;
+      for (let i = 0; i < candles.length; i++) {
+        prev = candles[i].close * k + prev * (1 - k);
+        if (i >= 8) emaData.push({ time: candles[i].time, value: Number(prev.toFixed(2)) });
+      }
+      tradingEMAIndicatorSeries.setData(emaData);
     }
-    tradingBBMiddleSeries.setData(midData);
-    tradingBBUpperSeries.setData(upData);
-    tradingBBLowerSeries.setData(lowData);
+
+    if (tradingBBMiddleSeries && tradingBBUpperSeries && tradingBBLowerSeries && candles.length >= 20) {
+      const midData = [], upData = [], lowData = [];
+      for (let i = 19; i < candles.length; i++) {
+        const slice = candles.slice(i - 19, i + 1);
+        const mean = slice.reduce((a, b) => a + b.close, 0) / 20;
+        const sd = Math.sqrt(slice.reduce((a, b) => a + Math.pow(b.close - mean, 2), 0) / 20);
+        midData.push({ time: candles[i].time, value: Number(mean.toFixed(2)) });
+        upData.push({ time: candles[i].time, value: Number((mean + 2 * sd).toFixed(2)) });
+        lowData.push({ time: candles[i].time, value: Number((mean - 2 * sd).toFixed(2)) });
+      }
+      tradingBBMiddleSeries.setData(midData);
+      tradingBBUpperSeries.setData(upData);
+      tradingBBLowerSeries.setData(lowData);
+    }
+
+    // Rearrange view so newest candle is positioned in the middle right
+    try {
+      rearrangeTradingViewToMiddleRight();
+    } catch(e) {
+      try { tradingChartInstance.timeScale().scrollToRealTime(); } catch(e2){}
+    }
   }
 
   const total = bigCount + smallCount || 1;
@@ -6222,11 +6472,6 @@ function renderTradingCandleChart() {
     elStrk.textContent = `${currentStreak}x ${lastSize || '—'}`;
     elStrk.className = lastSize === 'BIG' ? 'text-emerald-400 font-black text-xs' : 'text-rose-400 font-black text-xs';
   }
-
-  // Auto scroll to latest candle
-  try {
-    tradingChartInstance.timeScale().scrollToRealTime();
-  } catch(e){}
 }
 
 // Unified renderTrendChart updates both Number Road and Trading Candlestick Chart
@@ -6365,149 +6610,176 @@ function pruneDrawingsOlderThan100Rounds() {
   }
 }
 
+function ensureChartDrawingSvgStructure(svg) {
+  if (!svg) return null;
+  let defs = svg.querySelector('defs');
+  if (!defs) {
+    defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    defs.id = 'chartDrawingDefs';
+    CHART_DRAW_COLORS.forEach(color => {
+      const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+      marker.setAttribute('id', `arrowhead_${color.replace('#','')}`);
+      marker.setAttribute('markerWidth', '8');
+      marker.setAttribute('markerHeight', '8');
+      marker.setAttribute('refX', '6');
+      marker.setAttribute('refY', '3');
+      marker.setAttribute('orient', 'auto');
+      const markerPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      markerPath.setAttribute('d', 'M0,0 L0,6 L8,3 z');
+      markerPath.setAttribute('fill', color);
+      marker.appendChild(markerPath);
+      defs.appendChild(marker);
+    });
+    svg.appendChild(defs);
+  }
+
+  let staticLayer = document.getElementById('chartDrawingsStaticLayer');
+  if (!staticLayer) {
+    staticLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    staticLayer.id = 'chartDrawingsStaticLayer';
+    svg.appendChild(staticLayer);
+  }
+
+  let activeLayer = document.getElementById('chartDrawingsActiveLayer');
+  if (!activeLayer) {
+    activeLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    activeLayer.id = 'chartDrawingsActiveLayer';
+    svg.appendChild(activeLayer);
+  }
+
+  return { staticLayer, activeLayer };
+}
+
+function createDrawingSvgElement(d) {
+  if (!d || !d.points || !d.points.length) return null;
+  const color = d.color || '#f59e0b';
+  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+
+  if (d.tool === 'pencil') {
+    const pathData = d.points.map((pt, idx) => `${idx === 0 ? 'M' : 'L'} ${pt.x} ${pt.y}`).join(' ');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', pathData);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', color);
+    path.setAttribute('stroke-width', '2.5');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('opacity', '0.9');
+    g.appendChild(path);
+  } else if (d.tool === 'line') {
+    if (d.points.length >= 2) {
+      const p1 = d.points[0];
+      const p2 = d.points[1];
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', p1.x);
+      line.setAttribute('y1', p1.y);
+      line.setAttribute('x2', p2.x);
+      line.setAttribute('y2', p2.y);
+      line.setAttribute('stroke', color);
+      line.setAttribute('stroke-width', '2');
+      line.setAttribute('stroke-linecap', 'round');
+      g.appendChild(line);
+
+      [p1, p2].forEach(p => {
+        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        dot.setAttribute('cx', p.x);
+        dot.setAttribute('cy', p.y);
+        dot.setAttribute('r', '3.5');
+        dot.setAttribute('fill', color);
+        g.appendChild(dot);
+      });
+    }
+  } else if (d.tool === 'horizontal') {
+    const p = d.points[0];
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', '0');
+    line.setAttribute('y1', p.y);
+    line.setAttribute('x2', '100%');
+    line.setAttribute('y2', p.y);
+    line.setAttribute('stroke', color);
+    line.setAttribute('stroke-width', '1.8');
+    line.setAttribute('stroke-dasharray', '4,3');
+    g.appendChild(line);
+
+    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    label.setAttribute('x', '45');
+    label.setAttribute('y', Math.max(14, p.y - 4));
+    label.setAttribute('fill', color);
+    label.setAttribute('font-size', '9px');
+    label.setAttribute('font-family', 'monospace');
+    label.setAttribute('font-weight', 'bold');
+    label.textContent = `H-LEVEL (${Math.round(p.y)}px)`;
+    g.appendChild(label);
+  } else if (d.tool === 'vertical') {
+    const p = d.points[0];
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', p.x);
+    line.setAttribute('y1', '0');
+    line.setAttribute('x2', p.x);
+    line.setAttribute('y2', '100%');
+    line.setAttribute('stroke', color);
+    line.setAttribute('stroke-width', '1.8');
+    line.setAttribute('stroke-dasharray', '4,3');
+    g.appendChild(line);
+
+    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    label.setAttribute('x', `${Math.max(10, p.x + 4)}`);
+    label.setAttribute('y', '20');
+    label.setAttribute('fill', color);
+    label.setAttribute('font-size', '8.5px');
+    label.setAttribute('font-family', 'monospace');
+    label.setAttribute('font-weight', 'bold');
+    label.textContent = 'CYCLE';
+    g.appendChild(label);
+  } else if (d.tool === 'arrow') {
+    if (d.points.length >= 2) {
+      const p1 = d.points[0];
+      const p2 = d.points[1];
+      const markerId = `arrowhead_${color.replace('#','')}`;
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', p1.x);
+      line.setAttribute('y1', p1.y);
+      line.setAttribute('x2', p2.x);
+      line.setAttribute('y2', p2.y);
+      line.setAttribute('stroke', color);
+      line.setAttribute('stroke-width', '2.5');
+      line.setAttribute('marker-end', `url(#${markerId})`);
+      g.appendChild(line);
+    }
+  } else if (d.tool === 'box') {
+    if (d.points.length >= 2) {
+      const p1 = d.points[0];
+      const p2 = d.points[1];
+      const x = Math.min(p1.x, p2.x);
+      const y = Math.min(p1.y, p2.y);
+      const w = Math.abs(p2.x - p1.x);
+      const h = Math.abs(p2.y - p1.y);
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', x);
+      rect.setAttribute('y', y);
+      rect.setAttribute('width', w);
+      rect.setAttribute('height', h);
+      rect.setAttribute('fill', color);
+      rect.setAttribute('fill-opacity', '0.15');
+      rect.setAttribute('stroke', color);
+      rect.setAttribute('stroke-width', '1.8');
+      rect.setAttribute('rx', '4');
+      g.appendChild(rect);
+    }
+  }
+  return g;
+}
+
 function renderChartDrawings() {
   const svg = document.getElementById('chartDrawingSvgOverlay');
   if (!svg) return;
-  svg.innerHTML = '';
+  const layers = ensureChartDrawingSvgStructure(svg);
+  if (!layers || !layers.staticLayer) return;
 
-  const allToRender = [...chartDrawings];
-  if (activeDrawingTemp) allToRender.push(activeDrawingTemp);
-
-  allToRender.forEach(d => {
-    if (!d || !d.points || !d.points.length) return;
-    const color = d.color || '#f59e0b';
-
-    if (d.tool === 'pencil') {
-      const pathData = d.points.map((pt, idx) => `${idx === 0 ? 'M' : 'L'} ${pt.x} ${pt.y}`).join(' ');
-      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      path.setAttribute('d', pathData);
-      path.setAttribute('fill', 'none');
-      path.setAttribute('stroke', color);
-      path.setAttribute('stroke-width', '2.5');
-      path.setAttribute('stroke-linecap', 'round');
-      path.setAttribute('stroke-linejoin', 'round');
-      path.setAttribute('opacity', '0.9');
-      svg.appendChild(path);
-    } else if (d.tool === 'line') {
-      if (d.points.length >= 2) {
-        const p1 = d.points[0];
-        const p2 = d.points[1];
-        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line.setAttribute('x1', p1.x);
-        line.setAttribute('y1', p1.y);
-        line.setAttribute('x2', p2.x);
-        line.setAttribute('y2', p2.y);
-        line.setAttribute('stroke', color);
-        line.setAttribute('stroke-width', '2');
-        line.setAttribute('stroke-linecap', 'round');
-        svg.appendChild(line);
-
-        // Endpoint dots
-        [p1, p2].forEach(p => {
-          const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-          dot.setAttribute('cx', p.x);
-          dot.setAttribute('cy', p.y);
-          dot.setAttribute('r', '3.5');
-          dot.setAttribute('fill', color);
-          svg.appendChild(dot);
-        });
-      }
-    } else if (d.tool === 'horizontal') {
-      const p = d.points[0];
-      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      line.setAttribute('x1', '0');
-      line.setAttribute('y1', p.y);
-      line.setAttribute('x2', '100%');
-      line.setAttribute('y2', p.y);
-      line.setAttribute('stroke', color);
-      line.setAttribute('stroke-width', '1.8');
-      line.setAttribute('stroke-dasharray', '4,3');
-      svg.appendChild(line);
-
-      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      label.setAttribute('x', '45');
-      label.setAttribute('y', Math.max(14, p.y - 4));
-      label.setAttribute('fill', color);
-      label.setAttribute('font-size', '9px');
-      label.setAttribute('font-family', 'monospace');
-      label.setAttribute('font-weight', 'bold');
-      label.textContent = `H-LEVEL (${Math.round(p.y)}px)`;
-      svg.appendChild(label);
-    } else if (d.tool === 'vertical') {
-      const p = d.points[0];
-      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      line.setAttribute('x1', p.x);
-      line.setAttribute('y1', '0');
-      line.setAttribute('x2', p.x);
-      line.setAttribute('y2', '100%');
-      line.setAttribute('stroke', color);
-      line.setAttribute('stroke-width', '1.8');
-      line.setAttribute('stroke-dasharray', '4,3');
-      svg.appendChild(line);
-
-      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      label.setAttribute('x', Math.min(svg.clientWidth - 50, p.x + 4));
-      label.setAttribute('y', '20');
-      label.setAttribute('fill', color);
-      label.setAttribute('font-size', '8.5px');
-      label.setAttribute('font-family', 'monospace');
-      label.setAttribute('font-weight', 'bold');
-      label.textContent = 'CYCLE';
-      svg.appendChild(label);
-    } else if (d.tool === 'arrow') {
-      if (d.points.length >= 2) {
-        const p1 = d.points[0];
-        const p2 = d.points[1];
-        
-        // Marker definition for arrowhead if needed
-        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-        const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
-        const markerId = `arrowhead_${color.replace('#','')}`;
-        marker.setAttribute('id', markerId);
-        marker.setAttribute('markerWidth', '8');
-        marker.setAttribute('markerHeight', '8');
-        marker.setAttribute('refX', '6');
-        marker.setAttribute('refY', '3');
-        marker.setAttribute('orient', 'auto');
-        const markerPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        markerPath.setAttribute('d', 'M0,0 L0,6 L8,3 z');
-        markerPath.setAttribute('fill', color);
-        marker.appendChild(markerPath);
-        defs.appendChild(marker);
-        svg.appendChild(defs);
-
-        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        line.setAttribute('x1', p1.x);
-        line.setAttribute('y1', p1.y);
-        line.setAttribute('x2', p2.x);
-        line.setAttribute('y2', p2.y);
-        line.setAttribute('stroke', color);
-        line.setAttribute('stroke-width', '2.5');
-        line.setAttribute('marker-end', `url(#${markerId})`);
-        svg.appendChild(line);
-      }
-    } else if (d.tool === 'box') {
-      if (d.points.length >= 2) {
-        const p1 = d.points[0];
-        const p2 = d.points[1];
-        const x = Math.min(p1.x, p2.x);
-        const y = Math.min(p1.y, p2.y);
-        const w = Math.abs(p2.x - p1.x);
-        const h = Math.abs(p2.y - p1.y);
-
-        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        rect.setAttribute('x', x);
-        rect.setAttribute('y', y);
-        rect.setAttribute('width', w);
-        rect.setAttribute('height', h);
-        rect.setAttribute('fill', color);
-        rect.setAttribute('fill-opacity', '0.15');
-        rect.setAttribute('stroke', color);
-        rect.setAttribute('stroke-width', '1.8');
-        rect.setAttribute('rx', '4');
-        svg.appendChild(rect);
-      }
-    }
+  layers.staticLayer.innerHTML = '';
+  chartDrawings.forEach(d => {
+    const el = createDrawingSvgElement(d);
+    if (el) layers.staticLayer.appendChild(el);
   });
 }
 
@@ -6515,9 +6787,12 @@ function initTradingChartDrawings() {
   const overlay = document.getElementById('chartDrawingSvgOverlay');
   if (!overlay) return;
 
+  ensureChartDrawingSvgStructure(overlay);
   loadChartDrawings();
 
   let isInteracting = false;
+  let activeElementInDom = null;
+  let _drawMoveRaf = null;
 
   const getSvgCoordinates = (e) => {
     const rect = overlay.getBoundingClientRect();
@@ -6547,7 +6822,6 @@ function initTradingChartDrawings() {
     };
 
     if (activeChartDrawTool === 'horizontal' || activeChartDrawTool === 'vertical') {
-      // Instant single click tool
       chartDrawings.push(newDrawing);
       saveChartDrawings();
       renderChartDrawings();
@@ -6556,7 +6830,58 @@ function initTradingChartDrawings() {
     }
 
     activeDrawingTemp = newDrawing;
-    renderChartDrawings();
+    const layers = ensureChartDrawingSvgStructure(overlay);
+    if (layers && layers.activeLayer) {
+      layers.activeLayer.innerHTML = '';
+      if (activeChartDrawTool === 'pencil') {
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', `M ${pt.x} ${pt.y}`);
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', currentChartDrawColor);
+        path.setAttribute('stroke-width', '2.5');
+        path.setAttribute('stroke-linecap', 'round');
+        path.setAttribute('stroke-linejoin', 'round');
+        path.setAttribute('opacity', '0.9');
+        layers.activeLayer.appendChild(path);
+        activeElementInDom = path;
+      } else if (activeChartDrawTool === 'line') {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', pt.x);
+        line.setAttribute('y1', pt.y);
+        line.setAttribute('x2', pt.x);
+        line.setAttribute('y2', pt.y);
+        line.setAttribute('stroke', currentChartDrawColor);
+        line.setAttribute('stroke-width', '2');
+        line.setAttribute('stroke-linecap', 'round');
+        layers.activeLayer.appendChild(line);
+        activeElementInDom = line;
+      } else if (activeChartDrawTool === 'arrow') {
+        const markerId = `arrowhead_${currentChartDrawColor.replace('#','')}`;
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', pt.x);
+        line.setAttribute('y1', pt.y);
+        line.setAttribute('x2', pt.x);
+        line.setAttribute('y2', pt.y);
+        line.setAttribute('stroke', currentChartDrawColor);
+        line.setAttribute('stroke-width', '2.5');
+        line.setAttribute('marker-end', `url(#${markerId})`);
+        layers.activeLayer.appendChild(line);
+        activeElementInDom = line;
+      } else if (activeChartDrawTool === 'box') {
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', pt.x);
+        rect.setAttribute('y', pt.y);
+        rect.setAttribute('width', '0');
+        rect.setAttribute('height', '0');
+        rect.setAttribute('fill', currentChartDrawColor);
+        rect.setAttribute('fill-opacity', '0.15');
+        rect.setAttribute('stroke', currentChartDrawColor);
+        rect.setAttribute('stroke-width', '1.8');
+        rect.setAttribute('rx', '4');
+        layers.activeLayer.appendChild(rect);
+        activeElementInDom = rect;
+      }
+    }
   };
 
   const onPointerMove = (e) => {
@@ -6567,21 +6892,54 @@ function initTradingChartDrawings() {
 
     if (activeDrawingTemp.tool === 'pencil') {
       activeDrawingTemp.points.push(pt);
+      if (activeElementInDom) {
+        if (_drawMoveRaf) cancelAnimationFrame(_drawMoveRaf);
+        _drawMoveRaf = requestAnimationFrame(() => {
+          if (activeElementInDom && activeDrawingTemp) {
+            const currentD = activeElementInDom.getAttribute('d');
+            activeElementInDom.setAttribute('d', `${currentD} L ${pt.x} ${pt.y}`);
+          }
+        });
+      }
     } else if (['line', 'arrow', 'box'].includes(activeDrawingTemp.tool)) {
-      if (activeDrawingTemp.points.length === 1) {
-        activeDrawingTemp.points.push(pt);
-      } else {
-        activeDrawingTemp.points[1] = pt;
+      if (activeDrawingTemp.points.length === 1) activeDrawingTemp.points.push(pt);
+      else activeDrawingTemp.points[1] = pt;
+
+      const p1 = activeDrawingTemp.points[0];
+      if (activeElementInDom) {
+        if (_drawMoveRaf) cancelAnimationFrame(_drawMoveRaf);
+        _drawMoveRaf = requestAnimationFrame(() => {
+          if (!activeElementInDom) return;
+          if (activeDrawingTemp.tool === 'line' || activeDrawingTemp.tool === 'arrow') {
+            activeElementInDom.setAttribute('x2', pt.x);
+            activeElementInDom.setAttribute('y2', pt.y);
+          } else if (activeDrawingTemp.tool === 'box') {
+            const x = Math.min(p1.x, pt.x);
+            const y = Math.min(p1.y, pt.y);
+            const w = Math.abs(pt.x - p1.x);
+            const h = Math.abs(pt.y - p1.y);
+            activeElementInDom.setAttribute('x', x);
+            activeElementInDom.setAttribute('y', y);
+            activeElementInDom.setAttribute('width', w);
+            activeElementInDom.setAttribute('height', h);
+          }
+        });
       }
     }
-    renderChartDrawings();
   };
 
   const onPointerUp = (e) => {
     if (!isInteracting || !activeDrawingTemp) return;
     isInteracting = false;
+    if (_drawMoveRaf) { cancelAnimationFrame(_drawMoveRaf); _drawMoveRaf = null; }
 
-    if (activeDrawingTemp.points.length >= 2 || activeDrawingTemp.tool === 'horizontal' || activeDrawingTemp.tool === 'vertical') {
+    const layers = ensureChartDrawingSvgStructure(overlay);
+    if (layers && layers.activeLayer) {
+      layers.activeLayer.innerHTML = '';
+    }
+    activeElementInDom = null;
+
+    if (activeDrawingTemp.points.length >= 2) {
       chartDrawings.push(activeDrawingTemp);
       saveChartDrawings();
     }
@@ -8216,6 +8574,9 @@ function applyProModeUI() {
 function renderSmartView() {
   const periodEl   = document.getElementById('smartPeriodDisplay');
   const timerEl    = document.getElementById('smartTimerDisplay');
+  const targetEl   = document.getElementById('smartSignalTarget');
+  const confEl     = document.getElementById('smartSignalConf');
+  const typeEl     = document.getElementById('smartSignalType');
   const signalEl   = document.getElementById('smartAiSignal');
   const engineEl   = document.getElementById('smartAiEngineTag');
   const tfBadge    = document.getElementById('smartTfBadge');
@@ -8246,16 +8607,77 @@ function renderSmartView() {
 
   if (tfBadge) tfBadge.textContent = `WinGo ${S.timeframe}`;
 
-  if (signalEl) {
-    const target = S.aiSignal?.target;
-    if (target) {
-      let targetColor = 'text-amber-400';
-      let icon = '🟡';
-      if (target === 'BIG')        { targetColor = 'text-amber-400'; icon = '🟡'; }
-      else if (target === 'SMALL') { targetColor = 'text-sky-400';   icon = '🔵'; }
-      else if (target === 'GREEN') { targetColor = 'text-emerald-400'; icon = '🟢'; }
-      else if (target === 'RED')   { targetColor = 'text-rose-400';    icon = '🔴'; }
+  // Retrieve target prediction from S.aiSignal or fallback maps/algorithms
+  let currentPred = S.aiSignal;
+  if (!currentPred || !currentPred.target) {
+    const curP = S.currentPeriod || periodStr;
+    if (curP && S.aiPredictionMap) {
+      currentPred = S.aiPredictionMap[curP] || S.aiPredictionMap[String(curP).slice(-5)];
+    }
+    if ((!currentPred || !currentPred.target) && window.TimeframeManager && typeof window.TimeframeManager.getPrediction === 'function') {
+      try {
+        currentPred = window.TimeframeManager.getPrediction(S.timeframe, curP);
+      } catch(e) {}
+    }
+  }
 
+  // If still no prediction but we have sufficient data, trigger runAI()
+  if ((!currentPred || !currentPred.target) && S.history && S.history.length >= MIN_DATA_TO_PREDICT) {
+    try {
+      runAI();
+      currentPred = S.aiSignal;
+    } catch(e) {}
+  }
+
+  const target = currentPred?.target;
+  const confVal = currentPred?.prob ? Math.round(currentPred.prob * 100) : (currentPred?.confidence ? Math.round(currentPred.confidence * 100) : 65);
+  const decisionType = currentPred?.isTest ? 'TEST' : (currentPred?.decision || (['RED', 'GREEN', 'VIOLET'].includes(target) ? 'COLOR' : 'SIZE') || 'BET');
+
+  let targetColor = 'text-amber-400';
+  let icon = '🟡';
+  if (target === 'BIG')        { targetColor = 'text-amber-400'; icon = '🟡'; }
+  else if (target === 'SMALL') { targetColor = 'text-sky-400';   icon = '🔵'; }
+  else if (target === 'GREEN') { targetColor = 'text-emerald-400'; icon = '🟢'; }
+  else if (target === 'RED')   { targetColor = 'text-rose-400';    icon = '🔴'; }
+  else if (target === 'VIOLET'){ targetColor = 'text-purple-400';  icon = '🟣'; }
+
+  if (targetEl) {
+    if (target) {
+      targetEl.className = `${targetColor} text-sm font-mono font-black tracking-tight mt-0.5`;
+      targetEl.textContent = `${target} ${icon}`;
+    } else {
+      if (S.history && S.history.length >= MIN_DATA_TO_PREDICT) {
+        targetEl.className = 'text-amber-300 text-sm font-mono font-black tracking-tight mt-0.5 animate-pulse';
+        targetEl.textContent = 'ANALYZING...';
+      } else {
+        targetEl.className = 'text-slate-400 text-sm font-mono font-black tracking-tight mt-0.5';
+        targetEl.textContent = 'WAITING DATA...';
+      }
+    }
+  }
+
+  if (confEl) {
+    if (target) {
+      confEl.textContent = `${confVal}%`;
+      confEl.className = confVal >= 60 ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold';
+    } else {
+      confEl.textContent = '—';
+      confEl.className = 'text-slate-500';
+    }
+  }
+
+  if (typeEl) {
+    if (target) {
+      typeEl.textContent = decisionType;
+      typeEl.className = decisionType === 'TEST' ? 'text-amber-300 font-bold' : 'text-purple-300 font-bold';
+    } else {
+      typeEl.textContent = '—';
+      typeEl.className = 'text-slate-500 font-bold';
+    }
+  }
+
+  if (signalEl) {
+    if (target) {
       signalEl.innerHTML = `<div class="flex flex-col items-center justify-center">
         <span class="${targetColor} font-black text-sm tracking-wider leading-none flex items-center gap-1">${target} <span>${icon}</span></span>
         <div class="text-[8px] text-amber-300 font-mono font-bold leading-tight mt-0.5">🎯 Single Target: ${target}</div>
@@ -8266,12 +8688,12 @@ function renderSmartView() {
   }
 
   if (engineEl) {
-    if (S.aiSignal?.isShieldActive) {
+    if (currentPred?.isShieldActive) {
       engineEl.className = 'text-[7.5px] text-rose-400 font-mono mt-0.5 font-bold animate-pulse';
       engineEl.textContent = '🛡️ 4-LOSS SHIELD ACTIVE';
     } else {
       engineEl.className = 'text-[7.5px] text-emerald-400 font-mono mt-0.5';
-      const engs = S.aiSignal?.engines?.length ? S.aiSignal.engines.join(' + ') : '8-Engine Neural Matrix';
+      const engs = currentPred?.engines?.length ? currentPred.engines.join(' + ') : '8-Engine Neural Matrix';
       engineEl.textContent = engs;
     }
   }
@@ -9133,6 +9555,9 @@ function loadInitDemoData(tfOverride) {
     S.isInitialized = true;
     syncHistoryToGameAnalysis(tf);
     renderGameHistoryAnalysisTab(tf);
+    if (typeof runAI === 'function') {
+      try { runAI(); } catch(e) {}
+    }
   }
   fetchLiveAPIResults(tf);
 }
@@ -10042,6 +10467,9 @@ window.onload = () => {
       loadInitDemoData();
       renderHeatmap();
       renderBSPattern();
+      if (typeof runAI === 'function') {
+        try { runAI(); } catch(e) {}
+      }
       renderSmartView();
       renderPatternAnalytics();
       showToast('✨ Initialized session. Syncing live results...', 'info');
