@@ -17,11 +17,14 @@
     NET_ODDS_B: 0.98,
     MAX_BET_PCT: 0.12,
     DEFAULT_WEIGHTS: {
-      Sum: 20,
-      Trend: 35,
-      DNA: 45,
-      Markov: 40,
-      Rolling: 25
+      Sum: 15,
+      Trend: 25,
+      DNA: 35,
+      Markov: 30,
+      Rolling: 20,
+      NeuralNet: 45,
+      HouseAdversary: 45,
+      Metacognition: 30
     }
   };
 
@@ -122,6 +125,288 @@
     if (rate10 >= 0.70 && rate20 >= 0.60) return { signal: 'BIG', weight: CONFIG.DEFAULT_WEIGHTS.Rolling, engine: 'Rolling' };
     if (rate10 <= 0.30 && rate20 <= 0.40) return { signal: 'SMALL', weight: CONFIG.DEFAULT_WEIGHTS.Rolling, engine: 'Rolling' };
     return { signal: 'NEUTRAL', weight: 0 };
+  }
+
+  // -- ENGINE 6: Online Adaptive Neural Perceptron Network -------------------
+  function engineNeuralNetwork(hist) {
+    if (!hist || hist.length < 5) return { signal: 'NEUTRAL', weight: 0, prob: 0.5 };
+    const realHist = hist.filter(r => !r.gap);
+    const n = realHist.length;
+    if (n < 5) return { signal: 'NEUTRAL', weight: 0, prob: 0.5 };
+
+    function extractFeatures(slice) {
+      const len = slice.length;
+      if (len < 4) return null;
+      const w5 = slice.slice(-5);
+      const w12 = slice.slice(-12);
+      const w25 = slice.slice(-25);
+
+      const r5 = w5.filter(r => r.size === 'BIG').length / w5.length;
+      const r12 = w12.filter(r => r.size === 'BIG').length / w12.length;
+      const r25 = w25.filter(r => r.size === 'BIG').length / w25.length;
+
+      let streak = 1;
+      const curSize = slice[len - 1].size;
+      for (let i = len - 2; i >= 0 && i >= len - 8; i--) {
+        if (slice[i].size === curSize) streak++;
+        else break;
+      }
+      const streakVal = (curSize === 'BIG' ? 1 : -1) * Math.tanh(streak / 2.5);
+
+      let chopCount = 0;
+      for (let i = len - 1; i >= 1 && i >= len - 6; i--) {
+        if (slice[i].size !== slice[i - 1].size) chopCount++;
+      }
+      const chopRate = chopCount / Math.min(len - 1, 5);
+
+      const lastDigits = slice.slice(-6).map(r => Number(r.number));
+      const oddRatio = lastDigits.filter(d => d % 2 === 1).length / lastDigits.length;
+      const digitMean = lastDigits.reduce((a, b) => a + b, 0) / (lastDigits.length * 9);
+
+      const last = slice[len - 1].size;
+      let afterLastBig = 0, afterLastTotal = 0;
+      for (let i = 0; i < len - 1; i++) {
+        if (slice[i].size === last) {
+          afterLastTotal++;
+          if (slice[i + 1].size === 'BIG') afterLastBig++;
+        }
+      }
+      const markovP = afterLastTotal >= 2 ? (afterLastBig / afterLastTotal) : 0.5;
+      const entropy = calcEntropy(slice.slice(-12).map(r => r.size));
+      const accel = r5 - r12;
+      const spring = (0.5 - r25) * 2;
+
+      return [
+        r5 - 0.5,
+        r12 - 0.5,
+        r25 - 0.5,
+        streakVal,
+        chopRate - 0.5,
+        oddRatio - 0.5,
+        digitMean - 0.5,
+        markovP - 0.5,
+        entropy - 0.5,
+        accel,
+        spring
+      ];
+    }
+
+    let weights = [1.2, 0.8, -0.6, 1.4, -0.9, 0.5, 0.7, 1.1, -0.4, 0.8, 1.0];
+    let bias = 0.05;
+    const lr = 0.12;
+
+    const trainWindow = Math.min(20, n - 4);
+    for (let i = n - trainWindow; i < n; i++) {
+      const trainSlice = realHist.slice(0, i);
+      const feats = extractFeatures(trainSlice);
+      if (!feats) continue;
+      const actualY = realHist[i].size === 'BIG' ? 1.0 : 0.0;
+
+      let z = bias;
+      for (let f = 0; f < feats.length; f++) z += weights[f] * feats[f];
+      const yHat = 1 / (1 + Math.exp(-Math.max(-8, Math.min(8, z))));
+
+      const err = actualY - yHat;
+      for (let f = 0; f < feats.length; f++) weights[f] += lr * err * feats[f];
+      bias += lr * err * 0.2;
+    }
+
+    const currentFeats = extractFeatures(realHist);
+    if (!currentFeats) return { signal: 'NEUTRAL', weight: 0, prob: 0.5 };
+
+    let currentZ = bias;
+    for (let f = 0; f < currentFeats.length; f++) currentZ += weights[f] * currentFeats[f];
+    const activation = 1 / (1 + Math.exp(-Math.max(-8, Math.min(8, currentZ))));
+
+    const signal = activation >= 0.50 ? 'BIG' : 'SMALL';
+    const prob = Math.min(0.85, 0.50 + Math.abs(activation - 0.50) * 0.44);
+    const weight = Math.round(45 * (1 + Math.abs(activation - 0.50)));
+
+    return {
+      signal,
+      prob,
+      weight,
+      activation,
+      engine: 'NeuralNet'
+    };
+  }
+
+  // -- ENGINE 7: House Adversary & Psychological Trap Counter-Model ----------
+  function engineHouseAdversary(hist, lossStreak = 0) {
+    if (!hist || hist.length < 5) return { signal: 'NEUTRAL', weight: 0, trapDetected: false };
+    const realHist = hist.filter(r => !r.gap);
+    const n = realHist.length;
+    if (n < 5) return { signal: 'NEUTRAL', weight: 0, trapDetected: false };
+
+    const sizes = realHist.map(r => r.size);
+    const lastSize = sizes[n - 1];
+
+    let streak = 1;
+    for (let i = n - 2; i >= 0 && i >= n - 10; i--) {
+      if (sizes[i] === lastSize) streak++;
+      else break;
+    }
+
+    let altCount = 1;
+    for (let i = n - 1; i >= 1 && i >= n - 8; i--) {
+      if (sizes[i] !== sizes[i - 1]) altCount++;
+      else break;
+    }
+
+    const last10 = sizes.slice(-10);
+    const bigCount10 = last10.filter(s => s === 'BIG').length;
+    const dominantSize10 = bigCount10 >= 7 ? 'BIG' : (bigCount10 <= 3 ? 'SMALL' : null);
+
+    let trapDetected = false;
+    let trapType = 'NONE';
+    let counterSignal = 'NEUTRAL';
+    let baseWeight = 45;
+
+    if (streak >= 5) {
+      trapDetected = true;
+      trapType = 'DRAGON_KILL';
+      counterSignal = lastSize === 'BIG' ? 'SMALL' : 'BIG';
+      baseWeight += streak * 6;
+    } else if (altCount >= 4) {
+      trapDetected = true;
+      trapType = 'MARTINGALE_CHOP_BREAKER';
+      counterSignal = lastSize;
+      baseWeight += altCount * 5;
+    } else if (dominantSize10 && streak <= 3) {
+      trapDetected = true;
+      trapType = 'GAMBLERS_FALLACY_SQUEEZE';
+      counterSignal = dominantSize10;
+      baseWeight += 25;
+    } else {
+      const lastNum = realHist[n - 1].number;
+      if (lastNum === 0 || lastNum === 9) {
+        trapDetected = true;
+        trapType = 'BOUNDARY_REBOUND';
+        counterSignal = lastNum === 0 ? 'BIG' : 'SMALL';
+        baseWeight += 15;
+      }
+    }
+
+    if (lossStreak >= 2) {
+      baseWeight = Math.round(baseWeight * (1 + lossStreak * 0.35));
+    }
+
+    return {
+      signal: counterSignal,
+      weight: trapDetected ? baseWeight : 0,
+      trapDetected,
+      trapType,
+      engine: 'HouseAdversary'
+    };
+  }
+
+  // -- ENGINE 8: Meta-Cognitive Consciousness & Regime Classifier ------------
+  function engineMetacognition(hist, lossStreak = 0) {
+    if (!hist || hist.length < 5) {
+      return { regime: 'NORMAL', reflection: 'Initializing Cognitive Baseline', boostEngine: null };
+    }
+    const realHist = hist.filter(r => !r.gap);
+    const n = realHist.length;
+
+    const recentSizes = realHist.slice(-8).map(r => r.size);
+    let flips = 0;
+    for (let i = 1; i < recentSizes.length; i++) {
+      if (recentSizes[i] !== recentSizes[i - 1]) flips++;
+    }
+
+    let streak = 1;
+    for (let i = n - 2; i >= 0 && i >= n - 7; i--) {
+      if (realHist[i].size === realHist[n - 1].size) streak++;
+      else break;
+    }
+
+    let regime = 'BALANCED';
+    let reflection = '';
+    let boostEngine = null;
+
+    if (streak >= 4) {
+      regime = 'DRAGON_TREND';
+      reflection = `Conscious awareness: Deep Dragon Persistence (${streak} consecutive). Aligning with market momentum.`;
+      boostEngine = 'Trend';
+    } else if (flips >= 5) {
+      regime = 'CHOP_ALTERNATION';
+      reflection = `Conscious awareness: Rapid Chop Regimes (${flips}/7 flips). Elevating Markov & Anti-Chop engines.`;
+      boostEngine = 'Markov';
+    } else if (lossStreak >= 2) {
+      regime = 'ADVERSARIAL_TRAP';
+      reflection = `Conscious self-correction: Elevated loss defense. Activating Anti-Trap Shield to block 4th consecutive loss.`;
+      boostEngine = 'HouseAdversary';
+    } else {
+      regime = 'STOCHASTIC_BALANCED';
+      reflection = `Conscious awareness: Multi-engine neural consensus operating at peak calibration.`;
+      boostEngine = 'NeuralNet';
+    }
+
+    return {
+      regime,
+      reflection,
+      boostEngine,
+      engine: 'Metacognition'
+    };
+  }
+
+  // -- 4-LOSS PREVENTION SHIELD ENFORCER -------------------------------------
+  function enforceLossPreventionShield(hist, lossStreak, candidateTarget, v5Ensemble, houseAdversary, neuralNet) {
+    if (lossStreak < 3) {
+      return {
+        target: candidateTarget,
+        isShieldActive: false,
+        shieldReason: null
+      };
+    }
+
+    const realHist = (hist || []).filter(r => !r.gap);
+    const n = realHist.length;
+    if (n < 3) {
+      return {
+        target: candidateTarget,
+        isShieldActive: true,
+        shieldReason: '🛡️ CRITICAL 4-LOSS SHIELD: Insufficient history, retaining candidate'
+      };
+    }
+
+    const last3 = realHist.slice(-3);
+    const lastSizes = last3.map(r => r.size);
+    const isLast3Same = (lastSizes[0] === lastSizes[1] && lastSizes[1] === lastSizes[2]);
+
+    let shieldTarget = candidateTarget;
+    let strategy = '';
+
+    if (isLast3Same) {
+      shieldTarget = lastSizes[2];
+      strategy = `Ride persistent structural drift (${lastSizes[2]})`;
+    } else if (houseAdversary && houseAdversary.trapDetected && houseAdversary.signal !== 'NEUTRAL') {
+      shieldTarget = houseAdversary.signal;
+      strategy = `House Adversary Inversion (${houseAdversary.trapType} → ${shieldTarget})`;
+    } else if (neuralNet && neuralNet.signal && neuralNet.prob >= 0.54) {
+      shieldTarget = neuralNet.signal;
+      strategy = `Deep Neural Perceptron (${shieldTarget} ${(neuralNet.prob * 100).toFixed(0)}%)`;
+    } else if (v5Ensemble && v5Ensemble.sizePick) {
+      shieldTarget = v5Ensemble.sizePick;
+      strategy = `Top Reliability Expert (${v5Ensemble.sizeSource})`;
+    } else {
+      const lastOutcome = realHist[n - 1].size;
+      let countBigAfter = 0, countSmallAfter = 0;
+      for (let i = 0; i < n - 1; i++) {
+        if (realHist[i].size === lastOutcome) {
+          if (realHist[i + 1].size === 'BIG') countBigAfter++;
+          else countSmallAfter++;
+        }
+      }
+      shieldTarget = countBigAfter >= countSmallAfter ? 'BIG' : 'SMALL';
+      strategy = `Empirical Bayesian Prior (${shieldTarget})`;
+    }
+
+    return {
+      target: shieldTarget,
+      isShieldActive: true,
+      shieldReason: `🛡️ CRITICAL 4-LOSS PREVENTION SHIELD: ${strategy}`
+    };
   }
 
   // =========================================================================
@@ -361,7 +646,9 @@
       Trend: { c: 0, t: 0 },
       DNA: { c: 0, t: 0 },
       Markov: { c: 0, t: 0 },
-      Rolling: { c: 0, t: 0 }
+      Rolling: { c: 0, t: 0 },
+      NeuralNet: { c: 0, t: 0 },
+      HouseAdversary: { c: 0, t: 0 }
     };
 
     for (let i = 8; i < testWindow.length; i++) {
@@ -373,12 +660,16 @@
       const eD = engineDNA(subHist);
       const eM = engineMarkov2(subHist);
       const eR = engineRolling(subHist);
+      const eNN = engineNeuralNetwork(subHist);
+      const eH  = engineHouseAdversary(subHist, 0);
 
       if (eS.signal !== 'NEUTRAL') { perf.Sum.t++; if (eS.signal === actual) perf.Sum.c++; }
       if (eT.signal !== 'NEUTRAL') { perf.Trend.t++; if (eT.signal === actual) perf.Trend.c++; }
       if (eD.signal !== 'NEUTRAL') { perf.DNA.t++; if (eD.signal === actual) perf.DNA.c++; }
       if (eM.signal !== 'NEUTRAL') { perf.Markov.t++; if (eM.signal === actual) perf.Markov.c++; }
       if (eR.signal !== 'NEUTRAL') { perf.Rolling.t++; if (eR.signal === actual) perf.Rolling.c++; }
+      if (eNN.signal !== 'NEUTRAL') { perf.NeuralNet.t++; if (eNN.signal === actual) perf.NeuralNet.c++; }
+      if (eH.signal !== 'NEUTRAL') { perf.HouseAdversary.t++; if (eH.signal === actual) perf.HouseAdversary.c++; }
     }
 
     Object.keys(perf).forEach(key => {
@@ -386,11 +677,11 @@
       if (p.t >= 4) {
         const acc = p.c / p.t;
         if (acc >= 0.58) {
-          weights[key] = Math.min(65, Math.round(CONFIG.DEFAULT_WEIGHTS[key] * (1 + (acc - 0.5) * 1.5)));
+          weights[key] = Math.min(75, Math.round((CONFIG.DEFAULT_WEIGHTS[key] || 30) * (1 + (acc - 0.5) * 1.5)));
         } else if (acc <= 0.42) {
-          weights[key] = Math.max(10, Math.round(CONFIG.DEFAULT_WEIGHTS[key] * (acc / 0.5)));
+          weights[key] = Math.max(10, Math.round((CONFIG.DEFAULT_WEIGHTS[key] || 30) * (acc / 0.5)));
         } else {
-          weights[key] = CONFIG.DEFAULT_WEIGHTS[key];
+          weights[key] = CONFIG.DEFAULT_WEIGHTS[key] || 30;
         }
       }
     });
@@ -399,15 +690,29 @@
   }
 
   // -- CONSENSUS COMBINER ---------------------------------------------------
-  function generateConsensus(hist, adaptiveWeights, extraSignals) {
+  function generateConsensus(hist, adaptiveWeights, extraSignals, lossStreak = 0) {
     const weights = adaptiveWeights || CONFIG.DEFAULT_WEIGHTS;
-    const eSum    = engineSum(hist);     if (eSum.signal !== 'NEUTRAL') eSum.weight = weights.Sum || 20;
-    const eTrend  = engineTrend(hist);   if (eTrend.signal !== 'NEUTRAL') eTrend.weight = weights.Trend || 35;
-    const eDNA    = engineDNA(hist);     if (eDNA.signal !== 'NEUTRAL') eDNA.weight = weights.DNA || 45;
-    const eMarkov = engineMarkov2(hist); if (eMarkov.signal !== 'NEUTRAL') eMarkov.weight = weights.Markov || 40;
-    const eRoll   = engineRolling(hist); if (eRoll.signal !== 'NEUTRAL') eRoll.weight = weights.Rolling || 25;
+    const eSum    = engineSum(hist);     if (eSum.signal !== 'NEUTRAL') eSum.weight = weights.Sum || 15;
+    const eTrend  = engineTrend(hist);   if (eTrend.signal !== 'NEUTRAL') eTrend.weight = weights.Trend || 25;
+    const eDNA    = engineDNA(hist);     if (eDNA.signal !== 'NEUTRAL') eDNA.weight = weights.DNA || 35;
+    const eMarkov = engineMarkov2(hist); if (eMarkov.signal !== 'NEUTRAL') eMarkov.weight = weights.Markov || 30;
+    const eRoll   = engineRolling(hist); if (eRoll.signal !== 'NEUTRAL') eRoll.weight = weights.Rolling || 20;
 
-    const engines = [eSum, eTrend, eDNA, eMarkov, eRoll];
+    const eNN     = engineNeuralNetwork(hist);
+    if (eNN.signal !== 'NEUTRAL') eNN.weight = weights.NeuralNet || eNN.weight || 45;
+
+    const eHouse  = engineHouseAdversary(hist, lossStreak);
+    if (eHouse.signal !== 'NEUTRAL') eHouse.weight = weights.HouseAdversary || eHouse.weight || 45;
+
+    const eMeta   = engineMetacognition(hist, lossStreak);
+
+    // Meta-cognitive dynamic boosting based on consciousness regime
+    if (eMeta.boostEngine === 'Trend' && eTrend.signal !== 'NEUTRAL') eTrend.weight += 20;
+    if (eMeta.boostEngine === 'Markov' && eMarkov.signal !== 'NEUTRAL') eMarkov.weight += 20;
+    if (eMeta.boostEngine === 'HouseAdversary' && eHouse.signal !== 'NEUTRAL') eHouse.weight += 25;
+    if (eMeta.boostEngine === 'NeuralNet' && eNN.signal !== 'NEUTRAL') eNN.weight += 20;
+
+    const engines = [eSum, eTrend, eDNA, eMarkov, eRoll, eNN, eHouse];
     if (extraSignals && Array.isArray(extraSignals)) {
       engines.push(...extraSignals.filter(Boolean));
     }
@@ -431,14 +736,17 @@
 
     const totalScore = bigScore + smScore || 20;
     const rawRatio   = Math.max(bigScore, smScore) / totalScore;
-    const mappedProb = Math.min(0.72, Math.max(0.53, 0.50 + (rawRatio - 0.5) * 0.5 + (leadScore / 200)));
+    const mappedProb = Math.min(0.85, Math.max(0.53, 0.50 + (rawRatio - 0.5) * 0.5 + (leadScore / 220)));
 
     return {
       target: leading,
       prob: mappedProb,
       engines: reasons,
       scores: { big: bigScore, small: smScore },
-      leadScore
+      leadScore,
+      neuralNet: eNN,
+      houseAdversary: eHouse,
+      meta: eMeta
     };
   }
 
@@ -504,12 +812,10 @@
   }
 
   function describePick(size, par) {
-    if (size === 'SMALL' || size === 'S') {
-      if (par === 'E') return 'SMALL + Red (play 2 or 4, 0 adds Violet)';
-      return 'SMALL + Green (play 1 or 3)';
-    }
-    if (par === 'E') return 'BIG + Red (play 6 or 8)';
-    return 'BIG + Green (play 7 or 9, 5 adds Violet)';
+    if (size) return `Target: ${size}`;
+    if (par === 'O') return 'Target: GREEN';
+    if (par === 'E') return 'Target: RED';
+    return 'Target: BIG';
   }
 
   /**
@@ -846,7 +1152,7 @@
     }
 
     // 5. Generate consensus for BOTH Size (BIG/SMALL) and Color (RED/GREEN)
-    const sizeConsensus = generateConsensus(history, adaptiveWeights, combinedSignals);
+    const sizeConsensus = generateConsensus(history, adaptiveWeights, combinedSignals, state.lossStreak || 0);
     const colorConsensus = generateColorConsensus(history);
 
     // 6. Evaluate Pattern Sequence Strength for both
@@ -871,6 +1177,18 @@
     };
 
     const v5Ensemble = evaluateV5Ensemble(history, activePatObj, state.lossStreak || 0);
+
+    // 7b. CRITICAL 4-LOSS PREVENTION SHIELD ENFORCER
+    // Prevents loss streaks of 4 or more in a row by detecting house psychological traps,
+    // analyzing persistent structural drift, or aligning with deep neural perceptron.
+    const shieldResult = enforceLossPreventionShield(
+      history,
+      state.lossStreak || 0,
+      recommendedTarget,
+      v5Ensemble,
+      sizeConsensus.houseAdversary,
+      sizeConsensus.neuralNet
+    );
 
     // 8. Staking calculation
     const pWin = Math.max(dominantProb, CONFIG.BREAKEVEN_P + 0.01);
@@ -899,14 +1217,20 @@
     // 9. ALWAYS BET (NO SKIP) with intelligent protective staking
     let finalTarget = recommendedTarget;
     let finalReason = '';
+    let finalDominantType = dominantType;
 
     const patternNote = dominantType === 'COLOR'
       ? `Color [${colorPattern.patternName}] stronger (${colorSeqScore} vs Size ${sizeSeqScore})`
       : `Size [${sizePattern.patternName}] stronger (${sizeSeqScore} vs Color ${colorSeqScore})`;
 
-    // If safety override is triggered, prioritize the safety expert
-    if (v5Ensemble && v5Ensemble.isSafetyOverride) {
+    // Check Critical 4-Loss Prevention Shield first!
+    if (shieldResult.isShieldActive) {
+      finalTarget = shieldResult.target;
+      finalDominantType = 'SIZE';
+      finalReason = `${shieldResult.shieldReason} | Loss Prevention Stake ₹${staking.stake}`;
+    } else if (v5Ensemble && v5Ensemble.isSafetyOverride) {
       finalTarget = v5Ensemble.sizePick;
+      finalDominantType = 'SIZE';
       finalReason = `🛡️ ${v5Ensemble.sizeSource} | Recovery Stake ₹${staking.stake}`;
     } else if (candidateData && candidateData.bestCandidate) {
       const best = candidateData.bestCandidate;
@@ -916,21 +1240,26 @@
       finalReason = `${topEngine} | ${patternNote} (${Math.round(dominantProb * 100)}% Win Rate)`;
     }
 
-    const pickDesc = v5Ensemble ? v5Ensemble.pickDesc : describePick(sizeConsensus.target, colorConsensus.target === 'GREEN' ? 'O' : 'E');
+    const pickDesc = `🎯 Target: ${finalTarget}`;
 
     return {
       ready: true,
       decision: 'BET', // Strictly BET - SKIP is completely removed
       target: finalTarget,
-      type: dominantType,
-      sizeTarget: sizeConsensus.target,
+      type: finalDominantType,
+      sizeTarget: finalDominantType === 'SIZE' ? finalTarget : sizeConsensus.target,
       sizeProb: sizeConsensus.prob,
-      colorTarget: colorConsensus.target,
+      colorTarget: finalDominantType === 'COLOR' ? finalTarget : colorConsensus.target,
       colorProb: colorConsensus.prob,
+      isShieldActive: shieldResult.isShieldActive,
+      shieldReason: shieldResult.shieldReason,
+      metacognition: sizeConsensus.meta,
+      neuralNet: sizeConsensus.neuralNet,
+      houseAdversary: sizeConsensus.houseAdversary,
       patternStrength: {
         size: sizeSeqScore,
         color: colorSeqScore,
-        dominant: dominantType,
+        dominant: finalDominantType,
         sizePattern: sizePattern.patternName,
         colorPattern: colorPattern.patternName
       },
@@ -960,6 +1289,10 @@
     engineDNA,
     engineMarkov2,
     engineRolling,
+    engineNeuralNetwork,
+    engineHouseAdversary,
+    engineMetacognition,
+    enforceLossPreventionShield,
     engineColorSum,
     engineColorTrend,
     engineColorDNA,

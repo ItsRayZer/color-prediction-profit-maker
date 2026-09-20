@@ -179,7 +179,10 @@
     <span class="text-slate-400 font-mono text-[10px]" id="mgHeaderPnl">PnL: <span class="text-emerald-400">+₹0</span></span>
   </div>
 
-  <div class="flex items-center gap-2.5">
+    <button onclick="toggleResultPopup()" id="popupToggleBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 hover:text-white font-black text-xs transition active:scale-95 shadow" title="Toggle Result Popup ON or OFF">
+      <i class="fa-solid fa-bell text-xs"></i>
+      <span id="popupToggleText">Popup: ON</span>
+    </button>
     <button onclick="toggleProMode()" id="proModeToggleBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-white/10 backdrop-blur-xl border border-amber-400/50 text-amber-300 hover:text-white font-black text-xs transition shadow-[0_0_15px_rgba(245,158,11,0.2)] active:scale-95" title="Switch between Pro and Normal view">
       <i class="fa-solid fa-layer-group text-amber-400 text-xs"></i>
       <span id="proModeBtnText">⚡ PRO MODE: ON</span>
@@ -196,6 +199,35 @@
     </button>
   </div>
 </header>
+
+<!-- ════════════════════════════════════════════════════════════
+     TIMEFRAME FAST LOADING SCREEN (Apple-Style Activity Indicator)
+════════════════════════════════════════════════════════════ -->
+<div id="timeframeLoadingOverlay" style="display:none;" class="fixed inset-0 z-[250] bg-black/60 backdrop-blur-md flex flex-col items-center justify-center pointer-events-auto transition-all duration-150">
+  <div class="p-6 rounded-3xl bg-slate-900/85 backdrop-blur-2xl border border-white/10 shadow-2xl flex flex-col items-center gap-3 text-center max-w-xs animate-in zoom-in-95">
+    <!-- Apple-style 12-blade iOS activity indicator -->
+    <div class="relative w-10 h-10 flex items-center justify-center">
+      <svg class="w-9 h-9 animate-spin text-white" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="animation-duration: 0.85s;">
+        <line x1="12" y1="2" x2="12" y2="6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="1.0" />
+        <line x1="17" y1="3.34" x2="15" y2="6.8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.92" />
+        <line x1="20.66" y1="7" x2="17.2" y2="9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.83" />
+        <line x1="22" y1="12" x2="18" y2="12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.75" />
+        <line x1="20.66" y1="17" x2="17.2" y2="15" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.67" />
+        <line x1="17" y1="20.66" x2="15" y2="17.2" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.58" />
+        <line x1="12" y1="22" x2="12" y2="18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.50" />
+        <line x1="7" y1="20.66" x2="9" y2="17.2" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.42" />
+        <line x1="3.34" y1="17" x2="6.8" y2="15" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.33" />
+        <line x1="2" y1="12" x2="6" y2="12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.25" />
+        <line x1="3.34" y1="7" x2="6.8" y2="9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.17" />
+        <line x1="7" y1="3.34" x2="9" y2="6.8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.08" />
+      </svg>
+    </div>
+    <div>
+      <div id="loadingTfTitle" class="font-black text-sm text-white font-mono">Loading WinGo 1M...</div>
+      <div class="text-[10px] text-purple-300 font-sans mt-0.5">Analyzing patterns & updating AI prediction...</div>
+    </div>
+  </div>
+</div>
 
 <!-- ════════════════════════════════════════════════════════════
      MAIN DESKTOP GRID (3 Equal Columns: Live History | Trend & Num Road | Analysis Hub)
@@ -477,10 +509,15 @@
           <i class="fa-solid fa-chart-line text-amber-400 text-xs"></i>
           <span class="text-[10px] font-black uppercase tracking-wider text-white">Live Prediction Audit</span>
         </div>
-        <span id="perfAuditTfBadge" class="text-[8px] px-1.5 py-0.5 rounded-full bg-purple-900/50 text-purple-300 font-mono border border-purple-700/40">WinGo 30s</span>
+        <div class="flex items-center gap-1.5">
+          <span id="perfAuditTfBadge" class="text-[8px] px-1.5 py-0.5 rounded-full bg-purple-900/50 text-purple-300 font-mono border border-purple-700/40">WinGo 30s</span>
+          <button onclick="resetLiveAudit()" title="Reset session metrics without modifying draw history" class="px-1.5 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-mono text-[8px] font-bold border border-rose-500/30 active:scale-95 transition flex items-center gap-1">
+            <i class="fa-solid fa-rotate-left text-[7.5px]"></i> Reset
+          </button>
+        </div>
       </div>
 
-      <!-- 6-Metric High-Visibility Grid -->
+      <!-- Metric Grid: Accuracy & AI Streaks -->
       <div class="grid grid-cols-3 gap-1.5 text-center font-mono text-[9px]">
         <!-- 1. Win Rate -->
         <div class="p-1.5 bg-purple-950/60 rounded-xl border border-purple-800/30">
@@ -489,28 +526,44 @@
         </div>
         <!-- 2. Wins / Losses -->
         <div class="p-1.5 bg-purple-950/60 rounded-xl border border-purple-800/30">
-          <span class="text-[7.5px] text-slate-400 block font-sans uppercase">Wins / Losses</span>
+          <span class="text-[7.5px] text-slate-400 block font-sans uppercase">AI Correct / Wrong</span>
           <b class="text-xs font-black"><span id="liveAuditWins" class="text-emerald-400">0</span><span class="text-slate-500"> / </span><span id="liveAuditLosses" class="text-rose-400">0</span></b>
         </div>
         <!-- 3. Current Streak -->
         <div class="p-1.5 bg-purple-950/60 rounded-xl border border-purple-800/30">
-          <span class="text-[7.5px] text-slate-400 block font-sans uppercase">Current Streak</span>
+          <span class="text-[7.5px] text-slate-400 block font-sans uppercase">AI Current Streak</span>
           <b id="liveAuditCurStreak" class="text-xs font-black text-amber-300">—</b>
         </div>
         <!-- 4. Max Loss Streak -->
         <div class="p-1.5 bg-rose-950/30 rounded-xl border border-rose-900/40 shadow-inner">
-          <span class="text-[7.5px] text-rose-300/90 block font-sans uppercase font-bold">Max Loss Streak</span>
+          <span class="text-[7.5px] text-rose-300/90 block font-sans uppercase font-bold">Longest Wrong Streak</span>
           <b id="liveAuditMaxLossStreak" class="text-xs font-black text-rose-400">0L</b>
         </div>
         <!-- 5. Max Win Streak -->
         <div class="p-1.5 bg-emerald-950/30 rounded-xl border border-emerald-900/40 shadow-inner">
-          <span class="text-[7.5px] text-emerald-300/90 block font-sans uppercase font-bold">Max Win Streak</span>
+          <span class="text-[7.5px] text-emerald-300/90 block font-sans uppercase font-bold">Longest Win Streak</span>
           <b id="liveAuditMaxWinStreak" class="text-xs font-black text-emerald-300">0W</b>
         </div>
         <!-- 6. Total Evaluated Rounds -->
         <div class="p-1.5 bg-purple-950/60 rounded-xl border border-purple-800/30">
           <span class="text-[7.5px] text-slate-400 block font-sans uppercase">Evaluated</span>
           <b id="liveAuditTotalRounds" class="text-xs font-black text-slate-200">0</b>
+        </div>
+      </div>
+
+      <!-- Pattern Run Streaks (Size & Color) -->
+      <div class="grid grid-cols-3 gap-1.5 text-center font-mono text-[9px] pt-0.5">
+        <div class="p-1 bg-purple-950/60 rounded-xl border border-purple-800/30">
+          <span class="text-[7px] text-slate-400 block font-sans uppercase">Size Streak</span>
+          <b id="liveAuditSizeStreak" class="text-[11px] font-black text-amber-300">—</b>
+        </div>
+        <div class="p-1 bg-purple-950/60 rounded-xl border border-purple-800/30">
+          <span class="text-[7px] text-slate-400 block font-sans uppercase">Color Streak</span>
+          <b id="liveAuditColorStreak" class="text-[11px] font-black text-emerald-400">—</b>
+        </div>
+        <div class="p-1 bg-purple-950/60 rounded-xl border border-purple-800/30">
+          <span class="text-[7px] text-slate-400 block font-sans uppercase">Max Run</span>
+          <b id="liveAuditMaxPatternStreak" class="text-[11px] font-black text-indigo-300">—</b>
         </div>
       </div>
     </div>
@@ -630,7 +683,7 @@
         <div class="p-1.5 bg-purple-950/60 rounded-lg border border-purple-800/30 flex flex-col justify-center">
           <span class="text-[7.5px] text-slate-400 block font-sans uppercase font-bold tracking-wider">AI Target</span>
           <div id="smartAiSignal" class="text-xs font-black text-white mt-0.5 leading-tight">WAITING...</div>
-          <span id="smartAiEngineTag" class="text-[7.5px] text-emerald-400 font-mono mt-0.5">5-Engine Consensus</span>
+          <span id="smartAiEngineTag" class="text-[7.5px] text-emerald-400 font-mono mt-0.5">8-Engine Adaptive AI Matrix</span>
         </div>
       </div>
 
@@ -824,15 +877,23 @@
               <span class="w-4 h-2 rounded-sm bg-white/5 border border-white/10"></span>
             </div>
           </div>
-          <!-- Win/Loss counters -->
-          <div class="grid grid-cols-2 gap-1">
-            <div class="p-1 rounded-lg bg-emerald-950/40 border border-emerald-800/30 flex items-center justify-between text-[8px] font-mono">
-              <span class="text-slate-400">Wins</span>
-              <span id="simDisplayWins" class="text-emerald-400 font-black">0</span>
+          <!-- Win/Loss and Longest Streak counters -->
+          <div class="grid grid-cols-4 gap-1 text-center font-mono text-[8px]">
+            <div class="p-1 rounded-lg bg-emerald-950/40 border border-emerald-800/30">
+              <span class="text-slate-400 block text-[7px]">Wins</span>
+              <span id="simDisplayWins" class="text-emerald-400 font-black text-[10px]">0</span>
             </div>
-            <div class="p-1 rounded-lg bg-rose-950/40 border border-rose-800/30 flex items-center justify-between text-[8px] font-mono">
-              <span class="text-slate-400">Losses</span>
-              <span id="simDisplayLosses" class="text-rose-400 font-black">0</span>
+            <div class="p-1 rounded-lg bg-rose-950/40 border border-rose-800/30">
+              <span class="text-slate-400 block text-[7px]">Losses</span>
+              <span id="simDisplayLosses" class="text-rose-400 font-black text-[10px]">0</span>
+            </div>
+            <div class="p-1 rounded-lg bg-emerald-950/40 border border-emerald-800/30">
+              <span class="text-slate-400 block text-[7px]">Max Win</span>
+              <span id="simDisplayMaxWin" class="text-emerald-300 font-black text-[10px]">0W</span>
+            </div>
+            <div class="p-1 rounded-lg bg-rose-950/40 border border-rose-800/30">
+              <span class="text-slate-400 block text-[7px]">Max Loss</span>
+              <span id="simDisplayMaxLoss" class="text-rose-300 font-black text-[10px]">0L</span>
             </div>
           </div>
         </div>
@@ -930,10 +991,10 @@
       <div class="liquid-glass-card p-3.5 space-y-2.5">
         <div class="flex items-center justify-between pb-2 border-b border-white/10">
           <div class="flex items-center gap-2">
-            <i class="fa-solid fa-microchip text-indigo-400 text-xs"></i>
-            <span class="text-[10px] font-black uppercase tracking-wider text-white">5-Engine Consensus Matrix</span>
+            <i class="fa-solid fa-brain-circuit text-cyan-400 text-xs"></i>
+            <span class="text-[10px] font-black uppercase tracking-wider text-white">8-Engine Neural & Adversary Matrix</span>
           </div>
-          <span class="text-[8.5px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 font-mono border border-indigo-500/20">Multi-Model</span>
+          <span id="diagMetacognitiveBadge" class="text-[8px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 font-mono border border-cyan-500/20">Active Conscious AI</span>
         </div>
 
         <div class="grid grid-cols-2 gap-1.5 font-mono text-[9px]">
@@ -943,6 +1004,20 @@
           <div class="p-2 bg-white/[0.03] rounded-xl border border-white/5 flex justify-between items-center"><span class="text-slate-400">4. Markov 2nd:</span> <b id="diagEngineMarkov" class="text-amber-300">—</b></div>
           <div class="p-2 bg-white/[0.03] rounded-xl border border-white/5 flex justify-between items-center"><span class="text-slate-400">5. Rolling Rate:</span> <b id="diagEngineRolling" class="text-amber-300">—</b></div>
           <div class="p-2 bg-white/[0.03] rounded-xl border border-white/5 flex justify-between items-center"><span class="text-slate-400">6. OpenRouter AI:</span> <b id="diagEngineOR" class="text-indigo-300">—</b></div>
+          <div class="p-2 bg-emerald-500/5 rounded-xl border border-emerald-500/20 flex justify-between items-center"><span class="text-emerald-300">7. Neural Net:</span> <b id="diagEngineNeuralNet" class="text-emerald-400">—</b></div>
+          <div class="p-2 bg-rose-500/5 rounded-xl border border-rose-500/20 flex justify-between items-center"><span class="text-rose-300">8. House Trap:</span> <b id="diagEngineHouse" class="text-rose-400">—</b></div>
+        </div>
+
+        <!-- Meta-Cognitive Consciousness & Loss Shield Strip -->
+        <div class="p-2 bg-purple-950/20 rounded-xl border border-purple-500/20 text-[8.5px] font-mono flex flex-col gap-1">
+          <div class="flex justify-between items-center">
+            <span class="text-purple-300 font-bold">🧠 Conscious Regime:</span>
+            <span id="diagRegimeName" class="text-cyan-300 font-black">BALANCED</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400">🛡️ 4-Loss Shield:</span>
+            <span id="diagShieldStatus" class="text-emerald-400 font-bold">ARMED (0/3 Losses)</span>
+          </div>
         </div>
 
         <!-- AI Accuracy Scorecard -->
@@ -1144,114 +1219,130 @@
 </div>
 
 <!-- ════════════════════════════════════════════════════════════
-     WIN CELEBRATION POPUP (Dhaniwin gold style)
+     WIN CELEBRATION POPUP (Bottom-Right Non-Blocking Floating Toast)
 ════════════════════════════════════════════════════════════ -->
-<div id="winPopup" style="position:fixed;inset:0;z-index:300;display:none;align-items:center;justify-content:center;padding:20px;
-background:rgba(0,0,0,.75);backdrop-filter:blur(4px);">
-  <div id="winPopupCard" style="position:relative;width:100%;max-width:340px;border-radius:24px;
-background:linear-gradient(160deg,#ff9a00 0%,#e65c00 60%,#c0392b 100%);
-box-shadow:0 0 60px #f59e0b88,0 20px 60px rgba(0,0,0,.6);
-padding:20px 20px 24px;text-align:center;overflow:visible;">
+<div id="winPopup" style="position:fixed;bottom:20px;right:20px;z-index:300;display:none;align-items:flex-end;justify-content:flex-end;pointer-events:none;">
+  <div id="winPopupCard" style="position:relative;width:100%;max-width:320px;border-radius:22px;
+background:linear-gradient(160deg,#ff9a00 0%,#e65c00 60%,#b91c1c 100%);
+box-shadow:0 16px 48px rgba(0,0,0,0.7),0 0 30px rgba(245,158,11,0.5);
+padding:14px 16px 16px;text-align:center;overflow:visible;pointer-events:auto;border:1.5px solid rgba(255,255,255,0.25);">
 
-    <!-- Trophy badge -->
-    <div style="position:absolute;top:-44px;left:50%;transform:translateX(-50%);">
-      <div style="position:relative;">
-        <!-- Wings -->
-        <div style="position:absolute;top:12px;left:-30px;font-size:28px;opacity:.9;">🪶</div>
-        <div style="position:absolute;top:12px;right:-30px;font-size:28px;opacity:.9;transform:scaleX(-1);">🪶</div>
-        <!-- Medal -->
-        <div style="width:70px;height:70px;border-radius:50%;background:linear-gradient(135deg,#ffd700,#f59e0b);
-border:4px solid #fff8;display:flex;align-items:center;justify-content:center;
-box-shadow:0 4px 20px #f59e0b88;">
-          <span style="font-size:32px;">🚀</span>
+    <!-- Close button -->
+    <button onclick="closeResultPopups()" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.35);color:#fff;width:22px;height:22px;border-radius:50%;border:none;cursor:pointer;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" title="Close">✕</button>
+
+    <!-- Header badge -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:2px;">
+      <span style="font-size:18px;">🚀</span>
+      <span style="font-size:18px;font-weight:900;color:#fff;letter-spacing:.3px;text-shadow:0 2px 6px rgba(0,0,0,.4);">Congratulations!</span>
+    </div>
+
+    <!-- Lottery result badges -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin:8px 0 10px;">
+      <span style="font-size:10px;color:#ffe08a;font-weight:700;">Lottery results:</span>
+      <span id="winColorBadge" style="background:#9333ea;color:#fff;font-weight:900;font-size:11px;padding:2px 10px;border-radius:20px;">—</span>
+      <span id="winSizeBadge" style="background:#9333ea;color:#fff;font-weight:900;font-size:11px;padding:2px 10px;border-radius:20px;">—</span>
+    </div>
+
+    <!-- Profit slip -->
+    <div style="background:#fff2;border-radius:14px;padding:10px 14px;margin:0 0 10px;border:1.5px dashed #fff5;">
+      <div id="winTitleHeaderEl" style="font-size:11px;font-weight:700;color:#fff;opacity:.85;margin-bottom:2px;">Profit</div>
+      <div id="winAmountEl" style="font-size:24px;font-weight:900;color:#fff;letter-spacing:-0.5px;text-shadow:0 2px 6px rgba(0,0,0,.3);">+₹0.00</div>
+      <div style="border-top:1px dashed #fff4;margin:6px 0 4px;"></div>
+      <div id="winPeriodEl" style="font-size:9.5px;color:#ffe8a0;font-weight:600;">Period —</div>
+      <div id="winAiPredictionEl" style="font-size:10.5px;color:#ffe8a0;font-weight:700;margin-top:2px;"></div>
+      <!-- Session stats block -->
+      <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:6px 8px;margin-top:6px;font-size:9px;font-family:monospace;text-align:left;">
+        <div style="display:flex;justify-content:space-between;color:#fff;font-weight:800;margin-bottom:3px;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:2px;">
+          <span id="winSessionTfBadge" style="color:#ffe08a;">WinGo 30s</span>
+          <span id="winSessionAccBadge" style="color:#34d399;">—% Accuracy</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;color:#ffe8a0;margin-bottom:2px;">
+          <span>Correct: <b id="winSessionCorrect" style="color:#34d399;">0</b></span>
+          <span>Wrong: <b id="winSessionWrong" style="color:#f87171;">0</b></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;color:#a5f3fc;font-size:8px;">
+          <span>Streak: <b id="winSessionCurStreak" style="color:#fde047;">—</b></span>
+          <span>Max W: <b id="winSessionMaxWin" style="color:#34d399;">0W</b></span>
+          <span>Max L: <b id="winSessionMaxLoss" style="color:#f87171;">0L</b></span>
         </div>
       </div>
     </div>
 
-    <!-- Title -->
-    <div style="margin-top:36px;font-size:26px;font-weight:900;color:#fff;letter-spacing:.5px;text-shadow:0 2px 8px rgba(0,0,0,.4);">Congratulations!</div>
-
-    <!-- Lottery result badges -->
-    <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:10px 0 14px;">
-      <span style="font-size:11px;color:#ffe08a;font-weight:700;">Lottery results</span>
-      <span id="winColorBadge" style="background:#9333ea;color:#fff;font-weight:900;font-size:12px;padding:4px 12px;border-radius:20px;">—</span>
-      <span style="background:#9333ea;color:#fff;font-size:12px;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:900;">i</span>
-      <span id="winSizeBadge" style="background:#9333ea;color:#fff;font-weight:900;font-size:12px;padding:4px 12px;border-radius:20px;">—</span>
-    </div>
-
-    <!-- Profit slip -->
-    <div style="background:#fff3;border-radius:16px;padding:14px 18px;margin:0 0 12px;border:2px dashed #fff5;">
-      <div id="winTitleHeaderEl" style="font-size:12px;font-weight:700;color:#fff;opacity:.8;margin-bottom:4px;">Profit</div>
-      <div id="winAmountEl" style="font-size:30px;font-weight:900;color:#fff;letter-spacing:-1px;text-shadow:0 2px 8px rgba(0,0,0,.3);">+₹0.00</div>
-      <div style="border-top:1px dashed #fff4;margin:8px 0 6px;"></div>
-      <div id="winPeriodEl" style="font-size:10px;color:#ffe8a0;font-weight:600;">Period —</div>
-      <div id="winAiPredictionEl" style="font-size:11px;color:#ffe8a0;font-weight:700;margin-top:4px;"></div>
-    </div>
-
     <!-- AI badge -->
-    <div id="winAiBadge" style="font-size:11px;color:#ffe08a;margin-bottom:6px;font-weight:700;"></div>
+    <div id="winAiBadge" style="font-size:10px;color:#ffe08a;margin-bottom:4px;font-weight:700;"></div>
 
     <!-- Martingale next bet info -->
-    <div id="winMgNextBet" style="display:none;font-size:11px;color:#a5f3fc;font-weight:900;margin-bottom:8px;background:rgba(6,182,212,.15);border:1px solid rgba(6,182,212,.3);border-radius:8px;padding:6px 12px;">
+    <div id="winMgNextBet" style="display:none;font-size:10px;color:#a5f3fc;font-weight:900;margin-bottom:6px;background:rgba(6,182,212,.15);border:1px solid rgba(6,182,212,.3);border-radius:8px;padding:4px 10px;">
       🔄 Martingale RESET → Next Bet: <span id="winMgNextAmt" style="color:#10b981;">₹1</span>
     </div>
 
     <!-- Auto close -->
-    <div style="display:flex;align-items:center;gap:8px;justify-content:center;">
-      <div id="winCountdownBox" style="width:20px;height:20px;border-radius:4px;border:2px solid #fff8;background:#fff2;"></div>
-      <span id="winCountdownLabel" style="font-size:12px;color:#ffe8a0;font-weight:700;">5 seconds auto close</span>
+    <div style="display:flex;align-items:center;gap:6px;justify-content:center;">
+      <div id="winCountdownBox" style="width:14px;height:14px;border-radius:3px;border:1.5px solid #fff8;background:#fff2;"></div>
+      <span id="winCountdownLabel" style="font-size:10.5px;color:#ffe8a0;font-weight:700;">3s auto close</span>
     </div>
   </div>
 </div>
 
 <!-- ════════════════════════════════════════════════════════════
-     LOSS "SORRY" POPUP (silver style)
+     LOSS "SORRY" POPUP (Bottom-Right Non-Blocking Floating Toast)
 ════════════════════════════════════════════════════════════ -->
-<div id="lossPopup" style="position:fixed;inset:0;z-index:300;display:none;align-items:center;justify-content:center;padding:20px;
-background:rgba(0,0,0,.75);backdrop-filter:blur(4px);">
-  <div id="lossPopupCard" style="position:relative;width:100%;max-width:340px;border-radius:24px;
-background:linear-gradient(160deg,#d0d0d0 0%,#888 60%,#555 100%);
-box-shadow:0 0 40px #888a,0 20px 60px rgba(0,0,0,.6);
-padding:20px 20px 24px;text-align:center;overflow:visible;">
+<div id="lossPopup" style="position:fixed;bottom:20px;right:20px;z-index:300;display:none;align-items:flex-end;justify-content:flex-end;pointer-events:none;">
+  <div id="lossPopupCard" style="position:relative;width:100%;max-width:320px;border-radius:22px;
+background:linear-gradient(160deg,#334155 0%,#1e293b 60%,#0f172a 100%);
+box-shadow:0 16px 48px rgba(0,0,0,0.7),0 0 30px rgba(100,116,139,0.3);
+padding:14px 16px 16px;text-align:center;overflow:visible;pointer-events:auto;border:1.5px solid rgba(255,255,255,0.15);">
 
-    <!-- Shield badge -->
-    <div style="position:absolute;top:-44px;left:50%;transform:translateX(-50%);">
-      <div style="position:relative;">
-        <div style="position:absolute;top:12px;left:-28px;font-size:24px;opacity:.6;">🪶</div>
-        <div style="position:absolute;top:12px;right:-28px;font-size:24px;opacity:.6;transform:scaleX(-1);">🪶</div>
-        <div style="width:70px;height:70px;border-radius:50%;background:linear-gradient(135deg,#e0e0e0,#999);
-border:4px solid #fff6;display:flex;align-items:center;justify-content:center;
-box-shadow:0 4px 20px #8888;">
-          <span style="font-size:30px;">😔</span>
+    <!-- Close button -->
+    <button onclick="closeResultPopups()" style="position:absolute;top:10px;right:10px;background:rgba(255,255,255,0.15);color:#fff;width:22px;height:22px;border-radius:50%;border:none;cursor:pointer;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" title="Close">✕</button>
+
+    <!-- Header badge -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:2px;">
+      <span style="font-size:18px;">📊</span>
+      <span style="font-size:18px;font-weight:900;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.4);">Result Outcome</span>
+    </div>
+
+    <!-- Lottery result badges -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin:8px 0 10px;">
+      <span style="font-size:10px;color:#cbd5e1;font-weight:700;">Lottery results:</span>
+      <span id="lossColorBadge" style="background:#475569;color:#fff;font-weight:900;font-size:11px;padding:2px 10px;border-radius:20px;">—</span>
+      <span id="lossSizeBadge" style="background:#475569;color:#fff;font-weight:900;font-size:11px;padding:2px 10px;border-radius:20px;">—</span>
+    </div>
+
+    <!-- Loss/Outcome slip -->
+    <div style="background:#ffffff0d;border-radius:14px;padding:10px 14px;margin:0 0 10px;border:1.5px dashed rgba(255,255,255,0.15);">
+      <div id="lossTitleHeaderEl" style="font-size:11px;font-weight:700;color:#cbd5e1;opacity:.85;margin-bottom:2px;">Amount Lost</div>
+      <div id="lossAmountEl" style="font-size:22px;font-weight:900;color:#f87171;letter-spacing:-0.5px;">-₹0.00</div>
+      <div style="border-top:1px dashed rgba(255,255,255,0.15);margin:6px 0 4px;"></div>
+      <div id="lossPeriodEl" style="font-size:9.5px;color:#94a3b8;font-weight:600;">Period —</div>
+      <div id="lossAiPredictionEl" style="font-size:10.5px;color:#fde047;font-weight:700;margin-top:2px;"></div>
+      <div id="lossBalanceEl" style="font-size:9.5px;color:#64748b;margin-top:2px;">Balance: ₹—</div>
+      <!-- Session stats block -->
+      <div style="background:rgba(0,0,0,0.35);border-radius:10px;padding:6px 8px;margin-top:6px;font-size:9px;font-family:monospace;text-align:left;">
+        <div style="display:flex;justify-content:space-between;color:#fff;font-weight:800;margin-bottom:3px;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:2px;">
+          <span id="lossSessionTfBadge" style="color:#fca5a5;">WinGo 30s</span>
+          <span id="lossSessionAccBadge" style="color:#fbbf24;">—% Accuracy</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;color:#ddd;margin-bottom:2px;">
+          <span>Correct: <b id="lossSessionCorrect" style="color:#34d399;">0</b></span>
+          <span>Wrong: <b id="lossSessionWrong" style="color:#f87171;">0</b></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;color:#fca5a5;font-size:8px;">
+          <span>Streak: <b id="lossSessionCurStreak" style="color:#f87171;">—</b></span>
+          <span>Max W: <b id="lossSessionMaxWin" style="color:#34d399;">0W</b></span>
+          <span>Max L: <b id="lossSessionMaxLoss" style="color:#f87171;">0L</b></span>
         </div>
       </div>
     </div>
 
-    <div style="margin-top:36px;font-size:26px;font-weight:900;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.4);">Result Outcome</div>
-
-    <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:10px 0 14px;">
-      <span style="font-size:11px;color:#eee;font-weight:700;">Lottery results</span>
-      <span id="lossColorBadge" style="background:#444;color:#fff;font-weight:900;font-size:12px;padding:4px 12px;border-radius:20px;">—</span>
-      <span id="lossSizeBadge" style="background:#444;color:#fff;font-weight:900;font-size:12px;padding:4px 12px;border-radius:20px;">—</span>
-    </div>
-
-    <div style="background:#fff2;border-radius:16px;padding:14px 18px;margin:0 0 12px;border:2px dashed #fff3;">
-      <div id="lossTitleHeaderEl" style="font-size:12px;font-weight:700;color:#eee;opacity:.8;margin-bottom:4px;">Amount Lost</div>
-      <div id="lossAmountEl" style="font-size:26px;font-weight:900;color:#ff8a80;letter-spacing:-1px;">-₹0.00</div>
-      <div style="border-top:1px dashed #fff3;margin:8px 0 6px;"></div>
-      <div id="lossPeriodEl" style="font-size:10px;color:#ccc;font-weight:600;">Period —</div>
-      <div id="lossAiPredictionEl" style="font-size:11px;color:#ffe08a;font-weight:700;margin-top:4px;"></div>
-      <div id="lossBalanceEl" style="font-size:11px;color:#aaa;margin-top:2px;">Balance: ₹—</div>
-    </div>
-
     <!-- Martingale doubled bet info -->
-    <div id="lossMgNextBet" style="display:none;font-size:11px;color:#fca5a5;font-weight:900;margin-bottom:8px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:6px 12px;">
+    <div id="lossMgNextBet" style="display:none;font-size:10px;color:#fca5a5;font-weight:900;margin-bottom:6px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:4px 10px;">
       📈 Martingale DOUBLES → Next Bet: <span id="lossMgNextAmt" style="color:#f87171;">₹2</span>
     </div>
 
-    <div style="display:flex;align-items:center;gap:8px;justify-content:center;">
-      <div id="lossCountdownBox" style="width:20px;height:20px;border-radius:4px;border:2px solid #fff4;background:#fff1;"></div>
-      <span id="lossCountdownLabel" style="font-size:12px;color:#ddd;font-weight:700;">5 seconds auto close</span>
+    <div style="display:flex;align-items:center;gap:6px;justify-content:center;">
+      <div id="lossCountdownBox" style="width:14px;height:14px;border-radius:3px;border:1.5px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.05);"></div>
+      <span id="lossCountdownLabel" style="font-size:10.5px;color:#94a3b8;font-weight:700;">3s auto close</span>
     </div>
   </div>
 </div>
@@ -1643,6 +1734,7 @@ box-shadow:0 4px 20px #8888;">
 <script src="./systems/wingo_1m.js"></script>
 <script src="./systems/wingo_3m.js"></script>
 <script src="./systems/wingo_5m.js"></script>
+<script src="./systems/timeframe_manager.js"></script>
 
 <!-- ════════════════════════════════════════════════════════════
      JAVASCRIPT APPLICATION ORCHESTRATOR
@@ -1745,31 +1837,35 @@ function getSizeForNum(n) { return n >= 5 ? 'BIG' : 'SMALL'; }
 
 // ═══════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════
-// REAL-WORLD CLOCK  (IST = UTC+5:30) & SERVER TIME CALIBRATION
+// REAL-WORLD CLOCK (IST = UTC+5:30) & SERVER TIME CALIBRATION
 // ═══════════════════════════════════════════════════════════════
 let lastPeriod = null;
-let _savedTimerOffset = 10; // Default +10s to match game clock exactly
+let _savedTimerOffset = 0;
 try {
-  const v = localStorage.getItem('wingo_timer_offset_sec');
+  const currentTf = (typeof S !== 'undefined' && S.timeframe) ? S.timeframe : '30s';
+  const v = localStorage.getItem('wingo_timer_offset_sec_' + currentTf);
   if (v !== null) _savedTimerOffset = parseInt(v, 10) || 0;
 } catch (e) {}
 window._timerOffsetSec = _savedTimerOffset;
 
 function adjustTimerOffset(deltaSec) {
+  const tf = S.timeframe || '30s';
   window._timerOffsetSec = (window._timerOffsetSec || 0) + deltaSec;
-  try { localStorage.setItem('wingo_timer_offset_sec', String(window._timerOffsetSec)); } catch (e) {}
+  try { localStorage.setItem('wingo_timer_offset_sec_' + tf, String(window._timerOffsetSec)); } catch (e) {}
   updateTimerOffsetBadge();
-  const { secsLeft, periodStr } = computeRTState();
-  S.currentPeriod = periodStr;
+  const { secsLeft } = computeRTState();
+  const upcomingPeriod = resolveUpcomingPeriod();
+  S.currentPeriod = upcomingPeriod;
   S.secondsLeft = secsLeft;
   updateTimerUI();
   showToast(`⏱️ Timer offset: ${window._timerOffsetSec >= 0 ? '+' : ''}${window._timerOffsetSec}s`, 'info');
 }
 
 function resetTimerOffset() {
+  const tf = S.timeframe || '30s';
   window._timerOffsetSec = 0;
   window._timerPaused = false;
-  try { localStorage.setItem('wingo_timer_offset_sec', '0'); } catch (e) {}
+  try { localStorage.setItem('wingo_timer_offset_sec_' + tf, '0'); } catch (e) {}
   updateTimerOffsetBadge();
   const pauseBtn = document.getElementById('timerPauseBtn');
   if (pauseBtn) {
@@ -1777,8 +1873,9 @@ function resetTimerOffset() {
     pauseBtn.classList.remove('bg-amber-500/40', 'text-amber-300', 'border-amber-400');
     pauseBtn.classList.add('bg-purple-900/60', 'text-slate-300', 'border-purple-700/40');
   }
-  const { secsLeft, periodStr } = computeRTState();
-  S.currentPeriod = periodStr;
+  const { secsLeft } = computeRTState();
+  const upcomingPeriod = resolveUpcomingPeriod();
+  S.currentPeriod = upcomingPeriod;
   S.secondsLeft = secsLeft;
   updateTimerUI();
   showToast('⏱️ Timer offset reset to 0s', 'info');
@@ -1787,8 +1884,10 @@ function resetTimerOffset() {
 function toggleTimerPause() {
   window._timerPaused = !window._timerPaused;
   const btn = document.getElementById('timerPauseBtn');
+  const tf = S.timeframe || '30s';
+  const dur = tf === '30s' ? 30 : (tf === '1m' ? 60 : (tf === '3m' ? 180 : 300));
   if (window._timerPaused) {
-    window._pausedSecsLeft = (S.secondsLeft !== undefined) ? S.secondsLeft : 59;
+    window._pausedSecsLeft = (S.secondsLeft !== undefined) ? S.secondsLeft : (dur - 1);
     if (btn) {
       btn.innerHTML = '▶';
       btn.classList.add('bg-amber-500/40', 'text-amber-300', 'border-amber-400');
@@ -1797,15 +1896,13 @@ function toggleTimerPause() {
     showToast('⏸️ Timer Paused', 'warning');
   } else {
     // Resume from paused remaining seconds
-    const sys = getActiveSystem();
-    const dur = sys ? sys.duration : 60;
     const nowUtc = new Date();
     const totalSecUtc = nowUtc.getUTCHours() * 3600 + nowUtc.getUTCMinutes() * 60 + nowUtc.getUTCSeconds();
     const desiredElapsed = Math.max(0, (dur - 1) - (window._pausedSecsLeft || 0));
     const curElapsed = totalSecUtc % dur;
     let diff = desiredElapsed - curElapsed;
     window._timerOffsetSec = (window._timerOffsetSec || 0) + diff;
-    try { localStorage.setItem('wingo_timer_offset_sec', String(window._timerOffsetSec)); } catch (e) {}
+    try { localStorage.setItem('wingo_timer_offset_sec_' + tf, String(window._timerOffsetSec)); } catch (e) {}
     updateTimerOffsetBadge();
     if (btn) {
       btn.innerHTML = '⏸';
@@ -1818,30 +1915,39 @@ function toggleTimerPause() {
 }
 
 /**
- * Instantly snaps timer to 59s (or duration - 1) the moment a new result arrives.
+ * Instantly sets timer to 0 when a new result arrives, then restarts to starting point (29 for 30s, 59 for 1m, 179 for 3m, 299 for 5m).
  */
 function snapTimerToNewRound() {
-  const sys = getActiveSystem();
-  const dur = sys ? sys.duration : 60;
-  const targetSec = (dur === 60) ? 59 : (dur - 1);
+  const tf = S.timeframe || '30s';
+  const dur = tf === '30s' ? 30 : (tf === '1m' ? 60 : (tf === '3m' ? 180 : 300));
+  const startSec = dur - 1; // 29 for 30s, 59 for 1m, 179 for 3m, 299 for 5m
 
-  const nowUtc = new Date();
-  const totalSecUtc = nowUtc.getUTCHours() * 3600 + nowUtc.getUTCMinutes() * 60 + nowUtc.getUTCSeconds();
-  const curElapsed = totalSecUtc % dur;
-  window._timerOffsetSec = -curElapsed;
-  window._timerPaused = false;
-  try { localStorage.setItem('wingo_timer_offset_sec', String(window._timerOffsetSec)); } catch (e) {}
-
-  const pauseBtn = document.getElementById('timerPauseBtn');
-  if (pauseBtn) {
-    pauseBtn.innerHTML = '⏸';
-    pauseBtn.classList.remove('bg-amber-500/40', 'text-amber-300', 'border-amber-400');
-    pauseBtn.classList.add('bg-purple-900/60', 'text-slate-300', 'border-purple-700/40');
-  }
-
-  updateTimerOffsetBadge();
-  S.secondsLeft = targetSec;
+  // 1. When new result comes, make timer 0 first
+  window._snappingTimer = true;
+  S.secondsLeft = 0;
   updateTimerUI();
+
+  // 2. Restart and snap to starting point
+  setTimeout(() => {
+    const nowUtc = new Date();
+    const totalSecUtc = nowUtc.getUTCHours() * 3600 + nowUtc.getUTCMinutes() * 60 + nowUtc.getUTCSeconds();
+    const curElapsed = totalSecUtc % dur;
+    window._timerOffsetSec = -curElapsed;
+    window._timerPaused = false;
+    try { localStorage.setItem('wingo_timer_offset_sec_' + tf, String(window._timerOffsetSec)); } catch (e) {}
+
+    const pauseBtn = document.getElementById('timerPauseBtn');
+    if (pauseBtn) {
+      pauseBtn.innerHTML = '⏸';
+      pauseBtn.classList.remove('bg-amber-500/40', 'text-amber-300', 'border-amber-400');
+      pauseBtn.classList.add('bg-purple-900/60', 'text-slate-300', 'border-purple-700/40');
+    }
+
+    updateTimerOffsetBadge();
+    S.secondsLeft = startSec;
+    updateTimerUI();
+    window._snappingTimer = false;
+  }, 300);
 }
 
 function updateTimerOffsetBadge() {
@@ -1865,15 +1971,19 @@ function getActiveSystem() {
 }
 
 function computeRTState() {
-  const sys = getActiveSystem();
-  const dur = sys ? sys.duration : 30;
+  const tf = S.timeframe || '30s';
+  const dur = tf === '30s' ? 30 : (tf === '1m' ? 60 : (tf === '3m' ? 180 : 300));
   S.durationSeconds = dur;
 
+  const sys = getActiveSystem();
   const nowUtc = new Date();
   const state = sys ? sys.computeRealTimeState(nowUtc, window._timerOffsetSec || 0) : {
-    secsLeft: Math.max(0, dur - 1 - (nowUtc.getUTCSeconds() % dur)),
+    secsLeft: Math.max(0, (dur - 1) - (nowUtc.getUTCSeconds() % dur)),
     periodStr: ''
   };
+
+  const maxStartSec = dur - 1;
+  const clampedSecs = Math.min(maxStartSec, Math.max(0, state.secsLeft));
 
   const istMs  = nowUtc.getTime() + (window._timerOffsetSec || 0) * 1000 + (5.5 * 3600 * 1000);
   const ist    = new Date(istMs);
@@ -1882,7 +1992,41 @@ function computeRTState() {
   const ss     = String(ist.getUTCSeconds()).padStart(2, '0');
   const clockStr = `${hh}:${mm}:${ss} IST`;
 
-  return { secsLeft: state.secsLeft, periodStr: state.periodStr, clockStr, dur };
+  return { secsLeft: clampedSecs, periodStr: state.periodStr, clockStr, dur };
+}
+
+function getNextPeriod(periodStr) {
+  if (!periodStr) return '';
+  const str = String(periodStr).trim();
+  const match = str.match(/^(.*?)(\d{3,6})$/);
+  if (match) {
+    const prefix = match[1];
+    const numStr = match[2];
+    const nextNum = parseInt(numStr, 10) + 1;
+    return prefix + String(nextNum).padStart(numStr.length, '0');
+  }
+  try { return String(BigInt(str) + 1n); } catch(e) { return str; }
+}
+
+function getLatestFinishedPeriod(hist) {
+  const list = (hist || S.history || []).filter(r => !r.gap && r.number !== undefined);
+  if (!list.length) return null;
+  const sorted = [...list].sort((a,b) => String(a.period).localeCompare(String(b.period)));
+  return sorted[sorted.length - 1].period;
+}
+
+function resolveUpcomingPeriod() {
+  const lastFinished = getLatestFinishedPeriod();
+  const rtState = computeRTState();
+  let candidate = rtState.periodStr;
+
+  if (lastFinished) {
+    const nextAfterLast = getNextPeriod(lastFinished);
+    if (!candidate || String(candidate) <= String(lastFinished)) {
+      candidate = nextAfterLast;
+    }
+  }
+  return candidate;
 }
 
 function startRTEngine() {
@@ -1896,14 +2040,19 @@ function startRTEngine() {
 
   window._rtTimer = setInterval(() => {
     try {
+      if (window._snappingTimer) return;
+
       const { secsLeft, periodStr, clockStr, dur } = computeRTState();
       
       const clockEl = document.getElementById('realWorldClock');
       if (clockEl) clockEl.textContent = clockStr;
+
+      const upcomingPeriod = resolveUpcomingPeriod();
+
       const periodEl = document.getElementById('currentPeriodDisplay');
-      if (periodEl) periodEl.textContent = S.currentPeriod || periodStr;
+      if (periodEl) periodEl.textContent = upcomingPeriod;
       const smartPEl = document.getElementById('smartPeriodDisplay');
-      if (smartPEl) smartPEl.textContent = (S.currentPeriod || periodStr) ? (S.currentPeriod || periodStr).slice(-5) : '—';
+      if (smartPEl) smartPEl.textContent = upcomingPeriod ? upcomingPeriod.slice(-5) : '—';
 
       // If timer is paused by user, freeze countdown display and do not advance
       if (window._timerPaused) {
@@ -1913,7 +2062,7 @@ function startRTEngine() {
       }
 
       // 1. ALWAYS update clock, period, and timer UI immediately & unconditionally
-      S.currentPeriod = periodStr;
+      S.currentPeriod = upcomingPeriod;
       S.secondsLeft = secsLeft;
       updateTimerUI();
 
@@ -1930,9 +2079,9 @@ function startRTEngine() {
       }
 
       // 2. Period rollover detection
-      if (lastPeriod && lastPeriod !== periodStr) {
+      if (lastPeriod && lastPeriod !== upcomingPeriod) {
         const finishedPeriod = lastPeriod;
-        lastPeriod = periodStr; // Update lastPeriod immediately
+        lastPeriod = upcomingPeriod; // Update lastPeriod immediately
         try {
           if (finishedPeriod && S.aiSignal && S.aiSignal.target && (!S.aiPredictionMap || !S.aiPredictionMap[finishedPeriod])) {
             if (!S.aiPredictionMap) S.aiPredictionMap = {};
@@ -1943,6 +2092,7 @@ function startRTEngine() {
               engines: S.aiSignal.engines || [],
               isTest: S.aiSignal.isTest || S.aiTestMode
             };
+            S.aiPredictionMap[String(finishedPeriod).slice(-5)] = S.aiPredictionMap[finishedPeriod];
           }
           onPeriodRollover(finishedPeriod);
           runAI();
@@ -1950,7 +2100,7 @@ function startRTEngine() {
           console.warn('Rollover notice:', aiErr);
         }
       } else {
-        lastPeriod = periodStr;
+        lastPeriod = upcomingPeriod;
       }
 
       // Fast sync trigger right around rollover
@@ -2038,6 +2188,9 @@ function onPeriodRollover(finishedPeriod) {
   S.inBetBlock = false;
 
   if (!finishedPeriod) return;
+
+  // Track the period that just rolled over live so only its result can trigger a popup
+  window._activeLiveSettlingPeriod = finishedPeriod;
 
   // Immediately poll for the finished period's real live result
   fetchLiveAPIResults(S.timeframe).catch(() => {});
@@ -2305,9 +2458,38 @@ function runAI() {
     callOpenRouterAI(realHist);
   }
 
-  // Delegate to modular QuantAlgorithm
+  // Ensure currentPeriod is strictly the upcoming period (never an old already-finished period)
+  const lastFinished = getLatestFinishedPeriod();
+  if (lastFinished && (!S.currentPeriod || String(S.currentPeriod) <= String(lastFinished))) {
+    S.currentPeriod = getNextPeriod(lastFinished);
+  } else if (!S.currentPeriod) {
+    S.currentPeriod = resolveUpcomingPeriod();
+  }
+
+  // Check if prediction for currentPeriod is ALREADY locked
+  const pStr = S.currentPeriod ? String(S.currentPeriod) : null;
+  const pLast5 = pStr ? pStr.slice(-5) : null;
+  const lockedPred = pStr && (S.aiPredictionMap?.[pStr] || S.aiPredictionMap?.[pLast5]);
+
+  // Delegate to modular QuantAlgorithm or reuse locked prediction
   let outcome;
-  if (window.QuantAlgorithm && typeof window.QuantAlgorithm.predictNextBet === 'function') {
+  if (lockedPred && lockedPred.target) {
+    // Prediction is already locked for this period: preserve it unconditionally
+    outcome = {
+      ready: true,
+      decision: lockedPred.decision || 'BET',
+      target: lockedPred.target,
+      type: lockedPred.type || 'SIZE',
+      sizeTarget: lockedPred.sizeTarget,
+      colorTarget: lockedPred.colorTarget,
+      prob: lockedPred.prob || 0.60,
+      entropy: lockedPred.entropy || 0.5,
+      reason: lockedPred.reason || 'AI Quant Consensus (Locked)',
+      engines: lockedPred.engines || ['Quant AI'],
+      scores: lockedPred.scores || { big: 50, small: 50 },
+      stake: lockedPred.stake || 1
+    };
+  } else if (window.QuantAlgorithm && typeof window.QuantAlgorithm.predictNextBet === 'function') {
     outcome = window.QuantAlgorithm.predictNextBet(S, _orSignal ? [_orSignal] : []);
     if (outcome.adaptiveWeights) S.engineWeights = outcome.adaptiveWeights;
   } else {
@@ -2332,9 +2514,9 @@ function runAI() {
   // Zero-skip requirement: AI prediction decision is ALWAYS 'BET', never 'SKIP'
   const decision = 'BET';
   const orTag    = _orSignal ? `🤖OR(${_orSignal.signal[0]}) ` : '';
-  const reasonFinal = isTest
+  const reasonFinal = outcome.reason || (isTest
     ? `🧪 Test Mode active — Target: ${outcome.target} (${(outcome.prob*100).toFixed(0)}%).`
-    : (orTag + outcome.reason);
+    : (orTag + (outcome.reason || 'Consensus Quant Model')));
 
   S.aiSignal = {
     decision: 'BET',
@@ -2357,10 +2539,8 @@ function runAI() {
   };
   S.aiReady = true;
 
-  // Store AI Prediction for current period (both full string and 5-digit suffix)
-  if (S.currentPeriod) {
-    const pStr = String(S.currentPeriod);
-    const pLast5 = pStr.slice(-5);
+  // Store AI Prediction for current period (both full string and 5-digit suffix) - Lock it!
+  if (S.currentPeriod && !lockedPred) {
     const predRecord = {
       target: outcome.target,
       type: outcome.type || (['RED', 'GREEN'].includes(outcome.target) ? 'COLOR' : 'SIZE'),
@@ -2369,11 +2549,18 @@ function runAI() {
       decision: isTest ? 'TEST' : 'BET',
       prob: outcome.prob,
       engines: outcome.engines || [],
+      reason: reasonFinal,
+      entropy: outcome.entropy || 0.5,
+      stake: outcome.stake || 1,
       isTest
     };
     if (!S.aiPredictionMap) S.aiPredictionMap = {};
     S.aiPredictionMap[pStr] = predRecord;
     S.aiPredictionMap[pLast5] = predRecord;
+
+    if (window.TimeframeManager && typeof window.TimeframeManager.recordPrediction === 'function') {
+      window.TimeframeManager.recordPrediction(S.timeframe, pStr, predRecord);
+    }
   }
 
   // Update AI Diagnostics Drawer if currently open
@@ -2715,7 +2902,7 @@ function selectRealNum(n) {
   if (lbl) lbl.textContent = 'Tap Confirm ✔ to save';
 }
 
-function saveRealResult(period, numberInput) {
+function saveRealResult(period, numberInput, isLiveRound = false) {
   const n = parseInt(numberInput, 10);
   if (isNaN(n) || n < 0 || n > 9) return;
 
@@ -2742,6 +2929,11 @@ function saveRealResult(period, numberInput) {
   // 1. Resolve and permanently freeze AI Prediction for this period so it NEVER mutates or flips!
   let existingPred = (S.aiPredictionMap && (S.aiPredictionMap[pStr] || S.aiPredictionMap[pLast5]));
 
+  if (!existingPred && window.TimeframeManager && typeof window.TimeframeManager.getPredictionForPeriod === 'function') {
+    const tmPred = window.TimeframeManager.getPredictionForPeriod(S.timeframe, pStr);
+    if (tmPred && tmPred.target) existingPred = tmPred;
+  }
+
   const oldHistRow = S.history.find(r => String(r.period) === pStr || String(r.period).slice(-5) === pLast5);
   if (!existingPred && oldHistRow && oldHistRow.aiTarget) {
     existingPred = {
@@ -2754,22 +2946,8 @@ function saveRealResult(period, numberInput) {
     };
   }
 
-  // Check if a bet was placed for this period
-  const existingBet = S.myBets.find(b => String(b.period) === pStr || String(b.period).slice(-5) === pLast5);
-  if (!existingPred && existingBet) {
-    const aiChoice = (existingBet.type === 'SIZE' ? existingBet.choice : existingBet.aiSignal) || existingBet.choice;
-    existingPred = {
-      target: aiChoice,
-      type: existingBet.type || 'SIZE',
-      sizeTarget: existingBet.type === 'SIZE' ? aiChoice : null,
-      colorTarget: existingBet.type === 'COLOR' ? aiChoice : null,
-      prob: 0.65,
-      engines: ['Bot Stake']
-    };
-  }
-
-  // If this is current/recent period, capture S.aiSignal
-  if (!existingPred && S.aiSignal && S.aiSignal.target) {
+  // If this is current/recent period that rolled over live, capture S.aiSignal
+  if (!existingPred && S.aiSignal && S.aiSignal.target && (pStr === String(S.currentPeriod) || pLast5 === String(S.currentPeriod).slice(-5) || isLiveRound)) {
     existingPred = {
       target: S.aiSignal.target,
       type: S.aiSignal.type || (['RED', 'GREEN'].includes(S.aiSignal.target) ? 'COLOR' : 'SIZE'),
@@ -2782,20 +2960,33 @@ function saveRealResult(period, numberInput) {
 
   // Historical fallback: evaluate consensus strictly from history BEFORE this period
   if (!existingPred) {
-    const priorHist = S.history.filter(r => !r.gap && String(r.period) < pStr);
-    if (priorHist.length >= 5 && window.QuantAlgorithm) {
-      const p = window.QuantAlgorithm.predictNextBet({ history: priorHist, balance: S.balance, lossStreak: 0 });
-      if (p && p.target) {
+    const priorHist = S.history.filter(r => !r.gap && String(r.period) < pStr).sort((a,b) => String(a.period).localeCompare(String(b.period)));
+    if (priorHist.length >= 2 && window.QuantAlgorithm) {
+      const c = (typeof window.QuantAlgorithm.generateConsensus === 'function')
+        ? window.QuantAlgorithm.generateConsensus(priorHist)
+        : window.QuantAlgorithm.predictNextBet({ history: priorHist, balance: S.balance, lossStreak: 0, timeframe: S.timeframe });
+      if (c && c.target) {
         existingPred = {
-          target: p.target,
-          type: p.type || 'SIZE',
-          sizeTarget: p.sizeTarget,
-          colorTarget: p.colorTarget,
-          prob: p.prob || 0.60,
-          engines: p.engines || []
+          target: c.target,
+          type: c.type || (['RED', 'GREEN'].includes(c.target) ? 'COLOR' : 'SIZE'),
+          sizeTarget: c.sizeTarget || (['BIG', 'SMALL'].includes(c.target) ? c.target : null),
+          colorTarget: c.colorTarget || (['RED', 'GREEN'].includes(c.target) ? c.target : null),
+          prob: c.prob || 0.60,
+          engines: c.engines || ['Quant AI']
         };
       }
     }
+  }
+
+  if (!existingPred) {
+    existingPred = {
+      target: 'BIG',
+      type: 'SIZE',
+      sizeTarget: 'BIG',
+      colorTarget: null,
+      prob: 0.50,
+      engines: ['Default Consensus']
+    };
   }
 
   const aiMainTarget  = existingPred ? existingPred.target : null;
@@ -2839,7 +3030,16 @@ function saveRealResult(period, numberInput) {
     S.aiPredictionMap[pLast5] = existingPred;
   }
 
-  // Snap timer to 59s immediately on new result
+  // Advance to UPCOMING active round immediately
+  const nextPeriod = getNextPeriod(pStr);
+  S.currentPeriod = nextPeriod;
+  lastPeriod = nextPeriod;
+  const currentPeriodDisplay = document.getElementById('currentPeriodDisplay');
+  if (currentPeriodDisplay) currentPeriodDisplay.textContent = S.currentPeriod;
+  const smartPeriodDisplay = document.getElementById('smartPeriodDisplay');
+  if (smartPeriodDisplay) smartPeriodDisplay.textContent = S.currentPeriod ? S.currentPeriod.slice(-5) : '—';
+
+  // Momentarily set timer to 0, then restart and snap to starting point (29 for 30s, 59 for 1m, etc.)
   snapTimerToNewRound();
 
   // AI test-mode accuracy tracking (no fake popups or balance deductions)
@@ -2863,6 +3063,7 @@ function saveRealResult(period, numberInput) {
   }
 
   // Settle or re-settle any bet placed for this period (matching exact or last 5 digits)
+  const existingBet = (S.myBets || []).find(b => String(b.period) === pStr || String(b.period).slice(-5) === pLast5);
   if (existingBet) {
     const bet = existingBet;
     let won = false;
@@ -2894,12 +3095,6 @@ function saveRealResult(period, numberInput) {
     bet.payout     = payout;
     bet.realNumber = n;
 
-    // Synchronize AI Prediction map with the bet choice so AI Signal and Bet NEVER disagree!
-    const aiChoice = (bet.type === 'SIZE' ? bet.choice : bet.aiSignal) || bet.choice;
-    if (!S.aiPredictionMap) S.aiPredictionMap = {};
-    S.aiPredictionMap[pStr] = { target: aiChoice, decision: 'BET', prob: 0.65, engines: ['Bot Stake'] };
-    S.aiPredictionMap[pLast5] = S.aiPredictionMap[pStr];
-
     if (prevStatus === 'PENDING') {
       S.totalBets++;
       if (won) {
@@ -2916,14 +3111,6 @@ function saveRealResult(period, numberInput) {
           S.martingaleCurrent = S.martingaleBase || 1;
           S.martingaleLevel   = 0;
         }
-
-        showWinPopup({
-          period: pStr, number: n, color, size,
-          profit: payout - bet.stake,
-          balance: S.balance,
-          aiCorrect: true,
-          hasBet: true
-        });
         showToast(`💰 Period ${pLast5}: WON! +₹${(payout - bet.stake).toFixed(2)}`, 'success');
       } else {
         S.lossStreak++;
@@ -2936,13 +3123,6 @@ function saveRealResult(period, numberInput) {
           S.martingaleLevel   = (S.martingaleLevel || 0) + 1;
           S.martingaleCurrent = (S.martingaleBase || 1) * Math.pow(2, S.martingaleLevel);
         }
-
-        showLossPopup({
-          period: pStr, number: n, color, size,
-          lost: bet.stake,
-          balance: S.balance,
-          hasBet: true
-        });
         showToast(`⚠️ Period ${pLast5}: LOST -₹${bet.stake.toFixed(2)}`, 'danger');
       }
       updateMartingaleUI();
@@ -2975,22 +3155,27 @@ function saveRealResult(period, numberInput) {
     }
 
     if (S.roundBet && S.roundBet.period === period) S.roundBet = null;
-  } else {
-    // No bet placed: record AI outcome quietly without popup interruption
+  }
+
+  // Record settled round in TimeframeManager for timeframe-isolated stats
+  if (window.TimeframeManager && typeof window.TimeframeManager.recordSettledRound === 'function') {
+    try {
+      window.TimeframeManager.recordSettledRound(S.timeframe, pStr, n, size, color);
+    } catch(e) {
+      console.warn('[TimeframeManager] record error:', e);
+    }
+  }
+
+  // Show result popup ONLY for live completed rounds (never past historical rounds or on reload/timer change)
+  if (isLiveRound) {
+    try {
+      triggerResultPopup(pStr, n, size, color, aiMainCorrect, aiMainTarget);
+    } catch(e) {
+      console.warn('[triggerResultPopup] error:', e);
+    }
   }
 
   if (S.cooloffRounds > 0) S.cooloffRounds--;
-
-  // ── Snapshot AI signal for THIS period BEFORE runAI() overwrites S.currentPeriod ──
-  if (!S.aiPredictionMap[period] && S.aiSignal && S.aiSignal.target) {
-    S.aiPredictionMap[period] = {
-      target: S.aiSignal.target,
-      decision: S.aiSignal.decision || 'BET',
-      prob: S.aiSignal.prob || 0.55,
-      engines: S.aiSignal.engines || [],
-      isTest: S.aiSignal.isTest || S.aiTestMode
-    };
-  }
 
   S.history.sort((a,b) => String(a.period).localeCompare(String(b.period)));
 
@@ -3082,24 +3267,7 @@ function getAIPredictionForPeriod(period) {
     }
   }
 
-  // 2. Bet placed
-  if (S.myBets && S.myBets.length) {
-    const bet = S.myBets.find(b => String(b.period) === pStr || String(b.period).slice(-5) === last5);
-    if (bet) {
-      const target = (bet.type === 'SIZE' ? bet.choice : bet.aiSignal) || bet.choice;
-      if (target) {
-        return {
-          target,
-          type: bet.type || (['RED', 'GREEN'].includes(target) ? 'COLOR' : 'SIZE'),
-          prob: 0.65,
-          decision: 'BET',
-          engines: ['Bot Stake']
-        };
-      }
-    }
-  }
-
-  // 3. Stored AI prediction map
+  // 2. Stored AI prediction map (Permanent pre-draw lock)
   if (S.aiPredictionMap) {
     if (S.aiPredictionMap[pStr] && S.aiPredictionMap[pStr].target) {
       return S.aiPredictionMap[pStr];
@@ -3109,6 +3277,12 @@ function getAIPredictionForPeriod(period) {
     if (foundKey && S.aiPredictionMap[foundKey]?.target) {
       return S.aiPredictionMap[foundKey];
     }
+  }
+
+  // 3. TimeframeManager recorded prediction
+  if (window.TimeframeManager && typeof window.TimeframeManager.getPredictionForPeriod === 'function') {
+    const tmPred = window.TimeframeManager.getPredictionForPeriod(S.timeframe, pStr);
+    if (tmPred && tmPred.target) return tmPred;
   }
 
   // 4. Current upcoming round ONLY
@@ -3126,47 +3300,52 @@ function getAIPredictionForPeriod(period) {
     }
   }
 
-  // 5. Walk-Forward Algorithmic Prediction Fallback (guarantees accurate AI prediction for every historical round)
+  // 5. Walk-Forward Algorithmic Prediction Fallback (strictly on prior history ONLY)
   if (S.history && S.history.length && window.QuantAlgorithm) {
     const sorted = S.history.filter(r => !r.gap).sort((a, b) => String(a.period).localeCompare(String(b.period)));
     const targetIdx = sorted.findIndex(r => String(r.period) === pStr || String(r.period).slice(-5) === last5);
     if (targetIdx >= 0) {
       const row = sorted[targetIdx];
-      const priorSlice = targetIdx >= 3 ? sorted.slice(0, targetIdx) : sorted;
-      try {
-        const retro = window.QuantAlgorithm.predictNextBet(
-          { history: priorSlice, balance: S.balance || 100, lossStreak: 0, timeframe: S.timeframe },
-          {}
-        );
-        if (retro && retro.target && retro.decision !== 'SKIP') {
-          const target = retro.target;
-          const type = ['RED', 'GREEN'].includes(target) ? 'COLOR' : 'SIZE';
-          let isCorrect = null;
-          if (row.number !== undefined) {
-            if (type === 'COLOR') {
-              const isGreen = [1, 3, 7, 9, 5].includes(row.number);
-              isCorrect = target === 'GREEN' ? isGreen : !isGreen;
-            } else {
-              isCorrect = target === row.size;
+      // STRICT: Only use prior rounds. Never include current or future rounds!
+      const priorSlice = targetIdx >= 2 ? sorted.slice(0, targetIdx) : [];
+      if (priorSlice.length >= 2) {
+        try {
+          const retro = (typeof window.QuantAlgorithm.generateConsensus === 'function')
+            ? window.QuantAlgorithm.generateConsensus(priorSlice)
+            : window.QuantAlgorithm.predictNextBet(
+                { history: priorSlice, balance: S.balance || 100, lossStreak: 0, timeframe: S.timeframe },
+                {}
+              );
+          if (retro && retro.target) {
+            const target = retro.target;
+            const type = ['RED', 'GREEN'].includes(target) ? 'COLOR' : 'SIZE';
+            let isCorrect = null;
+            if (row.number !== undefined) {
+              if (type === 'COLOR') {
+                const isGreen = [1, 3, 7, 9, 5].includes(row.number);
+                isCorrect = target === 'GREEN' ? isGreen : !isGreen;
+              } else {
+                isCorrect = target === row.size;
+              }
             }
+            // Cache on row for persistent speed & stability
+            row.aiTarget = target;
+            row.aiType = type;
+            row.aiCorrect = isCorrect;
+            row.aiProb = retro.prob || 0.60;
+            row.aiEngines = retro.engines || ['Quant AI'];
+            return {
+              target,
+              type,
+              sizeTarget: type === 'SIZE' ? target : null,
+              colorTarget: type === 'COLOR' ? target : null,
+              prob: retro.prob || 0.60,
+              correct: isCorrect,
+              engines: retro.engines || ['Quant AI']
+            };
           }
-          // Cache on row for persistent speed & stability
-          row.aiTarget = target;
-          row.aiType = type;
-          row.aiCorrect = isCorrect;
-          row.aiProb = retro.prob || 0.60;
-          row.aiEngines = retro.engines || ['Quant AI'];
-          return {
-            target,
-            type,
-            sizeTarget: type === 'SIZE' ? target : null,
-            colorTarget: type === 'COLOR' ? target : null,
-            prob: retro.prob || 0.60,
-            correct: isCorrect,
-            engines: retro.engines || ['Quant AI']
-          };
-        }
-      } catch (e) {}
+        } catch (e) {}
+      }
     }
   }
 
@@ -3254,8 +3433,10 @@ function renderMiniBalls() {
 
 function renderMyBets() {
   const el = document.getElementById('myBetsContainer');
-  document.getElementById('myBetsBadge').textContent = S.myBets.length;
-  if (!S.myBets.length) {
+  const badge = document.getElementById('myBetsBadge');
+  if (badge) badge.textContent = S.myBets ? S.myBets.length : 0;
+  if (!el) return;
+  if (!S.myBets || !S.myBets.length) {
     el.innerHTML = '<div class="p-6 text-center text-slate-400 text-xs">No bets recorded yet.</div>';
     return;
   }
@@ -3468,9 +3649,56 @@ function drawConnectorLine(hist) {
 function renderTrendChart() { renderNumberRoad(); }
 
 // ═══════════════════════════════════════════════════════════════
+// Helper for Fast Timeframe Loading Overlay (Apple-Style HUD)
+// ═══════════════════════════════════════════════════════════════
+function showTimeframeLoading(tf, show = true) {
+  const overlay = document.getElementById('timeframeLoadingOverlay');
+  if (!overlay) return;
+  clearTimeout(window._tfLoadingSafetyTimer);
+  if (show) {
+    const title = document.getElementById('loadingTfTitle');
+    if (title && tf) title.textContent = `Syncing WinGo ${String(tf).toUpperCase()}...`;
+    overlay.style.display = 'flex';
+    // Strict safety timer to prevent endless spinning or death reload
+    window._tfLoadingSafetyTimer = setTimeout(() => {
+      if (overlay) overlay.style.display = 'none';
+    }, 450);
+  } else {
+    overlay.style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // CONTROLS
 // ═══════════════════════════════════════════════════════════════
-function setTimeframe(tf) {
+let _timeframeSwitchPending = null;
+
+function setTimeframe(tf, force = false) {
+  // Check if simulation test or automated bot is running on current timeframe session
+  const isSimRunning = (window.SimBot && typeof window.SimBot.isRunning === 'function' && window.SimBot.isRunning(S.timeframe)) || S.autoBetEnabled;
+
+  if (isSimRunning && tf !== S.timeframe && !force) {
+    if (_timeframeSwitchPending === tf) {
+      // User clicked again (repeating switch) -> stop simulation and proceed with change
+      if (window.SimBot && typeof window.SimBot.isRunning === 'function' && window.SimBot.isRunning(S.timeframe)) {
+        window.SimBot.stop();
+      }
+      if (S.autoBetEnabled) {
+        stopMartingale(`Stopped to switch to WinGo ${tf}`);
+      }
+      _timeframeSwitchPending = null;
+      showToast(`🛑 Simulation on WinGo ${S.timeframe} stopped. Switching to WinGo ${tf}...`, 'info');
+    } else {
+      _timeframeSwitchPending = tf;
+      showToast(`⚠️ Simulation test active on WinGo ${S.timeframe}! Click ${tf.toUpperCase()} again to stop test & switch.`, 'warning');
+      return;
+    }
+  } else {
+    _timeframeSwitchPending = null;
+  }
+
+  showTimeframeLoading(tf, true);
+
   if (!S.historyByTimeframe) S.historyByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
   if (!S.aiPredictionMapByTimeframe) S.aiPredictionMapByTimeframe = { '30s': {}, '1m': {}, '3m': {}, '5m': {} };
   if (!S.myBetsByTimeframe) S.myBetsByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
@@ -3519,9 +3747,18 @@ function setTimeframe(tf) {
   if (smartTfBadge) smartTfBadge.textContent = `WinGo ${tf}`;
 
   // 5. Recompute real-time clock and period for this timeframe
-  const { secsLeft, periodStr } = computeRTState();
-  lastPeriod = periodStr;
-  S.currentPeriod = periodStr;
+  try {
+    const saved = localStorage.getItem('wingo_timer_offset_sec_' + tf);
+    window._timerOffsetSec = saved !== null ? (parseInt(saved, 10) || 0) : 0;
+  } catch(e) {
+    window._timerOffsetSec = 0;
+  }
+  updateTimerOffsetBadge();
+
+  const { secsLeft } = computeRTState();
+  const upcomingPeriod = resolveUpcomingPeriod();
+  lastPeriod = upcomingPeriod;
+  S.currentPeriod = upcomingPeriod;
   S.secondsLeft = secsLeft;
   const currentPeriodDisplay = document.getElementById('currentPeriodDisplay');
   if (currentPeriodDisplay) currentPeriodDisplay.textContent = S.currentPeriod;
@@ -3537,6 +3774,22 @@ function setTimeframe(tf) {
   // Sync isolated history to GameHistoryAnalysis v5 engine first
   syncHistoryToGameAnalysis(tf);
 
+  // Sync isolated history with TimeframeManager and obtain fresh isolated prediction
+  if (window.TimeframeManager && typeof window.TimeframeManager.setHistory === 'function') {
+    try {
+      window.TimeframeManager.setHistory(tf, S.history);
+      const tfPred = window.TimeframeManager.generatePrediction(tf);
+      if (tfPred && tfPred.target) {
+        S.aiSignal = tfPred;
+      }
+    } catch(e) {}
+  }
+
+  // Switch SimBot UI session to active timeframe
+  if (window.SimBot && typeof window.SimBot.switchTimeframe === 'function') {
+    window.SimBot.switchTimeframe(tf);
+  }
+
   // Immediately re-run AI predictions for this active timeframe!
   runAI();
 
@@ -3551,18 +3804,33 @@ function setTimeframe(tf) {
 
   if (typeof renderGameHistoryAnalysisTab === 'function') renderGameHistoryAnalysisTab(tf);
 
-  showToast(`⚡ WinGo ${tf} session active. Fetching live draws...`, 'info');
+  // Dismiss the loading overlay cleanly
+  let dismissTimer = setTimeout(() => showTimeframeLoading(tf, false), 160);
 
-  // 7. Immediately fetch real live results for this timeframe
+  // 7. Immediately fetch real live results for this timeframe in background
   fetchLiveAPIResults(tf).then(ok => {
+    if (dismissTimer) clearTimeout(dismissTimer);
+    showTimeframeLoading(tf, false);
     if (ok) {
       syncHistoryToGameAnalysis(tf);
+      if (window.TimeframeManager && typeof window.TimeframeManager.setHistory === 'function') {
+        try {
+          window.TimeframeManager.setHistory(tf, S.history);
+          const tfPred = window.TimeframeManager.generatePrediction(tf);
+          if (tfPred && tfPred.target) {
+            S.aiSignal = tfPred;
+          }
+        } catch(e) {}
+      }
       runAI();
       renderSmartView();
       renderPatternAnalytics();
       if (typeof renderGameHistoryAnalysisTab === 'function') renderGameHistoryAnalysisTab(tf);
       showToast(`✅ WinGo ${tf} live data updated! (${S.history.length} records)`, 'success');
     }
+  }).catch(() => {
+    if (dismissTimer) clearTimeout(dismissTimer);
+    showTimeframeLoading(tf, false);
   });
   saveToLocalStorage();
 }
@@ -3583,20 +3851,28 @@ function toggleAIDiagnostics() {
 }
 
 function updateAIDiagnosticsDrawer() {
-  const sig = S.aiSignal;
+  const realHist = (S.history || []).filter(r => !r.gap);
+  const sig = S.aiSignal || {};
   const QA = window.QuantAlgorithm || {};
   const eSum     = (QA.engineSum || engineSum)(realHist);
   const eTrend   = (QA.engineTrend || engineTrend)(realHist);
   const eDNA     = (QA.engineDNA || engineDNA)(realHist);
   const eM2      = (QA.engineMarkov2 || engineMarkov2)(realHist);
   const eRoll    = (QA.engineRolling || engineRolling)(realHist);
+  const eNN      = QA.engineNeuralNetwork ? QA.engineNeuralNetwork(realHist) : { signal: 'NEUTRAL', prob: 0.5, weight: 0 };
+  const eHouse   = QA.engineHouseAdversary ? QA.engineHouseAdversary(realHist, S.lossStreak || 0) : { signal: 'NEUTRAL', trapDetected: false, weight: 0 };
+  const eMeta    = QA.engineMetacognition ? QA.engineMetacognition(realHist, S.lossStreak || 0) : { regime: 'BALANCED' };
 
-  const elSum   = document.getElementById('diagEngineSum');
-  const elTrend = document.getElementById('diagEngineTrend');
-  const elDNA   = document.getElementById('diagEngineDNA');
-  const elM2    = document.getElementById('diagEngineMarkov');
-  const elRoll  = document.getElementById('diagEngineRolling');
-  const elOR    = document.getElementById('diagEngineOR');
+  const elSum    = document.getElementById('diagEngineSum');
+  const elTrend  = document.getElementById('diagEngineTrend');
+  const elDNA    = document.getElementById('diagEngineDNA');
+  const elM2     = document.getElementById('diagEngineMarkov');
+  const elRoll   = document.getElementById('diagEngineRolling');
+  const elOR     = document.getElementById('diagEngineOR');
+  const elNN     = document.getElementById('diagEngineNeuralNet');
+  const elHouse  = document.getElementById('diagEngineHouse');
+  const elRegime = document.getElementById('diagRegimeName');
+  const elShield = document.getElementById('diagShieldStatus');
 
   if (elSum)   elSum.textContent   = `${eSum.signal} (wt:${eSum.weight})`;
   if (elTrend) elTrend.textContent = `${eTrend.signal} (wt:${eTrend.weight})`;
@@ -3604,6 +3880,18 @@ function updateAIDiagnosticsDrawer() {
   if (elM2)    elM2.textContent    = `${eM2.signal} (wt:${eM2.weight})`;
   if (elRoll)  elRoll.textContent  = `${eRoll.signal} (wt:${eRoll.weight})`;
   if (elOR)    elOR.textContent    = _orSignal ? `${_orSignal.signal} (wt:${_orSignal.weight})` : '—';
+  if (elNN)    elNN.textContent    = `${eNN.signal} (${Math.round((eNN.prob || 0.5) * 100)}%)`;
+  if (elHouse) elHouse.textContent = eHouse.trapDetected ? `${(eHouse.trapType || '').replace(/_/g, ' ')}→${eHouse.signal}` : 'NO TRAP';
+  if (elRegime) elRegime.textContent = (sig.metacognition?.regime || eMeta.regime || 'BALANCED');
+  if (elShield) {
+    if ((S.lossStreak || 0) >= 3 || sig.isShieldActive) {
+      elShield.textContent = '🛡️ ENGAGED (Blocking 4th Loss)';
+      elShield.className   = 'text-rose-400 font-black animate-pulse';
+    } else {
+      elShield.textContent = `ARMED (${S.lossStreak || 0}/3 Losses)`;
+      elShield.className   = 'text-emerald-400 font-bold';
+    }
+  }
 
   const totalTest   = S.aiTestResults.length;
   const correctTest = S.aiTestResults.filter(r => r.correct).length;
@@ -4305,39 +4593,17 @@ function renderSmartView() {
 
   if (signalEl) {
     const target = S.aiSignal?.target;
-    const type = S.aiSignal?.type || (['RED','GREEN'].includes(target) ? 'COLOR' : 'SIZE');
-    const sizeT = S.aiSignal?.sizeTarget;
-    const colorT = S.aiSignal?.colorTarget;
-    const pStr = S.aiSignal?.patternStrength;
-
     if (target) {
       let targetColor = 'text-amber-400';
-      let icon = '';
-      if (target === 'BIG') targetColor = 'text-amber-400';
-      else if (target === 'SMALL') targetColor = 'text-sky-400';
+      let icon = '🟡';
+      if (target === 'BIG')        { targetColor = 'text-amber-400'; icon = '🟡'; }
+      else if (target === 'SMALL') { targetColor = 'text-sky-400';   icon = '🔵'; }
       else if (target === 'GREEN') { targetColor = 'text-emerald-400'; icon = '🟢'; }
-      else if (target === 'RED') { targetColor = 'text-rose-400'; icon = '🔴'; }
-
-      const subInfo = (sizeT && colorT)
-        ? `<div class="text-[9.5px] font-sans text-slate-300 mt-1 flex items-center justify-center gap-2 flex-wrap">
-            <span class="${sizeT==='BIG'?'text-amber-300':'text-sky-300'} font-bold">Size: ${sizeT}</span>
-            <span class="text-slate-600">|</span>
-            <span class="${colorT==='GREEN'?'text-emerald-300':'text-rose-300'} font-bold">Color: ${colorT}</span>
-            <span class="text-[8.5px] px-1.5 py-0.5 rounded ${type === 'COLOR' ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/40' : 'bg-amber-950/80 text-amber-300 border border-amber-500/40'} font-mono font-bold">
-              ★ Stronger Pattern: ${type === 'COLOR' ? (pStr?.colorPattern || 'Color') : (pStr?.sizePattern || 'Size')}
-            </span>
-          </div>`
-        : '';
-
-      const pickHtml = S.aiSignal?.pickDesc
-        ? `<div class="text-[7.5px] text-amber-300 font-mono font-bold leading-tight mt-0.5 truncate max-w-[140px]" title="${S.aiSignal.pickDesc}">
-            🎯 ${S.aiSignal.pickDesc}
-          </div>`
-        : '';
+      else if (target === 'RED')   { targetColor = 'text-rose-400';    icon = '🔴'; }
 
       signalEl.innerHTML = `<div class="flex flex-col items-center justify-center">
-        <span class="${targetColor} font-black text-sm tracking-wider leading-none">${target} ${icon}</span>
-        ${pickHtml}
+        <span class="${targetColor} font-black text-sm tracking-wider leading-none flex items-center gap-1">${target} <span>${icon}</span></span>
+        <div class="text-[8px] text-amber-300 font-mono font-bold leading-tight mt-0.5">🎯 Single Target: ${target}</div>
       </div>`;
     } else {
       signalEl.innerHTML = '<span class="text-slate-400 text-sm italic">ANALYZING...</span>';
@@ -4345,8 +4611,14 @@ function renderSmartView() {
   }
 
   if (engineEl) {
-    const engs = S.aiSignal?.engines?.length ? S.aiSignal.engines.join(' + ') : '5-Engine Consensus';
-    engineEl.textContent = engs;
+    if (S.aiSignal?.isShieldActive) {
+      engineEl.className = 'text-[7.5px] text-rose-400 font-mono mt-0.5 font-bold animate-pulse';
+      engineEl.textContent = '🛡️ 4-LOSS SHIELD ACTIVE';
+    } else {
+      engineEl.className = 'text-[7.5px] text-emerald-400 font-mono mt-0.5';
+      const engs = S.aiSignal?.engines?.length ? S.aiSignal.engines.join(' + ') : '8-Engine Neural Matrix';
+      engineEl.textContent = engs;
+    }
   }
 
   const curStake = S.autoBetEnabled ? (S.martingaleCurrent || S.martingaleBase || 1) : (S.aiSignal?.stake || 1);
@@ -4485,56 +4757,153 @@ function renderSmartView() {
   renderNumberRoad();
 }
 
+function resetLiveAudit() {
+  const tf = S.timeframe || '30s';
+  const realHist = (S.history || []).filter(r => !r.gap).sort((a, b) => String(a.period).localeCompare(String(b.period)));
+  const cutoff = realHist.length > 0 ? realHist[realHist.length - 1].period : 'RESET_NOW';
+
+  if (!S.auditResetPeriod) S.auditResetPeriod = {};
+  S.auditResetPeriod[tf] = cutoff;
+  try {
+    localStorage.setItem('wingo_audit_reset_' + tf, String(cutoff));
+  } catch (e) {}
+
+  if (window.TimeframeManager && typeof window.TimeframeManager.resetAudit === 'function') {
+    window.TimeframeManager.resetAudit(tf, cutoff);
+  }
+  renderPatternAnalytics();
+  showToast(`↺ Live Prediction Audit reset for WinGo ${tf} (draw history preserved)`, 'info');
+}
+
 // ═══════════════════════════════════════════════════════════════
 // PATTERN DETECTION & AI AUDIT ENGINE
 // ═══════════════════════════════════════════════════════════════
 function renderPatternAnalytics() {
+  const tf = S.timeframe || '30s';
   const realHist = S.history.filter(r => !r.gap);
 
-  // ── 1. AI Accuracy & Streak Audit (walk-forward evaluation) ──
-  // For every settled round, use stored prediction if available.
-  // If none was stored (e.g. pure API fetch), retroactively predict
-  // using only the history BEFORE that round — real walk-forward scoring.
-  let totalPreds = 0, correctPreds = 0, wrongPreds = 0;
-  let runningWin = 0, runningLoss = 0;
-  let maxWinStreak = 0, maxLossStreak = 0;
-  let curStreakType = null, curStreakLen = 0;
+  if (!S.auditResetPeriod) S.auditResetPeriod = {};
+  if (!S.auditResetPeriod[tf]) {
+    try {
+      const saved = localStorage.getItem('wingo_audit_reset_' + tf);
+      if (saved) S.auditResetPeriod[tf] = saved;
+    } catch(e) {}
+  }
+  const resetCutoff = S.auditResetPeriod[tf] || null;
 
-  // Sort oldest-first for chronological streak calculation
-  const sorted = [...realHist].sort((a, b) => String(a.period).localeCompare(String(b.period)));
+  // Sync with TimeframeManager for timeframe-isolated stats
+  if (window.TimeframeManager && typeof window.TimeframeManager.setHistory === 'function') {
+    try {
+      window.TimeframeManager.setHistory(tf, S.history);
+    } catch(e) {}
+  }
+  const tmStats = (window.TimeframeManager && typeof window.TimeframeManager.getStats === 'function')
+    ? window.TimeframeManager.getStats(tf)
+    : null;
 
-  sorted.forEach(r => {
-    const p = getAIPredictionForPeriod(r.period);
-    if (p && p.target) {
-      totalPreds++;
-      const isWin = (p.correct !== undefined && p.correct !== null)
-        ? p.correct
-        : ((p.type === 'COLOR')
-          ? ([1,3,7,9,5].includes(r.number) ? p.target === 'GREEN' : p.target === 'RED')
-          : p.target === r.size);
+  // ── 1. AI Accuracy & Streak Audit ──
+  let totalPreds = tmStats ? tmStats.totalSettled : 0;
+  let correctPreds = tmStats ? tmStats.correctCount : 0;
+  let wrongPreds = tmStats ? tmStats.wrongCount : 0;
+  let maxWinStreak = tmStats ? tmStats.maxWinStreak : 0;
+  let maxLossStreak = tmStats ? tmStats.maxLossStreak : 0;
+  let curStreakLen = tmStats ? Math.abs(tmStats.curStreak) : 0;
+  let curStreakType = tmStats ? (tmStats.curStreak > 0 ? 'W' : (tmStats.curStreak < 0 ? 'L' : null)) : null;
+  let accPct = tmStats ? tmStats.accPct : 0;
 
-      if (isWin) {
-        correctPreds++;
-        runningWin++;
-        runningLoss = 0;
-        if (runningWin > maxWinStreak) maxWinStreak = runningWin;
-        curStreakType = 'W';
-        curStreakLen = runningWin;
-      } else {
-        wrongPreds++;
-        runningLoss++;
-        runningWin = 0;
-        if (runningLoss > maxLossStreak) maxLossStreak = runningLoss;
-        curStreakType = 'L';
-        curStreakLen = runningLoss;
+  if (!tmStats) {
+    let runningWin = 0, runningLoss = 0;
+    const sorted = [...realHist].sort((a, b) => String(a.period).localeCompare(String(b.period)));
+    sorted.forEach((r, idx) => {
+      if (resetCutoff && String(r.period) <= String(resetCutoff)) return;
+      let p = getAIPredictionForPeriod(r.period);
+      if (!p && idx >= 1) {
+        const prior = sorted.slice(0, idx);
+        const last = prior[prior.length - 1];
+        p = { target: last.size === 'BIG' ? 'SMALL' : 'BIG', type: 'SIZE' };
       }
+      if (p && p.target) {
+        totalPreds++;
+        const isWin = (p.correct !== undefined && p.correct !== null)
+          ? p.correct
+          : ((p.type === 'COLOR')
+            ? ([1,3,7,9,5].includes(r.number) ? p.target === 'GREEN' : p.target === 'RED')
+            : p.target === r.size);
+
+        if (isWin) {
+          correctPreds++;
+          runningWin++;
+          runningLoss = 0;
+          if (runningWin > maxWinStreak) maxWinStreak = runningWin;
+          curStreakType = 'W';
+          curStreakLen = runningWin;
+        } else {
+          wrongPreds++;
+          runningLoss++;
+          runningWin = 0;
+          if (runningLoss > maxLossStreak) maxLossStreak = runningLoss;
+          curStreakType = 'L';
+          curStreakLen = runningLoss;
+        }
+      }
+    });
+    accPct = totalPreds > 0 ? Math.round(correctPreds / totalPreds * 100) : 0;
+  }
+
+  // ── 2. Size & Color Streaks & Longest Pattern Run ──
+  const sortedAsc = [...realHist].sort((a, b) => String(a.period).localeCompare(String(b.period)));
+
+  let curSizeStreak = 0;
+  let curSizeVal = null;
+  if (sortedAsc.length > 0) {
+    curSizeVal = sortedAsc[sortedAsc.length - 1].size;
+    for (let i = sortedAsc.length - 1; i >= 0; i--) {
+      if (sortedAsc[i].size === curSizeVal) curSizeStreak++;
+      else break;
+    }
+  }
+
+  let curColorStreak = 0;
+  let curColorVal = null;
+  if (sortedAsc.length > 0) {
+    curColorVal = sortedAsc[sortedAsc.length - 1].color;
+    for (let i = sortedAsc.length - 1; i >= 0; i--) {
+      if (sortedAsc[i].color === curColorVal) curColorStreak++;
+      else break;
+    }
+  }
+
+  let maxPatternRun = 0;
+  let maxPatternLabel = '—';
+  let tempSizeRun = 0, lastSize = null;
+  let tempColorRun = 0, lastColor = null;
+
+  sortedAsc.forEach(r => {
+    if (r.size === lastSize) {
+      tempSizeRun++;
+    } else {
+      lastSize = r.size;
+      tempSizeRun = 1;
+    }
+    if (tempSizeRun > maxPatternRun) {
+      maxPatternRun = tempSizeRun;
+      maxPatternLabel = `${tempSizeRun} ${lastSize}`;
+    }
+
+    if (r.color === lastColor) {
+      tempColorRun++;
+    } else {
+      lastColor = r.color;
+      tempColorRun = 1;
+    }
+    if (tempColorRun > maxPatternRun) {
+      maxPatternRun = tempColorRun;
+      maxPatternLabel = `${tempColorRun} ${lastColor}`;
     }
   });
 
-  const accPct = totalPreds > 0 ? Math.round(correctPreds / totalPreds * 100) : 0;
-
   // Populate Live Performance & Streak Audit Card (Above History Table)
-  _setEl('perfAuditTfBadge', `WinGo ${S.timeframe}`);
+  _setEl('perfAuditTfBadge', `WinGo ${tf}`);
   _setEl('liveAuditWinRate', totalPreds > 0 ? `${accPct}%` : '—');
   _setEl('liveAuditWins', correctPreds);
   _setEl('liveAuditLosses', wrongPreds);
@@ -4544,12 +4913,37 @@ function renderPatternAnalytics() {
 
   const elCurStrk = document.getElementById('liveAuditCurStreak');
   if (elCurStrk) {
-    if (curStreakLen > 0) {
+    if (curStreakLen > 0 && curStreakType) {
       const col = curStreakType === 'W' ? 'text-emerald-400' : 'text-rose-400';
       elCurStrk.innerHTML = `<span class="${col}">${curStreakLen}${curStreakType}</span>`;
     } else {
       elCurStrk.textContent = '—';
     }
+  }
+
+  const elSizeStrk = document.getElementById('liveAuditSizeStreak');
+  if (elSizeStrk) {
+    if (curSizeStreak > 0 && curSizeVal) {
+      const cls = curSizeVal === 'BIG' ? 'text-amber-300' : 'text-sky-300';
+      elSizeStrk.innerHTML = `<span class="${cls}">${curSizeStreak} ${curSizeVal}</span>`;
+    } else {
+      elSizeStrk.textContent = '—';
+    }
+  }
+
+  const elColorStrk = document.getElementById('liveAuditColorStreak');
+  if (elColorStrk) {
+    if (curColorStreak > 0 && curColorVal) {
+      const cls = curColorVal === 'GREEN' ? 'text-emerald-400' : curColorVal === 'RED' ? 'text-rose-400' : 'text-purple-400';
+      elColorStrk.innerHTML = `<span class="${cls}">${curColorStreak} ${curColorVal}</span>`;
+    } else {
+      elColorStrk.textContent = '—';
+    }
+  }
+
+  const elMaxPattern = document.getElementById('liveAuditMaxPatternStreak');
+  if (elMaxPattern) {
+    elMaxPattern.textContent = maxPatternRun > 0 ? maxPatternLabel : '—';
   }
 
   _setEl('auditTotalPreds', totalPreds);
@@ -4794,8 +5188,9 @@ function setInitModalTimeframe(tf) {
   });
 
   document.getElementById('ticketTfTitle').textContent = `WinGo ${tf}`;
-  const { secsLeft, periodStr } = computeRTState();
-  lastPeriod = periodStr; S.currentPeriod = periodStr; S.secondsLeft = secsLeft;
+  const { secsLeft } = computeRTState();
+  const upcoming = resolveUpcomingPeriod();
+  lastPeriod = upcoming; S.currentPeriod = upcoming; S.secondsLeft = secsLeft;
   document.getElementById('currentPeriodDisplay').textContent = S.currentPeriod;
   updateTimerUI();
 
@@ -4899,46 +5294,49 @@ function runInitBacktest() {
 
 async function fetchLiveAPIResults(tfOverride) {
   const tf = tfOverride || S.timeframe || '30s';
-  const sys = (window.WIN_GO_SYSTEMS && window.WIN_GO_SYSTEMS[tf]) || window.WinGo30sSystem;
-  const targetUrl = sys ? sys.apiEndpoint : `https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json`;
-  const proxyPath = sys ? sys.proxyPath : `/api-wingo/WinGo/WinGo_30S/GetHistoryIssuePage.json`;
 
-  const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null')
-    ? window.location.origin : 'http://localhost:5173';
-
-  const r = Date.now();
-  const urlsToTry = [
-    `${origin}${proxyPath}?r=${r}`,
-    `http://localhost:5173${proxyPath}?r=${r}`,
-    `http://127.0.0.1:5173${proxyPath}?r=${r}`,
-    `http://localhost:5174${proxyPath}?r=${r}`,
-    `http://127.0.0.1:5174${proxyPath}?r=${r}`,
-    `${targetUrl}?r=${r}`
-  ];
-
-  async function fetchSingle(url) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 4000);
-    try {
-      const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: controller.signal });
-      clearTimeout(timer);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-
-      let list = [];
-      if (Array.isArray(data)) list = data;
-      else if (data && typeof data === 'object') {
-        list = data.list || data.data?.list || data.data || data.rows || data.records || [];
-      }
-      if (Array.isArray(list) && list.length > 0) return list;
-      throw new Error('Empty list');
-    } catch(e) {
-      clearTimeout(timer);
-      throw e;
-    }
-  }
+  // Debounce guard to prevent network request pileup
+  if (!window._isFetching) window._isFetching = {};
+  if (window._isFetching[tf]) return false;
+  window._isFetching[tf] = true;
 
   try {
+    const sys = (window.WIN_GO_SYSTEMS && window.WIN_GO_SYSTEMS[tf]) || window.WinGo30sSystem;
+    const targetUrl = sys ? sys.apiEndpoint : `https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json`;
+    const proxyPath = sys ? sys.proxyPath : `/api-wingo/WinGo/WinGo_30S/GetHistoryIssuePage.json`;
+
+    const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null')
+      ? window.location.origin : 'http://localhost:5173';
+
+    const r = Date.now();
+    const urlsToTry = [
+      `${origin}${proxyPath}?r=${r}`,
+      `http://localhost:5173${proxyPath}?r=${r}`,
+      `${targetUrl}?r=${r}`
+    ];
+
+    async function fetchSingle(url) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 2500);
+      try {
+        const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: controller.signal });
+        clearTimeout(timer);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+
+        let list = [];
+        if (Array.isArray(data)) list = data;
+        else if (data && typeof data === 'object') {
+          list = data.list || data.data?.list || data.data || data.rows || data.records || [];
+        }
+        if (Array.isArray(list) && list.length > 0) return list;
+        throw new Error('Empty list');
+      } catch(e) {
+        clearTimeout(timer);
+        throw e;
+      }
+    }
+
     const list = await Promise.any(urlsToTry.map(u => fetchSingle(u)));
     if (Array.isArray(list) && list.length > 0) {
       let parsedList = list.slice(0, 50).reverse().map(row => {
@@ -4962,6 +5360,20 @@ async function fetchLiveAPIResults(tfOverride) {
             S.historyByTimeframe[tf] = [...parsedList];
             S.isInitialized = true;
 
+            // 1. Sync TimeframeManager and generate timeframe-isolated prediction
+            if (window.TimeframeManager && typeof window.TimeframeManager.setHistory === 'function') {
+              try {
+                window.TimeframeManager.setHistory(tf, S.history);
+                const tfPred = window.TimeframeManager.generatePrediction(tf);
+                if (tfPred && tfPred.target) S.aiSignal = tfPred;
+              } catch(e) {}
+            }
+            syncHistoryToGameAnalysis(tf);
+
+            // 2. Re-run AI predictions BEFORE rendering view!
+            runAI();
+
+            // 3. Render all UI components with updated prediction
             renderHistoryTable();
             renderSmartView();
             renderMiniBalls();
@@ -4969,9 +5381,7 @@ async function fetchLiveAPIResults(tfOverride) {
             renderHeatmap();
             renderBSPattern();
             renderPatternAnalytics();
-            runAI();
             updateTestBanner();
-            syncHistoryToGameAnalysis(tf);
             renderGameHistoryAnalysisTab(tf);
             saveToLocalStorage();
 
@@ -4988,7 +5398,7 @@ async function fetchLiveAPIResults(tfOverride) {
             const existingIdx = S.history.findIndex(r => String(r.period) === String(item.period) || String(r.period).slice(-5) === pLast5);
             const hasPendingBet = S.myBets.some(b => (String(b.period) === String(item.period) || String(b.period).slice(-5) === pLast5) && b.status === 'PENDING');
             if (existingIdx === -1 || S.history[existingIdx].number !== item.number || hasPendingBet) {
-              saveRealResult(item.period, item.number);
+              saveRealResult(item.period, item.number, true);
               hasNew = true;
             }
           }
@@ -4996,13 +5406,6 @@ async function fetchLiveAPIResults(tfOverride) {
           S.historyByTimeframe[tf] = [...S.history];
 
           if (hasNew) {
-            snapTimerToNewRound();
-            renderHistoryTable();
-            renderSmartView();
-            renderMiniBalls();
-            renderTrendChart();
-            renderPatternAnalytics();
-            runAI();
             syncHistoryToGameAnalysis(tf);
             renderGameHistoryAnalysisTab(tf);
             saveToLocalStorage();
@@ -5012,6 +5415,12 @@ async function fetchLiveAPIResults(tfOverride) {
           }
         } else {
           S.historyByTimeframe[tf] = parsedList;
+          if (window.TimeframeManager && typeof window.TimeframeManager.setHistory === 'function') {
+            try {
+              window.TimeframeManager.setHistory(tf, parsedList);
+              window.TimeframeManager.generatePrediction(tf);
+            } catch(e) {}
+          }
           syncHistoryToGameAnalysis(tf);
           if (window.SimBot && typeof SimBot.processResult === 'function' && parsedList.length > 0) {
             const newest = parsedList[parsedList.length - 1];
@@ -5028,6 +5437,8 @@ async function fetchLiveAPIResults(tfOverride) {
   } catch (err) {
     console.warn('Live API sync notice for ' + tf + ':', err.message);
     showOfflineBanner(true);
+  } finally {
+    window._isFetching[tf] = false;
   }
   return false;
 }
@@ -5287,20 +5698,54 @@ function skipBatchResults() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// WIN / LOSS POPUP
+// WIN / LOSS POPUP (Bottom-Right Non-Blocking Floating Toast)
 // ═══════════════════════════════════════════════════════════════
 let _popupTimer = null;
 
-function showWinPopup({ period, number, color, size, profit, balance, aiCorrect, hasBet }) {
+function toggleResultPopup() {
+  S.popupEnabled = !S.popupEnabled;
+  try { localStorage.setItem('wingo_popup_enabled', S.popupEnabled ? 'true' : 'false'); } catch(e) {}
+  updatePopupToggleUI();
+  showToast(S.popupEnabled ? '🔔 Result Popups enabled (Bottom-Right)' : '🔕 Result Popups disabled', 'info');
+}
+
+function updatePopupToggleUI() {
+  const btn = document.getElementById('popupToggleBtn');
+  const txt = document.getElementById('popupToggleText');
+  if (!btn) return;
+  if (S.popupEnabled) {
+    btn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 hover:text-white font-black text-xs transition active:scale-95 shadow';
+    if (txt) txt.textContent = 'Popup: ON';
+  } else {
+    btn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-slate-800/80 border border-slate-700 text-slate-400 hover:text-white font-black text-xs transition active:scale-95 shadow';
+    if (txt) txt.textContent = 'Popup: OFF';
+  }
+}
+
+function closeResultPopups() {
+  clearTimeout(_popupTimer);
+  const w = document.getElementById('winPopup');
+  const l = document.getElementById('lossPopup');
+  if (w) w.style.display = 'none';
+  if (l) l.style.display = 'none';
+}
+
+function showWinPopup({ period, number, color, size, profit, balance, aiCorrect, hasBet, tf, correctCount, wrongCount, accPct, curStreak, maxWin, maxLoss, target }) {
+  if (S.popupEnabled === false) return;
   const el = document.getElementById('winPopup');
   if (!el) return;
   const colorLabel = (color || '').replace('_', '-');
+  const activeTf = tf || S.timeframe || '30s';
+  const stats = (window.TimeframeManager && typeof window.TimeframeManager.getStats === 'function')
+    ? window.TimeframeManager.getStats(activeTf)
+    : null;
+
   document.getElementById('winColorBadge').textContent = colorLabel;
   document.getElementById('winSizeBadge').textContent  = size;
 
   const isRealBet = (hasBet !== undefined) ? hasBet : (S.autoBetEnabled && S.myBets.some(b => b.period === period && b.status === 'WON'));
   const aiPred = getAIPredictionForPeriod(period);
-  const aiTarget = aiPred ? aiPred.target : (S.aiSignal?.target || size);
+  const aiTarget = target || (aiPred ? aiPred.target : (S.aiSignal?.target || 'BIG'));
 
   const mgNextEl = document.getElementById('winMgNextBet');
   const mgNextAmt = document.getElementById('winMgNextAmt');
@@ -5319,31 +5764,57 @@ function showWinPopup({ period, number, color, size, profit, balance, aiCorrect,
   }
 
   document.getElementById('winPeriodEl').textContent = `Period ${String(period).slice(-6)} · Real Number: ${number} (${size})`;
-  document.getElementById('winAiPredictionEl').textContent = `AI Signal: ${aiTarget} | Real Output: ${number} (${size})`;
-  document.getElementById('winAiBadge').textContent = aiCorrect ? '🤖 AI Prediction Matched!' : '📊 Outcome Resolved';
+  document.getElementById('winAiPredictionEl').textContent = `AI Target: ${aiTarget} | Result: ${number} (${size})`;
+  document.getElementById('winAiBadge').textContent = '🤖 AI Prediction Matched!';
+
+  // Populate session statistics strictly for current active timeframe
+  const cCount = correctCount !== undefined ? correctCount : (stats ? stats.correctCount : S.totalWins || 0);
+  const wCount = wrongCount !== undefined ? wrongCount : (stats ? stats.wrongCount : Math.max(0, (S.totalBets || 0) - (S.totalWins || 0)));
+  const aPct = accPct !== undefined ? accPct : (stats ? stats.accPct : (cCount + wCount > 0 ? Math.round(cCount / (cCount + wCount) * 100) : 0));
+  const cStreak = curStreak !== undefined ? curStreak : (stats ? (stats.curStreak >= 0 ? `${stats.curStreak}W` : `${Math.abs(stats.curStreak)}L`) : `${S.winStreak || 1}W`);
+  const mW = maxWin !== undefined ? maxWin : (stats ? `${stats.maxWinStreak}W` : '—');
+  const mL = maxLoss !== undefined ? maxLoss : (stats ? `${stats.maxLossStreak}L` : '—');
+
+  if (document.getElementById('winSessionTfBadge')) document.getElementById('winSessionTfBadge').textContent = `WinGo ${activeTf}`;
+  if (document.getElementById('winSessionAccBadge')) document.getElementById('winSessionAccBadge').textContent = `${aPct}% Accuracy`;
+  if (document.getElementById('winSessionCorrect')) document.getElementById('winSessionCorrect').textContent = cCount;
+  if (document.getElementById('winSessionWrong')) document.getElementById('winSessionWrong').textContent = wCount;
+  if (document.getElementById('winSessionCurStreak')) document.getElementById('winSessionCurStreak').textContent = cStreak;
+  if (document.getElementById('winSessionMaxWin')) document.getElementById('winSessionMaxWin').textContent = mW;
+  if (document.getElementById('winSessionMaxLoss')) document.getElementById('winSessionMaxLoss').textContent = mL;
+
+  // Make sure lossPopup is closed
+  const other = document.getElementById('lossPopup');
+  if (other) other.style.display = 'none';
 
   el.style.display = 'flex';
-  let t = 4;
+  let t = 3;
   clearTimeout(_popupTimer);
   const tick = () => {
-    document.getElementById('winCountdownLabel').textContent = `${t} seconds auto close`;
+    const lbl = document.getElementById('winCountdownLabel');
+    if (lbl) lbl.textContent = `${t}s auto close`;
     if (t <= 0) { el.style.display = 'none'; return; }
     t--; _popupTimer = setTimeout(tick, 1000);
   };
   tick();
-  el.onclick = () => { clearTimeout(_popupTimer); el.style.display = 'none'; };
 }
 
-function showLossPopup({ period, number, color, size, lost, balance, hasBet }) {
+function showLossPopup({ period, number, color, size, lost, balance, hasBet, tf, correctCount, wrongCount, accPct, curStreak, maxWin, maxLoss, target }) {
+  if (S.popupEnabled === false) return;
   const el = document.getElementById('lossPopup');
   if (!el) return;
   const colorLabel = (color || '').replace('_', '-');
+  const activeTf = tf || S.timeframe || '30s';
+  const stats = (window.TimeframeManager && typeof window.TimeframeManager.getStats === 'function')
+    ? window.TimeframeManager.getStats(activeTf)
+    : null;
+
   document.getElementById('lossColorBadge').textContent = colorLabel;
   document.getElementById('lossSizeBadge').textContent  = size;
 
   const isRealBet = (hasBet !== undefined) ? hasBet : (S.autoBetEnabled && S.myBets.some(b => b.period === period && b.status === 'LOST'));
   const aiPred = getAIPredictionForPeriod(period);
-  const aiTarget = aiPred ? aiPred.target : (S.aiSignal?.target || (size === 'BIG' ? 'SMALL' : 'BIG'));
+  const aiTarget = target || (aiPred ? aiPred.target : (S.aiSignal?.target || 'BIG'));
 
   const mgNextEl = document.getElementById('lossMgNextBet');
   const mgNextAmt = document.getElementById('lossMgNextAmt');
@@ -5360,23 +5831,105 @@ function showLossPopup({ period, number, color, size, lost, balance, hasBet }) {
     // If auto-betting is OFF / no bet: show ONLY prediction was wrong, NEVER show loss money!
     document.getElementById('lossTitleHeaderEl').textContent = 'AI Status';
     document.getElementById('lossAmountEl').textContent      = `Prediction Incorrect`;
-    document.getElementById('lossBalanceEl').textContent     = `Auto-Betting: OFF (No Money Lost)`;
+    document.getElementById('lossBalanceEl').textContent     = `Session Monitored (No Money Lost)`;
     if (mgNextEl) mgNextEl.style.display = 'none';
   }
 
   document.getElementById('lossPeriodEl').textContent = `Period ${String(period).slice(-6)} · Real Number: ${number} (${size})`;
-  document.getElementById('lossAiPredictionEl').textContent = `AI Signal: ${aiTarget} | Real Output: ${number} (${size})`;
+  document.getElementById('lossAiPredictionEl').textContent = `AI Target: ${aiTarget} | Result: ${number} (${size})`;
+
+  // Populate session statistics strictly for current active timeframe
+  const cCount = correctCount !== undefined ? correctCount : (stats ? stats.correctCount : S.totalWins || 0);
+  const wCount = wrongCount !== undefined ? wrongCount : (stats ? stats.wrongCount : Math.max(0, (S.totalBets || 0) - (S.totalWins || 0)));
+  const aPct = accPct !== undefined ? accPct : (stats ? stats.accPct : (cCount + wCount > 0 ? Math.round(cCount / (cCount + wCount) * 100) : 0));
+  const cStreak = curStreak !== undefined ? curStreak : (stats ? (stats.curStreak >= 0 ? `${stats.curStreak}W` : `${Math.abs(stats.curStreak)}L`) : `${S.lossStreak || 1}L`);
+  const mW = maxWin !== undefined ? maxWin : (stats ? `${stats.maxWinStreak}W` : '—');
+  const mL = maxLoss !== undefined ? maxLoss : (stats ? `${stats.maxLossStreak}L` : '—');
+
+  if (document.getElementById('lossSessionTfBadge')) document.getElementById('lossSessionTfBadge').textContent = `WinGo ${activeTf}`;
+  if (document.getElementById('lossSessionAccBadge')) document.getElementById('lossSessionAccBadge').textContent = `${aPct}% Accuracy`;
+  if (document.getElementById('lossSessionCorrect')) document.getElementById('lossSessionCorrect').textContent = cCount;
+  if (document.getElementById('lossSessionWrong')) document.getElementById('lossSessionWrong').textContent = wCount;
+  if (document.getElementById('lossSessionCurStreak')) document.getElementById('lossSessionCurStreak').textContent = cStreak;
+  if (document.getElementById('lossSessionMaxWin')) document.getElementById('lossSessionMaxWin').textContent = mW;
+  if (document.getElementById('lossSessionMaxLoss')) document.getElementById('lossSessionMaxLoss').textContent = mL;
+
+  // Make sure winPopup is closed
+  const other = document.getElementById('winPopup');
+  if (other) other.style.display = 'none';
 
   el.style.display = 'flex';
-  let t = 4;
+  let t = 3;
   clearTimeout(_popupTimer);
   const tick = () => {
-    document.getElementById('lossCountdownLabel').textContent = `${t} seconds auto close`;
+    const lbl = document.getElementById('lossCountdownLabel');
+    if (lbl) lbl.textContent = `${t}s auto close`;
     if (t <= 0) { el.style.display = 'none'; return; }
     t--; _popupTimer = setTimeout(tick, 1000);
   };
   tick();
-  el.onclick = () => { clearTimeout(_popupTimer); el.style.display = 'none'; };
+}
+
+let _lastPopupTimestamp = 0;
+
+// ── Trigger Result Popup on actively settled round ────────
+function triggerResultPopup(period, number, size, color, passedIsCorrect = null, passedTarget = null) {
+  if (S.popupEnabled === false) return;
+
+  // Rule: Never show more than 1 win/loss popup at a time, wait at least 10s between popups
+  const now = Date.now();
+  if (now - _lastPopupTimestamp < 10000) return;
+
+  const winEl  = document.getElementById('winPopup');
+  const lossEl = document.getElementById('lossPopup');
+  if ((winEl && winEl.style.display === 'flex') || (lossEl && lossEl.style.display === 'flex')) {
+    return;
+  }
+  _lastPopupTimestamp = now;
+
+  const tf = S.timeframe || '30s';
+  const pred = (window.TimeframeManager && typeof window.TimeframeManager.getPredictionForPeriod === 'function')
+    ? window.TimeframeManager.getPredictionForPeriod(tf, period)
+    : getAIPredictionForPeriod(period);
+
+  const target = passedTarget || (pred ? pred.target : (S.aiSignal?.target || 'BIG'));
+  const type   = pred ? (pred.type || (['RED','GREEN'].includes(target) ? 'COLOR' : 'SIZE')) : (['RED','GREEN'].includes(target) ? 'COLOR' : 'SIZE');
+
+  const n = Number(number);
+  const isGreen = [1,3,7,9,5].includes(n);
+  let isCorrect = false;
+  if (passedIsCorrect !== null && passedIsCorrect !== undefined) {
+    isCorrect = !!passedIsCorrect;
+  } else if (type === 'COLOR') {
+    isCorrect = target === 'GREEN' ? isGreen : !isGreen;
+  } else {
+    isCorrect = String(target).toUpperCase() === String(size).toUpperCase();
+  }
+
+  const stats = (window.TimeframeManager && typeof window.TimeframeManager.getStats === 'function')
+    ? window.TimeframeManager.getStats(tf)
+    : null;
+
+  const bet = (S.myBets || []).find(b => String(b.period) === String(period) || String(b.period).slice(-5) === String(period).slice(-5));
+  const hasBet = !!bet;
+  const betWon = bet ? (bet.status === 'WON' || bet.result === 'WIN') : isCorrect;
+  const betAmt = bet ? (bet.stake || bet.amount || 0) : 0;
+  const profit = bet ? (betWon ? (bet.profit !== undefined ? bet.profit : betAmt * 0.96) : 0) : 0;
+  const lost   = bet ? (!betWon ? betAmt : 0) : 0;
+
+  if (isCorrect) {
+    showWinPopup({
+      period, number: n, color, size,
+      profit, balance: S.balance, aiCorrect: true, hasBet,
+      tf, target
+    });
+  } else {
+    showLossPopup({
+      period, number: n, color, size,
+      lost, balance: S.balance, hasBet,
+      tf, target
+    });
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -5716,6 +6269,7 @@ function saveToLocalStorage() {
       martingaleLevel: S.martingaleLevel,
       martingalePnl: S.martingalePnl,
       martingaleHistory: (S.martingaleHistory || []).slice(-50),
+      auditResetPeriod: S.auditResetPeriod || {},
       savedAt: Date.now()
     };
     localStorage.setItem(LS_KEY, JSON.stringify(payload));
@@ -5733,6 +6287,7 @@ function loadFromLocalStorage() {
       S.historyByTimeframe        = data.historyByTimeframe || { '30s': [], '1m': [], '3m': [], '5m': [] };
       S.aiPredictionMapByTimeframe = data.aiPredictionMapByTimeframe || { '30s': {}, '1m': {}, '3m': {}, '5m': {} };
       S.myBetsByTimeframe         = data.myBetsByTimeframe || { '30s': [], '1m': [], '3m': [], '5m': [] };
+      S.auditResetPeriod          = data.auditResetPeriod || {};
 
       S.balance           = data.balance ?? 100;
       S.initialBalance    = data.initialBalance ?? 100;
@@ -5780,6 +6335,9 @@ function loadFromLocalStorage() {
 // BOOTSTRAP
 // ═══════════════════════════════════════════════════════════════
 window.onload = () => {
+  // ── 0. Guarantee that loading overlay is completely dismissed on initial load / refresh ──
+  showTimeframeLoading(null, false);
+
   // ── 1. Start real-time engine IMMEDIATELY so countdown timer is active from the first millisecond ──
   startRTEngine();
   updateTimerOffsetBadge();
@@ -5791,8 +6349,8 @@ window.onload = () => {
     renderMyBets();
     applyProModeUI();
 
-    // Synchronize active timeframe buttons, titles, badges & countdown duration
-    setTimeframe(S.timeframe || '30s');
+    // Synchronize active timeframe buttons, titles, badges & countdown duration (forced on boot)
+    setTimeframe(S.timeframe || '30s', true);
 
     if (loaded && S.history && S.history.length >= MIN_DATA_TO_PREDICT) {
       // ALWAYS use saved history
@@ -5856,6 +6414,7 @@ const SimBot = (() => {
     return { tf, running: false, stopped: false, cfg: {},
       balance: 0, startBal: 0, baseBet: 0, curBet: 0,
       round: 0, wins: 0, losses: 0, lossChain: 0, curStreak: 0,
+      maxWinStreak: 0, maxLossStreak: 0,
       lastPrediction: null, resultHistory: [], lastSeenPeriod: null };
   }
   const states = { '30s': emptyState('30s'), '1m': emptyState('1m'), '3m': emptyState('3m'), '5m': emptyState('5m') };
@@ -5961,11 +6520,18 @@ const SimBot = (() => {
       else                      { streakEl.textContent = '—';                         streakEl.className = 'font-black text-[10px] font-mono text-slate-300'; }
     }
 
-    const sig = (window.S?.aiSignal?.target) || s.lastPrediction;
+    if ($id('simDisplayMaxWin'))  $id('simDisplayMaxWin').textContent  = `${s.maxWinStreak || 0}W`;
+    if ($id('simDisplayMaxLoss')) $id('simDisplayMaxLoss').textContent = `${s.maxLossStreak || 0}L`;
+
+    const sig = s.lastPrediction || (window.S?.aiSignal?.target);
     const sigEl = $id('simDisplaySignal');
     if (sigEl && sig) {
       sigEl.textContent = sig;
-      sigEl.className = sig === 'BIG' ? 'font-black text-amber-300' : 'font-black text-sky-300';
+      let col = 'text-amber-300';
+      if (sig === 'SMALL') col = 'text-sky-300';
+      else if (sig === 'GREEN') col = 'text-emerald-400';
+      else if (sig === 'RED') col = 'text-rose-400';
+      sigEl.className = `font-black ${col}`;
     }
 
     const chainEl = $id('simMgChain');
@@ -6003,31 +6569,49 @@ const SimBot = (() => {
     if (period && period === s.lastSeenPeriod) return;
     s.lastSeenPeriod = period || null;
 
-    // AI target for this timeframe
-    let aiTarget = (tf === window.S?.timeframe && window.S?.aiSignal?.target) ? window.S.aiSignal.target : s.lastPrediction;
-    if (!aiTarget) {
-      const hist = (window.S?.historyByTimeframe && window.S.historyByTimeframe[tf]) || [];
-      if (hist.length >= 3 && window.QuantAlgorithm) {
-        try {
-          const p = window.QuantAlgorithm.predictNextBet({ history: hist, balance: 100, lossStreak: s.lossChain, timeframe: tf });
-          if (p && p.target) aiTarget = p.target;
-        } catch(e) {}
-      }
+    // AI target for this timeframe strictly from locked prediction for this period
+    let aiTarget = null;
+    if (window.TimeframeManager && typeof window.TimeframeManager.getPredictionForPeriod === 'function' && period) {
+      const pred = window.TimeframeManager.getPredictionForPeriod(tf, period);
+      if (pred && pred.target) aiTarget = pred.target;
     }
-    if (!aiTarget) aiTarget = 'BIG';
+    if (!aiTarget && window.getAIPredictionForPeriod && period) {
+      const pred = window.getAIPredictionForPeriod(period);
+      if (pred && pred.target) aiTarget = pred.target;
+    }
+    if (!aiTarget && tf === window.S?.timeframe && window.S?.aiSignal?.target) {
+      aiTarget = window.S.aiSignal.target;
+    }
+    if (!aiTarget) aiTarget = s.lastPrediction || 'BIG';
     s.lastPrediction = aiTarget;
 
     // Resolve actual outcome
+    let n = null;
     let actualBig = null;
-    if (typeof actualNum === 'number')      actualBig = actualNum >= 5;
-    else if (typeof actualNum === 'string') {
+    if (typeof actualNum === 'number') {
+      n = actualNum;
+      actualBig = actualNum >= 5;
+    } else if (typeof actualNum === 'string') {
       if (actualNum === 'BIG')        actualBig = true;
       else if (actualNum === 'SMALL') actualBig = false;
-      else { const n = parseInt(actualNum, 10); if (!isNaN(n)) actualBig = n >= 5; }
+      else {
+        n = parseInt(actualNum, 10);
+        if (!isNaN(n)) actualBig = n >= 5;
+      }
     }
     if (actualBig === null) return;
 
-    const won = (aiTarget === 'BIG') === actualBig;
+    let won = false;
+    const isGreen = (n !== null) ? [1,3,7,9,5].includes(n) : false;
+    const isRed   = (n !== null) ? [2,4,6,8,0].includes(n) : false;
+
+    if (aiTarget === 'GREEN') {
+      won = isGreen;
+    } else if (aiTarget === 'RED') {
+      won = isRed;
+    } else {
+      won = (aiTarget === 'BIG') === actualBig;
+    }
 
     // Bankrupt guard
     if (s.curBet > s.balance) {
@@ -6047,6 +6631,7 @@ const SimBot = (() => {
       pnlThisRound    = betPlaced * 0.96;
       s.wins++;
       s.curStreak     = s.curStreak >= 0 ? s.curStreak + 1 : 1;
+      if (s.curStreak > (s.maxWinStreak || 0)) s.maxWinStreak = s.curStreak;
       s.lossChain     = 0;
       s.curBet        = s.baseBet;  // reset to base after win
       if (tf === activeTf && $id('simDisplayStatus')) $id('simDisplayStatus').textContent = `✅ WIN +₹${pnlThisRound.toFixed(2)}`;
@@ -6054,6 +6639,8 @@ const SimBot = (() => {
       pnlThisRound    = -betPlaced;
       s.losses++;
       s.curStreak     = s.curStreak <= 0 ? s.curStreak - 1 : -1;
+      const lStreak   = Math.abs(s.curStreak);
+      if (lStreak > (s.maxLossStreak || 0)) s.maxLossStreak = lStreak;
       s.lossChain++;
       s.curBet        = betPlaced * 2;  // double for recovery
       if (tf === activeTf && $id('simDisplayStatus')) $id('simDisplayStatus').textContent = `❌ LOSS — Next bet ₹${s.curBet.toFixed(2)}`;
@@ -6069,7 +6656,7 @@ const SimBot = (() => {
       const betObj = {
         period:    String(period),
         tf,
-        type:      'SIZE',
+        type:      ['RED', 'GREEN'].includes(aiTarget) ? 'COLOR' : 'SIZE',
         choice:    aiTarget,
         aiSignal:  aiTarget,
         stake:     betPlaced,
