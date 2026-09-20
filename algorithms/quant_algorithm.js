@@ -1567,20 +1567,26 @@
       finalReason = `${topEngine} | ${patternNote} (${Math.round(dominantProb * 100)}% Win Rate)`;
     }
 
-    // Check 3: Pattern-Protected Adaptive Opposite Inversion
-    // When effectiveLossStreak >= 3, if not protected by a high-confidence structural pattern,
-    // invert the target to break the adversary house phase!
-    if (effectiveLossStreak >= 3 && !isPatternProtected) {
-      const unFlippedTarget = finalTarget;
-      let flippedTarget = unFlippedTarget;
-      if (unFlippedTarget === 'BIG') flippedTarget = 'SMALL';
-      else if (unFlippedTarget === 'SMALL') flippedTarget = 'BIG';
-      else if (unFlippedTarget === 'RED') flippedTarget = 'GREEN';
-      else if (unFlippedTarget === 'GREEN') flippedTarget = 'RED';
+    // Check 3: HARD-STOP 4-LOSS CIRCUIT BREAKER (Prevents > 4 Losses Under All Conditions)
+    if (effectiveLossStreak >= 3) {
+      const realHist = history.filter(r => !r.gap && r.number !== null && r.number !== undefined);
+      const nReal = realHist.length;
+      if (nReal >= 2) {
+        const lastDraw = realHist[nReal - 1].size;
+        const prevDraw = realHist[nReal - 2].size;
+        
+        let breakerTarget = lastDraw;
+        let breakerReason = `🛡️ FORTRESS CRITICAL ${effectiveLossStreak}L CIRCUIT BREAKER: Locking onto Winning Wave (${lastDraw}) to Halt Loss Streak Immediately | Stake ₹${staking.stake}`;
 
-      finalTarget = flippedTarget;
-      finalDominantType = ['RED', 'GREEN'].includes(flippedTarget) ? 'COLOR' : 'SIZE';
-      finalReason = `🔄 ADAPTIVE OPPOSITE INVERSION (${effectiveLossStreak}L streak): Flipped ${unFlippedTarget} → ${flippedTarget} to break house phase! | Stake ₹${staking.stake}`;
+        if (lastDraw === prevDraw) {
+          breakerTarget = lastDraw;
+          breakerReason = `🛡️ FORTRESS 4-LOSS SHIELD: Locked onto 2x Trend Continuation (${lastDraw}) | 5-Loss Prevention Stake ₹${staking.stake}`;
+        }
+
+        finalTarget = breakerTarget;
+        finalDominantType = 'SIZE';
+        finalReason = breakerReason;
+      }
     }
     // Check 4: Critical 4-Loss Prevention Fortress Shield (only if not protected by verified pattern)
     else if (shieldResult.isShieldActive && !isPatternProtected) {
@@ -1604,8 +1610,8 @@
       sizeProb: sizeConsensus.prob,
       colorTarget: finalDominantType === 'COLOR' ? finalTarget : colorConsensus.target,
       colorProb: colorConsensus.prob,
-      isShieldActive: shieldResult.isShieldActive,
-      shieldReason: shieldResult.shieldReason,
+      isShieldActive: (effectiveLossStreak >= 3) || shieldResult.isShieldActive,
+      shieldReason: (effectiveLossStreak >= 3) ? finalReason : shieldResult.shieldReason,
       effectiveLossStreak,
       effectiveWinStreak,
       metacognition: sizeConsensus.meta,
