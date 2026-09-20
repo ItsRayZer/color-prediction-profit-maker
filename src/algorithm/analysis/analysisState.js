@@ -33,7 +33,14 @@
         const dbKey = `wingo_analysis_db_${tf}`;
         const rawDb = localStorage.getItem(dbKey);
         if (rawDb) {
-          STATE[tf].patternDb = JSON.parse(rawDb);
+          const parsed = JSON.parse(rawDb);
+          const cleanDb = {};
+          Object.keys(parsed || {}).forEach(k => {
+            if (k.length >= 3 && (!parsed[k].length || parsed[k].length >= 3)) {
+              cleanDb[k] = parsed[k];
+            }
+          });
+          STATE[tf].patternDb = cleanDb;
         }
       } catch (err) {
         console.warn(`Could not load persisted analysis state for ${tf}:`, err);
@@ -48,11 +55,11 @@
     if (typeof localStorage === 'undefined' || !STATE[tf]) return;
     try {
       localStorage.setItem(`wingo_analysis_history_${tf}`, JSON.stringify(STATE[tf].history));
-      // Persist trimmed pattern db to save storage quota
+      // Persist trimmed pattern db to save storage quota (excluding any length < 3)
       const trimmedDb = {};
       Object.keys(STATE[tf].patternDb || {}).forEach(k => {
         const r = STATE[tf].patternDb[k];
-        if (r.totalOccurrences > 0) {
+        if (k.length >= 3 && r.totalOccurrences > 0) {
           trimmedDb[k] = r;
         }
       });

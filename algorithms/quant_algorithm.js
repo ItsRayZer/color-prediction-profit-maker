@@ -1295,15 +1295,18 @@
     // 3. Update adaptive weights with streak rewiring
     const adaptiveWeights = updateAdaptiveEngineWeights(history, state.engineWeights, effectiveWinStreak, effectiveLossStreak);
 
-    // 4. Inject validated candidate pattern from GameHistoryAnalysis as extra signal if present
+    // 4. Inject validated candidate pattern from GameHistoryAnalysis as extra signal if present (min length 3)
     const combinedSignals = Array.isArray(extraSignals) ? [...extraSignals] : [];
     if (candidateData && candidateData.bestCandidate) {
       const best = candidateData.bestCandidate;
-      combinedSignals.push({
-        signal: best.probabilityB >= 0.5 ? 'BIG' : 'SMALL',
-        weight: Math.round((best.outOfSampleAccuracy - 0.5) * 200) + 30,
-        engine: `HistoryPattern:${best.code}(${best.exactSequence})`
-      });
+      const patLen = best.length || (best.exactSequence ? best.exactSequence.length : 0);
+      if (patLen >= 3) {
+        combinedSignals.push({
+          signal: best.probabilityB >= 0.5 ? 'BIG' : 'SMALL',
+          weight: Math.round((best.outOfSampleAccuracy - 0.5) * 200) + 30,
+          engine: `HistoryPattern:${best.code}(${best.exactSequence})`
+        });
+      }
     }
 
     // 5. Generate consensus for BOTH Size (BIG/SMALL) and Color (RED/GREEN)

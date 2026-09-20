@@ -134,13 +134,14 @@
     const trailingSeqStr = Matcher.getTrailingSequence(history, Catalog.MAX_CATALOG_LENGTH);
     const trailingSeqArr = trailingSeqStr ? trailingSeqStr.split('') : [];
 
-    // 1. Find exact catalog matches for trailing sequence
-    const exactMatches = Matcher.findMatchingTrailingPatterns(trailingSeqStr, patternDb);
+    // 1. Find exact catalog matches for trailing sequence (minimum length 3)
+    const exactMatches = (Matcher.findMatchingTrailingPatterns(trailingSeqStr, patternDb) || [])
+      .filter(p => (p.length >= 3 || (p.exactSequence && p.exactSequence.length >= 3)));
 
-    // 2. Find structural matches (Dragon streak, Chop alternation, Double block, Cycle, Mirror)
+    // 2. Find structural matches (Dragon streak, Chop alternation, Double block, Cycle, Mirror - all >= 3)
     const structuralMatches = Matcher.detectStructuralPatterns(trailingSeqStr);
 
-    // 3. Filter candidates adaptively so patterns are ALWAYS discovered
+    // 3. Filter candidates adaptively so patterns are ALWAYS discovered (all >= 3)
     let validatedCandidates = exactMatches.filter(p => p.totalOccurrences >= 3 && p.status !== 'FAILED');
     if (validatedCandidates.length === 0) {
       validatedCandidates = exactMatches.filter(p => p.totalOccurrences >= 1 && p.status !== 'FAILED');

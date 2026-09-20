@@ -187,6 +187,10 @@
       <i class="fa-solid fa-layer-group text-amber-400 text-xs"></i>
       <span id="proModeBtnText">⚡ PRO MODE: ON</span>
     </button>
+    <button onclick="toggleRightPanelView()" id="headerWebToggleBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 hover:text-white font-black text-xs transition active:scale-95 shadow" title="Toggle Website View (dhaniwin.99.com) in Right Panel">
+      <i class="fa-solid fa-globe text-sky-400"></i>
+      <span id="headerWebToggleText">Web View</span>
+    </button>
     <div class="hidden lg:flex items-center gap-1 text-[10px] text-slate-400 font-mono bg-white/5 px-3 py-1.5 rounded-2xl border border-white/10">
       <i class="fa-solid fa-circle text-[6px] text-emerald-400 animate-pulse"></i>
       <span id="liveStatusText">Connecting...</span>
@@ -770,7 +774,26 @@
        COLUMN 3: RIGHT PANEL — GAME HISTORY & PATTERN INTELLIGENCE HUB
   ══════════════════════════════════════════════════════════╗ -->
   <aside class="overflow-y-auto overflow-x-hidden bg-black/20 backdrop-blur-3xl" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.2) transparent;">
-    <div class="p-3.5 space-y-3.5">
+    
+    <!-- ── TOP SWITCHER: APP WINDOW vs EMBEDDED WEBSITE VIEW ── -->
+    <div class="sticky top-0 z-30 px-3 pt-2.5 pb-2 bg-[#0c071a]/95 backdrop-blur-xl border-b border-purple-900/40">
+      <div class="flex items-center justify-between gap-1 p-1 bg-purple-950/80 rounded-xl border border-purple-800/50 shadow-lg">
+        <button id="btnRightViewApp" onclick="switchRightPanelView('app')"
+          class="flex-1 py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow">
+          <i class="fa-solid fa-layer-group"></i>
+          <span>App Window</span>
+        </button>
+        <button id="btnRightViewWeb" onclick="switchRightPanelView('web')"
+          class="flex-1 py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 text-slate-300 hover:text-white hover:bg-white/5">
+          <i class="fa-solid fa-globe text-sky-400"></i>
+          <span>Website View</span>
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── 1. APP WINDOW CONTENT (Simulation Bot & Pattern Intelligence Hub) ── -->
+    <div id="rightPanelAppContent" class="p-3.5 space-y-3.5">
 
       <!-- ── 1. SIMULATION TEST MODE BOT ── -->
       <div class="liquid-glass-card p-3 space-y-2" id="simBotCard">
@@ -1059,6 +1082,69 @@
         </button>
       </div>
 
+    </div><!-- end #rightPanelAppContent -->
+
+    <!-- ── 2. EMBEDDED WEBSITE VIEW (DhaniWin Webview) ── -->
+    <div id="rightPanelWebContent" class="hidden p-2.5 space-y-2">
+      <!-- Browser Navigation Toolbar -->
+      <div class="p-2 rounded-xl bg-purple-950/70 border border-purple-800/40 space-y-1.5 shadow-md">
+        <div class="flex items-center gap-1.5">
+          <button onclick="reloadEmbeddedWeb()" title="Reload Webpage" class="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white flex items-center justify-center text-xs transition active:scale-95 border border-white/5">
+            <i class="fa-solid fa-rotate-right"></i>
+          </button>
+          
+          <div class="flex-1 flex items-center bg-black/60 rounded-lg border border-purple-800/40 px-2 py-1 gap-1.5 text-[9px] font-mono focus-within:border-amber-400">
+            <i class="fa-solid fa-lock text-emerald-400 text-[8px]"></i>
+            <input id="embeddedWebUrlInput" type="text" value="https://dhaniwin.99.com"
+              placeholder="https://dhaniwin.99.com"
+              onkeydown="if(event.key==='Enter') loadEmbeddedWebUrl()"
+              class="w-full bg-transparent text-amber-300 placeholder-slate-500 focus:outline-none text-[9.5px]">
+            <button onclick="loadEmbeddedWebUrl()" class="text-amber-400 hover:text-amber-300 font-bold px-1.5 py-0.5 rounded text-[8px] bg-amber-400/10 border border-amber-400/20 active:scale-95">GO</button>
+          </div>
+
+          <button onclick="openEmbeddedInNewTab()" title="Open in New Tab" class="w-7 h-7 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 hover:text-white flex items-center justify-center text-xs transition active:scale-95 border border-indigo-500/30">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+          </button>
+          <button onclick="popoutEmbeddedWeb()" title="Popout Side Window" class="w-7 h-7 rounded-lg bg-purple-900/40 hover:bg-purple-900/70 text-purple-300 hover:text-white flex items-center justify-center text-xs transition active:scale-95 border border-purple-700/30">
+            <i class="fa-solid fa-window-restore"></i>
+          </button>
+        </div>
+
+        <!-- Quick Domain Mirrors Row -->
+        <div class="flex items-center justify-between gap-1 text-[8px] font-mono pt-0.5 border-t border-white/5">
+          <span class="text-slate-400 uppercase tracking-tight">Quick Mirrors:</span>
+          <div class="flex items-center gap-1">
+            <button onclick="setEmbeddedMirror('https://dhaniwin.99.com')" class="px-1.5 py-0.5 rounded bg-white/5 hover:bg-amber-400/20 text-slate-300 hover:text-amber-300 border border-white/5 transition">dhaniwin.99.com</button>
+            <button onclick="setEmbeddedMirror('https://dhaniwin99.com')" class="px-1.5 py-0.5 rounded bg-white/5 hover:bg-amber-400/20 text-slate-300 hover:text-amber-300 border border-white/5 transition">dhaniwin99.com</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Iframe Container -->
+      <div class="relative rounded-xl overflow-hidden border border-purple-800/50 shadow-2xl bg-black/80 flex flex-col" style="height:calc(100vh - 165px);min-height:540px;">
+        <iframe id="embeddedWebIframe"
+          src="https://dhaniwin.99.com"
+          class="w-full flex-1 border-0 bg-[#0e0a1a]"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; payment"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads">
+        </iframe>
+
+        <!-- Bottom Assistance Bar -->
+        <div class="p-2 bg-gradient-to-r from-purple-950/90 to-slate-950/95 border-t border-purple-800/40 text-[8.5px] text-slate-300 flex items-center justify-between gap-2 shrink-0">
+          <div class="flex items-center gap-1.5 truncate">
+            <i class="fa-solid fa-circle-info text-amber-400"></i>
+            <span class="text-slate-400 truncate">If site blocks in-browser iframe:</span>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            <button onclick="openEmbeddedInNewTab()" class="px-2 py-0.5 rounded bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/30 font-bold active:scale-95 transition flex items-center gap-1">
+              <i class="fa-solid fa-arrow-up-right-from-square text-[7.5px]"></i> New Tab
+            </button>
+            <button onclick="popoutEmbeddedWeb()" class="px-2 py-0.5 rounded bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/30 font-bold active:scale-95 transition flex items-center gap-1">
+              <i class="fa-solid fa-window-restore text-[7.5px]"></i> Side Window
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </aside>
 
@@ -4047,6 +4133,122 @@ function switchCenterView(view) {
   // No-op: Game History & Analysis now lives permanently in the right panel
 }
 
+// ═══════════════════════════════════════════════════════════════
+// RIGHT PANEL VIEW CONTROLLER (App Window vs Embedded Website View)
+// ═══════════════════════════════════════════════════════════════
+let currentRightPanelView = 'app';
+
+function switchRightPanelView(view) {
+  currentRightPanelView = (view === 'web') ? 'web' : 'app';
+  const appContent = document.getElementById('rightPanelAppContent');
+  const webContent = document.getElementById('rightPanelWebContent');
+  const btnApp = document.getElementById('btnRightViewApp');
+  const btnWeb = document.getElementById('btnRightViewWeb');
+  const headerBtn = document.getElementById('headerWebToggleBtn');
+  const headerBtnText = document.getElementById('headerWebToggleText');
+  const iframe = document.getElementById('embeddedWebIframe');
+
+  if (currentRightPanelView === 'web') {
+    if (appContent) appContent.classList.add('hidden');
+    if (webContent) webContent.classList.remove('hidden');
+    if (btnApp) {
+      btnApp.className = 'flex-1 py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 text-slate-300 hover:text-white hover:bg-white/5';
+    }
+    if (btnWeb) {
+      btnWeb.className = 'flex-1 py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow';
+    }
+    if (headerBtn) {
+      headerBtn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-sky-500/20 border border-sky-400/60 text-sky-300 hover:text-white font-black text-xs transition active:scale-95 shadow-[0_0_12px_rgba(56,189,248,0.25)]';
+    }
+    if (headerBtnText) headerBtnText.textContent = 'App View';
+
+    // Ensure iframe is loaded with target
+    if (iframe && (!iframe.src || iframe.src === 'about:blank' || iframe.src === window.location.href)) {
+      const input = document.getElementById('embeddedWebUrlInput');
+      const targetUrl = (input && input.value) ? input.value : 'https://dhaniwin.99.com';
+      iframe.src = targetUrl;
+    }
+  } else {
+    if (webContent) webContent.classList.add('hidden');
+    if (appContent) appContent.classList.remove('hidden');
+    if (btnApp) {
+      btnApp.className = 'flex-1 py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow';
+    }
+    if (btnWeb) {
+      btnWeb.className = 'flex-1 py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 text-slate-300 hover:text-white hover:bg-white/5';
+    }
+    if (headerBtn) {
+      headerBtn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 hover:text-white font-black text-xs transition active:scale-95 shadow';
+    }
+    if (headerBtnText) headerBtnText.textContent = 'Web View';
+  }
+
+  try {
+    localStorage.setItem('wingo_right_panel_view', currentRightPanelView);
+  } catch (e) {}
+}
+
+function toggleRightPanelView() {
+  switchRightPanelView(currentRightPanelView === 'web' ? 'app' : 'web');
+}
+
+function loadEmbeddedWebUrl(urlToLoad) {
+  const input = document.getElementById('embeddedWebUrlInput');
+  const iframe = document.getElementById('embeddedWebIframe');
+  let url = urlToLoad || (input ? input.value.trim() : '');
+  if (!url) url = 'https://dhaniwin.99.com';
+  if (!/^https?:\/\//i.test(url)) {
+    url = 'https://' + url;
+  }
+  if (input) input.value = url;
+  if (iframe) iframe.src = url;
+  try {
+    localStorage.setItem('wingo_embedded_url', url);
+  } catch (e) {}
+}
+
+function reloadEmbeddedWeb() {
+  const iframe = document.getElementById('embeddedWebIframe');
+  if (iframe) {
+    const src = iframe.src;
+    iframe.src = 'about:blank';
+    setTimeout(() => { iframe.src = src; }, 100);
+  }
+}
+
+function setEmbeddedMirror(url) {
+  loadEmbeddedWebUrl(url);
+}
+
+function openEmbeddedInNewTab() {
+  const input = document.getElementById('embeddedWebUrlInput');
+  const url = (input && input.value) ? input.value : 'https://dhaniwin.99.com';
+  window.open(url, '_blank');
+}
+
+function popoutEmbeddedWeb() {
+  const input = document.getElementById('embeddedWebUrlInput');
+  const url = (input && input.value) ? input.value : 'https://dhaniwin.99.com';
+  window.open(url, 'DhaniWinWeb', 'width=460,height=820,menubar=no,toolbar=no,location=no,status=no');
+}
+
+// Restore right panel view on boot
+(function initRightPanelView() {
+  try {
+    const saved = localStorage.getItem('wingo_right_panel_view');
+    if (saved === 'web') {
+      setTimeout(() => switchRightPanelView('web'), 200);
+    }
+    const savedUrl = localStorage.getItem('wingo_embedded_url');
+    if (savedUrl) {
+      const input = document.getElementById('embeddedWebUrlInput');
+      const iframe = document.getElementById('embeddedWebIframe');
+      if (input) input.value = savedUrl;
+      if (iframe) iframe.src = savedUrl;
+    }
+  } catch (e) {}
+})();
+
 function selectAnalysisTf(tf) {
   currentAnalysisTf = tf;
   if (tf !== S.timeframe) {
@@ -4232,6 +4434,12 @@ function renderGhRankingTable(data) {
   } else if (currentAnalysisFilter === 'failed') {
     list = data.rankings?.failedWeakening || data.rankings?.failedList || [];
   }
+
+  // Remove 1-2 digit sequence patterns (strictly length >= 3)
+  list = list.filter(p => {
+    const len = p.length || (p.sequence ? p.sequence.length : (p.exactSequence ? p.exactSequence.length : 0));
+    return len >= 3;
+  });
 
   // Filter by search query if any
   if (currentAnalysisSearch) {

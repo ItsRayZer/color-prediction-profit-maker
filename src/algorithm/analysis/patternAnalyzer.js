@@ -34,8 +34,15 @@
 
     // Ensure catalog base entries exist in db
     Catalog.CATALOG_LIST.forEach(entry => {
-      if (!db[entry.exactSequence]) {
+      if (entry.length >= 3 && !db[entry.exactSequence]) {
         db[entry.exactSequence] = Stats.createPatternRecord(entry);
+      }
+    });
+
+    // Purge any legacy or 1-2 digit sequence patterns from database
+    Object.keys(db).forEach(k => {
+      if (k.length < 3 || (db[k] && db[k].length < 3)) {
+        delete db[k];
       }
     });
 
@@ -48,10 +55,11 @@
       rec.predictionHistory = [];
     });
 
-    const maxScanLen = Math.min(Catalog.MAX_CATALOG_LENGTH, Math.max(1, n - 1));
+    const minScanLen = 3;
+    const maxScanLen = Math.min(Catalog.MAX_CATALOG_LENGTH, Math.max(minScanLen, n - 1));
 
-    // 1. Scan and count all occurrences and following results
-    for (let len = 1; len <= maxScanLen; len++) {
+    // 1. Scan and count all occurrences and following results (minimum length 3)
+    for (let len = minScanLen; len <= maxScanLen; len++) {
       for (let i = 0; i <= n - len; i++) {
         const subSeq = fullSeq.slice(i, i + len);
         if (!db[subSeq]) {
@@ -148,8 +156,8 @@
     for (let i = 0; i < n - 1; i++) {
       const nextActual = fullSeq[i + 1];
 
-      // Test all pattern lengths matching ending at index i
-      for (let len = 1; len <= Math.min(Catalog.MAX_CATALOG_LENGTH, i + 1); len++) {
+      // Test all pattern lengths matching ending at index i (minimum length 3)
+      for (let len = 3; len <= Math.min(Catalog.MAX_CATALOG_LENGTH, i + 1); len++) {
         const sub = fullSeq.slice(i - len + 1, i + 1);
         if (!db[sub]) continue;
 
@@ -211,7 +219,7 @@
    * Generates rankings for the UI and ensemble
    */
   function generateRankings(db) {
-    const list = Object.values(db || {}).filter(r => r.totalOccurrences > 0);
+    const list = Object.values(db || {}).filter(r => r.totalOccurrences > 0 && (r.length >= 3 || (r.exactSequence && r.exactSequence.length >= 3)));
 
     const mostRepeated = [...list]
       .sort((a, b) => b.totalOccurrences - a.totalOccurrences)

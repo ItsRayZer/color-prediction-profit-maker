@@ -8,6 +8,7 @@
 (function(global) {
   'use strict';
 
+  const MIN_CATALOG_LENGTH = 3;
   const MAX_CATALOG_LENGTH = 8;
 
   // Structural pattern taxonomy definitions
@@ -40,13 +41,13 @@
   }
 
   /**
-   * Builds the complete permanent catalog table
+   * Builds the complete permanent catalog table (minimum length 3)
    */
-  function buildCatalog(maxLen = MAX_CATALOG_LENGTH) {
+  function buildCatalog(maxLen = MAX_CATALOG_LENGTH, minLen = MIN_CATALOG_LENGTH) {
     const catalog = {};
     const list = [];
 
-    for (let len = 1; len <= maxLen; len++) {
+    for (let len = minLen; len <= maxLen; len++) {
       const seqs = generateSequencesOfLength(len);
       seqs.forEach((seq, idx) => {
         const lenCode = String(len).padStart(2, '0');
@@ -99,6 +100,7 @@
   function getPatternBySequence(seq) {
     if (!seq) return null;
     const clean = String(seq).toUpperCase().trim();
+    if (clean.length < MIN_CATALOG_LENGTH) return null; // Exclude 1-2 digit sequences
     if (CATALOG_MAP[clean]) return CATALOG_MAP[clean];
     
     // Dynamic fallback for length > 8
@@ -116,6 +118,7 @@
   }
 
   const PatternCatalog = {
+    MIN_CATALOG_LENGTH,
     MAX_CATALOG_LENGTH,
     STRUCTURAL_PATTERNS,
     CATALOG_MAP,

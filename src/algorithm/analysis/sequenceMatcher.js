@@ -33,10 +33,11 @@
     const matched = [];
     const len = trailingSeq.length;
 
-    for (let k = 1; k <= len; k++) {
+    // Candidate patterns start at minimum length 3 (excluding 1-2 digit sequences)
+    for (let k = 3; k <= len; k++) {
       const sub = trailingSeq.slice(-k);
       const record = patternDb[sub];
-      if (record) {
+      if (record && (record.length >= 3 || (record.exactSequence && record.exactSequence.length >= 3))) {
         matched.push(record);
       }
     }
