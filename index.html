@@ -137,6 +137,51 @@
     .num-pick { width:52px;height:52px;border-radius:12px;font-weight:900;font-size:18px;cursor:pointer;transition:transform .1s,box-shadow .1s; }
     .num-pick:active { transform:scale(.88); }
     .num-pick.selected { box-shadow:0 0 0 3px #f59e0b, 0 0 12px rgba(245,158,11,.5); }
+
+    /* ── Desktop 3-Window Layout Resizers & Stubs ── */
+    .col-resizer-handle {
+      width: 8px;
+      flex-shrink: 0;
+      background: transparent;
+      position: relative;
+      z-index: 25;
+      cursor: col-resize;
+      user-select: none;
+      transition: background 0.15s ease;
+      touch-action: none;
+    }
+    .col-resizer-handle::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 3px;
+      width: 2px;
+      background: rgba(147, 51, 234, 0.25);
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+    .col-resizer-handle:hover::before,
+    .col-resizer-handle.resizer-active::before {
+      background: #f59e0b;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.6);
+    }
+    .col-resizer-handle:hover,
+    .col-resizer-handle.resizer-active {
+      background: rgba(245, 158, 11, 0.08);
+    }
+    body.is-resizing {
+      cursor: col-resize !important;
+      user-select: none !important;
+    }
+    body.is-resizing * {
+      user-select: none !important;
+      cursor: col-resize !important;
+    }
+    .writing-mode-vertical {
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      letter-spacing: 0.18em;
+    }
   </style>
 </head>
 <body class="bg-app-bg min-h-screen text-white overflow-x-hidden relative">
@@ -179,6 +224,28 @@
     <span id="mgHeaderLevel" class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black text-[9px]">Lvl 0</span>
     <span class="text-slate-400 font-mono text-[10px]" id="mgHeaderPnl">PnL: <span class="text-emerald-400">+₹0</span></span>
   </div>
+
+    <!-- Desktop Window Layout Quick Dock (Show / Hide 3 Windows + Reset) -->
+    <div id="windowLayoutDock" class="hidden lg:flex items-center bg-black/60 p-0.5 rounded-2xl border border-white/10 gap-1 shadow-inner">
+      <span class="text-[9px] font-mono text-slate-400 pl-2 pr-1 uppercase font-bold flex items-center gap-1">
+        <i class="fa-solid fa-table-columns text-purple-400 text-[9.5px]"></i> Windows
+      </span>
+      <button id="dockCol1Btn" onclick="toggleWindowCol('col1')" class="px-2 py-1 rounded-xl text-[9px] font-black uppercase transition active:scale-95 flex items-center gap-1 bg-amber-400/20 text-amber-300 border border-amber-400/50 shadow-sm" title="Toggle Live History & Audit (Column 1)">
+        <i class="fa-solid fa-eye text-amber-400 text-[8.5px]"></i>
+        <span>1. History</span>
+      </button>
+      <button id="dockCol2Btn" onclick="toggleWindowCol('col2')" class="px-2 py-1 rounded-xl text-[9px] font-black uppercase transition active:scale-95 flex items-center gap-1 bg-amber-400/20 text-amber-300 border border-amber-400/50 shadow-sm" title="Toggle WinGo Hero & Trading Chart (Column 2)">
+        <i class="fa-solid fa-eye text-amber-400 text-[8.5px]"></i>
+        <span>2. Chart</span>
+      </button>
+      <button id="dockCol3Btn" onclick="toggleWindowCol('col3')" class="px-2 py-1 rounded-xl text-[9px] font-black uppercase transition active:scale-95 flex items-center gap-1 bg-amber-400/20 text-amber-300 border border-amber-400/50 shadow-sm" title="Toggle Intelligence Hub & Web View (Column 3)">
+        <i class="fa-solid fa-eye text-amber-400 text-[8.5px]"></i>
+        <span>3. Hub</span>
+      </button>
+      <button onclick="resetWindowLayout()" class="p-1 px-2 rounded-xl text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/10 transition active:scale-95 border border-transparent hover:border-white/10" title="Reset all 3 windows to equal size">
+        <i class="fa-solid fa-rotate-left text-[9px]"></i>
+      </button>
+    </div>
 
     <button onclick="toggleResultPopup()" id="popupToggleBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 hover:text-white font-black text-xs transition active:scale-95 shadow" title="Toggle Result Popup ON or OFF">
       <i class="fa-solid fa-bell text-xs"></i>
@@ -241,7 +308,7 @@
 <!-- ════════════════════════════════════════════════════════════
      MAIN DESKTOP GRID (3 Equal Columns: Live History | Trend & Num Road | Analysis Hub)
 ════════════════════════════════════════════════════════════ -->
-<div id="mainDesktopGrid" class="relative z-10 flex flex-col lg:grid lg:grid-cols-3 w-full" style="min-height:calc(100vh - 54px)">
+<div id="mainDesktopGrid" class="relative z-10 flex flex-col lg:flex lg:flex-row w-full overflow-hidden" style="min-height:calc(100vh - 54px)">
 
   <!-- ╔══════════════════════════════════════════════════════════
        LEFT PANEL — Manual Betting & Legacy Terminal (Normal Mode Only)
@@ -509,7 +576,7 @@
   <!-- ╔══════════════════════════════════════════════════════════
        COLUMN 1: LIVE REAL HISTORY FEED & REPEATED COLOR/DIGIT AUDIT
   ══════════════════════════════════════════════════════════╗ -->
-  <section class="overflow-y-auto overflow-x-hidden p-3 space-y-3 bg-[#0a0615] lg:border-r border-purple-900/30" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
+  <section id="col1Container" class="overflow-y-auto overflow-x-hidden p-3 space-y-3 bg-[#0a0615] lg:border-r border-purple-900/30 flex-col" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
     
     <!-- ── LIVE PERFORMANCE & STREAK AUDIT (ABOVE LIVE HISTORY) ── -->
     <div class="bg-app-card rounded-2xl p-2.5 border border-purple-900/40 shadow-xl space-y-2">
@@ -522,6 +589,9 @@
           <span id="perfAuditTfBadge" class="text-[8px] px-1.5 py-0.5 rounded-full bg-purple-900/50 text-purple-300 font-mono border border-purple-700/40">WinGo 30s</span>
           <button onclick="resetLiveAudit()" title="Reset session metrics without modifying draw history" class="px-1.5 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-mono text-[8px] font-bold border border-rose-500/30 active:scale-95 transition flex items-center gap-1">
             <i class="fa-solid fa-rotate-left text-[7.5px]"></i> Reset
+          </button>
+          <button onclick="toggleWindowCol('col1')" title="Hide Window (gives other windows more space)" class="hidden lg:flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 font-mono text-[8px] font-bold border border-white/10 active:scale-95 transition">
+            <i class="fa-solid fa-window-minimize text-[7px]"></i> Hide
           </button>
         </div>
       </div>
@@ -692,10 +762,26 @@
 
   </section>
 
+  <!-- Column 1 Collapsed Dock Stub (shown when Col 1 is hidden) -->
+  <div id="col1CollapsedStub" class="hidden flex-col items-center justify-between py-6 px-1.5 bg-[#0e081e] border-r border-purple-900/50 cursor-pointer hover:bg-purple-950/70 transition group select-none shadow-lg z-20" style="width:28px;flex:0 0 28px;max-height:calc(100vh - 54px);" onclick="toggleWindowCol('col1')" title="Click to show Live History window">
+    <span class="p-1 rounded-md bg-white/5 group-hover:bg-amber-400 group-hover:text-slate-950 text-amber-400 transition text-[9px]">
+      <i class="fa-solid fa-chevron-right"></i>
+    </span>
+    <span class="writing-mode-vertical text-[9px] font-black tracking-widest text-slate-400 group-hover:text-amber-300 uppercase py-2">LIVE HISTORY</span>
+    <span class="w-2 h-2 rounded-full bg-amber-400/60 animate-pulse"></span>
+  </div>
+
+  <!-- Draggable Divider 1 (Between Col 1 and Col 2) -->
+  <div id="colResizeHandle1" class="col-resizer-handle hidden lg:flex items-center justify-center cursor-col-resize select-none relative z-20 group" title="Drag to resize Window 1 & 2 • Double-click to equalize">
+    <div class="w-[8px] h-full flex items-center justify-center bg-transparent group-hover:bg-amber-500/20 group-active:bg-amber-500/40 transition">
+      <div class="w-[2px] h-12 rounded-full bg-purple-600/40 group-hover:bg-amber-400 group-active:bg-amber-400 transition shadow"></div>
+    </div>
+  </div>
+
   <!-- ╔══════════════════════════════════════════════════════════
-       COLUMN 2: TOP MIDDLE WINGO HERO + TREND GRAPH & NUMBER ROAD MAP
+       COLUMN 2: TOP MIDDLE WINGO HERO + TRADING CANDLESTICK CHART
   ══════════════════════════════════════════════════════════╗ -->
-  <main class="overflow-y-auto overflow-x-hidden p-3 space-y-3 bg-[#0a0615] lg:border-r border-purple-900/30" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
+  <main id="col2Container" class="overflow-y-auto overflow-x-hidden p-3 space-y-3 bg-[#0a0615] lg:border-r border-purple-900/30 flex-col" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
     
     <!-- ── COMPACT PRO HERO WINGO WINDOW (TOP MIDDLE ONLY) ── -->
     <div class="p-2 bg-app-card/90 backdrop-blur-xl rounded-xl border border-purple-900/40 shadow-md space-y-1.5">
@@ -715,6 +801,9 @@
         <div class="flex items-center gap-1.5 text-[8.5px] font-mono text-slate-400">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
           <span class="text-emerald-300 font-semibold">Live</span>
+          <button onclick="toggleWindowCol('col2')" title="Hide Window (gives other windows more space)" class="hidden lg:flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 font-mono text-[8px] font-bold border border-white/10 active:scale-95 transition">
+            <i class="fa-solid fa-window-minimize text-[7px]"></i> Hide
+          </button>
         </div>
       </div>
 
@@ -860,10 +949,26 @@
 
   </main>
 
+  <!-- Column 2 Collapsed Dock Stub (shown when Col 2 is hidden) -->
+  <div id="col2CollapsedStub" class="hidden flex-col items-center justify-between py-6 px-1.5 bg-[#0e081e] border-x border-purple-900/50 cursor-pointer hover:bg-purple-950/70 transition group select-none shadow-lg z-20" style="width:28px;flex:0 0 28px;max-height:calc(100vh - 54px);" onclick="toggleWindowCol('col2')" title="Click to show Trading Station & WinGo Hero">
+    <span class="p-1 rounded-md bg-white/5 group-hover:bg-amber-400 group-hover:text-slate-950 text-amber-400 transition text-[9px]">
+      <i class="fa-solid fa-chart-line"></i>
+    </span>
+    <span class="writing-mode-vertical text-[9px] font-black tracking-widest text-slate-400 group-hover:text-amber-300 uppercase py-2">TRADING CHART</span>
+    <span class="w-2 h-2 rounded-full bg-emerald-400/60 animate-pulse"></span>
+  </div>
+
+  <!-- Draggable Divider 2 (Between Col 2 and Col 3) -->
+  <div id="colResizeHandle2" class="col-resizer-handle hidden lg:flex items-center justify-center cursor-col-resize select-none relative z-20 group" title="Drag to resize Window 2 & 3 • Double-click to equalize">
+    <div class="w-[8px] h-full flex items-center justify-center bg-transparent group-hover:bg-amber-500/20 group-active:bg-amber-500/40 transition">
+      <div class="w-[2px] h-12 rounded-full bg-purple-600/40 group-hover:bg-amber-400 group-active:bg-amber-400 transition shadow"></div>
+    </div>
+  </div>
+
   <!-- ╔══════════════════════════════════════════════════════════
        COLUMN 3: RIGHT PANEL — GAME HISTORY & PATTERN INTELLIGENCE HUB
   ══════════════════════════════════════════════════════════╗ -->
-  <aside class="overflow-y-auto overflow-x-hidden bg-black/20 backdrop-blur-3xl" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.2) transparent;">
+  <aside id="col3Container" class="overflow-y-auto overflow-x-hidden bg-black/20 backdrop-blur-3xl flex-col" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.2) transparent;">
     
     <!-- ── TOP SWITCHER: APP WINDOW vs EMBEDDED WEBSITE VIEW ── -->
     <div class="sticky top-0 z-30 px-3 pt-2.5 pb-2 bg-[#0c071a]/95 backdrop-blur-xl border-b border-purple-900/40">
@@ -878,6 +983,9 @@
           <i class="fa-solid fa-globe text-sky-400"></i>
           <span>Website View</span>
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block"></span>
+        </button>
+        <button onclick="toggleWindowCol('col3')" title="Hide Window (gives other windows more space)" class="hidden lg:flex items-center gap-1 px-2 py-1.5 rounded-lg bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 text-[9px] font-bold uppercase transition active:scale-95 border border-white/10">
+          <i class="fa-solid fa-window-minimize text-[7.5px]"></i> <span>Hide</span>
         </button>
       </div>
     </div>
@@ -1349,6 +1457,15 @@
 
     </div>
   </aside>
+
+  <!-- Column 3 Collapsed Dock Stub (shown when Col 3 is hidden) -->
+  <div id="col3CollapsedStub" class="hidden flex-col items-center justify-between py-6 px-1.5 bg-[#0e081e] border-l border-purple-900/50 cursor-pointer hover:bg-purple-950/70 transition group select-none shadow-lg z-20" style="width:28px;flex:0 0 28px;max-height:calc(100vh - 54px);" onclick="toggleWindowCol('col3')" title="Click to show Analysis Hub window">
+    <span class="p-1 rounded-md bg-white/5 group-hover:bg-amber-400 group-hover:text-slate-950 text-amber-400 transition text-[9px]">
+      <i class="fa-solid fa-chevron-left"></i>
+    </span>
+    <span class="writing-mode-vertical text-[9px] font-black tracking-widest text-slate-400 group-hover:text-amber-300 uppercase py-2">ANALYSIS HUB</span>
+    <span class="w-2 h-2 rounded-full bg-sky-400/60 animate-pulse"></span>
+  </div>
 
 </div><!-- end 3-col grid -->
 
@@ -4012,6 +4129,301 @@ function drawConnectorLine(hist) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// DESKTOP 3-WINDOW RESIZING & HIDE / SHOW LAYOUT MANAGER
+// ═══════════════════════════════════════════════════════════════
+let windowLayoutState = {
+  col1: { visible: true, weight: 32 },
+  col2: { visible: true, weight: 36 },
+  col3: { visible: true, weight: 32 }
+};
+
+try {
+  const saved = localStorage.getItem('dhaniwin_3col_layout_v1');
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    if (parsed && typeof parsed.col1 === 'object' && typeof parsed.col2 === 'object' && typeof parsed.col3 === 'object') {
+      const visibleCount = ['col1', 'col2', 'col3'].filter(k => parsed[k].visible).length;
+      if (visibleCount > 0) {
+        windowLayoutState = {
+          col1: { visible: !!parsed.col1.visible, weight: Math.max(12, Number(parsed.col1.weight) || 32) },
+          col2: { visible: !!parsed.col2.visible, weight: Math.max(15, Number(parsed.col2.weight) || 36) },
+          col3: { visible: !!parsed.col3.visible, weight: Math.max(12, Number(parsed.col3.weight) || 32) }
+        };
+      }
+    }
+  }
+} catch(e) {}
+
+function saveWindowLayout() {
+  try {
+    localStorage.setItem('dhaniwin_3col_layout_v1', JSON.stringify(windowLayoutState));
+  } catch(e) {}
+}
+
+function resetWindowLayout() {
+  windowLayoutState = {
+    col1: { visible: true, weight: 32 },
+    col2: { visible: true, weight: 36 },
+    col3: { visible: true, weight: 32 }
+  };
+  saveWindowLayout();
+  applyDesktopLayout();
+  if (typeof showToast === 'function') {
+    showToast('Layout reset: All 3 windows restored equally', 'info');
+  }
+}
+
+function toggleWindowCol(colKey) {
+  if (!windowLayoutState[colKey]) return;
+  const isCurrentlyVisible = windowLayoutState[colKey].visible;
+
+  if (isCurrentlyVisible) {
+    const visibleCount = ['col1', 'col2', 'col3'].filter(k => windowLayoutState[k].visible).length;
+    if (visibleCount <= 1) {
+      if (typeof showToast === 'function') {
+        showToast('Cannot hide all windows. At least 1 window must remain visible.', 'warning');
+      }
+      return;
+    }
+    windowLayoutState[colKey].visible = false;
+    const names = { col1: '1 (History)', col2: '2 (Trading Chart)', col3: '3 (Analysis Hub)' };
+    if (typeof showToast === 'function') {
+      showToast(`Window ${names[colKey] || colKey} hidden. Remaining windows expanded.`, 'info');
+    }
+  } else {
+    windowLayoutState[colKey].visible = true;
+    const names = { col1: '1 (History)', col2: '2 (Trading Chart)', col3: '3 (Analysis Hub)' };
+    if (typeof showToast === 'function') {
+      showToast(`Window ${names[colKey] || colKey} restored.`, 'success');
+    }
+  }
+
+  saveWindowLayout();
+  applyDesktopLayout();
+}
+
+function applyDesktopLayout() {
+  const isDesktop = window.innerWidth >= 1024;
+  const c1 = document.getElementById('col1Container');
+  const c2 = document.getElementById('col2Container');
+  const c3 = document.getElementById('col3Container');
+  const h1 = document.getElementById('colResizeHandle1');
+  const h2 = document.getElementById('colResizeHandle2');
+  const s1 = document.getElementById('col1CollapsedStub');
+  const s2 = document.getElementById('col2CollapsedStub');
+  const s3 = document.getElementById('col3CollapsedStub');
+
+  const d1 = document.getElementById('dockCol1Btn');
+  const d2 = document.getElementById('dockCol2Btn');
+  const d3 = document.getElementById('dockCol3Btn');
+
+  if (!isDesktop) {
+    [c1, c2, c3].forEach(el => {
+      if (el) {
+        el.style.flex = '';
+        el.style.width = '';
+        el.style.display = '';
+      }
+    });
+    if (h1) h1.style.display = 'none';
+    if (h2) h2.style.display = 'none';
+    if (s1) s1.style.display = 'none';
+    if (s2) s2.style.display = 'none';
+    if (s3) s3.style.display = 'none';
+    return;
+  }
+
+  const v1 = windowLayoutState.col1.visible;
+  const v2 = windowLayoutState.col2.visible;
+  const v3 = windowLayoutState.col3.visible;
+
+  const visibleKeys = ['col1', 'col2', 'col3'].filter(k => windowLayoutState[k].visible);
+  const totalWeight = visibleKeys.reduce((acc, k) => acc + windowLayoutState[k].weight, 0) || 100;
+
+  if (c1) {
+    if (v1) {
+      c1.style.display = 'flex';
+      const pct = (windowLayoutState.col1.weight / totalWeight) * 100;
+      c1.style.flex = `${pct} 1 0%`;
+      c1.style.minWidth = '220px';
+      if (s1) s1.style.display = 'none';
+    } else {
+      c1.style.display = 'none';
+      if (s1) s1.style.display = 'flex';
+    }
+  }
+
+  if (c2) {
+    if (v2) {
+      c2.style.display = 'flex';
+      const pct = (windowLayoutState.col2.weight / totalWeight) * 100;
+      c2.style.flex = `${pct} 1 0%`;
+      c2.style.minWidth = '250px';
+      if (s2) s2.style.display = 'none';
+    } else {
+      c2.style.display = 'none';
+      if (s2) s2.style.display = 'flex';
+    }
+  }
+
+  if (c3) {
+    if (v3) {
+      c3.style.display = 'flex';
+      const pct = (windowLayoutState.col3.weight / totalWeight) * 100;
+      c3.style.flex = `${pct} 1 0%`;
+      c3.style.minWidth = '220px';
+      if (s3) s3.style.display = 'none';
+    } else {
+      c3.style.display = 'none';
+      if (s3) s3.style.display = 'flex';
+    }
+  }
+
+  if (h1) {
+    h1.style.display = (v1 && (v2 || v3)) ? 'flex' : 'none';
+  }
+  if (h2) {
+    h2.style.display = (v2 && v3) ? 'flex' : 'none';
+  }
+
+  const activeBtnClass = 'px-2 py-1 rounded-xl text-[9px] font-black uppercase transition active:scale-95 flex items-center gap-1 bg-amber-400/20 text-amber-300 border border-amber-400/50 shadow-sm';
+  const inactiveBtnClass = 'px-2 py-1 rounded-xl text-[9px] font-bold uppercase transition active:scale-95 flex items-center gap-1 bg-white/5 text-slate-500 border border-white/5 hover:text-slate-300 hover:bg-white/10 opacity-70';
+
+  if (d1) {
+    d1.className = v1 ? activeBtnClass : inactiveBtnClass;
+    d1.innerHTML = `<i class="fa-solid ${v1 ? 'fa-eye text-amber-400' : 'fa-eye-slash text-slate-500'} text-[8.5px]"></i><span>1. History</span>`;
+  }
+  if (d2) {
+    d2.className = v2 ? activeBtnClass : inactiveBtnClass;
+    d2.innerHTML = `<i class="fa-solid ${v2 ? 'fa-eye text-amber-400' : 'fa-eye-slash text-slate-500'} text-[8.5px]"></i><span>2. Chart</span>`;
+  }
+  if (d3) {
+    d3.className = v3 ? activeBtnClass : inactiveBtnClass;
+    d3.innerHTML = `<i class="fa-solid ${v3 ? 'fa-eye text-amber-400' : 'fa-eye-slash text-slate-500'} text-[8.5px]"></i><span>3. Hub</span>`;
+  }
+
+  setTimeout(() => {
+    window.dispatchEvent(new Event('resize'));
+    if (tradingChartInstance) {
+      const container = document.getElementById('tradingCandleChartContainer');
+      if (container && container.clientWidth > 0) {
+        tradingChartInstance.applyOptions({ width: container.clientWidth });
+        try { tradingChartInstance.timeScale().fitContent(); } catch(e){}
+      }
+    }
+  }, 40);
+}
+
+let windowResizersInitialized = false;
+function initWindowResizers() {
+  if (windowResizersInitialized) return;
+  windowResizersInitialized = true;
+
+  const grid = document.getElementById('mainDesktopGrid');
+  const h1 = document.getElementById('colResizeHandle1');
+  const h2 = document.getElementById('colResizeHandle2');
+
+  function setupHandle(handle, getLeftRightCols) {
+    if (!handle) return;
+
+    let isDragging = false;
+    let startX = 0;
+    let initialWeights = null;
+    let containerWidth = 0;
+
+    const onPointerDown = (e) => {
+      if (window.innerWidth < 1024) return;
+      const [leftKey, rightKey] = getLeftRightCols();
+      if (!windowLayoutState[leftKey]?.visible || !windowLayoutState[rightKey]?.visible) return;
+
+      isDragging = true;
+      startX = (e.touches ? e.touches[0].clientX : e.clientX);
+      initialWeights = {
+        left: windowLayoutState[leftKey].weight,
+        right: windowLayoutState[rightKey].weight
+      };
+      containerWidth = grid ? grid.getBoundingClientRect().width : window.innerWidth;
+
+      document.body.classList.add('is-resizing');
+      handle.classList.add('resizer-active');
+
+      const onPointerMove = (evt) => {
+        if (!isDragging) return;
+        if (evt.cancelable) evt.preventDefault();
+
+        const currentX = (evt.touches ? evt.touches[0].clientX : evt.clientX);
+        const deltaX = currentX - startX;
+        const [currLeftKey, currRightKey] = getLeftRightCols();
+
+        const visibleKeys = ['col1', 'col2', 'col3'].filter(k => windowLayoutState[k].visible);
+        const totalWeight = visibleKeys.reduce((acc, k) => acc + windowLayoutState[k].weight, 0);
+
+        const leftPct = (initialWeights.left / totalWeight) * 100;
+        const rightPct = (initialWeights.right / totalWeight) * 100;
+        const deltaPct = (deltaX / containerWidth) * 100;
+
+        const minPct = 12;
+        if (leftPct + deltaPct < minPct || rightPct - deltaPct < minPct) return;
+
+        const sumWeight = initialWeights.left + initialWeights.right;
+        const newLeftShare = (leftPct + deltaPct) / (leftPct + rightPct);
+        windowLayoutState[currLeftKey].weight = sumWeight * newLeftShare;
+        windowLayoutState[currRightKey].weight = sumWeight * (1 - newLeftShare);
+
+        applyDesktopLayout();
+      };
+
+      const onPointerUp = () => {
+        if (!isDragging) return;
+        isDragging = false;
+        document.body.classList.remove('is-resizing');
+        handle.classList.remove('resizer-active');
+        document.removeEventListener('mousemove', onPointerMove);
+        document.removeEventListener('touchmove', onPointerMove);
+        document.removeEventListener('mouseup', onPointerUp);
+        document.removeEventListener('touchend', onPointerUp);
+        saveWindowLayout();
+      };
+
+      document.addEventListener('mousemove', onPointerMove);
+      document.addEventListener('touchmove', onPointerMove, { passive: false });
+      document.addEventListener('mouseup', onPointerUp);
+      document.addEventListener('touchend', onPointerUp);
+    };
+
+    handle.addEventListener('mousedown', onPointerDown);
+    handle.addEventListener('touchstart', onPointerDown, { passive: false });
+
+    handle.addEventListener('dblclick', () => {
+      const visibleKeys = ['col1', 'col2', 'col3'].filter(k => windowLayoutState[k].visible);
+      const eq = 100 / visibleKeys.length;
+      visibleKeys.forEach(k => { windowLayoutState[k].weight = eq; });
+      saveWindowLayout();
+      applyDesktopLayout();
+      if (typeof showToast === 'function') {
+        showToast('Windows equalized evenly', 'info');
+      }
+    });
+  }
+
+  setupHandle(h1, () => {
+    const left = 'col1';
+    const right = windowLayoutState.col2.visible ? 'col2' : 'col3';
+    return [left, right];
+  });
+
+  setupHandle(h2, () => {
+    const left = windowLayoutState.col2.visible ? 'col2' : 'col1';
+    const right = 'col3';
+    return [left, right];
+  });
+
+  window.addEventListener('resize', () => {
+    applyDesktopLayout();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
 // COLUMN 1 TAB SWITCHER (Live History <-> Trend Road Map 0-9)
 // ═══════════════════════════════════════════════════════════════
 let currentCol1Tab = 'history';
@@ -6013,11 +6425,10 @@ function applyProModeUI() {
   }
 
   if (mainGrid) {
-    if (isPro) {
-      mainGrid.className = 'relative z-10 flex flex-col lg:grid lg:grid-cols-3 w-full';
-    } else {
-      mainGrid.className = 'relative z-10 flex flex-col lg:grid lg:grid-cols-[340px_1fr_1fr] w-full';
-    }
+    mainGrid.className = 'relative z-10 flex flex-col lg:flex lg:flex-row w-full overflow-hidden';
+  }
+  if (typeof applyDesktopLayout === 'function') {
+    applyDesktopLayout();
   }
 
   if (ticketCard) ticketCard.style.display = isPro ? 'none' : 'block';
@@ -8327,6 +8738,12 @@ function simBotReset()  { SimBot.reset(); }
   // Automatic bootup after DOM is ready
   setTimeout(() => {
     try {
+      if (typeof initWindowResizers === 'function') {
+        initWindowResizers();
+      }
+      if (typeof applyDesktopLayout === 'function') {
+        applyDesktopLayout();
+      }
       if (typeof initTradingCandleChart === 'function') {
         initTradingCandleChart();
       }
@@ -8334,7 +8751,7 @@ function simBotReset()  { SimBot.reset(); }
         renderTradingCandleChart();
       }
     } catch(e) {}
-  }, 400);
+  }, 350);
 })();
 </script>
 </body>
