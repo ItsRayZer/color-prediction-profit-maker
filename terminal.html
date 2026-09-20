@@ -6,7 +6,6 @@
   <title>Dhani.win – WinGo Quant AI Terminal</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <script src="https://unpkg.com/lightweight-charts@5.0.9/dist/lightweight-charts.standalone.production.js"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -577,88 +576,30 @@
       </div>
     </div>
 
-    <!-- 1. LIVE REAL HISTORY FEED & TREND ROAD TAB -->
+    <!-- 1. LIVE REAL HISTORY FEED -->
     <div class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-xl flex flex-col">
-      <div class="p-2 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border-b border-purple-900/40 flex items-center justify-between flex-wrap gap-1.5">
+      <div class="p-2.5 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border-b border-purple-900/40 flex items-center justify-between">
         <div class="flex items-center gap-1.5">
-          <!-- Segmented Tab Switcher: Live History vs Trend Graph -->
-          <div class="flex items-center bg-black/60 p-0.5 rounded-xl border border-purple-800/40">
-            <button id="col1TabHistoryBtn" onclick="switchCol1Tab('history')" class="px-2.5 py-1 rounded-lg text-[9.5px] font-black uppercase transition bg-amber-400 text-slate-950 shadow flex items-center gap-1">
-              <i class="fa-solid fa-list-check text-[9px]"></i>
-              <span>Live History</span>
-            </button>
-            <button id="col1TabTrendBtn" onclick="switchCol1Tab('trend')" class="px-2.5 py-1 rounded-lg text-[9.5px] font-bold uppercase transition text-slate-400 hover:text-white flex items-center gap-1">
-              <i class="fa-solid fa-chart-line text-[9px]"></i>
-              <span>Trend Graph (0-9)</span>
-            </button>
-          </div>
+          <i class="fa-solid fa-list-check text-amber-400 text-xs"></i>
+          <span class="font-black text-xs text-white">Live Real History</span>
+          <span id="historyLiveStatusBadge" class="text-[8.5px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">Auto-Synced</span>
         </div>
-        <span id="historyLiveStatusBadge" class="text-[8.5px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">Auto-Synced</span>
+        <span class="text-[9px] text-slate-400 font-mono">Real Game Draws</span>
       </div>
-
-      <!-- Tab View A: Live History Feed Table -->
-      <div id="col1HistoryView">
-        <div class="grid grid-cols-12 py-1.5 px-3 bg-purple-950/80 text-slate-300 font-bold text-[9px] border-b border-purple-900/30 font-mono">
-          <div class="col-span-3">Period</div>
-          <div class="col-span-3 text-center">Result &amp; Color</div>
-          <div class="col-span-3 text-center">AI Signal</div>
-          <div class="col-span-3 text-right pr-1">Status</div>
-        </div>
-        <div id="smartHistoryRows" class="divide-y divide-purple-900/30 text-[9.5px] font-mono max-h-[520px] overflow-y-auto" style="scrollbar-width:thin;scrollbar-color:#4c1d95 transparent;"></div>
-        <!-- Hidden fallback hook for any legacy calls -->
-        <div id="gameHistoryRows" class="hidden"></div>
-        <div class="flex items-center justify-between p-2 bg-app-surface border-t border-purple-900/40 text-[9px] text-purple-300 font-mono">
-          <span id="rowCountBadge" class="font-bold text-slate-400">0 records</span>
-          <button onclick="downloadCSVReport()" class="text-amber-400 hover:text-amber-300 font-bold text-[9.5px] flex items-center gap-1 active:scale-95 transition">
-            <i class="fa-solid fa-download"></i> Export CSV
-          </button>
-        </div>
+      <div class="grid grid-cols-12 py-1.5 px-3 bg-purple-950/80 text-slate-300 font-bold text-[9px] border-b border-purple-900/30 font-mono">
+        <div class="col-span-3">Period</div>
+        <div class="col-span-3 text-center">Result &amp; Color</div>
+        <div class="col-span-3 text-center">AI Signal</div>
+        <div class="col-span-3 text-right pr-1">Status</div>
       </div>
-
-      <!-- Tab View B: Trend Graph & Number Road Map (inside Column 1) -->
-      <div id="col1TrendRoadView" class="hidden flex flex-col">
-        <!-- Statistic Header Row -->
-        <div class="bg-gradient-to-r from-amber-400 to-amber-500 px-3 py-1">
-          <div class="grid grid-cols-12 text-[9px] font-black text-slate-900">
-            <div class="col-span-3">Statistic</div>
-            <div class="text-center">0</div><div class="text-center">1</div><div class="text-center">2</div>
-            <div class="text-center">3</div><div class="text-center">4</div><div class="text-center">5</div>
-            <div class="text-center">6</div><div class="text-center">7</div><div class="text-center">8</div>
-            <div class="text-center">9</div>
-          </div>
-        </div>
-        <div id="chartStatsRows" class="divide-y divide-purple-900/30 px-3 text-[8.5px] font-mono bg-purple-950/40"></div>
-
-        <!-- Grid Columns -->
-        <div class="grid gap-0 px-2 pt-1.5 pb-1 bg-purple-950/60 border-t border-purple-900/30" style="grid-template-columns:60px repeat(10,1fr) 26px 26px 26px">
-          <div class="text-[8.5px] text-slate-400 font-bold font-mono">Period</div>
-          <div class="text-[8.5px] text-center text-slate-300 font-bold">0</div>
-          <div class="text-[8.5px] text-center text-slate-300 font-bold">1</div>
-          <div class="text-[8.5px] text-center text-slate-300 font-bold">2</div>
-          <div class="text-[8.5px] text-center text-slate-300 font-bold">3</div>
-          <div class="text-[8.5px] text-center text-slate-300 font-bold">4</div>
-          <div class="text-[8.5px] text-center text-slate-300 font-bold">5</div>
-          <div class="text-[8.5px] text-center text-slate-300 font-bold">6</div>
-          <div class="text-[8.5px] text-center text-slate-300 font-bold">7</div>
-          <div class="text-[8.5px] text-center text-slate-300 font-bold">8</div>
-          <div class="text-[8.5px] text-center text-slate-300 font-bold">9</div>
-          <div class="text-[8.5px] text-center text-amber-400 font-bold">B/S</div>
-          <div class="text-[8.5px] text-center text-indigo-300 font-bold">AI</div>
-          <div class="text-[8.5px] text-center text-purple-300 font-bold">Bet</div>
-        </div>
-
-        <!-- SVG Connector & 0-9 Road Grid -->
-        <div class="relative px-2 pb-2 max-h-[460px] overflow-y-auto" id="numberRoadContainer" style="scrollbar-width:thin;scrollbar-color:#4c1d95 transparent;">
-          <svg id="roadConnectorSvg" class="absolute inset-0 pointer-events-none" style="width:100%;height:100%;overflow:visible;"></svg>
-          <div id="numberRoadRows" class="relative z-10 space-y-0.5"></div>
-        </div>
-
-        <!-- Summary Stats Footer -->
-        <div class="grid grid-cols-3 gap-2 p-2 border-t border-purple-900/40 text-center text-[9px] font-mono bg-purple-950/30">
-          <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block font-sans">BIG RATIO</span><b id="chartBigPct" class="text-amber-400">50%</b></div>
-          <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block font-sans">SMALL RATIO</span><b id="chartSmallPct" class="text-sky-400">50%</b></div>
-          <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block font-sans">WIN ACCURACY</span><b id="chartWinRatio" class="text-emerald-400">—</b></div>
-        </div>
+      <div id="smartHistoryRows" class="divide-y divide-purple-900/30 text-[9.5px] font-mono max-h-[520px] overflow-y-auto" style="scrollbar-width:thin;scrollbar-color:#4c1d95 transparent;"></div>
+      <!-- Hidden fallback hook for any legacy calls -->
+      <div id="gameHistoryRows" class="hidden"></div>
+      <div class="flex items-center justify-between p-2 bg-app-surface border-t border-purple-900/40 text-[9px] text-purple-300 font-mono">
+        <span id="rowCountBadge" class="font-bold text-slate-400">0 records</span>
+        <button onclick="downloadCSVReport()" class="text-amber-400 hover:text-amber-300 font-bold text-[9.5px] flex items-center gap-1 active:scale-95 transition">
+          <i class="fa-solid fa-download"></i> Export CSV
+        </button>
       </div>
     </div>
 
@@ -776,85 +717,58 @@
       </div>
     </div>
 
-    <!-- ── TRADINGVIEW CANDLESTICK TRADING CHART (COLUMN 2) ── -->
-    <div class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-2xl flex flex-col">
-      <!-- Top Control Bar -->
-      <div class="p-2 bg-gradient-to-r from-purple-950 via-slate-900 to-[#131722] border-b border-purple-900/40 flex items-center justify-between flex-wrap gap-1.5">
+    <!-- ── TREND GRAPH & NUMBER ROAD MAP ── -->
+    <div class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-xl flex flex-col">
+      <div class="p-2.5 bg-gradient-to-r from-amber-500/20 via-purple-950 to-slate-900 border-b border-purple-900/40 flex items-center justify-between">
         <div class="flex items-center gap-1.5">
-          <div class="w-2.5 h-2.5 rounded-sm bg-[#2962ff]"></div>
-          <span class="font-black text-xs text-white uppercase tracking-wider">Trading Candlestick Chart</span>
-          <span class="text-[8.5px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/30 font-mono">Live Candles</span>
+          <i class="fa-solid fa-chart-line text-amber-400 text-xs"></i>
+          <span class="font-black text-xs text-white">Trend Graph &amp; Number Road</span>
+          <span class="text-[8.5px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30 font-mono">0-9 Connected</span>
         </div>
-
-        <!-- Toolbar Actions -->
-        <div class="flex items-center gap-1 flex-wrap">
-          <!-- Scale Mode: Ball Weighted (1x-5x) vs Fixed (±1) -->
-          <button id="chartScaleModeBtn" onclick="toggleTradingChartScaleMode()" class="px-2 py-0.5 rounded bg-purple-900/60 hover:bg-purple-800 text-purple-200 text-[8.5px] font-mono border border-purple-700/50 flex items-center gap-1 active:scale-95" title="Toggle Ball Delta Movement vs Fixed Step">
-            <i class="fa-solid fa-weight-scale text-amber-400"></i>
-            <span id="chartScaleModeLabel">Ball Dynamic (1x-5x)</span>
-          </button>
-
-          <!-- Chart Type Selector -->
-          <select id="tradingChartTypeSelect" onchange="switchTradingChartType(this.value)" class="bg-black/60 text-slate-200 border border-purple-800/50 text-[8.5px] rounded px-1.5 py-0.5 outline-none cursor-pointer">
-            <option value="candlestick">Candles</option>
-            <option value="hollow">Hollow</option>
-            <option value="line">Line</option>
-            <option value="area">Area</option>
-            <option value="bar">Bars</option>
-          </select>
-
-          <!-- Technical Indicators -->
-          <button id="btnToggleSMA" onclick="toggleTradingIndicator('sma')" class="px-1.5 py-0.5 rounded bg-blue-600/30 text-blue-300 border border-blue-500/40 text-[8.5px] font-bold">SMA</button>
-          <button id="btnToggleEMA" onclick="toggleTradingIndicator('ema')" class="px-1.5 py-0.5 rounded bg-amber-600/30 text-amber-300 border border-amber-500/40 text-[8.5px] font-bold">EMA</button>
-          <button id="btnToggleBB" onclick="toggleTradingIndicator('bb')" class="px-1.5 py-0.5 rounded bg-purple-600/30 text-purple-300 border border-purple-500/40 text-[8.5px] font-bold">BB</button>
-
-          <!-- Zoom & Fit -->
-          <button onclick="tradingChartZoom(1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white text-[9px]" title="Zoom In"><i class="fa-solid fa-plus"></i></button>
-          <button onclick="tradingChartZoom(-1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white text-[9px]" title="Zoom Out"><i class="fa-solid fa-minus"></i></button>
-          <button onclick="tradingChartReset()" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-amber-400 text-[9px]" title="Auto-Fit"><i class="fa-solid fa-expand"></i></button>
-        </div>
+        <span class="text-[9px] text-slate-400 font-mono">Pattern Matrix</span>
       </div>
 
-      <!-- HUD Candlestick Data Bar -->
-      <div class="px-3 py-1 bg-black/50 border-b border-purple-900/30 flex items-center justify-between text-[9px] font-mono">
-        <div id="tradingCandleHud" class="flex items-center gap-2 text-slate-300 flex-wrap">
-          <span class="text-amber-400 font-bold">CANDLE:</span>
-          <span>O: <b id="hudOpen" class="text-white">—</b></span>
-          <span>H: <b id="hudHigh" class="text-emerald-400">—</b></span>
-          <span>L: <b id="hudLow" class="text-rose-400">—</b></span>
-          <span>C: <b id="hudClose" class="text-white">—</b></span>
-          <span>Move: <b id="hudResult" class="text-amber-400">—</b></span>
-        </div>
-        <div class="flex items-center gap-1.5 text-[8px] text-slate-400">
-          <span class="text-emerald-400 font-bold">▲ BIG = UP</span>
-          <span>|</span>
-          <span class="text-rose-400 font-bold">▼ SMALL = DOWN</span>
+      <!-- Statistic Header Row -->
+      <div class="bg-gradient-to-r from-amber-400 to-amber-500 px-3 py-1">
+        <div class="grid grid-cols-12 text-[9px] font-black text-slate-900">
+          <div class="col-span-3">Statistic</div>
+          <div class="text-center">0</div><div class="text-center">1</div><div class="text-center">2</div>
+          <div class="text-center">3</div><div class="text-center">4</div><div class="text-center">5</div>
+          <div class="text-center">6</div><div class="text-center">7</div><div class="text-center">8</div>
+          <div class="text-center">9</div>
         </div>
       </div>
+      <div id="chartStatsRows" class="divide-y divide-purple-900/30 px-3 text-[8.5px] font-mono bg-purple-950/40"></div>
 
-      <!-- Canvas Chart Container -->
-      <div class="relative w-full bg-[#131722]" style="height: 480px;">
-        <div id="tradingCandleChartContainer" style="width: 100%; height: 100%;"></div>
+      <!-- Grid Columns -->
+      <div class="grid gap-0 px-2 pt-1.5 pb-1 bg-purple-950/60 border-t border-purple-900/30" style="grid-template-columns:60px repeat(10,1fr) 26px 26px 26px">
+        <div class="text-[8.5px] text-slate-400 font-bold font-mono">Period</div>
+        <div class="text-[8.5px] text-center text-slate-300 font-bold">0</div>
+        <div class="text-[8.5px] text-center text-slate-300 font-bold">1</div>
+        <div class="text-[8.5px] text-center text-slate-300 font-bold">2</div>
+        <div class="text-[8.5px] text-center text-slate-300 font-bold">3</div>
+        <div class="text-[8.5px] text-center text-slate-300 font-bold">4</div>
+        <div class="text-[8.5px] text-center text-slate-300 font-bold">5</div>
+        <div class="text-[8.5px] text-center text-slate-300 font-bold">6</div>
+        <div class="text-[8.5px] text-center text-slate-300 font-bold">7</div>
+        <div class="text-[8.5px] text-center text-slate-300 font-bold">8</div>
+        <div class="text-[8.5px] text-center text-slate-300 font-bold">9</div>
+        <div class="text-[8.5px] text-center text-amber-400 font-bold">B/S</div>
+        <div class="text-[8.5px] text-center text-indigo-300 font-bold">AI</div>
+        <div class="text-[8.5px] text-center text-purple-300 font-bold">Bet</div>
       </div>
 
-      <!-- Footer Statistics -->
-      <div class="grid grid-cols-4 gap-1 p-2 border-t border-purple-900/40 text-center text-[9px] font-mono bg-purple-950/30">
-        <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30">
-          <span class="text-[7.5px] text-slate-400 block font-sans">NET PRICE SCORE</span>
-          <b id="tradingNetPrice" class="text-emerald-400 font-black text-xs">0.0</b>
-        </div>
-        <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30">
-          <span class="text-[7.5px] text-slate-400 block font-sans">BIG RATIO (UP)</span>
-          <b id="tradingBigPct" class="text-emerald-400 font-black text-xs">50%</b>
-        </div>
-        <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30">
-          <span class="text-[7.5px] text-slate-400 block font-sans">SMALL RATIO (DOWN)</span>
-          <b id="tradingSmallPct" class="text-rose-400 font-black text-xs">50%</b>
-        </div>
-        <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30">
-          <span class="text-[7.5px] text-slate-400 block font-sans">ACTIVE STREAK</span>
-          <b id="tradingActiveStreak" class="text-amber-400 font-black text-xs">—</b>
-        </div>
+      <!-- SVG Connector & 0-9 Road Grid -->
+      <div class="relative px-2 pb-2 max-h-[460px] overflow-y-auto" id="numberRoadContainer" style="scrollbar-width:thin;scrollbar-color:#4c1d95 transparent;">
+        <svg id="roadConnectorSvg" class="absolute inset-0 pointer-events-none" style="width:100%;height:100%;overflow:visible;"></svg>
+        <div id="numberRoadRows" class="relative z-10 space-y-0.5"></div>
+      </div>
+
+      <!-- Summary Stats Footer -->
+      <div class="grid grid-cols-3 gap-2 p-2 border-t border-purple-900/40 text-center text-[9px] font-mono bg-purple-950/30">
+        <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block font-sans">BIG RATIO</span><b id="chartBigPct" class="text-amber-400">50%</b></div>
+        <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block font-sans">SMALL RATIO</span><b id="chartSmallPct" class="text-sky-400">50%</b></div>
+        <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block font-sans">WIN ACCURACY</span><b id="chartWinRatio" class="text-emerald-400">—</b></div>
       </div>
     </div>
 
@@ -4011,429 +3925,8 @@ function drawConnectorLine(hist) {
   });
 }
 
-// ═══════════════════════════════════════════════════════════════
-// COLUMN 1 TAB SWITCHER (Live History <-> Trend Road Map 0-9)
-// ═══════════════════════════════════════════════════════════════
-let currentCol1Tab = 'history';
-function switchCol1Tab(tab) {
-  currentCol1Tab = tab;
-  const histView = document.getElementById('col1HistoryView');
-  const trendView = document.getElementById('col1TrendRoadView');
-  const btnHist = document.getElementById('col1TabHistoryBtn');
-  const btnTrend = document.getElementById('col1TabTrendBtn');
-
-  if (tab === 'trend') {
-    if (histView) histView.classList.add('hidden');
-    if (trendView) trendView.classList.remove('hidden');
-    if (btnTrend) {
-      btnTrend.className = 'px-2.5 py-1 rounded-lg text-[9.5px] font-black uppercase transition bg-amber-400 text-slate-950 shadow flex items-center gap-1';
-    }
-    if (btnHist) {
-      btnHist.className = 'px-2.5 py-1 rounded-lg text-[9.5px] font-bold uppercase transition text-slate-400 hover:text-white flex items-center gap-1';
-    }
-    setTimeout(() => { if (typeof renderNumberRoad === 'function') renderNumberRoad(); }, 50);
-  } else {
-    if (trendView) trendView.classList.add('hidden');
-    if (histView) histView.classList.remove('hidden');
-    if (btnHist) {
-      btnHist.className = 'px-2.5 py-1 rounded-lg text-[9.5px] font-black uppercase transition bg-amber-400 text-slate-950 shadow flex items-center gap-1';
-    }
-    if (btnTrend) {
-      btnTrend.className = 'px-2.5 py-1 rounded-lg text-[9.5px] font-bold uppercase transition text-slate-400 hover:text-white flex items-center gap-1';
-    }
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// TRADINGVIEW CANDLESTICK TRADING CHART (COLUMN 2)
-// ═══════════════════════════════════════════════════════════════
-let tradingChartInstance = null;
-let tradingMainSeries = null;
-let tradingSMAIndicatorSeries = null;
-let tradingEMAIndicatorSeries = null;
-let tradingBBUpperSeries = null;
-let tradingBBMiddleSeries = null;
-let tradingBBLowerSeries = null;
-
-let tradingChartType = 'candlestick';
-let tradingChartScaleMode = 'dynamic'; // 'dynamic' (1x-5x ball delta) or 'fixed' (±1)
-let tradingIndicators = { sma: false, ema: false, bb: false };
-
-function toggleTradingChartScaleMode() {
-  tradingChartScaleMode = tradingChartScaleMode === 'dynamic' ? 'fixed' : 'dynamic';
-  const label = document.getElementById('chartScaleModeLabel');
-  if (label) {
-    label.textContent = tradingChartScaleMode === 'dynamic' ? 'Ball Dynamic (1x-5x)' : 'Fixed Step (±1)';
-  }
-  renderTradingCandleChart();
-}
-
-function switchTradingChartType(type) {
-  tradingChartType = type;
-  if (tradingChartInstance && tradingMainSeries) {
-    rebuildTradingSeries();
-  }
-}
-
-function toggleTradingIndicator(ind) {
-  if (tradingIndicators[ind] !== undefined) {
-    tradingIndicators[ind] = !tradingIndicators[ind];
-    const btn = document.getElementById(`btnToggle${ind.toUpperCase()}`);
-    if (btn) {
-      if (tradingIndicators[ind]) {
-        btn.classList.add('ring-2', 'ring-white', 'font-black');
-      } else {
-        btn.classList.remove('ring-2', 'ring-white', 'font-black');
-      }
-    }
-    renderTradingCandleChart();
-  }
-}
-
-function tradingChartZoom(dir) {
-  if (tradingChartInstance) {
-    const timeScale = tradingChartInstance.timeScale();
-    if (dir > 0) timeScale.zoomIn();
-    else timeScale.zoomOut();
-  }
-}
-
-function tradingChartReset() {
-  if (tradingChartInstance) {
-    tradingChartInstance.timeScale().fitContent();
-  }
-}
-
-function initTradingCandleChart() {
-  const container = document.getElementById('tradingCandleChartContainer');
-  if (!container || !window.LightweightCharts) return null;
-
-  if (tradingChartInstance) {
-    try { tradingChartInstance.remove(); } catch(e){}
-    tradingChartInstance = null;
-    tradingMainSeries = null;
-  }
-
-  const chart = window.LightweightCharts.createChart(container, {
-    width: container.clientWidth || 400,
-    height: container.clientHeight || 480,
-    layout: {
-      background: { color: '#131722' },
-      textColor: '#d1d4dc',
-      fontSize: 10,
-      fontFamily: 'Inter, -apple-system, sans-serif'
-    },
-    grid: {
-      vertLines: { color: '#1e222d' },
-      horzLines: { color: '#1e222d' }
-    },
-    crosshair: {
-      mode: window.LightweightCharts.CrosshairMode.Normal,
-      vertLine: { color: '#2962ff', width: 1, style: 2 },
-      horzLine: { color: '#2962ff', width: 1, style: 2 }
-    },
-    rightPriceScale: {
-      borderColor: '#2a2e39',
-      autoScale: true
-    },
-    timeScale: {
-      borderColor: '#2a2e39',
-      timeVisible: true,
-      secondsVisible: true,
-      rightOffset: 8,
-      barSpacing: 8
-    }
-  });
-
-  chart.subscribeCrosshairMove(param => {
-    if (!param.point || !tradingMainSeries) return;
-    const data = param.seriesData.get(tradingMainSeries);
-    if (data) {
-      const open = data.open !== undefined ? data.open : data.value;
-      const high = data.high !== undefined ? data.high : data.value;
-      const low = data.low !== undefined ? data.low : data.value;
-      const close = data.close !== undefined ? data.close : data.value;
-      const isUp = close >= open;
-
-      const elO = document.getElementById('hudOpen');
-      const elH = document.getElementById('hudHigh');
-      const elL = document.getElementById('hudLow');
-      const elC = document.getElementById('hudClose');
-      const elR = document.getElementById('hudResult');
-
-      if (elO) elO.textContent = Number(open).toFixed(1);
-      if (elH) elH.textContent = Number(high).toFixed(1);
-      if (elL) elL.textContent = Number(low).toFixed(1);
-      if (elC) elC.textContent = Number(close).toFixed(1);
-      if (elR) {
-        elR.textContent = isUp ? '▲ BIG (UP)' : '▼ SMALL (DOWN)';
-        elR.className = isUp ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
-      }
-    }
-  });
-
-  const ro = new ResizeObserver(entries => {
-    if (entries && entries[0] && chart) {
-      const { width, height } = entries[0].contentRect;
-      chart.applyOptions({ width, height });
-    }
-  });
-  ro.observe(container);
-
-  tradingChartInstance = chart;
-  rebuildTradingSeries();
-  return chart;
-}
-
-function rebuildTradingSeries() {
-  if (!tradingChartInstance || !window.LightweightCharts) return;
-  const chart = tradingChartInstance;
-  const LC = window.LightweightCharts;
-
-  if (tradingMainSeries) {
-    try { chart.removeSeries(tradingMainSeries); } catch(e){}
-    tradingMainSeries = null;
-  }
-  if (tradingSMAIndicatorSeries) { try { chart.removeSeries(tradingSMAIndicatorSeries); } catch(e){} tradingSMAIndicatorSeries = null; }
-  if (tradingEMAIndicatorSeries) { try { chart.removeSeries(tradingEMAIndicatorSeries); } catch(e){} tradingEMAIndicatorSeries = null; }
-  if (tradingBBUpperSeries) { try { chart.removeSeries(tradingBBUpperSeries); } catch(e){} tradingBBUpperSeries = null; }
-  if (tradingBBMiddleSeries) { try { chart.removeSeries(tradingBBMiddleSeries); } catch(e){} tradingBBMiddleSeries = null; }
-  if (tradingBBLowerSeries) { try { chart.removeSeries(tradingBBLowerSeries); } catch(e){} tradingBBLowerSeries = null; }
-
-  // Main Series Selection
-  if (tradingChartType === 'hollow') {
-    tradingMainSeries = chart.addSeries(LC.CandlestickSeries, {
-      upColor: '#131722',
-      downColor: '#ef5350',
-      borderUpColor: '#26a69a',
-      borderDownColor: '#ef5350',
-      wickUpColor: '#26a69a',
-      wickDownColor: '#ef5350'
-    });
-  } else if (tradingChartType === 'bar') {
-    tradingMainSeries = chart.addSeries(LC.BarSeries, {
-      upColor: '#26a69a',
-      downColor: '#ef5350'
-    });
-  } else if (tradingChartType === 'line') {
-    tradingMainSeries = chart.addSeries(LC.LineSeries, {
-      color: '#2962ff',
-      lineWidth: 2
-    });
-  } else if (tradingChartType === 'area') {
-    tradingMainSeries = chart.addSeries(LC.AreaSeries, {
-      topColor: 'rgba(41, 98, 255, 0.4)',
-      bottomColor: 'rgba(41, 98, 255, 0.0)',
-      lineColor: '#2962ff',
-      lineWidth: 2
-    });
-  } else {
-    tradingMainSeries = chart.addSeries(LC.CandlestickSeries, {
-      upColor: '#26a69a',
-      downColor: '#ef5350',
-      borderVisible: false,
-      wickUpColor: '#26a69a',
-      wickDownColor: '#ef5350'
-    });
-  }
-
-  // Add indicator series if enabled
-  if (tradingIndicators.sma) {
-    tradingSMAIndicatorSeries = chart.addSeries(LC.LineSeries, { color: '#2962ff', lineWidth: 1.5, title: 'SMA 14' });
-  }
-  if (tradingIndicators.ema) {
-    tradingEMAIndicatorSeries = chart.addSeries(LC.LineSeries, { color: '#ff9800', lineWidth: 1.5, title: 'EMA 9' });
-  }
-  if (tradingIndicators.bb) {
-    tradingBBMiddleSeries = chart.addSeries(LC.LineSeries, { color: '#9c27b0', lineWidth: 1, title: 'BB Mid' });
-    tradingBBUpperSeries = chart.addSeries(LC.LineSeries, { color: '#26a69a', lineWidth: 1, lineStyle: 2, title: 'BB Up' });
-    tradingBBLowerSeries = chart.addSeries(LC.LineSeries, { color: '#ef5350', lineWidth: 1, lineStyle: 2, title: 'BB Low' });
-  }
-
-  renderTradingCandleChart();
-}
-
-function renderTradingCandleChart() {
-  if (!tradingChartInstance) {
-    initTradingCandleChart();
-    if (!tradingChartInstance) return;
-  }
-  if (!tradingMainSeries) return;
-
-  const realHist = (S.history || []).filter(r => !r.gap && r.size);
-  if (!realHist.length) return;
-
-  const candles = [];
-  const markers = [];
-  let prevClose = 0.0;
-  let baseTime = Math.floor(Date.now() / 1000) - (realHist.length * 30);
-
-  let bigCount = 0;
-  let smallCount = 0;
-  let currentStreak = 0;
-  let lastSize = '';
-
-  for (let i = 0; i < realHist.length; i++) {
-    const r = realHist[i];
-    const isBig = r.size === 'BIG';
-    const num = (r.number !== undefined && r.number !== null) ? Number(r.number) : (isBig ? 7 : 2);
-    const color = r.color || (num === 0 || num === 5 ? 'violet' : [1,3,7,9].includes(num) ? 'green' : 'red');
-
-    if (isBig) bigCount++;
-    else smallCount++;
-
-    if (r.size === lastSize) currentStreak++;
-    else { currentStreak = 1; lastSize = r.size; }
-
-    const open = prevClose;
-    let close = open;
-    let high = open;
-    let low = open;
-
-    if (tradingChartScaleMode === 'dynamic') {
-      // Ball weighted movement:
-      // Ball 5 -> +1, Ball 6 -> +2, Ball 7 -> +3, Ball 8 -> +4, Ball 9 -> +5
-      // Ball 4 -> -1, Ball 3 -> -2, Ball 2 -> -3, Ball 1 -> -4, Ball 0 -> -5
-      if (isBig) {
-        const delta = Math.max(1, num >= 5 ? (num - 4) : 1);
-        close = open + delta;
-        high = close + 0.4;
-        low = open - 0.2;
-      } else {
-        const delta = Math.max(1, num <= 4 ? (5 - num) : 1);
-        close = open - delta;
-        high = open + 0.2;
-        low = close - 0.4;
-      }
-    } else {
-      // Fixed ±1 step
-      if (isBig) {
-        close = open + 1.0;
-        high = close;
-        low = open;
-      } else {
-        close = open - 1.0;
-        high = open;
-        low = close;
-      }
-    }
-
-    const candleTime = baseTime + (i * 30);
-    prevClose = close;
-
-    candles.push({
-      time: candleTime,
-      open,
-      high,
-      low,
-      close
-    });
-
-    let markerColor = '#26a69a';
-    let markerShape = 'circle';
-    if (color.includes('violet') || num === 0 || num === 5) {
-      markerColor = '#ab47bc';
-      markerShape = 'square';
-    } else if (color.includes('red') || [2,4,6,8].includes(num)) {
-      markerColor = '#ef5350';
-      markerShape = 'circle';
-    }
-
-    markers.push({
-      time: candleTime,
-      position: isBig ? 'belowBar' : 'aboveBar',
-      color: markerColor,
-      shape: markerShape,
-      text: `${num}`
-    });
-  }
-
-  if (tradingChartType === 'line' || tradingChartType === 'area') {
-    tradingMainSeries.setData(candles.map(c => ({ time: c.time, value: c.close })));
-  } else {
-    tradingMainSeries.setData(candles);
-  }
-
-  try {
-    if (typeof window.LightweightCharts.createSeriesMarkers === 'function') {
-      window.LightweightCharts.createSeriesMarkers(tradingMainSeries, markers);
-    } else if (typeof tradingMainSeries.setMarkers === 'function') {
-      tradingMainSeries.setMarkers(markers);
-    }
-  } catch(e) {
-    console.warn('Marker plot note:', e);
-  }
-
-  // Calculate & Set Indicators
-  if (tradingSMAIndicatorSeries && candles.length >= 14) {
-    const smaData = [];
-    let sum = 0;
-    for (let i = 0; i < candles.length; i++) {
-      sum += candles[i].close;
-      if (i >= 14) sum -= candles[i - 14].close;
-      if (i >= 13) smaData.push({ time: candles[i].time, value: Number((sum / 14).toFixed(2)) });
-    }
-    tradingSMAIndicatorSeries.setData(smaData);
-  }
-
-  if (tradingEMAIndicatorSeries && candles.length >= 9) {
-    const emaData = [];
-    const k = 2 / 10;
-    let prev = candles[0].close;
-    for (let i = 0; i < candles.length; i++) {
-      prev = candles[i].close * k + prev * (1 - k);
-      if (i >= 8) emaData.push({ time: candles[i].time, value: Number(prev.toFixed(2)) });
-    }
-    tradingEMAIndicatorSeries.setData(emaData);
-  }
-
-  if (tradingBBMiddleSeries && tradingBBUpperSeries && tradingBBLowerSeries && candles.length >= 20) {
-    const midData = [], upData = [], lowData = [];
-    for (let i = 19; i < candles.length; i++) {
-      const slice = candles.slice(i - 19, i + 1);
-      const mean = slice.reduce((a, b) => a + b.close, 0) / 20;
-      const sd = Math.sqrt(slice.reduce((a, b) => a + Math.pow(b.close - mean, 2), 0) / 20);
-      midData.push({ time: candles[i].time, value: Number(mean.toFixed(2)) });
-      upData.push({ time: candles[i].time, value: Number((mean + 2 * sd).toFixed(2)) });
-      lowData.push({ time: candles[i].time, value: Number((mean - 2 * sd).toFixed(2)) });
-    }
-    tradingBBMiddleSeries.setData(midData);
-    tradingBBUpperSeries.setData(upData);
-    tradingBBLowerSeries.setData(lowData);
-  }
-
-  const total = bigCount + smallCount || 1;
-  const bigPct = Math.round((bigCount / total) * 100);
-  const smallPct = 100 - bigPct;
-
-  const elNet = document.getElementById('tradingNetPrice');
-  const elBig = document.getElementById('tradingBigPct');
-  const elSml = document.getElementById('tradingSmallPct');
-  const elStrk = document.getElementById('tradingActiveStreak');
-
-  if (elNet) {
-    elNet.textContent = prevClose > 0 ? `+${prevClose.toFixed(1)}` : prevClose.toFixed(1);
-    elNet.className = prevClose >= 0 ? 'text-emerald-400 font-black text-xs' : 'text-rose-400 font-black text-xs';
-  }
-  if (elBig) elBig.textContent = `${bigPct}%`;
-  if (elSml) elSml.textContent = `${smallPct}%`;
-  if (elStrk) {
-    elStrk.textContent = `${currentStreak}x ${lastSize || '—'}`;
-    elStrk.className = lastSize === 'BIG' ? 'text-emerald-400 font-black text-xs' : 'text-rose-400 font-black text-xs';
-  }
-
-  // Auto scroll to latest candle
-  try {
-    tradingChartInstance.timeScale().scrollToRealTime();
-  } catch(e){}
-}
-
-// Unified renderTrendChart updates both Number Road and Trading Candlestick Chart
-function renderTrendChart() {
-  if (typeof renderNumberRoad === 'function') renderNumberRoad();
-  if (typeof renderTradingCandleChart === 'function') renderTradingCandleChart();
-}
-
+// Keep old renderTrendChart as alias so nothing breaks
+function renderTrendChart() { renderNumberRoad(); }
 
 // ═══════════════════════════════════════════════════════════════
 // Helper for Fast Timeframe Loading Overlay (Apple-Style HUD)
@@ -8309,32 +7802,6 @@ function simBotReset()  { SimBot.reset(); }
       return ret;
     };
   }
-
-  // 3. Hook into renderSmartView and boot up Trading Candlestick Chart
-  const _origRSVChart = window.renderSmartView;
-  if (typeof _origRSVChart === 'function') {
-    window.renderSmartView = function(...args) {
-      const ret = _origRSVChart.apply(this, args);
-      try {
-        if (typeof renderTradingCandleChart === 'function') {
-          renderTradingCandleChart();
-        }
-      } catch(e) {}
-      return ret;
-    };
-  }
-
-  // Automatic bootup after DOM is ready
-  setTimeout(() => {
-    try {
-      if (typeof initTradingCandleChart === 'function') {
-        initTradingCandleChart();
-      }
-      if (typeof renderTradingCandleChart === 'function') {
-        renderTradingCandleChart();
-      }
-    } catch(e) {}
-  }, 400);
 })();
 </script>
 </body>
