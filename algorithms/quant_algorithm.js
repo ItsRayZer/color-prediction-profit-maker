@@ -76,6 +76,79 @@
     return { signal: 'NEUTRAL', weight: 0 };
   }
 
+  // -- ENGINE 2B: Dragon Streak Rider (Ride Until It Dies) -------------------
+  function engineDragonRider(hist) {
+    if (!hist || hist.length < 3) return { isDragon: false, sizeSignal: 'NEUTRAL', colorSignal: 'NEUTRAL', weight: 0 };
+    const real = hist.filter(r => !r.gap && r.number !== null && r.number !== undefined);
+    const n = real.length;
+    if (n < 3) return { isDragon: false, sizeSignal: 'NEUTRAL', colorSignal: 'NEUTRAL', weight: 0 };
+
+    // 1. Detect Size Streak (e.g. BIG-BIG-BIG or SMALL-SMALL-SMALL)
+    const lastSize = real[n - 1].size;
+    let sizeStreak = 1;
+    for (let i = n - 2; i >= 0; i--) {
+      if (real[i].size === lastSize) sizeStreak++;
+      else break;
+    }
+
+    // 2. Detect Color Streak (e.g. RED-RED-RED or GREEN-GREEN-GREEN)
+    function getPureColor(r) {
+      if (r.color) {
+        if (r.color.includes('GREEN')) return 'GREEN';
+        if (r.color.includes('RED')) return 'RED';
+      }
+      if (r.number !== undefined && r.number !== null) {
+        return [1, 3, 7, 9, 5].includes(Number(r.number)) ? 'GREEN' : 'RED';
+      }
+      return null;
+    }
+    const lastColor = getPureColor(real[n - 1]);
+    let colorStreak = 1;
+    if (lastColor) {
+      for (let i = n - 2; i >= 0; i--) {
+        if (getPureColor(real[i]) === lastColor) colorStreak++;
+        else break;
+      }
+    }
+
+    const isSizeDragon = sizeStreak >= 3;
+    const isColorDragon = colorStreak >= 3;
+    const isDragon = isSizeDragon || isColorDragon;
+
+    let sizeWeight = 0;
+    let sizeProb = 0.5;
+    if (isSizeDragon) {
+      if (sizeStreak >= 6) { sizeWeight = 95; sizeProb = 0.82; }
+      else if (sizeStreak >= 4) { sizeWeight = 80; sizeProb = 0.74; }
+      else { sizeWeight = 65; sizeProb = 0.66; }
+    }
+
+    let colorWeight = 0;
+    let colorProb = 0.5;
+    if (isColorDragon) {
+      if (colorStreak >= 6) { colorWeight = 95; colorProb = 0.82; }
+      else if (colorStreak >= 4) { colorWeight = 80; colorProb = 0.74; }
+      else { colorWeight = 65; colorProb = 0.66; }
+    }
+
+    return {
+      isDragon,
+      isSizeDragon,
+      isColorDragon,
+      sizeStreak,
+      colorStreak,
+      sizeSignal: isSizeDragon ? lastSize : 'NEUTRAL',
+      colorSignal: isColorDragon ? lastColor : 'NEUTRAL',
+      sizeWeight,
+      colorWeight,
+      sizeProb,
+      colorProb,
+      reason: isSizeDragon 
+        ? `🐉 DRAGON RIDER: ${sizeStreak}x consecutive ${lastSize} streak. Riding dragon until it dies!` 
+        : (isColorDragon ? `🐉 COLOR DRAGON RIDER: ${colorStreak}x consecutive ${lastColor} streak.` : null)
+    };
+  }
+
   // -- ENGINE 3: Empirical Transition Matrix (DNA) ---------------------------
   function engineDNA(hist) {
     if (!hist || hist.length < 10) return { signal: 'NEUTRAL', weight: 0 };
@@ -1381,8 +1454,35 @@
       ? `Color [${colorPattern.patternName}] stronger (${colorSeqScore} vs Size ${sizeSeqScore})`
       : `Size [${sizePattern.patternName}] stronger (${sizeSeqScore} vs Color ${colorSeqScore})`;
 
-    // Check Critical 4-Loss Prevention Shield first!
-    if (shieldResult.isShieldActive) {
+    // Check 1: Dragon Streak Rider (Ride Until It Dies)
+    const dragonRider = engineDragonRider(history);
+
+    if (dragonRider.isDragon) {
+      if (dragonRider.isSizeDragon) {
+        finalTarget = dragonRider.sizeSignal;
+        finalDominantType = 'SIZE';
+        finalReason = `${dragonRider.reason} | Max Profit Stake ₹${staking.stake}`;
+      } else if (dragonRider.isColorDragon) {
+        finalTarget = dragonRider.colorSignal;
+        finalDominantType = 'COLOR';
+        finalReason = `${dragonRider.reason} | Max Profit Stake ₹${staking.stake}`;
+      }
+    }
+    // Check 2: Adaptive Opposite Inversion (When in loss streak >= 2, predict opposite of model to prevent >4 losses)
+    else if (effectiveLossStreak >= 2) {
+      const unFlippedTarget = shieldResult.isShieldActive ? shieldResult.target : recommendedTarget;
+      let flippedTarget = unFlippedTarget;
+      if (unFlippedTarget === 'BIG') flippedTarget = 'SMALL';
+      else if (unFlippedTarget === 'SMALL') flippedTarget = 'BIG';
+      else if (unFlippedTarget === 'RED') flippedTarget = 'GREEN';
+      else if (unFlippedTarget === 'GREEN') flippedTarget = 'RED';
+
+      finalTarget = flippedTarget;
+      finalDominantType = ['RED', 'GREEN'].includes(flippedTarget) ? 'COLOR' : 'SIZE';
+      finalReason = `🔄 ADAPTIVE OPPOSITE INVERSION (${effectiveLossStreak}L streak): Flipped ${unFlippedTarget} → ${flippedTarget} to break house phase & prevent >4 losses! | Stake ₹${staking.stake}`;
+    }
+    // Check 3: Critical 4-Loss Prevention Fortress Shield
+    else if (shieldResult.isShieldActive) {
       finalTarget = shieldResult.target;
       finalDominantType = 'SIZE';
       finalReason = `${shieldResult.shieldReason} | Loss Prevention Stake ₹${staking.stake}`;
@@ -1446,6 +1546,7 @@
     requiredZScore,
     engineSum,
     engineTrend,
+    engineDragonRider,
     engineDNA,
     engineMarkov2,
     engineRolling,

@@ -187,7 +187,7 @@
       <i class="fa-solid fa-layer-group text-amber-400 text-xs"></i>
       <span id="proModeBtnText">⚡ PRO MODE: ON</span>
     </button>
-    <button onclick="toggleRightPanelView()" id="headerWebToggleBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 hover:text-white font-black text-xs transition active:scale-95 shadow" title="Toggle Website View (dhaniwin.99.com) in Right Panel">
+    <button onclick="toggleRightPanelView()" id="headerWebToggleBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 hover:text-white font-black text-xs transition active:scale-95 shadow" title="Toggle Website View (dhaniwin99.com) in Right Panel">
       <i class="fa-solid fa-globe text-sky-400"></i>
       <span id="headerWebToggleText">Web View</span>
     </button>
@@ -1199,7 +1199,7 @@
           </button>
           <div class="flex-1 flex items-center bg-black/80 rounded-md border border-purple-800/40 px-1.5 py-0.5 gap-1 focus-within:border-amber-400">
             <i class="fa-solid fa-lock text-emerald-400 text-[7px]"></i>
-            <input id="embeddedWebUrlInput" type="text" value="https://dhaniwin.99.com"
+            <input id="embeddedWebUrlInput" type="text" value="https://dhaniwin99.com"
               onkeydown="if(event.key==='Enter') loadEmbeddedWebUrl()"
               class="w-full bg-transparent text-amber-300 placeholder-slate-500 focus:outline-none text-[8.5px]">
             <button onclick="loadEmbeddedWebUrl()" class="text-amber-400 hover:text-amber-300 font-bold px-1 py-0.2 rounded text-[7.5px] bg-amber-400/10 border border-amber-400/20 active:scale-95">GO</button>
@@ -1215,9 +1215,8 @@
         <!-- Quick Domain Mirrors & Height Presets Row -->
         <div class="flex items-center justify-between gap-1 text-[7.5px] font-mono px-1">
           <div class="flex items-center gap-1">
-            <span class="text-slate-400 uppercase tracking-tight">Mirrors:</span>
-            <button onclick="setEmbeddedMirror('https://dhaniwin.99.com')" class="px-1.5 py-0.5 rounded bg-white/5 hover:bg-amber-400/20 text-slate-300 hover:text-amber-300 border border-white/5 transition">dhaniwin.99.com</button>
-            <button onclick="setEmbeddedMirror('https://dhaniwin99.com')" class="px-1.5 py-0.5 rounded bg-white/5 hover:bg-amber-400/20 text-slate-300 hover:text-amber-300 border border-white/5 transition">dhaniwin99.com</button>
+            <span class="text-slate-400 uppercase tracking-tight">Active:</span>
+            <button onclick="setEmbeddedMirror('https://dhaniwin99.com')" class="px-1.5 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 font-bold transition">dhaniwin99.com (Live)</button>
           </div>
         </div>
 
@@ -1237,7 +1236,7 @@
         <!-- Mobile Screen Viewport (Iframe) - Default Increased to 850px Height -->
         <div id="embeddedMobileViewportContainer" class="relative w-full rounded-[22px] overflow-hidden bg-[#0c0817] border border-white/5 shadow-inner transition-all duration-200" style="height: 850px; min-height: 820px;">
           <iframe id="embeddedWebIframe"
-            src="https://dhaniwin.99.com"
+            src="https://dhaniwin99.com"
             class="w-full h-full border-0 bg-[#0c0817] block"
             scrolling="yes"
             loading="eager"
@@ -1935,7 +1934,7 @@ padding:14px 16px 16px;text-align:center;overflow:visible;pointer-events:auto;bo
       <p>Because modern browsers enforce the <b class="text-amber-300">Same-Origin Policy</b>, direct DOM scraping, timer clicks, and auto-betting on third-party sites are executed seamlessly via this lightweight bridge script directly inside DhaniWin.</p>
       <div class="p-2 rounded-xl bg-purple-950/60 border border-purple-800/40 text-[10px] space-y-1 font-mono">
         <div>1. Install <b>Tampermonkey</b> extension (or open Chrome DevTools <kbd class="bg-white/10 px-1 rounded">F12</kbd> → Console).</div>
-        <div>2. Copy the bridge script below and paste it on <b class="text-sky-300">dhaniwin.99.com</b>.</div>
+        <div>2. Copy the bridge script below and paste it on <b class="text-sky-300">dhaniwin99.com</b>.</div>
         <div>3. The script automatically synchronizes the timer with our app, scrapes every live draw, and places your AI bets in real time!</div>
       </div>
     </div>
@@ -4331,7 +4330,7 @@ function switchRightPanelView(view) {
     // Ensure iframe is loaded with target
     if (iframe && (!iframe.src || iframe.src === 'about:blank' || iframe.src === window.location.href)) {
       const input = document.getElementById('embeddedWebUrlInput');
-      const targetUrl = (input && input.value) ? input.value : 'https://dhaniwin.99.com';
+      const targetUrl = (input && input.value) ? input.value : 'https://dhaniwin99.com';
       iframe.src = targetUrl;
     }
   } else {
@@ -4362,7 +4361,7 @@ function loadEmbeddedWebUrl(urlToLoad) {
   const input = document.getElementById('embeddedWebUrlInput');
   const iframe = document.getElementById('embeddedWebIframe');
   let url = urlToLoad || (input ? input.value.trim() : '');
-  if (!url) url = 'https://dhaniwin.99.com';
+  if (!url || url.includes('dhaniwin.99.com')) url = 'https://dhaniwin99.com';
   if (!/^https?:\/\//i.test(url)) {
     url = 'https://' + url;
   }
@@ -4388,13 +4387,15 @@ function setEmbeddedMirror(url) {
 
 function openEmbeddedInNewTab() {
   const input = document.getElementById('embeddedWebUrlInput');
-  const url = (input && input.value) ? input.value : 'https://dhaniwin.99.com';
+  let url = (input && input.value) ? input.value : 'https://dhaniwin99.com';
+  if (url.includes('dhaniwin.99.com')) url = 'https://dhaniwin99.com';
   window.open(url, '_blank');
 }
 
 function popoutEmbeddedWeb() {
   const input = document.getElementById('embeddedWebUrlInput');
-  const url = (input && input.value) ? input.value : 'https://dhaniwin.99.com';
+  let url = (input && input.value) ? input.value : 'https://dhaniwin99.com';
+  if (url.includes('dhaniwin.99.com')) url = 'https://dhaniwin99.com';
   window.open(url, 'DhaniWinWeb', 'width=460,height=850,menubar=no,toolbar=no,location=no,status=no');
 }
 
@@ -4443,7 +4444,11 @@ function toggleAutoBetCardCollapse() {
     if (saved === 'web') {
       setTimeout(() => switchRightPanelView('web'), 200);
     }
-    const savedUrl = localStorage.getItem('wingo_embedded_url');
+    let savedUrl = localStorage.getItem('wingo_embedded_url');
+    if (savedUrl && savedUrl.includes('dhaniwin.99.com')) {
+      savedUrl = 'https://dhaniwin99.com';
+      try { localStorage.setItem('wingo_embedded_url', savedUrl); } catch(e) {}
+    }
     if (savedUrl) {
       const input = document.getElementById('embeddedWebUrlInput');
       const iframe = document.getElementById('embeddedWebIframe');
@@ -4678,11 +4683,11 @@ function copyQuickInjectCode() {
 
 const DHANIWIN_BRIDGE_SCRIPT_TEMPLATE = `// ==UserScript==
 // @name         DhaniWin Quant AI Live Scraper & Auto-Bet Bridge
-// @namespace    https://dhaniwin.99.com/
+// @namespace    https://dhaniwin99.com/
 // @version      2.0
 // @description  Scrapes live WinGo draws, syncs timers, and executes automated bets from Quant AI Prediction
-// @match        *://*.dhaniwin.99.com/*
 // @match        *://*.dhaniwin99.com/*
+// @match        *://*.dhaniwin.99.com/*
 // @match        *://*dhaniwin*/*
 // @run-at       document-idle
 // @grant        none
