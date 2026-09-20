@@ -47,22 +47,105 @@
     }
     .liquid-glass-card {
       background: linear-gradient(145deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.015) 100%);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35), inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
-      border-radius: 20px;
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.09);
+      border-radius: 18px;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
     }
-    .liquid-glass-pill {
+    .liquid-glass-card:hover, .apple-glass-card:hover {
+      border-color: rgba(255, 255, 255, 0.15) !important;
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+    }
+    .apple-glass-pill, .liquid-glass-pill {
       background: rgba(255, 255, 255, 0.06);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.12);
       border-radius: 9999px;
     }
-    .liquid-glass-row:hover {
-      background: rgba(255, 255, 255, 0.04);
+    .apple-glass-row:hover, .liquid-glass-row:hover {
+      background: rgba(255, 255, 255, 0.05);
       box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+    }
+
+    /* ── Apple Liquid Glass Toast / Notification ── */
+    .apple-toast {
+      background: rgba(14, 10, 24, 0.84) !important;
+      backdrop-filter: blur(28px) saturate(200%) !important;
+      -webkit-backdrop-filter: blur(28px) saturate(200%) !important;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+      border-radius: 18px !important;
+      animation: appleToastIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      pointer-events: auto;
+    }
+    @keyframes appleToastIn {
+      0% { transform: translateX(115%) scale(0.96); opacity: 0; }
+      100% { transform: translateX(0) scale(1); opacity: 1; }
+    }
+    @keyframes appleToastOut {
+      0% { transform: translateX(0) scale(1); opacity: 1; }
+      100% { transform: translateX(115%) scale(0.96); opacity: 0; }
+    }
+
+    /* ── Drag and Drop UI ── */
+    .card-drag-handle {
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+    }
+    .card-drag-handle:active {
+      cursor: grabbing;
+    }
+    .card-dragging {
+      opacity: 0.35 !important;
+      border: 1px dashed rgba(245, 158, 11, 0.7) !important;
+      transform: scale(0.98);
+    }
+    .drop-indicator-line {
+      height: 3px;
+      background: #38bdf8;
+      box-shadow: 0 0 12px #38bdf8, 0 0 20px rgba(56, 189, 248, 0.6);
+      border-radius: 9999px;
+      margin: 4px 0;
+      transition: all 0.15s ease;
+    }
+    body.is-card-dragging * {
+      user-select: none !important;
+    }
+
+    /* ── Universal Height Resizing Grip ── */
+    .element-v-resizer-grip {
+      width: 100%;
+      padding: 3px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: ns-resize;
+      user-select: none;
+      touch-action: none;
+      border-radius: 0 0 16px 16px;
+      transition: background 0.15s ease;
+    }
+    .element-v-resizer-grip:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .element-v-resizer-grip .grip-bar {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 10px;
+      border-radius: 9999px;
+      background: rgba(30, 20, 50, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .element-v-resizer-grip:hover .grip-bar,
+    .element-v-resizer-grip.active-v-resizing .grip-bar {
+      border-color: rgba(168, 85, 247, 0.5);
+      background: rgba(88, 28, 135, 0.4);
     }
 
     /* ── 3-D Balls ── */
@@ -220,9 +303,9 @@
 </div>
 
 <!-- ════════════════════════════════════════════════════════════
-     TOAST CONTAINER
+     TOAST CONTAINER (Apple Minimal Liquid Glass - Top Right)
 ════════════════════════════════════════════════════════════ -->
-<div id="toastContainer" class="fixed top-3 left-1/2 -translate-x-1/2 z-[110] flex flex-col items-center w-full max-w-lg px-4 pointer-events-none space-y-2"></div>
+<div id="toastContainer" class="fixed top-4 right-4 z-[9999] flex flex-col items-end pointer-events-none space-y-2.5 max-w-sm w-full"></div>
 
 <!-- ════════════════════════════════════════════════════════════
      FULL-WIDTH TOP NAVBAR (Apple Frosted Glass)
@@ -268,8 +351,13 @@
         <i class="fa-solid fa-eye text-amber-400 text-[8.5px]"></i>
         <span>3. Hub</span>
       </button>
-      <button onclick="resetWindowLayout()" class="p-1 px-2 rounded-xl text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/10 transition active:scale-95 border border-transparent hover:border-white/10" title="Reset all 3 windows to equal size">
-        <i class="fa-solid fa-rotate-left text-[9px]"></i>
+      <button onclick="resetWindowLayout()" class="p-1 px-2 rounded-xl text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/10 transition active:scale-95 border border-transparent hover:border-white/10 flex items-center gap-1" title="Reset all 3 windows to default equal widths">
+        <i class="fa-solid fa-rotate-left text-[8.5px]"></i>
+        <span>Cols</span>
+      </button>
+      <button onclick="resetCardPositions()" class="p-1 px-2 rounded-xl text-[9px] font-bold text-slate-400 hover:text-white hover:bg-white/10 transition active:scale-95 border border-transparent hover:border-white/10 flex items-center gap-1" title="Reset cards to default positions">
+        <i class="fa-solid fa-grip text-[8.5px] text-amber-400"></i>
+        <span>Cards</span>
       </button>
 
       <!-- + Add Element Dropdown -->
@@ -625,9 +713,12 @@
   <section id="col1Container" class="overflow-y-auto overflow-x-hidden p-3 space-y-3 bg-[#0a0615] lg:border-r border-purple-900/30 flex-col" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
     
     <!-- ── LIVE PERFORMANCE & STREAK AUDIT (ABOVE LIVE HISTORY) ── -->
-    <div id="card-col1-audit" class="bg-app-card rounded-2xl p-2.5 border border-purple-900/40 shadow-xl space-y-2 relative transition-all">
+    <div id="card-col1-audit" class="liquid-glass-card apple-glass-card rounded-2xl p-2.5 border border-purple-900/40 shadow-xl space-y-2 relative transition-all card-draggable" draggable="false" data-card-id="card-col1-audit">
       <div class="flex items-center justify-between pb-1.5 border-b border-purple-900/30">
         <div class="flex items-center gap-1.5">
+          <div class="card-drag-handle p-1 rounded-md text-slate-500 hover:text-white hover:bg-white/10 transition cursor-grab active:cursor-grabbing shrink-0" title="Drag to move card anywhere">
+            <i class="fa-solid fa-grip-vertical text-[10px]"></i>
+          </div>
           <i class="fa-solid fa-chart-line text-amber-400 text-xs"></i>
           <span class="text-[10px] font-black uppercase tracking-wider text-white">Live Prediction Audit</span>
         </div>
@@ -636,6 +727,8 @@
           <button onclick="resetLiveAudit()" title="Reset session metrics without modifying draw history" class="px-1.5 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-mono text-[8px] font-bold border border-rose-500/30 active:scale-95 transition flex items-center gap-1">
             <i class="fa-solid fa-rotate-left text-[7.5px]"></i> Reset
           </button>
+          <button onclick="adjustElementHeight('card-col1-audit', -40)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition font-bold" title="Decrease Height">-</button>
+          <button onclick="adjustElementHeight('card-col1-audit', 40)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition font-bold" title="Increase Height">+</button>
           <button onclick="toggleCardCollapse('card-col1-audit-body', this)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition" title="Minimize / Expand">
             <i class="fa-solid fa-chevron-up text-[7.5px]"></i>
           </button>
@@ -697,12 +790,23 @@
         </div>
       </div>
       </div><!-- end card-col1-audit-body -->
+
+      <!-- Drag Resize Height Grip -->
+      <div class="element-v-resizer-grip" data-card-id="card-col1-audit" title="Drag to resize height">
+        <div class="grip-bar">
+          <i class="fa-solid fa-grip-lines text-[8px] text-slate-400"></i>
+          <span class="text-[7.5px] font-mono text-slate-400">Drag Height</span>
+        </div>
+      </div>
     </div>
 
     <!-- 1. LIVE REAL HISTORY FEED & TREND ROAD TAB -->
-    <div id="card-col1-history" class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-xl flex flex-col relative transition-all">
+    <div id="card-col1-history" class="liquid-glass-card apple-glass-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-xl flex flex-col relative transition-all card-draggable" draggable="false" data-card-id="card-col1-history">
       <div class="p-2 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border-b border-purple-900/40 flex items-center justify-between flex-wrap gap-1.5">
         <div class="flex items-center gap-1.5">
+          <div class="card-drag-handle p-1 rounded-md text-slate-500 hover:text-white hover:bg-white/10 transition cursor-grab active:cursor-grabbing shrink-0" title="Drag to move card anywhere">
+            <i class="fa-solid fa-grip-vertical text-[10px]"></i>
+          </div>
           <!-- Segmented Tab Switcher: Live History vs Trend Graph -->
           <div class="flex items-center bg-black/60 p-0.5 rounded-xl border border-purple-800/40">
             <button id="col1TabHistoryBtn" onclick="switchCol1Tab('history')" class="px-2.5 py-1 rounded-lg text-[9.5px] font-black uppercase transition bg-amber-400 text-slate-950 shadow flex items-center gap-1">
@@ -823,14 +927,19 @@
     </div>
 
     <!-- 2. REPEATED COLOR & DIGIT ANALYSIS -->
-    <div id="card-col1-repeated" class="bg-app-card rounded-2xl p-3 border border-purple-900/40 shadow-xl space-y-2 relative transition-all">
+    <div id="card-col1-repeated" class="liquid-glass-card apple-glass-card rounded-2xl p-3 border border-purple-900/40 shadow-xl space-y-2 relative transition-all card-draggable" draggable="false" data-card-id="card-col1-repeated">
       <div class="flex items-center justify-between pb-1.5 border-b border-purple-900/30">
         <div class="flex items-center gap-1.5">
+          <div class="card-drag-handle p-1 rounded-md text-slate-500 hover:text-white hover:bg-white/10 transition cursor-grab active:cursor-grabbing shrink-0" title="Drag to move card anywhere">
+            <i class="fa-solid fa-grip-vertical text-[10px]"></i>
+          </div>
           <i class="fa-solid fa-palette text-amber-400 text-xs"></i>
           <span class="text-[10px] font-black uppercase tracking-wider text-white">Repeated Color &amp; Digit Analysis</span>
         </div>
         <div class="flex items-center gap-1">
           <span class="text-[8px] px-1.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-mono border border-amber-400/30">Pattern Edge</span>
+          <button onclick="adjustElementHeight('card-col1-repeated', -40)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition font-bold" title="Decrease Height">-</button>
+          <button onclick="adjustElementHeight('card-col1-repeated', 40)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition font-bold" title="Increase Height">+</button>
           <button onclick="toggleCardCollapse('card-col1-repeated-body', this)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition" title="Minimize / Expand">
             <i class="fa-solid fa-chevron-up text-[7.5px]"></i>
           </button>
@@ -844,17 +953,29 @@
           <!-- Injected by renderPatternAnalytics() -->
         </div>
       </div>
+      <!-- Drag Resize Height Grip -->
+      <div class="element-v-resizer-grip" data-card-id="card-col1-repeated" title="Drag to resize height">
+        <div class="grip-bar">
+          <i class="fa-solid fa-grip-lines text-[8px] text-slate-400"></i>
+          <span class="text-[7.5px] font-mono text-slate-400">Drag Height</span>
+        </div>
+      </div>
     </div>
 
     <!-- 3. NUMBER FREQUENCY AUDIT (0-9) -->
-    <div id="card-col1-frequency" class="bg-app-card rounded-2xl p-3 border border-purple-900/40 shadow-xl space-y-2 relative transition-all">
+    <div id="card-col1-frequency" class="liquid-glass-card apple-glass-card rounded-2xl p-3 border border-purple-900/40 shadow-xl space-y-2 relative transition-all card-draggable" draggable="false" data-card-id="card-col1-frequency">
       <div class="flex items-center justify-between pb-1.5 border-b border-purple-900/30">
         <div class="flex items-center gap-1.5">
+          <div class="card-drag-handle p-1 rounded-md text-slate-500 hover:text-white hover:bg-white/10 transition cursor-grab active:cursor-grabbing shrink-0" title="Drag to move card anywhere">
+            <i class="fa-solid fa-grip-vertical text-[10px]"></i>
+          </div>
           <i class="fa-solid fa-chart-pie text-emerald-400 text-xs"></i>
           <span class="text-[10px] font-black uppercase tracking-wider text-white">Number Frequency Audit (0-9)</span>
         </div>
         <div class="flex items-center gap-1">
           <span class="text-[8px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono border border-emerald-500/30">Distribution</span>
+          <button onclick="adjustElementHeight('card-col1-frequency', -40)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition font-bold" title="Decrease Height">-</button>
+          <button onclick="adjustElementHeight('card-col1-frequency', 40)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition font-bold" title="Increase Height">+</button>
           <button onclick="toggleCardCollapse('card-col1-frequency-body', this)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition" title="Minimize / Expand">
             <i class="fa-solid fa-chevron-up text-[7.5px]"></i>
           </button>
@@ -866,6 +987,13 @@
       <div id="card-col1-frequency-body">
         <div id="auditNumberDistGrid" class="grid grid-cols-5 gap-1.5 text-center font-mono">
           <!-- Injected by renderPatternAnalytics() -->
+        </div>
+      </div>
+      <!-- Drag Resize Height Grip -->
+      <div class="element-v-resizer-grip" data-card-id="card-col1-frequency" title="Drag to resize height">
+        <div class="grip-bar">
+          <i class="fa-solid fa-grip-lines text-[8px] text-slate-400"></i>
+          <span class="text-[7.5px] font-mono text-slate-400">Drag Height</span>
         </div>
       </div>
     </div>
@@ -894,9 +1022,12 @@
   <main id="col2Container" class="overflow-y-auto overflow-x-hidden p-3 space-y-3 bg-[#0a0615] lg:border-r border-purple-900/30 flex-col" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
     
     <!-- ── COMPACT PRO HERO WINGO WINDOW (TOP MIDDLE ONLY) ── -->
-    <div id="card-col2-hero" class="p-2 bg-app-card/90 backdrop-blur-xl rounded-xl border border-purple-900/40 shadow-md space-y-1.5 relative transition-all">
+    <div id="card-col2-hero" class="liquid-glass-card apple-glass-card p-2 bg-app-card/90 backdrop-blur-xl rounded-xl border border-purple-900/40 shadow-md space-y-1.5 relative transition-all card-draggable" draggable="false" data-card-id="card-col2-hero">
       <div class="flex items-center justify-between border-b border-purple-900/30 pb-1 flex-wrap gap-1.5">
         <div class="flex items-center gap-1.5 flex-wrap">
+          <div class="card-drag-handle p-1 rounded-md text-slate-500 hover:text-white hover:bg-white/10 transition cursor-grab active:cursor-grabbing shrink-0" title="Drag to move card anywhere">
+            <i class="fa-solid fa-grip-vertical text-[10px]"></i>
+          </div>
           <span class="px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-300 font-black text-[9px] border border-amber-400/30 uppercase tracking-wide">
             <i class="fa-solid fa-trophy mr-1 text-[8.5px]"></i> <span id="smartTfBadge">WinGo 30sec</span>
           </span>
@@ -911,6 +1042,8 @@
         <div class="flex items-center gap-1 text-[8.5px] font-mono text-slate-400">
           <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
           <span class="text-emerald-300 font-semibold mr-1">Live</span>
+          <button onclick="adjustElementHeight('card-col2-hero', -30)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition font-bold" title="Decrease Height">-</button>
+          <button onclick="adjustElementHeight('card-col2-hero', 30)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition font-bold" title="Increase Height">+</button>
           <button onclick="toggleCardCollapse('card-col2-hero-body', this)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition" title="Minimize / Expand"><i class="fa-solid fa-chevron-up text-[7.5px]"></i></button>
           <button onclick="closeCardElement('col2-hero')" class="w-5 h-5 rounded bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 flex items-center justify-center text-[9px] transition font-bold" title="Close element (can re-add via + button at top)"><i class="fa-solid fa-xmark text-[8.5px]"></i></button>
         </div>
@@ -977,13 +1110,24 @@
         <div id="smartRiskSummary"><span id="smartRiskBadge"></span></div>
       </div>
       </div><!-- end card-col2-hero-body -->
+
+      <!-- Drag Resize Height Grip -->
+      <div class="element-v-resizer-grip" data-card-id="card-col2-hero" title="Drag to resize height">
+        <div class="grip-bar">
+          <i class="fa-solid fa-grip-lines text-[8px] text-slate-400"></i>
+          <span class="text-[7.5px] font-mono text-slate-400">Drag Height</span>
+        </div>
+      </div>
     </div>
 
     <!-- ── TRADINGVIEW CANDLESTICK TRADING CHART (COLUMN 2) ── -->
-    <div id="card-col2-chart" class="bg-app-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-2xl flex flex-col relative transition-all">
+    <div id="card-col2-chart" class="liquid-glass-card apple-glass-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-2xl flex flex-col relative transition-all card-draggable" draggable="false" data-card-id="card-col2-chart">
       <!-- Top Control Bar -->
       <div class="p-2 bg-gradient-to-r from-purple-950 via-slate-900 to-[#131722] border-b border-purple-900/40 flex items-center justify-between flex-wrap gap-1.5">
         <div class="flex items-center gap-1.5">
+          <div class="card-drag-handle p-1 rounded-md text-slate-500 hover:text-white hover:bg-white/10 transition cursor-grab active:cursor-grabbing shrink-0" title="Drag to move card anywhere">
+            <i class="fa-solid fa-grip-vertical text-[10px]"></i>
+          </div>
           <div class="w-2.5 h-2.5 rounded-sm bg-[#2962ff]"></div>
           <span class="font-black text-xs text-white uppercase tracking-wider">Trading Candlestick Chart</span>
           <span class="text-[8.5px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/30 font-mono">Live Candles</span>
@@ -1138,10 +1282,13 @@
     <div id="rightPanelAppContent" class="p-3.5 space-y-3.5">
 
       <!-- ── 1. SIMULATION TEST MODE BOT ── -->
-      <div class="liquid-glass-card p-3 space-y-2" id="card-col3-simbot">
+      <div class="liquid-glass-card apple-glass-card p-3 space-y-2 relative transition-all card-draggable" id="card-col3-simbot" draggable="false" data-card-id="card-col3-simbot">
         <!-- Header -->
         <div class="flex items-center justify-between pb-1.5 border-b border-white/10">
           <div class="flex items-center gap-1.5">
+            <div class="card-drag-handle p-1 rounded-md text-slate-500 hover:text-white hover:bg-white/10 transition cursor-grab active:cursor-grabbing shrink-0" title="Drag to move card anywhere">
+              <i class="fa-solid fa-grip-vertical text-[10px]"></i>
+            </div>
             <div class="relative">
               <span id="simBotPulse" class="w-2 h-2 rounded-full bg-slate-500 inline-block"></span>
             </div>
@@ -1152,6 +1299,8 @@
             <button id="simBotToggleBtn" onclick="simBotToggle()" class="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30">
               ▶ START
             </button>
+            <button onclick="adjustElementHeight('card-col3-simbot', -40)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition font-bold" title="Decrease Height">-</button>
+            <button onclick="adjustElementHeight('card-col3-simbot', 40)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition font-bold" title="Increase Height">+</button>
             <button onclick="toggleCardCollapse('card-col3-simbot-body', this)" title="Minimize / Expand" class="w-5 h-5 rounded-md bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition active:scale-95">
               <i class="fa-solid fa-chevron-up text-[8px]"></i>
             </button>
@@ -1281,13 +1430,23 @@
           <button onclick="simBotReset()" class="mt-1 px-3 py-1 rounded-lg bg-indigo-600/60 text-indigo-200 text-[8.5px] font-bold border border-indigo-500/40 hover:bg-indigo-500/40 transition active:scale-95">↺ Reset</button>
         </div>
         </div><!-- end #card-col3-simbot-body -->
+        <!-- Drag Resize Height Grip -->
+        <div class="element-v-resizer-grip" data-card-id="card-col3-simbot" title="Drag to resize height">
+          <div class="grip-bar">
+            <i class="fa-solid fa-grip-lines text-[8px] text-slate-400"></i>
+            <span class="text-[7.5px] font-mono text-slate-400">Drag Height</span>
+          </div>
+        </div>
       </div>
 
       <!-- ── GAME HISTORY & PATTERN INTELLIGENCE ENGINE (RIGHT PANEL) ── -->
-      <div class="liquid-glass-card p-3.5 space-y-2.5" id="card-col3-patternhub">
+      <div class="liquid-glass-card apple-glass-card p-3.5 space-y-2.5 relative transition-all card-draggable" id="card-col3-patternhub" draggable="false" data-card-id="card-col3-patternhub">
         <!-- Header -->
         <div class="flex items-center justify-between pb-2 border-b border-white/10 flex-wrap gap-1.5">
           <div class="flex items-center gap-1.5">
+            <div class="card-drag-handle p-1 rounded-md text-slate-500 hover:text-white hover:bg-white/10 transition cursor-grab active:cursor-grabbing shrink-0" title="Drag to move card anywhere">
+              <i class="fa-solid fa-grip-vertical text-[10px]"></i>
+            </div>
             <i class="fa-solid fa-brain text-amber-400 text-xs"></i>
             <span class="text-[10px] font-black uppercase tracking-wider text-white">Game History &amp; Analysis</span>
             <span class="text-[8px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">v5 Engine</span>
@@ -1296,6 +1455,8 @@
             <span id="ghActiveTfBadge" class="text-[9px] px-2 py-0.5 rounded-md bg-amber-400 text-slate-950 font-black border border-amber-400/50 shadow">30s</span>
             <button onclick="exportGameAnalysisJSON()" class="px-1.5 py-0.5 rounded-lg bg-purple-950/70 text-purple-200 text-[9px] font-mono border border-purple-800/40 active:scale-95 transition" title="Export JSON"><i class="fa-solid fa-file-code text-amber-400"></i></button>
             <button onclick="exportGameAnalysisCSV()" class="px-1.5 py-0.5 rounded-lg bg-purple-950/70 text-purple-200 text-[9px] font-mono border border-purple-800/40 active:scale-95 transition" title="Export CSV"><i class="fa-solid fa-file-csv text-emerald-400"></i></button>
+            <button onclick="adjustElementHeight('card-col3-patternhub', -40)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition font-bold" title="Decrease Height">-</button>
+            <button onclick="adjustElementHeight('card-col3-patternhub', 40)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition font-bold" title="Increase Height">+</button>
             <button onclick="toggleCardCollapse('card-col3-patternhub-body', this)" title="Minimize / Expand" class="w-5 h-5 rounded-md bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition active:scale-95">
               <i class="fa-solid fa-chevron-up text-[8px]"></i>
             </button>
@@ -1443,17 +1604,26 @@
         </button>
       </div>
       </div><!-- end #card-col3-patternhub-body -->
-
-    </div><!-- end #rightPanelAppContent -->
+        <!-- Drag Resize Height Grip -->
+        <div class="element-v-resizer-grip" data-card-id="card-col3-patternhub" title="Drag to resize height">
+          <div class="grip-bar">
+            <i class="fa-solid fa-grip-lines text-[8px] text-slate-400"></i>
+            <span class="text-[7.5px] font-mono text-slate-400">Drag Height</span>
+          </div>
+        </div>
+      </div><!-- end #card-col3-patternhub -->
 
     <!-- ── 2. EMBEDDED WEBSITE VIEW & REAL AUTO-BETTING (DhaniWin Mobile View) ── -->
     <div id="rightPanelWebContent" class="hidden p-2 space-y-2.5 max-w-[410px] mx-auto">
       
       <!-- ── A. REAL AUTO-BETTING CONTROLLER (ABOVE WEB VIEW) ── -->
-      <div class="liquid-glass-card p-3 space-y-2 border border-emerald-500/30 bg-gradient-to-b from-emerald-950/30 via-slate-950/70 to-purple-950/40 shadow-xl rounded-2xl" id="card-col3-autobet">
+      <div class="liquid-glass-card apple-glass-card p-3 space-y-2 border border-emerald-500/30 bg-gradient-to-b from-emerald-950/30 via-slate-950/70 to-purple-950/40 shadow-xl rounded-2xl relative transition-all card-draggable" id="card-col3-autobet" draggable="false" data-card-id="card-col3-autobet">
         <!-- Header & Master Toggle -->
         <div class="flex items-center justify-between pb-1 border-b border-white/10">
           <div class="flex items-center gap-1.5">
+            <div class="card-drag-handle p-1 rounded-md text-slate-500 hover:text-white hover:bg-white/10 transition cursor-grab active:cursor-grabbing shrink-0" title="Drag to move card anywhere">
+              <i class="fa-solid fa-grip-vertical text-[10px]"></i>
+            </div>
             <span id="realAutoBetPulse" class="w-2.5 h-2.5 rounded-full bg-slate-500 inline-block"></span>
             <span class="text-[10px] font-black uppercase tracking-wider text-white">Real Auto-Betting</span>
             <span id="realAutoBetBadge" class="text-[7.5px] px-1.5 py-0.5 rounded-full bg-slate-500/20 text-slate-300 font-mono border border-white/10">STANDBY</span>
@@ -1462,6 +1632,8 @@
             <button id="realAutoBetToggleBtn" onclick="toggleRealAutoBet()" class="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 shadow">
               ▶ START AUTO-BET
             </button>
+            <button onclick="adjustElementHeight('card-col3-autobet', -40)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition font-bold" title="Decrease Height">-</button>
+            <button onclick="adjustElementHeight('card-col3-autobet', 40)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition font-bold" title="Increase Height">+</button>
             <button id="btnToggleAutoBetCard" onclick="toggleAutoBetCardCollapse()" title="Collapse / Expand Controls" class="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[10px] transition active:scale-95">
               <i id="iconToggleAutoBetCard" class="fa-solid fa-chevron-up text-[9px]"></i>
             </button>
@@ -1544,10 +1716,17 @@
             </div>
           </div>
         </div>
+        <!-- Drag Resize Height Grip -->
+        <div class="element-v-resizer-grip" data-card-id="card-col3-autobet" title="Drag to resize height">
+          <div class="grip-bar">
+            <i class="fa-solid fa-grip-lines text-[8px] text-slate-400"></i>
+            <span class="text-[7.5px] font-mono text-slate-400">Drag Height</span>
+          </div>
+        </div>
       </div>
 
       <!-- ── B. MOBILE SIZE WEB VIEW CONTAINER (SMARTPHONE FRAME) ── -->
-      <div id="card-col3-webview" class="space-y-1.5">
+      <div id="card-col3-webview" class="space-y-1.5 relative transition-all card-draggable" draggable="false" data-card-id="card-col3-webview">
         <div class="mobile-frame-container mx-auto w-full max-w-[390px] rounded-[34px] p-2 bg-gradient-to-b from-slate-800 via-slate-900 to-black border-2 border-slate-700/80 shadow-[0_20px_60px_rgba(0,0,0,0.85)] flex flex-col space-y-1.5">
         
         <!-- Mobile Speaker / Dynamic Island Top Bezel -->
@@ -1560,6 +1739,9 @@
 
         <!-- Browser Navigation Bar -->
         <div class="px-2 py-1 rounded-xl bg-black/60 border border-white/10 flex items-center gap-1 text-[8.5px] font-mono">
+          <div class="card-drag-handle p-1 rounded-md text-slate-500 hover:text-white hover:bg-white/10 transition cursor-grab active:cursor-grabbing shrink-0" title="Drag to move card anywhere">
+            <i class="fa-solid fa-grip-vertical text-[10px]"></i>
+          </div>
           <button onclick="reloadEmbeddedWeb()" title="Reload Webpage" class="w-6 h-6 rounded-md bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white flex items-center justify-center text-[10px] transition active:scale-95">
             <i class="fa-solid fa-rotate-right"></i>
           </button>
@@ -1811,130 +1993,117 @@
 </div>
 
 <!-- ════════════════════════════════════════════════════════════
-     WIN CELEBRATION POPUP (Bottom-Right Non-Blocking Floating Toast)
+     WIN CELEBRATION POPUP (Apple Minimalist Liquid Glass - Top Right)
 ════════════════════════════════════════════════════════════ -->
-<div id="winPopup" style="position:fixed;bottom:20px;right:20px;z-index:300;display:none;align-items:flex-end;justify-content:flex-end;pointer-events:none;">
-  <div id="winPopupCard" style="position:relative;width:100%;max-width:320px;border-radius:22px;
-background:linear-gradient(160deg,#ff9a00 0%,#e65c00 60%,#b91c1c 100%);
-box-shadow:0 16px 48px rgba(0,0,0,0.7),0 0 30px rgba(245,158,11,0.5);
-padding:14px 16px 16px;text-align:center;overflow:visible;pointer-events:auto;border:1.5px solid rgba(255,255,255,0.25);">
-
-    <!-- Close button -->
-    <button onclick="closeResultPopups()" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.35);color:#fff;width:22px;height:22px;border-radius:50%;border:none;cursor:pointer;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" title="Close">✕</button>
-
-    <!-- Header badge -->
-    <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:2px;">
-      <span style="font-size:18px;">🚀</span>
-      <span style="font-size:18px;font-weight:900;color:#fff;letter-spacing:.3px;text-shadow:0 2px 6px rgba(0,0,0,.4);">Congratulations!</span>
+<div id="winPopup" style="position:fixed;top:16px;right:16px;z-index:9999;display:none;align-items:flex-start;justify-content:flex-end;pointer-events:none;">
+  <div id="winPopupCard" class="apple-glass-card apple-toast pointer-events-auto relative p-3.5 space-y-2 border border-emerald-500/40 text-left shadow-[0_16px_48px_rgba(0,0,0,0.7),0_0_24px_rgba(16,185,129,0.2)]" style="max-width:330px;width:100%;background:rgba(12,8,22,0.88);backdrop-filter:blur(28px) saturate(190%);border-radius:20px;">
+    
+    <!-- Top Row: Timeframe, Period & Dismiss -->
+    <div class="flex items-center justify-between pb-1.5 border-b border-white/10 font-mono text-[9px]">
+      <div class="flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block"></span>
+        <span id="winSessionTfBadge" class="text-emerald-300 font-bold uppercase tracking-wider">WinGo 30s</span>
+        <span class="text-slate-500">·</span>
+        <span id="winPeriodEl" class="text-slate-300 font-bold truncate max-w-[130px]">Period —</span>
+      </div>
+      <button onclick="closeResultPopups()" class="w-5 h-5 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center text-[9px] transition active:scale-95" title="Close">✕</button>
     </div>
 
-    <!-- Lottery result badges -->
-    <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin:8px 0 10px;">
-      <span style="font-size:10px;color:#ffe08a;font-weight:700;">Lottery results:</span>
-      <span id="winColorBadge" style="background:#9333ea;color:#fff;font-weight:900;font-size:11px;padding:2px 10px;border-radius:20px;">—</span>
-      <span id="winSizeBadge" style="background:#9333ea;color:#fff;font-weight:900;font-size:11px;padding:2px 10px;border-radius:20px;">—</span>
-    </div>
-
-    <!-- Profit slip -->
-    <div style="background:#fff2;border-radius:14px;padding:10px 14px;margin:0 0 10px;border:1.5px dashed #fff5;">
-      <div id="winTitleHeaderEl" style="font-size:11px;font-weight:700;color:#fff;opacity:.85;margin-bottom:2px;">Profit</div>
-      <div id="winAmountEl" style="font-size:24px;font-weight:900;color:#fff;letter-spacing:-0.5px;text-shadow:0 2px 6px rgba(0,0,0,.3);">+₹0.00</div>
-      <div style="border-top:1px dashed #fff4;margin:6px 0 4px;"></div>
-      <div id="winPeriodEl" style="font-size:9.5px;color:#ffe8a0;font-weight:600;">Period —</div>
-      <div id="winAiPredictionEl" style="font-size:10.5px;color:#ffe8a0;font-weight:700;margin-top:2px;"></div>
-      <!-- Session stats block -->
-      <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:6px 8px;margin-top:6px;font-size:9px;font-family:monospace;text-align:left;">
-        <div style="display:flex;justify-content:space-between;color:#fff;font-weight:800;margin-bottom:3px;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:2px;">
-          <span id="winSessionTfBadge" style="color:#ffe08a;">WinGo 30s</span>
-          <span id="winSessionAccBadge" style="color:#34d399;">—% Accuracy</span>
+    <!-- Main Outcome Row -->
+    <div class="flex items-center gap-3 pt-0.5">
+      <div class="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center font-black text-base shrink-0 shadow-[0_0_16px_rgba(16,185,129,0.35)]">
+        <i class="fa-solid fa-check"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-1.5">
+          <span id="winTitleHeaderEl" class="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Profit</span>
+          <span id="winColorBadge" class="text-[8px] font-black px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono">—</span>
+          <span id="winSizeBadge" class="text-[8px] font-black px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 font-mono">—</span>
         </div>
-        <div style="display:flex;justify-content:space-between;color:#ffe8a0;margin-bottom:2px;">
-          <span>Correct: <b id="winSessionCorrect" style="color:#34d399;">0</b></span>
-          <span>Wrong: <b id="winSessionWrong" style="color:#f87171;">0</b></span>
-        </div>
-        <div style="display:flex;justify-content:space-between;color:#a5f3fc;font-size:8px;">
-          <span>Streak: <b id="winSessionCurStreak" style="color:#fde047;">—</b></span>
-          <span>Max W: <b id="winSessionMaxWin" style="color:#34d399;">0W</b></span>
-          <span>Max L: <b id="winSessionMaxLoss" style="color:#f87171;">0L</b></span>
-        </div>
+        <div id="winAmountEl" class="text-xl font-black text-emerald-400 tracking-tight leading-tight">+₹0.00</div>
       </div>
     </div>
 
-    <!-- AI badge -->
-    <div id="winAiBadge" style="font-size:10px;color:#ffe08a;margin-bottom:4px;font-weight:700;"></div>
+    <!-- Sub readouts -->
+    <div class="space-y-1 pt-1 text-[8.5px] font-mono border-t border-white/5">
+      <div id="winAiPredictionEl" class="text-amber-300 font-semibold truncate"></div>
+      <div id="winAiBadge" class="text-slate-400 text-[8px] flex items-center gap-1"></div>
+      
+      <!-- Session stats pill -->
+      <div class="flex items-center justify-between p-1.5 rounded-xl bg-black/40 border border-white/5 text-[8px] text-slate-400">
+        <span id="winSessionAccBadge" class="text-emerald-300 font-bold">—% Acc</span>
+        <span>Streak: <b id="winSessionCurStreak" class="text-emerald-400">—</b></span>
+        <span>Score: <b id="winSessionCorrect" class="text-emerald-400">0</b>/<b id="winSessionWrong" class="text-rose-400">0</b></span>
+      </div>
 
-    <!-- Martingale next bet info -->
-    <div id="winMgNextBet" style="display:none;font-size:10px;color:#a5f3fc;font-weight:900;margin-bottom:6px;background:rgba(6,182,212,.15);border:1px solid rgba(6,182,212,.3);border-radius:8px;padding:4px 10px;">
-      🔄 Martingale RESET → Next Bet: <span id="winMgNextAmt" style="color:#10b981;">₹1</span>
+      <!-- Martingale reset info -->
+      <div id="winMgNextBet" style="display:none;" class="p-1 rounded-lg bg-cyan-950/40 border border-cyan-500/30 text-cyan-300 text-[8px] font-bold text-center">
+        🔄 Martingale Reset → Next: <span id="winMgNextAmt" class="text-emerald-400 font-black">₹1</span>
+      </div>
     </div>
 
-    <!-- Auto close -->
-    <div style="display:flex;align-items:center;gap:6px;justify-content:center;">
-      <div id="winCountdownBox" style="width:14px;height:14px;border-radius:3px;border:1.5px solid #fff8;background:#fff2;"></div>
-      <span id="winCountdownLabel" style="font-size:10.5px;color:#ffe8a0;font-weight:700;">3s auto close</span>
+    <!-- Auto close footer -->
+    <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] text-slate-500 font-mono">
+      <div id="winCountdownBox" class="w-2 h-2 rounded-full bg-emerald-400/60"></div>
+      <span id="winCountdownLabel">3s auto close</span>
     </div>
   </div>
 </div>
 
 <!-- ════════════════════════════════════════════════════════════
-     LOSS "SORRY" POPUP (Bottom-Right Non-Blocking Floating Toast)
+     LOSS "SORRY" POPUP (Apple Minimalist Liquid Glass - Top Right)
 ════════════════════════════════════════════════════════════ -->
-<div id="lossPopup" style="position:fixed;bottom:20px;right:20px;z-index:300;display:none;align-items:flex-end;justify-content:flex-end;pointer-events:none;">
-  <div id="lossPopupCard" style="position:relative;width:100%;max-width:320px;border-radius:22px;
-background:linear-gradient(160deg,#334155 0%,#1e293b 60%,#0f172a 100%);
-box-shadow:0 16px 48px rgba(0,0,0,0.7),0 0 30px rgba(100,116,139,0.3);
-padding:14px 16px 16px;text-align:center;overflow:visible;pointer-events:auto;border:1.5px solid rgba(255,255,255,0.15);">
-
-    <!-- Close button -->
-    <button onclick="closeResultPopups()" style="position:absolute;top:10px;right:10px;background:rgba(255,255,255,0.15);color:#fff;width:22px;height:22px;border-radius:50%;border:none;cursor:pointer;font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;" title="Close">✕</button>
-
-    <!-- Header badge -->
-    <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:2px;">
-      <span style="font-size:18px;">📊</span>
-      <span style="font-size:18px;font-weight:900;color:#fff;text-shadow:0 2px 6px rgba(0,0,0,.4);">Result Outcome</span>
+<div id="lossPopup" style="position:fixed;top:16px;right:16px;z-index:9999;display:none;align-items:flex-start;justify-content:flex-end;pointer-events:none;">
+  <div id="lossPopupCard" class="apple-glass-card apple-toast pointer-events-auto relative p-3.5 space-y-2 border border-rose-500/40 text-left shadow-[0_16px_48px_rgba(0,0,0,0.7),0_0_24px_rgba(244,63,94,0.2)]" style="max-width:330px;width:100%;background:rgba(12,8,22,0.88);backdrop-filter:blur(28px) saturate(190%);border-radius:20px;">
+    
+    <!-- Top Row: Timeframe, Period & Dismiss -->
+    <div class="flex items-center justify-between pb-1.5 border-b border-white/10 font-mono text-[9px]">
+      <div class="flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-rose-400 inline-block"></span>
+        <span id="lossSessionTfBadge" class="text-rose-300 font-bold uppercase tracking-wider">WinGo 30s</span>
+        <span class="text-slate-500">·</span>
+        <span id="lossPeriodEl" class="text-slate-300 font-bold truncate max-w-[130px]">Period —</span>
+      </div>
+      <button onclick="closeResultPopups()" class="w-5 h-5 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center text-[9px] transition active:scale-95" title="Close">✕</button>
     </div>
 
-    <!-- Lottery result badges -->
-    <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin:8px 0 10px;">
-      <span style="font-size:10px;color:#cbd5e1;font-weight:700;">Lottery results:</span>
-      <span id="lossColorBadge" style="background:#475569;color:#fff;font-weight:900;font-size:11px;padding:2px 10px;border-radius:20px;">—</span>
-      <span id="lossSizeBadge" style="background:#475569;color:#fff;font-weight:900;font-size:11px;padding:2px 10px;border-radius:20px;">—</span>
-    </div>
-
-    <!-- Loss/Outcome slip -->
-    <div style="background:#ffffff0d;border-radius:14px;padding:10px 14px;margin:0 0 10px;border:1.5px dashed rgba(255,255,255,0.15);">
-      <div id="lossTitleHeaderEl" style="font-size:11px;font-weight:700;color:#cbd5e1;opacity:.85;margin-bottom:2px;">Amount Lost</div>
-      <div id="lossAmountEl" style="font-size:22px;font-weight:900;color:#f87171;letter-spacing:-0.5px;">-₹0.00</div>
-      <div style="border-top:1px dashed rgba(255,255,255,0.15);margin:6px 0 4px;"></div>
-      <div id="lossPeriodEl" style="font-size:9.5px;color:#94a3b8;font-weight:600;">Period —</div>
-      <div id="lossAiPredictionEl" style="font-size:10.5px;color:#fde047;font-weight:700;margin-top:2px;"></div>
-      <div id="lossBalanceEl" style="font-size:9.5px;color:#64748b;margin-top:2px;">Balance: ₹—</div>
-      <!-- Session stats block -->
-      <div style="background:rgba(0,0,0,0.35);border-radius:10px;padding:6px 8px;margin-top:6px;font-size:9px;font-family:monospace;text-align:left;">
-        <div style="display:flex;justify-content:space-between;color:#fff;font-weight:800;margin-bottom:3px;border-bottom:1px solid rgba(255,255,255,0.15);padding-bottom:2px;">
-          <span id="lossSessionTfBadge" style="color:#fca5a5;">WinGo 30s</span>
-          <span id="lossSessionAccBadge" style="color:#fbbf24;">—% Accuracy</span>
+    <!-- Main Outcome Row -->
+    <div class="flex items-center gap-3 pt-0.5">
+      <div class="w-10 h-10 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center font-black text-base shrink-0 shadow-[0_0_16px_rgba(244,63,94,0.35)]">
+        <i class="fa-solid fa-xmark"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-1.5">
+          <span id="lossTitleHeaderEl" class="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Outcome</span>
+          <span id="lossColorBadge" class="text-[8px] font-black px-1.5 py-0.2 rounded-full bg-slate-700/60 text-slate-300 border border-white/10 font-mono">—</span>
+          <span id="lossSizeBadge" class="text-[8px] font-black px-1.5 py-0.2 rounded-full bg-slate-700/60 text-slate-300 border border-white/10 font-mono">—</span>
         </div>
-        <div style="display:flex;justify-content:space-between;color:#ddd;margin-bottom:2px;">
-          <span>Correct: <b id="lossSessionCorrect" style="color:#34d399;">0</b></span>
-          <span>Wrong: <b id="lossSessionWrong" style="color:#f87171;">0</b></span>
-        </div>
-        <div style="display:flex;justify-content:space-between;color:#fca5a5;font-size:8px;">
-          <span>Streak: <b id="lossSessionCurStreak" style="color:#f87171;">—</b></span>
-          <span>Max W: <b id="lossSessionMaxWin" style="color:#34d399;">0W</b></span>
-          <span>Max L: <b id="lossSessionMaxLoss" style="color:#f87171;">0L</b></span>
-        </div>
+        <div id="lossAmountEl" class="text-xl font-black text-rose-400 tracking-tight leading-tight">-₹0.00</div>
       </div>
     </div>
 
-    <!-- Martingale doubled bet info -->
-    <div id="lossMgNextBet" style="display:none;font-size:10px;color:#fca5a5;font-weight:900;margin-bottom:6px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:4px 10px;">
-      📈 Martingale DOUBLES → Next Bet: <span id="lossMgNextAmt" style="color:#f87171;">₹2</span>
+    <!-- Sub readouts -->
+    <div class="space-y-1 pt-1 text-[8.5px] font-mono border-t border-white/5">
+      <div id="lossAiPredictionEl" class="text-amber-300 font-semibold truncate"></div>
+      <div id="lossBalanceEl" class="text-slate-400 text-[8px] truncate"></div>
+      
+      <!-- Session stats pill -->
+      <div class="flex items-center justify-between p-1.5 rounded-xl bg-black/40 border border-white/5 text-[8px] text-slate-400">
+        <span id="lossSessionAccBadge" class="text-rose-300 font-bold">—% Acc</span>
+        <span>Streak: <b id="lossSessionCurStreak" class="text-rose-400">—</b></span>
+        <span>Score: <b id="lossSessionCorrect" class="text-emerald-400">0</b>/<b id="lossSessionWrong" class="text-rose-400">0</b></span>
+      </div>
+
+      <!-- Martingale doubled bet info -->
+      <div id="lossMgNextBet" style="display:none;" class="p-1 rounded-lg bg-rose-950/40 border border-rose-500/30 text-rose-300 text-[8px] font-bold text-center">
+        📈 Martingale Doubles → Next: <span id="lossMgNextAmt" class="text-rose-400 font-black">₹2</span>
+      </div>
     </div>
 
-    <div style="display:flex;align-items:center;gap:6px;justify-content:center;">
-      <div id="lossCountdownBox" style="width:14px;height:14px;border-radius:3px;border:1.5px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.05);"></div>
-      <span id="lossCountdownLabel" style="font-size:10.5px;color:#94a3b8;font-weight:700;">3s auto close</span>
+    <!-- Auto close footer -->
+    <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] text-slate-500 font-mono">
+      <div id="lossCountdownBox" class="w-2 h-2 rounded-full bg-rose-400/60"></div>
+      <span id="lossCountdownLabel">3s auto close</span>
     </div>
   </div>
 </div>
@@ -4786,7 +4955,180 @@ function updateAddElementsMenu() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// ELEMENT HEIGHT RESIZERS (Live History, Trading Chart, WebView)
+// UNIVERSAL DRAG-AND-DROP CARD LAYOUT CONTROLLER
+// ═══════════════════════════════════════════════════════════════
+const DEFAULT_CARD_POSITIONS = {
+  col1: ['card-col1-audit', 'card-col1-history', 'card-col1-repeated', 'card-col1-frequency'],
+  col2: ['card-col2-hero', 'card-col2-chart'],
+  col3: ['card-col3-simbot', 'card-col3-patternhub', 'card-col3-autobet', 'card-col3-webview']
+};
+
+let currentCardPositions = JSON.parse(JSON.stringify(DEFAULT_CARD_POSITIONS));
+
+function saveCardPositions() {
+  try {
+    localStorage.setItem('dhaniwin_card_positions_v2', JSON.stringify(currentCardPositions));
+  } catch(e) {}
+}
+
+function loadCardPositions() {
+  try {
+    const raw = localStorage.getItem('dhaniwin_card_positions_v2');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        currentCardPositions = {
+          col1: Array.isArray(parsed.col1) ? parsed.col1 : [...DEFAULT_CARD_POSITIONS.col1],
+          col2: Array.isArray(parsed.col2) ? parsed.col2 : [...DEFAULT_CARD_POSITIONS.col2],
+          col3: Array.isArray(parsed.col3) ? parsed.col3 : [...DEFAULT_CARD_POSITIONS.col3]
+        };
+      }
+    }
+  } catch(e) {
+    currentCardPositions = JSON.parse(JSON.stringify(DEFAULT_CARD_POSITIONS));
+  }
+  applyCardPositions();
+}
+
+function getColumnDropContainer(colKey) {
+  if (colKey === 'col1') return document.getElementById('col1Container');
+  if (colKey === 'col2') return document.getElementById('col2Container');
+  if (colKey === 'col3') {
+    return document.getElementById('rightPanelAppContent') || document.getElementById('col3Container');
+  }
+  return null;
+}
+
+function applyCardPositions() {
+  ['col1', 'col2', 'col3'].forEach(colKey => {
+    const container = getColumnDropContainer(colKey);
+    if (!container) return;
+    const cardIds = currentCardPositions[colKey] || [];
+    cardIds.forEach(id => {
+      const cardEl = document.getElementById(id);
+      if (cardEl && cardEl.parentElement) {
+        container.appendChild(cardEl);
+      }
+    });
+  });
+}
+
+function resetCardPositions() {
+  currentCardPositions = JSON.parse(JSON.stringify(DEFAULT_CARD_POSITIONS));
+  saveCardPositions();
+  applyCardPositions();
+  if (typeof showToast === 'function') {
+    showToast('All cards reset to default layout positions', 'info');
+  }
+}
+
+function getDragAfterElement(container, y) {
+  const draggableElements = [...container.querySelectorAll('.card-draggable:not(.card-dragging):not(.is-closed-card)')];
+  return draggableElements.reduce((closest, child) => {
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) {
+      return { offset: offset, element: child };
+    } else {
+      return closest;
+    }
+  }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+let draggedCardElement = null;
+
+function initCardDragAndDrop() {
+  const dropContainers = [
+    document.getElementById('col1Container'),
+    document.getElementById('col2Container'),
+    document.getElementById('rightPanelAppContent')
+  ].filter(Boolean);
+
+  const cards = document.querySelectorAll('.card-draggable');
+  cards.forEach(card => {
+    const handle = card.querySelector('.card-drag-handle');
+    if (handle) {
+      handle.addEventListener('mousedown', () => { card.setAttribute('draggable', 'true'); });
+      handle.addEventListener('mouseup', () => { card.setAttribute('draggable', 'false'); });
+      handle.addEventListener('mouseleave', () => {
+        if (!card.classList.contains('card-dragging')) {
+          card.setAttribute('draggable', 'false');
+        }
+      });
+      // Touch support for drag handles
+      handle.addEventListener('touchstart', () => { card.setAttribute('draggable', 'true'); }, { passive: true });
+      handle.addEventListener('touchend', () => { card.setAttribute('draggable', 'false'); });
+    }
+
+    card.addEventListener('dragstart', (e) => {
+      draggedCardElement = card;
+      card.classList.add('card-dragging');
+      document.body.classList.add('is-card-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try {
+        e.dataTransfer.setData('text/plain', card.id || '');
+      } catch(err) {}
+    });
+
+    card.addEventListener('dragend', () => {
+      if (draggedCardElement) {
+        draggedCardElement.classList.remove('card-dragging');
+        draggedCardElement.setAttribute('draggable', 'false');
+      }
+      draggedCardElement = null;
+      document.body.classList.remove('is-card-dragging');
+      document.querySelectorAll('.drop-indicator-line').forEach(el => el.remove());
+
+      // Sync current DOM order across columns into currentCardPositions
+      ['col1', 'col2', 'col3'].forEach(colKey => {
+        const container = getColumnDropContainer(colKey);
+        if (!container) return;
+        const currentCards = [...container.querySelectorAll(':scope > .card-draggable')].map(el => el.id).filter(Boolean);
+        currentCardPositions[colKey] = currentCards;
+      });
+      saveCardPositions();
+    });
+  });
+
+  dropContainers.forEach(container => {
+    container.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (!draggedCardElement) return;
+      e.dataTransfer.dropEffect = 'move';
+
+      const afterElement = getDragAfterElement(container, e.clientY);
+      if (afterElement == null) {
+        container.appendChild(draggedCardElement);
+      } else {
+        container.insertBefore(draggedCardElement, afterElement);
+      }
+    });
+
+    container.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+    });
+
+    container.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (!draggedCardElement) return;
+      
+      // Update positions
+      ['col1', 'col2', 'col3'].forEach(colKey => {
+        const c = getColumnDropContainer(colKey);
+        if (!c) return;
+        const currentCards = [...c.querySelectorAll(':scope > .card-draggable')].map(el => el.id).filter(Boolean);
+        currentCardPositions[colKey] = currentCards;
+      });
+      saveCardPositions();
+      if (typeof showToast === 'function') {
+        showToast('Card position updated & saved', 'success');
+      }
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ELEMENT HEIGHT RESIZERS (Universal & Specific Cards)
 // ═══════════════════════════════════════════════════════════════
 let elementHeights = {
   history: 520,
@@ -4805,18 +5147,64 @@ function loadElementHeights() {
     const raw = localStorage.getItem('dhaniwin_element_heights_v1');
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed.history) elementHeights.history = Number(parsed.history);
-      if (parsed.chart) elementHeights.chart = Number(parsed.chart);
-      if (parsed.webview) elementHeights.webview = Number(parsed.webview);
+      if (parsed && typeof parsed === 'object') {
+        Object.assign(elementHeights, parsed);
+      }
     }
   } catch(e) {}
   applyElementHeights();
 }
 
 function applyElementHeights() {
-  setHistoryHeight(elementHeights.history, false);
-  setChartHeight(elementHeights.chart, false);
-  setWebViewHeight(elementHeights.webview, false);
+  setHistoryHeight(elementHeights.history || 520, false);
+  setChartHeight(elementHeights.chart || 480, false);
+  setWebViewHeight(elementHeights.webview || 850, false);
+  
+  // Apply generic card heights
+  Object.keys(elementHeights).forEach(key => {
+    if (key !== 'history' && key !== 'chart' && key !== 'webview') {
+      const cardEl = document.getElementById(key);
+      if (cardEl) {
+        const body = cardEl.querySelector(`#${key}-body`) || cardEl;
+        if (body && elementHeights[key]) {
+          body.style.maxHeight = elementHeights[key] + 'px';
+          body.style.overflowY = 'auto';
+        }
+      }
+    }
+  });
+}
+
+function adjustElementHeight(cardId, delta) {
+  if (cardId === 'card-col1-history' || cardId === 'history') {
+    adjustHistoryHeight(delta);
+    return;
+  }
+  if (cardId === 'card-col2-chart' || cardId === 'chart') {
+    adjustChartHeight(delta);
+    return;
+  }
+  if (cardId === 'card-col3-webview' || cardId === 'webview') {
+    adjustWebViewHeight(delta);
+    return;
+  }
+
+  const curH = elementHeights[cardId] || 280;
+  const targetH = Math.max(140, Math.min(1800, curH + delta));
+  setGenericElementHeight(cardId, targetH, true);
+}
+
+function setGenericElementHeight(cardId, h, save = true) {
+  elementHeights[cardId] = h;
+  const cardEl = document.getElementById(cardId);
+  if (cardEl) {
+    const body = cardEl.querySelector(`#${cardId}-body`) || cardEl;
+    if (body) {
+      body.style.maxHeight = h + 'px';
+      body.style.overflowY = 'auto';
+    }
+  }
+  if (save) saveElementHeights();
 }
 
 function adjustHistoryHeight(delta) {
@@ -4907,9 +5295,8 @@ function setWebViewHeight(h, save = true) {
 }
 
 function initElementHeightResizers() {
-  function setupVerticalResize(gripId, getHeight, setHeight) {
-    const grip = document.getElementById(gripId);
-    if (!grip) return;
+  function setupVerticalResize(gripEl, getHeight, setHeight) {
+    if (!gripEl) return;
 
     let isDragging = false;
     let startY = 0;
@@ -4920,14 +5307,14 @@ function initElementHeightResizers() {
       startY = e.touches ? e.touches[0].clientY : e.clientY;
       startHeight = getHeight();
       document.body.classList.add('body-v-resizing');
-      grip.classList.add('active-v-resizing');
+      gripEl.classList.add('active-v-resizing');
 
       const onPointerMove = (evt) => {
         if (!isDragging) return;
         if (evt.cancelable) evt.preventDefault();
         const currentY = evt.touches ? evt.touches[0].clientY : evt.clientY;
         const deltaY = currentY - startY;
-        const targetH = Math.max(260, Math.min(1800, Math.round(startHeight + deltaY)));
+        const targetH = Math.max(140, Math.min(1800, Math.round(startHeight + deltaY)));
         setHeight(targetH);
       };
 
@@ -4935,7 +5322,7 @@ function initElementHeightResizers() {
         if (!isDragging) return;
         isDragging = false;
         document.body.classList.remove('body-v-resizing');
-        grip.classList.remove('active-v-resizing');
+        gripEl.classList.remove('active-v-resizing');
         document.removeEventListener('mousemove', onPointerMove);
         document.removeEventListener('touchmove', onPointerMove);
         document.removeEventListener('mouseup', onPointerUp);
@@ -4949,13 +5336,28 @@ function initElementHeightResizers() {
       document.addEventListener('touchend', onPointerUp);
     };
 
-    grip.addEventListener('mousedown', onPointerDown);
-    grip.addEventListener('touchstart', onPointerDown, { passive: false });
+    gripEl.addEventListener('mousedown', onPointerDown);
+    gripEl.addEventListener('touchstart', onPointerDown, { passive: false });
   }
 
-  setupVerticalResize('historyBottomResizeGrip', () => elementHeights.history || 520, (h) => setHistoryHeight(h, false));
-  setupVerticalResize('chartBottomResizeGrip', () => elementHeights.chart || 480, (h) => setChartHeight(h, false));
-  setupVerticalResize('webPhoneBottomResizeGrip', () => elementHeights.webview || 850, (h) => setWebViewHeight(h, false));
+  // Primary fixed resizers
+  setupVerticalResize(document.getElementById('historyBottomResizeGrip'), () => elementHeights.history || 520, (h) => setHistoryHeight(h, false));
+  setupVerticalResize(document.getElementById('chartBottomResizeGrip'), () => elementHeights.chart || 480, (h) => setChartHeight(h, false));
+  setupVerticalResize(document.getElementById('webPhoneBottomResizeGrip'), () => elementHeights.webview || 850, (h) => setWebViewHeight(h, false));
+
+  // Universal card resizer grips
+  const allCardGrips = document.querySelectorAll('.element-v-resizer-grip[data-card-id]');
+  allCardGrips.forEach(grip => {
+    const cardId = grip.getAttribute('data-card-id');
+    if (!cardId) return;
+    setupVerticalResize(grip, () => {
+      const c = document.getElementById(cardId);
+      const b = c ? (c.querySelector(`#${cardId}-body`) || c) : null;
+      return b ? (b.clientHeight || elementHeights[cardId] || 280) : (elementHeights[cardId] || 280);
+    }, (h) => {
+      setGenericElementHeight(cardId, h, false);
+    });
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -7843,19 +8245,29 @@ function downloadCSVReport() {
   a.click();
 }
 
-// ── Toast ──
+// ── Apple Minimalist Liquid Glass Toast ──
 function showToast(message, type='info') {
   const c = document.getElementById('toastContainer');
   if (!c) return;
   const t = document.createElement('div');
-  const cls = type==='success' ? 'bg-emerald-950 border-emerald-500/50 text-emerald-200'
-             : type==='danger'  ? 'bg-rose-950 border-rose-500/50 text-rose-200'
-             : 'bg-slate-900 border-purple-800 text-purple-200';
-  const icon = type==='success' ? 'fa-circle-check text-emerald-400' : type==='danger' ? 'fa-triangle-exclamation text-rose-400' : 'fa-circle-info text-amber-400';
-  t.className = `toast-animate px-4 py-2 rounded-xl text-xs font-bold shadow-2xl border flex items-center gap-2 pointer-events-auto ${cls}`;
-  t.innerHTML = `<i class="fa-solid ${icon}"></i><span>${message}</span>`;
+  const isSuccess = type === 'success';
+  const isDanger = type === 'danger';
+  const icon = isSuccess ? 'fa-circle-check text-emerald-400' : isDanger ? 'fa-circle-exclamation text-rose-400' : 'fa-circle-info text-amber-400';
+  const borderClr = isSuccess ? 'border-emerald-500/30' : isDanger ? 'border-rose-500/30' : 'border-white/10';
+
+  t.className = `apple-toast px-3.5 py-2 rounded-2xl text-[10.5px] font-mono border flex items-center justify-between gap-2.5 pointer-events-auto backdrop-blur-2xl ${borderClr}`;
+  t.innerHTML = `
+    <div class="flex items-center gap-2 truncate pr-1">
+      <i class="fa-solid ${icon} text-[11px] shrink-0"></i>
+      <span class="text-slate-200 truncate font-semibold">${message}</span>
+    </div>
+    <button onclick="this.parentElement.remove()" class="w-4 h-4 rounded-full text-slate-400 hover:text-white flex items-center justify-center text-[9px] shrink-0">✕</button>
+  `;
   c.appendChild(t);
-  setTimeout(() => { t.style.opacity='0'; t.style.transform='translateY(-10px)'; t.style.transition='all .3s'; setTimeout(()=>t.remove(), 300); }, 2800);
+  setTimeout(() => {
+    t.style.animation = 'appleToastOut 0.3s cubic-bezier(0.16,1,0.3,1) forwards';
+    setTimeout(() => t.remove(), 300);
+  }, 3200);
 }
 
 
@@ -9554,6 +9966,12 @@ function simBotReset()  { SimBot.reset(); }
   // Automatic bootup after DOM is ready
   setTimeout(() => {
     try {
+      if (typeof loadCardPositions === 'function') {
+        loadCardPositions();
+      }
+      if (typeof initCardDragAndDrop === 'function') {
+        initCardDragAndDrop();
+      }
       if (typeof loadElementHeights === 'function') {
         loadElementHeights();
       }
