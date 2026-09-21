@@ -1619,34 +1619,133 @@
       (Math.abs(dominantProb - 0.5) < 0.08 ? 0.20 : 0.05)
     ).toFixed(2));
 
-    const metadata = {
-      consciousness: {
-        selfWarningLevel: effectiveLossStreak >= 3 ? 'CRITICAL' : effectiveLossStreak >= 2 ? 'HIGH' : 'NORMAL',
-        lastMistake: effectiveLossStreak > 0 ? (isCurrentChop ? 'CHOP_PHASE_SHIFT' : 'TREND_REVERSAL') : null,
-        trustedSources: [
-          dragonRider.isDragon ? 'DRAGON_RIDER' : null,
-          regimePatterns.isHighConfidence ? 'REGIME_DNA' : null,
-          v5Ensemble?.sizeSource?.includes('Ensemble') ? 'V5_ENSEMBLE' : null,
-          'MARKOV_CHAIN'
-        ].filter(Boolean),
-        untrustedSources: sizeConsensus.houseAdversary?.trapDetected ? ['BASE_DIRECT_MOMENTUM'] : [],
-        strategyVersion: 'v5.2-adaptive-fortress'
-      },
-      neuralMesh: {
-        dominantModel: sizeConsensus.neuralNet?.signal ? '2_LAYER_NEURAL_MESH' : 'V5_ENSEMBLE',
+    // 10. Modular Challenger & Advanced Intelligence Mesh (Shadow Mode Evaluation)
+    const subNeuralMesh = (function() {
+      const seqSignal = (sizeConsensus.scores && sizeConsensus.scores.Markov > 0) ? 'BIG' : (sizeConsensus.scores && sizeConsensus.scores.Markov < 0 ? 'SMALL' : (last3Draws[last3Draws.length - 1] || 'BIG'));
+      const seqProb = 0.50 + Math.min(0.35, Math.abs(sizeConsensus.scores?.Markov || 0) / 100);
+      const patSignal = regimePatterns.signal || (sizeConsensus.scores?.DNA > 0 ? 'BIG' : 'SMALL');
+      const patProb = regimePatterns.prob || 0.55;
+      const regSignal = isCurrentChop ? (last3Draws[last3Draws.length - 1] === 'BIG' ? 'SMALL' : 'BIG') : (last3Draws[last3Draws.length - 1] || 'BIG');
+      const regProb = Number((0.50 + (1.0 - Math.min(1.0, entropy)) * 0.25).toFixed(2));
+      const streakSignal = activeStreakCount >= 4 ? (last3Draws[last3Draws.length - 1] || 'BIG') : (activeStreakCount >= 2 ? (last3Draws[last3Draws.length - 1] || 'BIG') : (last3Draws[last3Draws.length - 1] === 'BIG' ? 'SMALL' : 'BIG'));
+      const streakProb = Number((0.52 + Math.min(0.32, activeStreakCount * 0.04)).toFixed(2));
+      const invSignal = sizeConsensus.houseAdversary?.trapDetected ? sizeConsensus.houseAdversary.signal : (activeStreakCount >= 5 ? (last3Draws[last3Draws.length - 1] === 'BIG' ? 'SMALL' : 'BIG') : finalTarget);
+      const invProb = sizeConsensus.houseAdversary?.trapDetected ? 0.65 : 0.50;
+
+      const subModels = {
+        sequence: { signal: seqSignal, prob: Number(seqProb.toFixed(2)), weight: 25 },
+        pattern: { signal: patSignal, prob: Number(patProb.toFixed(2)), weight: 30 },
+        regime: { signal: regSignal, prob: Number(regProb.toFixed(2)), weight: 20 },
+        streak: { signal: streakSignal, prob: Number(streakProb.toFixed(2)), weight: 25 },
+        inversion: { signal: invSignal, prob: Number(invProb.toFixed(2)), weight: 20 }
+      };
+
+      return {
+        dominantModel: sizeConsensus.neuralNet?.signal ? '2_LAYER_PLASTIC_MESH' : 'V5_ENSEMBLE',
+        subModels,
         modelAgreement: Number(dominantProb.toFixed(2)),
-        neuralConfidence: Number((sizeConsensus.neuralNet?.prob || dominantProb).toFixed(2))
+        neuralConfidence: Number((sizeConsensus.neuralNet?.prob || dominantProb).toFixed(2)),
+        trainingWindow: Math.min(25, n),
+        sampleSize: n,
+        validationStatus: 'SHADOW_MODE',
+        version: 'v5.2-plastic'
+      };
+    })();
+
+    const globalEvidence = {
+      score: Number((1.0 - (masterDangerScore * 0.6)).toFixed(2)),
+      dataQuality: Number((Math.min(100, n) / 100).toFixed(2)),
+      regimeStability: Number((1.0 - Math.min(1.0, entropy * 0.8)).toFixed(2)),
+      disagreementScore: Number((1.0 - dominantProb).toFixed(2)),
+      anomalyPressure: sizeConsensus.houseAdversary?.trapDetected ? 0.75 : 0.15,
+      confidenceAdj: Number((1.0 - (effectiveLossStreak * 0.15)).toFixed(2))
+    };
+
+    const introspection = {
+      warningLevel: effectiveLossStreak >= 3 ? 'CRITICAL' : effectiveLossStreak >= 2 ? 'HIGH' : effectiveLossStreak === 1 ? 'ELEVATED' : 'NORMAL',
+      currentBelief: `Dominant expectation: ${finalTarget} (${Math.round(dominantProb * 100)}%) via ${dominantEngines[0] || 'Ensemble'}`,
+      lastMistake: effectiveLossStreak > 0 ? (isCurrentChop ? 'CHOP_PHASE_SHIFT' : 'TREND_EXHAUSTION_REVERSAL') : null,
+      trustedSources: [
+        dragonRider.isDragon ? 'DRAGON_RIDER' : null,
+        regimePatterns.isHighConfidence ? 'REGIME_DNA' : null,
+        v5Ensemble?.sizeSource?.includes('Ensemble') ? 'V5_ENSEMBLE' : null,
+        'MARKOV_CHAIN',
+        'LOSS_STREAK_SHIELD'
+      ].filter(Boolean),
+      degradedSources: sizeConsensus.houseAdversary?.trapDetected ? ['BASE_DIRECT_MOMENTUM'] : (effectiveLossStreak >= 2 ? ['LAGGING_TREND'] : []),
+      activeStrategyVersion: 'v5.2-adaptive-fortress',
+      learningStatus: effectiveLossStreak >= 2 ? 'PLASTIC_ADAPTATION' : 'STABLE_EVALUATION'
+    };
+
+    const historicalReplay = (function() {
+      const targetLen = Math.min(4, n - 1);
+      const trailingSeq = history.slice(-targetLen).map(r => r.size).join('');
+      let matches = 0;
+      let nextBig = 0;
+      for (let i = 0; i <= n - targetLen - 1; i++) {
+        const sub = history.slice(i, i + targetLen).map(r => r.size).join('');
+        if (sub === trailingSeq) {
+          matches++;
+          if (history[i + targetLen]?.size === 'BIG') nextBig++;
+        }
+      }
+      const simChoice = matches > 0 ? (nextBig / matches >= 0.5 ? 'BIG' : 'SMALL') : finalTarget;
+      const simProb = matches > 0 ? Math.max(nextBig / matches, 1 - nextBig / matches) : dominantProb;
+
+      return {
+        trailingSeq,
+        matchedStates: matches,
+        historicalSimilarity: Number((0.70 + Math.min(0.28, matches * 0.05 + activeStreakCount * 0.02)).toFixed(2)),
+        nextLossRisk: Number((1.0 - dominantProb).toFixed(2)),
+        simulatedBestChoice: simChoice,
+        simulatedProb: Number(simProb.toFixed(2)),
+        evidenceQuality: matches >= 3 ? 'HIGH' : (matches >= 1 ? 'MODERATE' : 'SPARSE')
+      };
+    })();
+
+    const anomalyRegime = {
+      anomalyPressure: sizeConsensus.houseAdversary?.trapDetected ? 0.80 : 0.18,
+      regimeStability: Number((1.0 - Math.min(1.0, entropy * 0.8)).toFixed(2)),
+      trapDetected: !!sizeConsensus.houseAdversary?.trapDetected,
+      trapType: sizeConsensus.houseAdversary?.trapType || 'NORMAL_DISTRIBUTION',
+      counterSignal: sizeConsensus.houseAdversary?.signal || 'NEUTRAL'
+    };
+
+    const openRouterExpert = {
+      status: (typeof _orSignal !== 'undefined' && _orSignal && _orSignal.signal) ? 'ACTIVE' : 'STANDBY_FALLBACK_DETERMINISTIC',
+      mode: 'WEAK_SHADOW_EXPERT',
+      lastSignal: (typeof _orSignal !== 'undefined' && _orSignal) ? _orSignal.signal : 'NEUTRAL',
+      lastWeight: (typeof _orSignal !== 'undefined' && _orSignal) ? _orSignal.weight : 0,
+      fallbackUsed: true
+    };
+
+    const metadata = {
+      // Standardized Modular Challenger Layers
+      globalEvidence,
+      introspection,
+      historicalReplay,
+      neuralMesh: subNeuralMesh,
+      anomalyRegime,
+      openRouterExpert,
+      
+      // Backward-compatibility aliases
+      consciousness: {
+        selfWarningLevel: introspection.warningLevel,
+        lastMistake: introspection.lastMistake,
+        trustedSources: introspection.trustedSources,
+        untrustedSources: introspection.degradedSources,
+        strategyVersion: introspection.activeStrategyVersion
       },
       godsEye: {
         masterDangerScore: Math.min(1.0, masterDangerScore),
-        regimeStability: Number((1.0 - Math.min(1.0, entropy * 0.8)).toFixed(2)),
-        trapPressure: sizeConsensus.houseAdversary?.trapDetected ? 0.75 : 0.15,
+        regimeStability: globalEvidence.regimeStability,
+        trapPressure: globalEvidence.anomalyPressure,
         violetPressure: 0.10
       },
       timeTraveller: {
-        nextLossRisk: Number((1 - dominantProb).toFixed(2)),
-        historicalSimilarity: Number((0.72 + (Math.min(10, activeStreakCount) * 0.02)).toFixed(2)),
-        simulatedBestChoice: finalTarget
+        nextLossRisk: historicalReplay.nextLossRisk,
+        historicalSimilarity: historicalReplay.historicalSimilarity,
+        simulatedBestChoice: historicalReplay.simulatedBestChoice
       },
       reality: {
         worldState: effectiveLossStreak >= 3 ? 'WORLD_SHIFTING' : (dragonRider.isDragon ? 'WORLD_STREAK_HEAVY' : 'WORLD_STABLE'),

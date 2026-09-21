@@ -23,7 +23,10 @@ HEADERS = {
 
 
 def fetch_page(page_num=1):
-    url = f"{BASE_URL}?page={page_num}"
+    # The provider documents the returned pagination field as `pageNo`.  Using
+    # `page` is silently ignored and repeatedly returns page one, which makes
+    # any backtest look as though it has more independent data than it does.
+    url = f"{BASE_URL}?pageNo={page_num}"
     resp = requests.get(url, headers=HEADERS, timeout=15)
     resp.raise_for_status()
     return resp.json()
@@ -89,6 +92,11 @@ def main(max_pages=10):
                     added_count += 1
 
             print(f"    Page {p}: Got {len(rows)} raw rows, {added_count} new unique records.")
+            # Some mirrors advertise pagination but silently keep serving page one.
+            # Stop rather than writing duplicate observations into a backtest.
+            if added_count == 0:
+                print("    Pagination did not advance; stopping to avoid duplicate data.")
+                break
             if len(rows) == 0:
                 break
             time.sleep(0.3)

@@ -177,13 +177,20 @@
           pred = { target: row.aiTarget, type: row.aiType || (['RED','GREEN'].includes(row.aiTarget) ? 'COLOR' : 'SIZE') };
           sess.predictionsMap[row.period] = pred;
         }
-        // Fast retro prediction on prior draws to populate audit for all historical rounds without lag
+        // Replay the same production predictor on prior draws only.  Using a
+        // different shortcut here makes the audit win rate incomparable with
+        // the live signal and can hide real loss streaks.
         if (!pred && idx >= 2) {
           const prior = sorted.slice(0, idx);
-          if (global.QuantAlgorithm && typeof global.QuantAlgorithm.generateConsensus === 'function') {
+          if (global.QuantAlgorithm && typeof global.QuantAlgorithm.predictNextBet === 'function') {
             try {
-              const c = global.QuantAlgorithm.generateConsensus(prior);
-              pred = { target: c.target || 'BIG', type: 'SIZE' };
+              const replay = global.QuantAlgorithm.predictNextBet({
+                history: prior,
+                balance: 1000,
+                lossStreak: 0,
+                timeframe: tf
+              });
+              pred = { target: replay.target || 'BIG', type: replay.type || 'SIZE', prob: replay.prob || 0.5 };
               sess.predictionsMap[row.period] = pred;
             } catch(e) {}
           }
@@ -328,11 +335,16 @@
 
       // Fallback for historical rounds: retro-calculate strictly on prior history
       const sorted = sess.history.filter(r => !r.gap && String(r.period) < pStr).sort((a,b) => String(a.period).localeCompare(String(b.period)));
-      if (sorted.length >= 2 && global.QuantAlgorithm && typeof global.QuantAlgorithm.generateConsensus === 'function') {
+      if (sorted.length >= 2 && global.QuantAlgorithm && typeof global.QuantAlgorithm.predictNextBet === 'function') {
         try {
-          const c = global.QuantAlgorithm.generateConsensus(sorted);
-          if (c && c.target) {
-            const retro = { target: c.target, type: c.type || 'SIZE', prob: c.prob || 0.60 };
+          const replay = global.QuantAlgorithm.predictNextBet({
+            history: sorted,
+            balance: 1000,
+            lossStreak: 0,
+            timeframe: tf
+          });
+          if (replay && replay.target) {
+            const retro = { target: replay.target, type: replay.type || 'SIZE', prob: replay.prob || 0.50 };
             sess.predictionsMap[pStr] = retro;
             return retro;
           }
