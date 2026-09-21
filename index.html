@@ -299,7 +299,7 @@
       display: flex; align-items: center; justify-content: center;
       box-shadow: 0 0 30px rgba(245,158,11,.4);
     }
-    .countdown-inner { width:86px;height:86px;border-radius:50%;background:#0d071b;display:flex;align-items:center;justify-content:center; }
+    .countdown-inner { width:86px;height:86px;border-radius:50%;background:#000000;display:flex;align-items:center;justify-content:center; }
 
     /* ── Prediction confidence bar ── */
     .prob-bar { height:8px; border-radius:4px; overflow:hidden; background:rgba(255,255,255,.1); }
@@ -307,14 +307,14 @@
 
     /* ── Confirmation popup bottom sheet ── */
     #confirmSheet { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:448px; z-index:90; }
-    #confirmSheetInner { background:#1e1235; border-radius:24px 24px 0 0; padding:24px 20px 32px; }
+    #confirmSheetInner { background:#121214; border-radius:24px 24px 0 0; padding:24px 20px 32px; }
     .amount-btn { padding:10px 18px; border-radius:10px; font-weight:700; font-size:14px; transition:all .15s; cursor:pointer; }
     .amount-btn.active { background:#f59e0b; color:#0d071b; }
     .amount-btn.inactive { background:#27194a; color:#cbd5e1; }
 
     /* ── Real result prompt modal ── */
     #resultPromptModal { position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.85);display:none;align-items:flex-end;justify-content:center; }
-    #resultPromptInner { background:#1e1235;border-radius:24px 24px 0 0;padding:28px 20px 40px;width:100%;max-width:448px;max-height:90vh;overflow-y:auto; }
+    #resultPromptInner { background:#121214;border-radius:24px 24px 0 0;padding:28px 20px 40px;width:100%;max-width:448px;max-height:90vh;overflow-y:auto; }
 
     /* ── AI signal pill ── */
     .ai-signal-pill { display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:30px;font-weight:800;font-size:13px; }
@@ -347,7 +347,7 @@
       bottom: 0;
       left: 3px;
       width: 2px;
-      background: rgba(147, 51, 234, 0.25);
+      background: rgba(255, 255, 255, 0.1);
       transition: background 0.2s, box-shadow 0.2s;
     }
     .col-resizer-handle:hover::before,
@@ -384,7 +384,7 @@
       background: rgba(245, 158, 11, 0.25) !important;
     }
     :fullscreen, ::backdrop {
-      background-color: #0c0817 !important;
+      background-color: #000000 !important;
     }
     .is-fullscreen-card {
       position: fixed !important;
@@ -393,7 +393,7 @@
       height: 100vh !important;
       max-height: 100vh !important;
       z-index: 9999 !important;
-      background: #0c0817 !important;
+      background: #000000 !important;
       padding: 16px !important;
       overflow-y: auto !important;
       border-radius: 0 !important;
@@ -694,15 +694,15 @@
           <i class="fa-regular fa-clock text-sm mb-0.5"></i>
           <span class="text-[10px] leading-tight font-black">WinGo<br>30sec</span>
         </button>
-        <button onclick="setTimeframe('1m')" id="tf-1m" class="py-2 px-1 rounded-xl bg-app-card text-purple-200 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition">
+        <button onclick="setTimeframe('1m')" id="tf-1m" class="py-2 px-1 rounded-xl bg-app-card text-slate-300 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition">
           <i class="fa-regular fa-clock text-sm mb-0.5 opacity-70"></i>
           <span class="text-[10px] leading-tight">WinGo<br>1 Min</span>
         </button>
-        <button onclick="setTimeframe('3m')" id="tf-3m" class="py-2 px-1 rounded-xl bg-app-card text-purple-200 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition">
+        <button onclick="setTimeframe('3m')" id="tf-3m" class="py-2 px-1 rounded-xl bg-app-card text-slate-300 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition">
           <i class="fa-regular fa-clock text-sm mb-0.5 opacity-70"></i>
           <span class="text-[10px] leading-tight">WinGo<br>3 Min</span>
         </button>
-        <button onclick="setTimeframe('5m')" id="tf-5m" class="py-2 px-1 rounded-xl bg-app-card text-purple-200 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition">
+        <button onclick="setTimeframe('5m')" id="tf-5m" class="py-2 px-1 rounded-xl bg-app-card text-slate-300 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition">
           <i class="fa-regular fa-clock text-sm mb-0.5 opacity-70"></i>
           <span class="text-[10px] leading-tight">WinGo<br>5 Min</span>
         </button>
@@ -833,7 +833,7 @@
               <span class="text-[9px] uppercase font-black tracking-wider text-amber-400 block">MARTINGALE BOT ACTIVE</span>
               <div class="flex items-center gap-2 mt-0.5">
                 <span class="text-[10px] text-slate-300">Base: <b id="mgBaseDisplay" class="text-white font-mono">₹1</b></span>
-                <span class="text-purple-600">|</span>
+                <span class="text-white/20">|</span>
                 <span class="text-[10px] text-slate-300">Next: <b id="mgCurrentDisplay" class="text-amber-400 font-mono font-black">₹1</b></span>
               </div>
             </div>
@@ -1146,7 +1146,7 @@
   </section>
 
   <!-- Column 1 Collapsed Dock Stub (shown when Col 1 is hidden) -->
-  <div id="col1CollapsedStub" class="hidden flex-col items-center justify-between py-6 px-1.5 bg-[#0a0a0a] border-r border-purple-900/50 cursor-pointer hover:bg-[#141416] transition group select-none shadow-lg z-20" style="width:28px;flex:0 0 28px;max-height:calc(100vh - 54px);" onclick="toggleWindowCol('col1')" title="Click to show Live History window">
+  <div id="col1CollapsedStub" class="hidden flex-col items-center justify-between py-6 px-1.5 bg-[#0a0a0a] border-r border-white/[0.08] cursor-pointer hover:bg-[#141416] transition group select-none shadow-lg z-20" style="width:28px;flex:0 0 28px;max-height:calc(100vh - 54px);" onclick="toggleWindowCol('col1')" title="Click to show Live History window">
     <span class="p-1 rounded-md bg-white/5 group-hover:bg-amber-400 group-hover:text-slate-950 text-amber-400 transition text-[9px]">
       <i class="fa-solid fa-chevron-right"></i>
     </span>
@@ -1157,7 +1157,7 @@
   <!-- Draggable Divider 1 (Between Col 1 and Col 2) -->
   <div id="colResizeHandle1" class="col-resizer-handle hidden lg:flex items-center justify-center cursor-col-resize select-none relative z-20 group" title="Drag to resize Window 1 & 2 • Double-click to equalize">
     <div class="w-[8px] h-full flex items-center justify-center bg-transparent group-hover:bg-amber-500/20 group-active:bg-amber-500/40 transition">
-      <div class="w-[2px] h-12 rounded-full bg-purple-600/40 group-hover:bg-amber-400 group-active:bg-amber-400 transition shadow"></div>
+      <div class="w-[2px] h-12 rounded-full bg-white/20 group-hover:bg-amber-400 group-active:bg-amber-400 transition shadow"></div>
     </div>
   </div>
 
@@ -1210,15 +1210,15 @@
             <span id="timerOffsetBadge" class="px-1 py-0 bg-amber-400/20 text-amber-300 rounded font-black text-[7.5px] border border-amber-400/30">+0s</span>
           </div>
           <div class="flex items-center justify-center gap-1.5 my-0.5">
-            <button onclick="adjustTimerOffset(-1)" class="w-4 h-4 flex items-center justify-center bg-white/10 hover:bg-purple-800 text-slate-300 rounded border border-white/[0.08] text-[9px] font-bold" title="-1s">-</button>
+            <button onclick="adjustTimerOffset(-1)" class="w-4 h-4 flex items-center justify-center bg-white/10 hover:bg-white/20 text-slate-300 rounded border border-white/[0.08] text-[9px] font-bold" title="-1s">-</button>
             <div id="smartTimerDisplay" class="text-lg font-black text-amber-300 font-mono tracking-widest leading-none">00:00</div>
-            <button onclick="adjustTimerOffset(1)" class="w-4 h-4 flex items-center justify-center bg-white/10 hover:bg-purple-800 text-slate-300 rounded border border-white/[0.08] text-[9px] font-bold" title="+1s">+</button>
+            <button onclick="adjustTimerOffset(1)" class="w-4 h-4 flex items-center justify-center bg-white/10 hover:bg-white/20 text-slate-300 rounded border border-white/[0.08] text-[9px] font-bold" title="+1s">+</button>
           </div>
           <div class="flex items-center justify-center gap-1 font-mono text-[7.5px]">
-            <button onclick="adjustTimerOffset(-2)" class="px-1 bg-white/10 hover:bg-purple-800 text-slate-300 rounded">-2s</button>
-            <button onclick="adjustTimerOffset(-0.5)" class="px-1 bg-white/10 hover:bg-purple-800 text-slate-300 rounded">-0.5s</button>
-            <button onclick="adjustTimerOffset(0.5)" class="px-1 bg-white/10 hover:bg-purple-800 text-slate-300 rounded">+0.5s</button>
-            <button onclick="adjustTimerOffset(2)" class="px-1 bg-white/10 hover:bg-purple-800 text-slate-300 rounded">+2s</button>
+            <button onclick="adjustTimerOffset(-2)" class="px-1 bg-white/10 hover:bg-white/20 text-slate-300 rounded">-2s</button>
+            <button onclick="adjustTimerOffset(-0.5)" class="px-1 bg-white/10 hover:bg-white/20 text-slate-300 rounded">-0.5s</button>
+            <button onclick="adjustTimerOffset(0.5)" class="px-1 bg-white/10 hover:bg-white/20 text-slate-300 rounded">+0.5s</button>
+            <button onclick="adjustTimerOffset(2)" class="px-1 bg-white/10 hover:bg-white/20 text-slate-300 rounded">+2s</button>
           </div>
         </div>
 
@@ -1284,28 +1284,37 @@
     </div>
 
     <!-- ── TRADINGVIEW CANDLESTICK TRADING CHART (COLUMN 2) ── -->
-    <div id="card-col2-chart" class="liquid-glass-card apple-glass-card rounded-2xl overflow-hidden border border-white/[0.07] shadow-2xl flex flex-col relative transition-all card-draggable" draggable="false" data-card-id="card-col2-chart">
-      <!-- Top Control Bar -->
-      <div class="p-2 bg-black/80 border-b border-white/[0.07] flex items-center justify-between flex-wrap gap-1.5">
-        <div class="flex items-center gap-1.5">
-          <div class="card-drag-handle p-1 rounded-md text-slate-500 hover:text-white hover:bg-white/10 transition cursor-grab active:cursor-grabbing shrink-0" title="Drag to move card anywhere">
-            <i class="fa-solid fa-grip-vertical text-[10px]"></i>
+    <div id="card-col2-chart" class="liquid-glass-card apple-glass-card rounded-2xl overflow-hidden border border-white/[0.08] shadow-2xl flex flex-col relative transition-all card-draggable" draggable="false" data-card-id="card-col2-chart">
+      <!-- Minimal Apple Single-Row Top Control Bar -->
+      <div class="px-2.5 py-1.5 bg-black/90 border-b border-white/[0.07] flex items-center justify-between gap-1.5 select-none overflow-x-auto">
+        <!-- Window Name (Minimal: "Chart") -->
+        <div class="flex items-center gap-1.5 shrink-0">
+          <div class="card-drag-handle p-1 rounded text-slate-500 hover:text-white hover:bg-white/10 transition cursor-grab active:cursor-grabbing" title="Drag Window">
+            <i class="fa-solid fa-grip-vertical text-[9px]"></i>
           </div>
-          <div class="w-2.5 h-2.5 rounded-sm bg-[#2962ff]"></div>
-          <span class="font-black text-xs text-white uppercase tracking-wider">Trading Chart</span>
-          <span class="text-[8.5px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/30 font-mono">Live</span>
+          <span class="font-bold text-xs text-white tracking-wide">Chart</span>
         </div>
 
-        <!-- Toolbar Actions -->
-        <div class="flex items-center gap-1 flex-wrap">
-          <!-- Scale Mode: Ball Weighted (1x-5x) vs Fixed (±1) -->
-          <button id="chartScaleModeBtn" onclick="toggleTradingChartScaleMode()" class="px-2 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] text-white/60 text-[8.5px] font-mono border border-white/10 flex items-center gap-1 active:scale-95" title="Toggle Ball Delta Movement vs Fixed Step">
-            <i class="fa-solid fa-weight-scale text-amber-400"></i>
-            <span id="chartScaleModeLabel">Ball Dynamic</span>
+        <!-- Integrated Toolbar occupying top space -->
+        <div class="flex items-center gap-1 shrink-0 flex-nowrap">
+          <!-- Mode Pill: Big/Small vs Win/Loss -->
+          <div class="flex items-center bg-white/[0.05] p-0.5 rounded-lg border border-white/[0.08]">
+            <button id="chartModeBtn-size" onclick="setChartDisplayMode('size')" class="px-2 py-0.5 rounded text-[8.5px] font-black uppercase transition bg-amber-400 text-slate-950 shadow" title="Size Mode (Big/Small)">
+              B/S
+            </button>
+            <button id="chartModeBtn-winloss" onclick="setChartDisplayMode('winloss')" class="px-2 py-0.5 rounded text-[8.5px] font-bold uppercase transition text-slate-400 hover:text-white" title="AI Performance Mode (Win/Loss)">
+              W/L
+            </button>
+          </div>
+
+          <!-- Dynamic vs Fixed Scale Mode -->
+          <button id="chartScaleModeBtn" onclick="toggleTradingChartScaleMode()" class="px-1.5 py-0.5 rounded bg-white/[0.05] hover:bg-white/[0.12] text-white/60 text-[8px] font-mono border border-white/[0.08] flex items-center gap-1 active:scale-95" title="Scale: Ball Dynamic (1x-5x) vs Fixed (±1)">
+            <i class="fa-solid fa-weight-scale text-amber-400 text-[7.5px]"></i>
+            <span id="chartScaleModeLabel">Dyn</span>
           </button>
 
           <!-- Chart Type Selector -->
-          <select id="tradingChartTypeSelect" onchange="switchTradingChartType(this.value)" class="bg-black/80 text-white/60 border border-white/10 text-[8.5px] rounded px-1.5 py-0.5 outline-none cursor-pointer">
+          <select id="tradingChartTypeSelect" onchange="switchTradingChartType(this.value)" class="bg-black text-white/70 border border-white/[0.08] text-[8px] rounded px-1 py-0.5 outline-none cursor-pointer">
             <option value="candlestick">Candles</option>
             <option value="hollow">Hollow</option>
             <option value="line">Line</option>
@@ -1313,60 +1322,44 @@
             <option value="bar">Bars</option>
           </select>
 
-          <!-- Chart Mode Switcher: BIG/SMALL vs WIN/LOSS (Apple Segmented Pill) -->
-          <div class="flex items-center bg-black/90 p-0.5 rounded-xl border border-white/[0.14] shadow-inner mr-1">
-            <button id="chartModeBtn-size" onclick="setChartDisplayMode('size')" class="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase transition flex items-center gap-1 bg-amber-400 text-slate-950 shadow">
-              <i class="fa-solid fa-shapes text-[8px]"></i>
-              <span>Big / Small</span>
-            </button>
-            <button id="chartModeBtn-winloss" onclick="setChartDisplayMode('winloss')" class="px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase transition flex items-center gap-1 text-slate-400 hover:text-white">
-              <i class="fa-solid fa-chart-line text-[8px] text-emerald-400"></i>
-              <span>Win / Loss</span>
-            </button>
-          </div>
+          <!-- Indicators (SMA, EMA, BB) -->
+          <button id="btnToggleSMA" onclick="toggleTradingIndicator('sma')" class="px-1.5 py-0.5 rounded bg-blue-600/30 text-blue-300 border border-blue-500/40 text-[8px] font-bold" title="Toggle SMA (14)">SMA</button>
+          <button id="btnToggleEMA" onclick="toggleTradingIndicator('ema')" class="px-1.5 py-0.5 rounded bg-amber-600/30 text-amber-300 border border-amber-500/40 text-[8px] font-bold" title="Toggle EMA (9)">EMA</button>
+          <button id="btnToggleBB" onclick="toggleTradingIndicator('bb')" class="px-1.5 py-0.5 rounded bg-white/[0.06] text-white/50 border border-white/[0.08] text-[8px] font-bold" title="Toggle Bollinger Bands">BB</button>
 
-          <!-- Technical Indicators -->
-          <button id="btnToggleSMA" onclick="toggleTradingIndicator('sma')" class="px-1.5 py-0.5 rounded bg-blue-600/30 text-blue-300 border border-blue-500/40 text-[8.5px] font-bold">SMA</button>
-          <button id="btnToggleEMA" onclick="toggleTradingIndicator('ema')" class="px-1.5 py-0.5 rounded bg-amber-600/30 text-amber-300 border border-amber-500/40 text-[8.5px] font-bold">EMA</button>
-          <button id="btnToggleBB" onclick="toggleTradingIndicator('bb')" class="px-1.5 py-0.5 rounded bg-white/[0.06] text-white/50 border border-white/10 text-[8.5px] font-bold">BB</button>
-
-          <!-- 4-Way Pan Control Cluster (Left, Right, Up, Down) -->
-          <div class="flex items-center bg-black/70 p-0.5 rounded-lg border border-white/[0.12] gap-0.5">
-            <button onclick="panChartHorizontal(-1, 8)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[8.5px] active:scale-95" title="Pan Left (Back in History)"><i class="fa-solid fa-arrow-left"></i></button>
-            <button onclick="panChartHorizontal(1, 8)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[8.5px] active:scale-95" title="Pan Right (Recent Candles)"><i class="fa-solid fa-arrow-right"></i></button>
-            <button onclick="panChartVertical(-1)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[8.5px] active:scale-95" title="Pan Up"><i class="fa-solid fa-arrow-up"></i></button>
-            <button onclick="panChartVertical(1)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[8.5px] active:scale-95" title="Pan Down"><i class="fa-solid fa-arrow-down"></i></button>
+          <!-- 4-Way Panning Cluster (Left, Right, Up, Down) -->
+          <div class="flex items-center bg-white/[0.04] p-0.5 rounded border border-white/[0.08] gap-0.5">
+            <button onclick="panChartHorizontal(-1, 10)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[8px] active:scale-95" title="Pan Left (Back in History)"><i class="fa-solid fa-arrow-left"></i></button>
+            <button onclick="panChartHorizontal(1, 10)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[8px] active:scale-95" title="Pan Right (Recent / Future Candles)"><i class="fa-solid fa-arrow-right"></i></button>
+            <button onclick="panChartVertical(1)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[8px] active:scale-95" title="Pan Up (Higher Prices)"><i class="fa-solid fa-arrow-up"></i></button>
+            <button onclick="panChartVertical(-1)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[8px] active:scale-95" title="Pan Down (Lower Prices)"><i class="fa-solid fa-arrow-down"></i></button>
           </div>
 
           <!-- Unbounded Zoom Cluster -->
-          <div class="flex items-center bg-black/70 p-0.5 rounded-lg border border-white/[0.12] gap-0.5">
-            <button onclick="tradingChartZoom(1, 4)" ondblclick="tradingChartLongZoom(1)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-white text-[9px] active:scale-95" title="Zoom In (+)"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
-            <button onclick="tradingChartZoom(-1, 4)" ondblclick="tradingChartLongZoom(-1)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-white text-[9px] active:scale-95" title="Zoom Out (-)"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
-            <button onclick="tradingChartLongZoom(1)" class="px-1 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[7.5px] font-mono font-black" title="Deep Zoom In">Z+</button>
-            <button onclick="tradingChartLongZoom(-1)" class="px-1 py-0.5 rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 text-[7.5px] font-mono font-black" title="Super Zoom Out (Hundreds of rounds)">Z-</button>
-            <!-- Recenter & Reset -->
-            <button onclick="isUserInteractingWithChart=false;tradingChartReset();" class="px-1.5 py-0.5 rounded bg-white/[0.08] hover:bg-white/[0.18] text-amber-300 border border-white/10 text-[8px] font-mono font-black active:scale-95" title="Recenter & Fit All">⊕ Fit</button>
+          <div class="flex items-center bg-white/[0.04] p-0.5 rounded border border-white/[0.08] gap-0.5">
+            <button onclick="tradingChartZoom(1, 4)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-white text-[8.5px] active:scale-95" title="Zoom In (+)"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+            <button onclick="tradingChartZoom(-1, 4)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-white text-[8.5px] active:scale-95" title="Zoom Out (-)"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+            <button onclick="tradingChartLongZoom(1)" class="px-1 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[7px] font-mono font-black" title="Deep Zoom In">Z+</button>
+            <button onclick="tradingChartLongZoom(-1)" class="px-1 py-0.5 rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 text-[7px] font-mono font-black" title="Super Zoom Out">Z-</button>
+            <!-- Auto-Center / Recenter Fit Button -->
+            <button id="btnTradingFit" onclick="tradingChartReset()" class="px-1.5 py-0.5 rounded bg-white/[0.08] hover:bg-white/[0.18] text-amber-300 border border-white/10 text-[8px] font-mono font-black active:scale-95 transition" title="Center Newest Candle in Middle & Fit">⊕ Fit</button>
           </div>
 
-          <!-- Chart Height Resizer (+ / -) -->
-          <div class="flex items-center bg-black/60 p-0.5 rounded border border-white/10 text-[8px] font-mono ml-0.5" title="Adjust Chart Height">
+          <!-- Height (+ / -) -->
+          <div class="flex items-center bg-black/60 p-0.5 rounded border border-white/10 text-[8px] font-mono">
             <button onclick="adjustChartHeight(-60)" class="w-4 h-4 flex items-center justify-center rounded hover:bg-white/10 text-slate-300 hover:text-white transition active:scale-95"><i class="fa-solid fa-minus text-[6.5px]"></i></button>
-            <span id="chartHeightLabel" class="px-1 text-white/40 select-none font-bold text-[8px]">480px</span>
+            <span id="chartHeightLabel" class="px-1 text-white/40 select-none font-bold text-[7.5px]">480px</span>
             <button onclick="adjustChartHeight(80)" class="w-4 h-4 flex items-center justify-center rounded hover:bg-white/10 text-slate-300 hover:text-white transition active:scale-95"><i class="fa-solid fa-plus text-[6.5px]"></i></button>
           </div>
 
-          <!-- Fullscreen button -->
-          <button onclick="toggleFullscreen('card-col2-chart')" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-sky-300 text-[9px] transition active:scale-95" title="Fullscreen Chart">
+          <!-- Window Controls -->
+          <button onclick="toggleFullscreen('card-col2-chart')" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-sky-300 text-[8.5px] transition active:scale-95" title="Fullscreen">
             <i class="fa-solid fa-expand"></i>
           </button>
-
-          <!-- Open in Separate Tab button -->
-          <button onclick="openTradingChartNewTab()" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-emerald-300 text-[9px] transition active:scale-95" title="Open in Separate Tab">
+          <button onclick="openTradingChartNewTab()" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-emerald-300 text-[8.5px] transition active:scale-95" title="New Tab">
             <i class="fa-solid fa-arrow-up-right-from-square"></i>
           </button>
-
-          <!-- Close button -->
-          <button onclick="closeCardElement('col2-chart')" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-rose-500/30 text-rose-300 text-[9px] transition font-bold" title="Close element">
+          <button onclick="closeCardElement('col2-chart')" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-rose-500/30 text-rose-300 text-[8.5px] transition font-bold" title="Close Window">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
@@ -1490,7 +1483,7 @@
   </main>
 
   <!-- Column 2 Collapsed Dock Stub (shown when Col 2 is hidden) -->
-  <div id="col2CollapsedStub" class="hidden flex-col items-center justify-between py-6 px-1.5 bg-[#0a0a0a] border-x border-purple-900/50 cursor-pointer hover:bg-[#141416] transition group select-none shadow-lg z-20" style="width:28px;flex:0 0 28px;max-height:calc(100vh - 54px);" onclick="toggleWindowCol('col2')" title="Click to show Trading Station & WinGo Hero">
+  <div id="col2CollapsedStub" class="hidden flex-col items-center justify-between py-6 px-1.5 bg-[#0a0a0a] border-x border-white/[0.08] cursor-pointer hover:bg-[#141416] transition group select-none shadow-lg z-20" style="width:28px;flex:0 0 28px;max-height:calc(100vh - 54px);" onclick="toggleWindowCol('col2')" title="Click to show Trading Station & WinGo Hero">
     <span class="p-1 rounded-md bg-white/5 group-hover:bg-amber-400 group-hover:text-slate-950 text-amber-400 transition text-[9px]">
       <i class="fa-solid fa-chart-line"></i>
     </span>
@@ -1501,7 +1494,7 @@
   <!-- Draggable Divider 2 (Between Col 2 and Col 3) -->
   <div id="colResizeHandle2" class="col-resizer-handle hidden lg:flex items-center justify-center cursor-col-resize select-none relative z-20 group" title="Drag to resize Window 2 & 3 • Double-click to equalize">
     <div class="w-[8px] h-full flex items-center justify-center bg-transparent group-hover:bg-amber-500/20 group-active:bg-amber-500/40 transition">
-      <div class="w-[2px] h-12 rounded-full bg-purple-600/40 group-hover:bg-amber-400 group-active:bg-amber-400 transition shadow"></div>
+      <div class="w-[2px] h-12 rounded-full bg-white/20 group-hover:bg-amber-400 group-active:bg-amber-400 transition shadow"></div>
     </div>
   </div>
 
@@ -1705,8 +1698,8 @@
           </div>
           <div class="flex items-center gap-1.5">
             <span id="ghActiveTfBadge" class="text-[9px] px-2 py-0.5 rounded-md bg-amber-400 text-slate-950 font-black border border-amber-400/50 shadow">30s</span>
-            <button onclick="exportGameAnalysisJSON()" class="px-1.5 py-0.5 rounded-lg bg-[#141416] text-purple-200 text-[9px] font-mono border border-white/[0.08] active:scale-95 transition" title="Export JSON"><i class="fa-solid fa-file-code text-amber-400"></i></button>
-            <button onclick="exportGameAnalysisCSV()" class="px-1.5 py-0.5 rounded-lg bg-[#141416] text-purple-200 text-[9px] font-mono border border-white/[0.08] active:scale-95 transition" title="Export CSV"><i class="fa-solid fa-file-csv text-emerald-400"></i></button>
+            <button onclick="exportGameAnalysisJSON()" class="px-1.5 py-0.5 rounded-lg bg-[#141416] text-slate-300 text-[9px] font-mono border border-white/[0.08] active:scale-95 transition" title="Export JSON"><i class="fa-solid fa-file-code text-amber-400"></i></button>
+            <button onclick="exportGameAnalysisCSV()" class="px-1.5 py-0.5 rounded-lg bg-[#141416] text-slate-300 text-[9px] font-mono border border-white/[0.08] active:scale-95 transition" title="Export CSV"><i class="fa-solid fa-file-csv text-emerald-400"></i></button>
             <button onclick="adjustElementHeight('card-col3-patternhub', -40)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition font-bold" title="Decrease Height">-</button>
             <button onclick="adjustElementHeight('card-col3-patternhub', 40)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition font-bold" title="Increase Height">+</button>
             <button onclick="toggleCardCollapse('card-col3-patternhub-body', this)" title="Minimize / Expand" class="w-5 h-5 rounded-md bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition active:scale-95">
@@ -1753,15 +1746,15 @@
               <button onclick="switchAnalysisRankingFilter('predictive')" id="ghFilterPredictive" class="px-2 py-0.5 rounded-lg text-[8.5px] font-bold transition active:scale-95 text-slate-300 hover:text-white bg-white/10 border border-white/[0.08]">🎯 Predictive</button>
               <button onclick="switchAnalysisRankingFilter('recent')" id="ghFilterRecent" class="px-2 py-0.5 rounded-lg text-[8.5px] font-bold transition active:scale-95 text-slate-300 hover:text-white bg-white/10 border border-white/[0.08]">⚡ Recent</button>
               <button onclick="switchAnalysisRankingFilter('failed')" id="ghFilterFailed" class="px-2 py-0.5 rounded-lg text-[8.5px] font-bold transition active:scale-95 text-slate-300 hover:text-white bg-white/10 border border-white/[0.08]">⚠️ Failed</button>
-              <button onclick="rescanAllPatterns()" class="px-2 py-0.5 rounded-lg bg-purple-900 hover:bg-purple-800 text-purple-200 text-[8.5px] font-mono border border-purple-700/50 active:scale-95 transition ml-auto"><i class="fa-solid fa-arrows-rotate"></i> Scan</button>
+              <button onclick="rescanAllPatterns()" class="px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 text-[8.5px] font-mono border border-purple-700/50 active:scale-95 transition ml-auto"><i class="fa-solid fa-arrows-rotate"></i> Scan</button>
             </div>
             <input type="text" id="ghPatternSearch" oninput="filterGhTableBySearch()" placeholder="Search pattern code..." class="px-2 py-0.5 bg-black/50 border border-white/[0.08] rounded-lg text-[8.5px] text-amber-300 placeholder-slate-500 font-mono focus:outline-none focus:border-amber-400 w-full">
           </div>
-          <div class="grid grid-cols-12 py-1 px-2 bg-purple-950/90 text-slate-300 font-bold text-[8px] border-b border-white/[0.08] font-mono">
+          <div class="grid grid-cols-12 py-1 px-2 bg-[#141416] text-slate-300 font-bold text-[8px] border-b border-white/[0.08] font-mono">
             <div class="col-span-1">#</div><div class="col-span-2">Code</div><div class="col-span-3">Seq</div>
             <div class="col-span-2 text-center">Hits</div><div class="col-span-2 text-center">B/S</div><div class="col-span-2 text-right pr-1">Acc/Act</div>
           </div>
-          <div id="ghRankingTableBody" class="divide-y divide-purple-900/20 text-[8.5px] font-mono max-h-[300px] overflow-y-auto" style="scrollbar-width:thin;scrollbar-color:#4c1d95 transparent;"></div>
+          <div id="ghRankingTableBody" class="divide-y divide-white/[0.06] text-[8.5px] font-mono max-h-[300px] overflow-y-auto" style="scrollbar-width:thin;scrollbar-color:#4c1d95 transparent;"></div>
           <div class="flex items-center justify-between px-2 py-1 bg-app-surface border-t border-white/[0.08] text-[8px] font-mono">
             <span id="ghRowCountBadge" class="font-bold text-slate-400">0 patterns</span>
             <span class="text-slate-500">Wilson 95% CI</span>
@@ -2157,7 +2150,7 @@
           <button onclick="toggleFullscreen('card-col3-webview')" title="Fullscreen Mode" class="w-6 h-6 rounded-md bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white flex items-center justify-center text-[10px] transition active:scale-95">
             <i class="fa-solid fa-expand"></i>
           </button>
-          <button onclick="popoutEmbeddedWeb()" title="Side Window" class="w-6 h-6 rounded-md bg-white/10 hover:bg-purple-900/70 text-purple-300 hover:text-white flex items-center justify-center text-[10px] transition active:scale-95">
+          <button onclick="popoutEmbeddedWeb()" title="Side Window" class="w-6 h-6 rounded-md bg-white/10 hover:bg-white/20 text-purple-300 hover:text-white flex items-center justify-center text-[10px] transition active:scale-95">
             <i class="fa-solid fa-window-restore"></i>
           </button>
           <button onclick="closeCardElement('col3-webview')" title="Close Element" class="w-6 h-6 rounded-md bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 flex items-center justify-center text-[10px] transition active:scale-95">
@@ -2209,8 +2202,8 @@
 
       <!-- Draggable bottom grip for height resizing -->
       <div id="webPhoneBottomResizeGrip" class="w-full max-w-[390px] mx-auto py-1 flex items-center justify-center cursor-ns-resize group select-none touch-none hover:bg-white/5 rounded-b-2xl transition" title="Drag to resize viewport height">
-        <div class="flex items-center gap-1 px-3 py-0.5 rounded-full bg-slate-800/80 border border-white/10 group-hover:border-purple-500/50 group-hover:bg-[#111113]">
-          <i class="fa-solid fa-grip-lines text-[9px] text-slate-400 group-hover:text-purple-300"></i>
+        <div class="flex items-center gap-1 px-3 py-0.5 rounded-full bg-slate-800/80 border border-white/10 group-hover:border-white/20 group-hover:bg-[#111113]">
+          <i class="fa-solid fa-grip-lines text-[9px] text-slate-400 group-hover:text-slate-200"></i>
           <span class="text-[7.5px] font-mono text-slate-400 group-hover:text-slate-200">Drag Height</span>
         </div>
       </div>
@@ -2227,7 +2220,7 @@
   </aside>
 
   <!-- Column 3 Collapsed Dock Stub (shown when Col 3 is hidden) -->
-  <div id="col3CollapsedStub" class="hidden flex-col items-center justify-between py-6 px-1.5 bg-[#0a0a0a] border-l border-purple-900/50 cursor-pointer hover:bg-[#141416] transition group select-none shadow-lg z-20" style="width:28px;flex:0 0 28px;max-height:calc(100vh - 54px);" onclick="toggleWindowCol('col3')" title="Click to show Analysis Hub window">
+  <div id="col3CollapsedStub" class="hidden flex-col items-center justify-between py-6 px-1.5 bg-[#0a0a0a] border-l border-white/[0.08] cursor-pointer hover:bg-[#141416] transition group select-none shadow-lg z-20" style="width:28px;flex:0 0 28px;max-height:calc(100vh - 54px);" onclick="toggleWindowCol('col3')" title="Click to show Analysis Hub window">
     <span class="p-1 rounded-md bg-white/5 group-hover:bg-amber-400 group-hover:text-slate-950 text-amber-400 transition text-[9px]">
       <i class="fa-solid fa-chevron-left"></i>
     </span>
@@ -2243,7 +2236,7 @@
      BATCH RESULT MODAL (multiple missed periods at once)
 ════════════════════════════════════════════════════════════ -->
 <div id="batchResultModal" style="position:fixed;inset:0;z-index:280;display:none;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.85);backdrop-filter:blur(4px);">
-  <div style="background:#1e1235;border-radius:24px 24px 0 0;padding:20px 18px 36px;width:100%;max-width:448px;max-height:88vh;overflow-y:auto;">
+  <div style="background:#121214;border-radius:24px 24px 0 0;padding:20px 18px 36px;width:100%;max-width:448px;max-height:88vh;overflow-y:auto;">
     <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-4"></div>
 
     <div class="flex items-center justify-between mb-4">
@@ -2470,7 +2463,7 @@
      (shown on very first open – collects last 10 real results)
 ════════════════════════════════════════════════════════════ -->
 <div id="initModal" class="fixed inset-0 z-[300] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 hidden">
-  <div class="bg-app-card border border-purple-800/60 rounded-3xl w-full max-w-sm p-5 space-y-4 shadow-2xl overflow-y-auto max-h-[92vh]">
+  <div class="bg-app-card border border-white/[0.08] rounded-3xl w-full max-w-sm p-5 space-y-4 shadow-2xl overflow-y-auto max-h-[92vh]">
     <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-1"></div>
 
     <div class="flex items-center justify-between mb-2">
@@ -2494,9 +2487,9 @@
       </label>
       <div class="grid grid-cols-4 gap-2 text-xs">
         <button id="initTfBtn-30s" onclick="setInitModalTimeframe('30s')" class="py-2 rounded-xl bg-amber-400 text-slate-950 font-black shadow transition">30s</button>
-        <button id="initTfBtn-1m"  onclick="setInitModalTimeframe('1m')"  class="py-2 rounded-xl bg-white/10 text-purple-200 font-bold hover:bg-purple-800 transition">1m</button>
-        <button id="initTfBtn-3m"  onclick="setInitModalTimeframe('3m')"  class="py-2 rounded-xl bg-white/10 text-purple-200 font-bold hover:bg-purple-800 transition">3m</button>
-        <button id="initTfBtn-5m"  onclick="setInitModalTimeframe('5m')"  class="py-2 rounded-xl bg-white/10 text-purple-200 font-bold hover:bg-purple-800 transition">5m</button>
+        <button id="initTfBtn-1m"  onclick="setInitModalTimeframe('1m')"  class="py-2 rounded-xl bg-white/10 text-slate-300 font-bold hover:bg-white/20 transition">1m</button>
+        <button id="initTfBtn-3m"  onclick="setInitModalTimeframe('3m')"  class="py-2 rounded-xl bg-white/10 text-slate-300 font-bold hover:bg-white/20 transition">3m</button>
+        <button id="initTfBtn-5m"  onclick="setInitModalTimeframe('5m')"  class="py-2 rounded-xl bg-white/10 text-slate-300 font-bold hover:bg-white/20 transition">5m</button>
       </div>
     </div>
 
@@ -2557,7 +2550,7 @@
 
     <div class="grid grid-cols-2 gap-3 pt-1">
       <button onclick="closeInitModal()" class="py-3 rounded-2xl bg-slate-700 text-white font-bold text-xs active:scale-95">Skip for now</button>
-      <button onclick="submitInitData()" id="initSubmitBtn" class="py-3 rounded-2xl bg-gradient-to-r from-indigo-400 to-purple-500 text-white font-black text-sm active:scale-95 transition disabled:opacity-40" disabled>
+      <button onclick="submitInitData()" id="initSubmitBtn" class="py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-black text-white font-black text-sm active:scale-95 transition disabled:opacity-40" disabled>
         Start AI Prediction
       </button>
     </div>
@@ -2568,7 +2561,7 @@
      BALANCE EDIT MODAL
 ════════════════════════════════════════════════════════════ -->
 <div id="balanceModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-  <div class="bg-app-card border border-purple-800/60 rounded-2xl w-full max-w-xs p-5 space-y-4 shadow-2xl">
+  <div class="bg-app-card border border-white/[0.08] rounded-2xl w-full max-w-xs p-5 space-y-4 shadow-2xl">
     <div class="flex items-center justify-between border-b border-white/[0.08] pb-2">
       <h3 class="text-sm font-bold text-white">Adjust Balance</h3>
       <button onclick="closeBalanceModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
@@ -2577,7 +2570,7 @@
       <label class="text-[11px] text-slate-400">Balance (₹):</label>
       <div class="relative mt-1">
         <span class="absolute left-3 top-2.5 text-amber-400 font-bold">₹</span>
-        <input type="number" id="newBalanceInput" step="10" class="w-full bg-app-bg border border-purple-700/80 rounded-xl py-2 pl-8 pr-3 font-bold text-white focus:outline-none focus:border-amber-400 font-mono">
+        <input type="number" id="newBalanceInput" step="10" class="w-full bg-app-bg border border-white/[0.08] rounded-xl py-2 pl-8 pr-3 font-bold text-white focus:outline-none focus:border-amber-400 font-mono">
       </div>
     </div>
     <div class="flex gap-2">
@@ -2591,18 +2584,18 @@
      IMPORT MODAL
 ════════════════════════════════════════════════════════════ -->
 <div id="importModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-  <div class="bg-app-card border border-purple-800/60 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl text-slate-200">
+  <div class="bg-app-card border border-white/[0.08] rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl text-slate-200">
     <div class="flex items-center justify-between border-b border-white/[0.08] pb-3">
       <h3 class="text-sm font-bold text-white flex items-center gap-2"><i class="fa-solid fa-file-csv text-amber-400"></i> Import History CSV</h3>
       <button onclick="closeImportModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <p class="text-xs text-slate-400">CSV format: <code class="text-amber-300 text-[11px]">period,number,size</code></p>
-    <div class="p-3 bg-black/40 rounded-xl font-mono text-[11px] text-amber-300 border border-purple-900/50">
+    <div class="p-3 bg-black/40 rounded-xl font-mono text-[11px] text-amber-300 border border-white/[0.08]">
       period,number,size<br>20260829100051633,7,BIG<br>20260829100051632,4,SMALL
     </div>
     <input type="file" id="csvFileInput" accept=".csv" class="w-full text-xs text-slate-400 file:mr-2 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-amber-400 file:text-slate-900 cursor-pointer">
     <div class="flex gap-2 pt-2">
-      <button onclick="loadBenchmarkData()" class="flex-1 py-2 rounded-xl bg-purple-900 text-purple-200 font-bold text-xs">Load Demo</button>
+      <button onclick="loadBenchmarkData()" class="flex-1 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 font-bold text-xs">Load Demo</button>
       <button onclick="parseUploadedCSV()" class="flex-1 py-2 rounded-xl bg-amber-400 text-slate-900 font-bold text-xs">Apply CSV</button>
     </div>
   </div>
@@ -2612,8 +2605,8 @@
      PATTERN DEEP-DIVE MODAL (Expandable details)
 ════════════════════════════════════════════════════════════ -->
 <div id="ghPatternModal" class="fixed inset-0 z-[120] bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
-  <div class="bg-app-card w-full max-w-xl rounded-2xl border border-purple-800/60 shadow-2xl p-5 space-y-4">
-    <div class="flex items-center justify-between border-b border-purple-900/50 pb-3">
+  <div class="bg-app-card w-full max-w-xl rounded-2xl border border-white/[0.08] shadow-2xl p-5 space-y-4">
+    <div class="flex items-center justify-between border-b border-white/[0.08] pb-3">
       <div class="flex items-center gap-2.5">
         <span id="modalPatternStatusBadge" class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">ACTIVE</span>
         <h3 id="modalPatternCode" class="text-base font-black text-amber-300 font-mono">P04_07</h3>
@@ -2623,7 +2616,7 @@
     </div>
 
     <!-- Sequence Display -->
-    <div class="p-3 bg-black/40 rounded-xl border border-purple-900/50 space-y-1.5">
+    <div class="p-3 bg-black/40 rounded-xl border border-white/[0.08] space-y-1.5">
       <span class="text-[9px] text-slate-400 block font-mono uppercase">Full Sequence Structure</span>
       <div id="modalPatternSeq" class="flex items-center gap-1.5 font-mono text-xs"></div>
     </div>
@@ -2649,7 +2642,7 @@
     </div>
 
     <!-- Multi-Window Occurrences -->
-    <div class="p-3 bg-black/40 rounded-xl border border-purple-900/50 space-y-1.5 font-mono text-[10px]">
+    <div class="p-3 bg-black/40 rounded-xl border border-white/[0.08] space-y-1.5 font-mono text-[10px]">
       <span class="text-[9px] text-slate-400 block font-mono uppercase">Multi-Lookback Window Frequency</span>
       <div id="modalPatternWindows" class="grid grid-cols-6 gap-1 text-center"></div>
     </div>
@@ -2671,7 +2664,7 @@
     </div>
 
     <div class="flex justify-end pt-1">
-      <button onclick="closePatternDetailModal()" class="px-4 py-2 rounded-xl bg-purple-900 hover:bg-purple-800 text-purple-200 font-bold text-xs transition">Close</button>
+      <button onclick="closePatternDetailModal()" class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 font-bold text-xs transition">Close</button>
     </div>
 </div>
 
@@ -2680,7 +2673,7 @@
 ════════════════════════════════════════════════════════════ -->
 <div id="dhaniwinBridgeModal" class="fixed inset-0 z-[130] bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
   <div class="bg-app-card w-full max-w-xl rounded-2xl border border-emerald-500/50 shadow-2xl p-5 space-y-3.5">
-    <div class="flex items-center justify-between border-b border-purple-900/50 pb-2.5">
+    <div class="flex items-center justify-between border-b border-white/[0.08] pb-2.5">
       <div class="flex items-center gap-2">
         <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
         <h3 class="text-sm font-black text-white uppercase tracking-wider">DhaniWin Live Scraper &amp; Auto-Bet Bridge</h3>
@@ -2707,7 +2700,7 @@
     </div>
 
     <div class="flex items-center justify-end gap-2 pt-1 border-t border-white/5">
-      <button onclick="closeBridgeScriptModal()" class="px-4 py-1.5 rounded-xl bg-white/10 hover:bg-purple-800 text-purple-200 font-bold text-xs transition">Close</button>
+      <button onclick="closeBridgeScriptModal()" class="px-4 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 font-bold text-xs transition">Close</button>
     </div>
   </div>
 </div>
@@ -4436,7 +4429,7 @@ function renderHistoryTable() {
       }
     }
 
-    return `<div onclick="editHistoryRow('${row.period}')" class="grid grid-cols-12 py-2.5 px-3 items-center cursor-pointer hover:bg-indigo-900/40 active:bg-indigo-900/60 transition group border-b border-purple-900/20 text-[10px]">
+    return `<div onclick="editHistoryRow('${row.period}')" class="grid grid-cols-12 py-2.5 px-3 items-center cursor-pointer hover:bg-indigo-900/40 active:bg-indigo-900/60 transition group border-b border-white/[0.06] text-[10px]">
       <div class="col-span-3 text-slate-300 font-mono truncate flex items-center gap-1">
         <span>${String(row.period).slice(-6)}</span>
         <span class="opacity-0 group-hover:opacity-100 text-amber-400 transition">✏️</span>
@@ -4630,7 +4623,7 @@ function renderRoadRows(hist) {
     }
 
     const periodShort = String(row.period).slice(-4);
-    return `<div id="road-row-${idx}" class="grid items-center py-0.5 border-b border-purple-900/20" style="${COLS}">
+    return `<div id="road-row-${idx}" class="grid items-center py-0.5 border-b border-white/[0.06]" style="${COLS}">
       <div class="text-[9px] text-slate-400 font-mono truncate pr-1">${periodShort}</div>
       ${balls}
       <div class="flex items-center justify-center">${bsBadge}</div>
@@ -5955,93 +5948,117 @@ function toggleTradingIndicator(ind) {
 }
 
 let priceScaleVerticalShift = 0;
+window.tradingChartAutoCenter = true;
 let isUserInteractingWithChart = false;
 let userInteractionTimeout = null;
 
+function updateAutoCenterButtonUI() {
+  const fitBtn = document.getElementById('btnTradingFit');
+  if (!fitBtn) return;
+  if (!window.tradingChartAutoCenter) {
+    fitBtn.className = "px-1.5 py-0.5 rounded bg-amber-500/25 hover:bg-amber-500/35 text-amber-300 border border-amber-400/60 text-[8px] font-mono font-black active:scale-95 transition shadow-[0_0_12px_rgba(245,158,11,0.35)]";
+    fitBtn.innerHTML = '⊕ Fit <span class="text-[6.5px] text-amber-400 opacity-90">(Off)</span>';
+    fitBtn.title = "Auto-centering is OFF. Click to re-center latest candle in middle.";
+  } else {
+    fitBtn.className = "px-1.5 py-0.5 rounded bg-white/[0.08] hover:bg-white/[0.18] text-amber-300 border border-white/10 text-[8px] font-mono font-black active:scale-95 transition";
+    fitBtn.innerHTML = '⊕ Fit';
+    fitBtn.title = "Latest candle auto-centered in middle (Active)";
+  }
+}
+
+function setTradingChartAutoCenter(enabled) {
+  window.tradingChartAutoCenter = !!enabled;
+  isUserInteractingWithChart = !enabled;
+  updateAutoCenterButtonUI();
+}
+
 function markUserChartInteraction() {
-  isUserInteractingWithChart = true;
-  // Never auto-reset — user stays in control until explicit recenter button click
-  if (userInteractionTimeout) { clearTimeout(userInteractionTimeout); userInteractionTimeout = null; }
+  setTradingChartAutoCenter(false);
 }
 
-function getAutoscalePriceRange() {
-  const candles = window.candlestickDataSeries || [];
-  if (!candles.length) return null;
-
-  const latestCandle = candles[candles.length - 1];
-  const latestPrice = latestCandle ? latestCandle.close : 0;
-
-  // Recent candles to determine realistic price span
-  const recent = candles.slice(-25);
-  let minP = latestPrice;
-  let maxP = latestPrice;
-  for (let i = 0; i < recent.length; i++) {
-    if (recent[i].low < minP) minP = recent[i].low;
-    if (recent[i].high > maxP) maxP = recent[i].high;
-  }
-
-  // Generous halfSpan ensures the newest candle is always comfortably centered
-  const span = Math.max(8, (maxP - minP) * 1.0);
-  const halfSpan = Math.max(6, span * 0.55);
-  const centerPrice = latestPrice + priceScaleVerticalShift;
-
-  return {
-    priceRange: {
-      minValue: centerPrice - halfSpan,
-      maxValue: centerPrice + halfSpan,
-    },
-    margins: {
-      top: 0.18,
-      bottom: 0.18,
-    }
-  };
-}
-
-function applyPriceScaleShift(deltaPrice = 0) {
+// ── Safe, Continuous Vertical Price Scale Pan (Never Disappears / Never Blank) ──
+function applyPriceScaleShift(stepDelta = 0) {
   if (!tradingChartInstance) return;
-  markUserChartInteraction();
-  priceScaleVerticalShift += deltaPrice;
-  if (tradingMainSeries) {
-    try {
-      if (Math.abs(priceScaleVerticalShift) > 0.01) {
-        tradingMainSeries.applyOptions({
-          autoscaleInfoProvider: (original) => {
-            const custom = getAutoscalePriceRange();
-            return custom || (original ? original() : null);
-          }
-        });
-      } else {
-        tradingMainSeries.applyOptions({
-          autoscaleInfoProvider: null
-        });
-      }
-    } catch(e) {}
+  setTradingChartAutoCenter(false);
+  priceScaleVerticalShift = Math.max(-25, Math.min(25, priceScaleVerticalShift + stepDelta));
+
+  const allSeries = [
+    tradingMainSeries,
+    tradingSMAIndicatorSeries,
+    tradingEMAIndicatorSeries,
+    tradingBBMiddleSeries,
+    tradingBBUpperSeries,
+    tradingBBLowerSeries
+  ].filter(Boolean);
+
+  if (Math.abs(priceScaleVerticalShift) > 0.001) {
+    const shiftProvider = (original) => {
+      const base = original ? original() : null;
+      if (!base || !base.priceRange) return base;
+      const span = Math.max(0.5, base.priceRange.maxValue - base.priceRange.minValue);
+      // Shift camera by 12% of visible span per step
+      // Positive shift moves camera UP (shows higher prices), negative moves camera DOWN
+      const offset = priceScaleVerticalShift * (span * 0.12);
+      return {
+        priceRange: {
+          minValue: base.priceRange.minValue + offset,
+          maxValue: base.priceRange.maxValue + offset
+        },
+        margins: base.margins || { top: 0.16, bottom: 0.16 }
+      };
+    };
+
+    allSeries.forEach(s => {
+      try {
+        s.applyOptions({ autoscaleInfoProvider: shiftProvider });
+      } catch(e) {}
+    });
+  } else {
+    allSeries.forEach(s => {
+      try {
+        s.applyOptions({ autoscaleInfoProvider: null });
+      } catch(e) {}
+    });
   }
+
+  try {
+    tradingChartInstance.timeScale().applyOptions({});
+  } catch(e) {}
 }
 
 function panChartVertical(dir) {
-  // dir: -1 (pan up) or +1 (pan down)
-  applyPriceScaleShift(dir * 3.5);
+  // dir: +1 (arrow up) -> moves view camera up (higher prices)
+  // dir: -1 (arrow down) -> moves view camera down (lower prices)
+  applyPriceScaleShift(dir * 1);
   if (typeof showToast === 'function') {
-    showToast(dir < 0 ? '▲ Panned View Up' : '▼ Panned View Down', 'info');
+    showToast(dir > 0 ? '▲ Pan Up (Auto-Center Off)' : '▼ Pan Down (Auto-Center Off)', 'info');
   }
 }
 
 function resetPriceScaleShift() {
   priceScaleVerticalShift = 0;
-  isUserInteractingWithChart = false;
-  if (tradingMainSeries) {
+  const allSeries = [
+    tradingMainSeries,
+    tradingSMAIndicatorSeries,
+    tradingEMAIndicatorSeries,
+    tradingBBMiddleSeries,
+    tradingBBUpperSeries,
+    tradingBBLowerSeries
+  ].filter(Boolean);
+
+  allSeries.forEach(s => {
     try {
-      tradingMainSeries.applyOptions({
-        autoscaleInfoProvider: null
-      });
+      s.applyOptions({ autoscaleInfoProvider: null });
     } catch(e) {}
-  }
+  });
 }
 
+// ── Auto-Middling: Places Newest Candle Exactly in the Middle of Viewport ──
 function rearrangeTradingViewToMiddleRight(force = false) {
   if (!tradingChartInstance) return;
-  if (!force && isUserInteractingWithChart) return;
+  // If user interacted or auto-centering is off, strictly never snap back!
+  if (!force && !window.tradingChartAutoCenter) return;
+
   const timeScale = tradingChartInstance.timeScale();
   const hist = (S.history || []).filter(r => !r.gap && r.size);
   const N = hist.length;
@@ -6055,59 +6072,74 @@ function rearrangeTradingViewToMiddleRight(force = false) {
   if (currentRange && (currentRange.to - currentRange.from) > 4) {
     visibleSpan = currentRange.to - currentRange.from;
   } else {
-    visibleSpan = Math.max(16, Math.round(width / 12));
+    visibleSpan = Math.max(16, Math.round(width / 14));
   }
 
-  const futureSpaceBoost = isFuturePredictionSpaceEnabled ? 15 : 0;
-
-  // Position newest candle (index N - 1) comfortably at ~65% across viewport (middle right),
-  // leaving ~35% open breathing space on the right for future projection and free inspection.
-  const leftBars = Math.round(visibleSpan * 0.65);
-  const rightBars = Math.round(visibleSpan * 0.35) + futureSpaceBoost;
-
-  const from = (N - 1) - leftBars;
-  const to = (N - 1) + rightBars;
+  // Exact Middle: half of the bars to the left, half to the right of newest candle (N - 1)
+  const halfSpan = Math.floor(visibleSpan / 2);
+  const from = (N - 1) - halfSpan;
+  const to   = (N - 1) + halfSpan;
 
   try {
+    window._isProgrammaticRangeChange = true;
     timeScale.setVisibleLogicalRange({ from, to });
   } catch(e) {
     try { timeScale.scrollToRealTime(); } catch(e2) {}
+  } finally {
+    setTimeout(() => { window._isProgrammaticRangeChange = false; }, 80);
   }
 }
 
-function panChartHorizontal(dir, steps = 6) {
-  // dir: -1 (scroll left/history backwards) or +1 (scroll right/newest candles)
+// ── Infinite Horizontal Pan (Left into History, Right into Future) ──
+function panChartHorizontal(dir, steps = 10) {
+  // dir: -1 (scroll left/back in history) or +1 (scroll right/forward)
   if (!tradingChartInstance) return;
-  markUserChartInteraction();
+  setTradingChartAutoCenter(false);
   const timeScale = tradingChartInstance.timeScale();
   const range = timeScale.getVisibleLogicalRange();
-  if (range) {
+  if (range && Number.isFinite(range.from) && Number.isFinite(range.to)) {
     const shift = dir * steps;
     try {
+      window._isProgrammaticRangeChange = true;
       timeScale.setVisibleLogicalRange({
         from: range.from + shift,
         to: range.to + shift
       });
     } catch(e) {
-      try { timeScale.scrollPosition(shift, false); } catch(e2) {}
+      try {
+        const curPos = typeof timeScale.scrollPosition === 'function' ? timeScale.scrollPosition() : 0;
+        if (typeof timeScale.scrollToPosition === 'function') {
+          timeScale.scrollToPosition(curPos + shift, false);
+        }
+      } catch(e2) {}
+    } finally {
+      setTimeout(() => { window._isProgrammaticRangeChange = false; }, 80);
     }
   } else {
-    try { timeScale.scrollPosition(dir * steps, false); } catch(e) {}
+    try {
+      const curPos = typeof timeScale.scrollPosition === 'function' ? timeScale.scrollPosition() : 0;
+      if (typeof timeScale.scrollToPosition === 'function') {
+        timeScale.scrollToPosition(curPos + (dir * steps), false);
+      }
+    } catch(e) {}
+  }
+  if (typeof showToast === 'function') {
+    showToast(dir < 0 ? '◀ Panning Left (Auto-Center Off)' : '▶ Panning Right (Auto-Center Off)', 'info');
   }
 }
 
 function tradingChartZoom(dir, multiplier = 3) {
   if (tradingChartInstance) {
-    markUserChartInteraction();
+    setTradingChartAutoCenter(false);
     const timeScale = tradingChartInstance.timeScale();
     const curRange = timeScale.getVisibleLogicalRange();
     if (curRange) {
       const span = curRange.to - curRange.from;
-      // Calculate factor for smooth unbounded zoom
       const factor = dir > 0 ? 0.75 : 1.35;
       const newSpan = Math.max(2, Math.round(span * factor));
       const mid = (curRange.from + curRange.to) / 2;
       try {
+        window._isProgrammaticRangeChange = true;
         timeScale.setVisibleLogicalRange({
           from: mid - newSpan / 2,
           to: mid + newSpan / 2
@@ -6117,6 +6149,8 @@ function tradingChartZoom(dir, multiplier = 3) {
           if (dir > 0) timeScale.zoomIn();
           else timeScale.zoomOut();
         }
+      } finally {
+        setTimeout(() => { window._isProgrammaticRangeChange = false; }, 80);
       }
     } else {
       for (let i = 0; i < multiplier; i++) {
@@ -6129,21 +6163,24 @@ function tradingChartZoom(dir, multiplier = 3) {
 
 function tradingChartLongZoom(dir) {
   if (tradingChartInstance) {
-    markUserChartInteraction();
+    setTradingChartAutoCenter(false);
     const timeScale = tradingChartInstance.timeScale();
     const curRange = timeScale.getVisibleLogicalRange();
     if (curRange) {
       const span = curRange.to - curRange.from;
-      const factor = dir > 0 ? 0.45 : 2.5; // Strong multi-level zoom
+      const factor = dir > 0 ? 0.45 : 2.5;
       const newSpan = Math.max(2, Math.round(span * factor));
       const mid = (curRange.from + curRange.to) / 2;
       try {
+        window._isProgrammaticRangeChange = true;
         timeScale.setVisibleLogicalRange({
           from: mid - newSpan / 2,
           to: mid + newSpan / 2
         });
       } catch(e) {
         tradingChartZoom(dir, 8);
+      } finally {
+        setTimeout(() => { window._isProgrammaticRangeChange = false; }, 80);
       }
     } else {
       tradingChartZoom(dir, 8);
@@ -6156,9 +6193,15 @@ function tradingChartLongZoom(dir) {
 
 function tradingChartReset() {
   if (tradingChartInstance) {
+    setTradingChartAutoCenter(true);
     resetPriceScaleShift();
-    tradingChartInstance.timeScale().fitContent();
+    try {
+      tradingChartInstance.timeScale().fitContent();
+    } catch(e) {}
     rearrangeTradingViewToMiddleRight(true);
+    if (typeof showToast === 'function') {
+      showToast('⊕ Auto-Fit Active (Newest in Middle)', 'info');
+    }
   }
 }
 
@@ -6304,12 +6347,13 @@ function initTradingCandleChart() {
       borderColor: '#2a2e39',
       timeVisible: true,
       secondsVisible: true,
-      rightOffset: isFuturePredictionSpaceEnabled ? 35 : 18,
-      barSpacing: 10,
-      minBarSpacing: 0.05, // Extreme long zoom out (can see hundreds of rounds smoothly)
-      maxBarSpacing: 120,  // Deep long zoom in (inspect individual candles up-close)
+      rightOffset: 20,
+      barSpacing: 12,
+      minBarSpacing: 0.01, // Unlimited extreme zoom out
+      maxBarSpacing: 150,  // Deep zoom in
       fixLeftEdge: false,
-      fixRightEdge: false
+      fixRightEdge: false,
+      shiftVisibleRangeOnNewBar: false // Do NOT snap range automatically on new data
     },
     kineticScroll: {
       touch: true,
@@ -6700,11 +6744,13 @@ function _renderTradingCandleChartCore(force = false) {
       tradingBBLowerSeries.setData(lowData);
     }
 
-    // Rearrange view so newest candle is positioned in the middle right
-    try {
-      rearrangeTradingViewToMiddleRight();
-    } catch(e) {
-      try { tradingChartInstance.timeScale().scrollToRealTime(); } catch(e2){}
+    // Auto-Middling: Only position candle in middle if auto-centering is actively ON!
+    if (window.tradingChartAutoCenter) {
+      try {
+        rearrangeTradingViewToMiddleRight();
+      } catch(e) {
+        try { tradingChartInstance.timeScale().scrollToRealTime(); } catch(e2){}
+      }
     }
   }
 
@@ -7311,7 +7357,7 @@ function setTimeframe(tf, force = false) {
     if (b2) {
       b2.className = t === tf
         ? 'py-2 px-1 rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 text-slate-950 font-black text-xs flex flex-col items-center shadow active:scale-95'
-        : 'py-2 px-1 rounded-xl bg-app-card text-purple-200 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition';
+        : 'py-2 px-1 rounded-xl bg-app-card text-slate-300 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition';
     }
   });
 
@@ -8669,7 +8715,7 @@ function renderGhRankingTable(data) {
       </div>
       <div class="col-span-2 text-right pr-1">
         <span class="${oosColor} text-[7.5px]">${oos}</span>
-        <button onclick="inspectPatternDetail('${p.code}')" class="mt-0.5 px-1 py-0.5 rounded bg-white/10 hover:bg-purple-800 text-purple-200 text-[7.5px] font-bold border border-white/[0.08] active:scale-95 transition block ml-auto">
+        <button onclick="inspectPatternDetail('${p.code}')" class="mt-0.5 px-1 py-0.5 rounded bg-white/10 hover:bg-white/20 text-slate-200 text-[7.5px] font-bold border border-white/[0.08] active:scale-95 transition block ml-auto">
           View
         </button>
       </div>
@@ -8868,7 +8914,7 @@ function renderAITrackRecord() {
       ? `<span class="text-emerald-400 font-black">✓ WIN (+₹${pnlDelta.toFixed(2)})</span>`
       : `<span class="text-rose-400 font-black">✗ LOSS (-₹${Math.abs(pnlDelta).toFixed(2)})</span>`;
 
-    return `<div class="grid grid-cols-12 py-1.5 items-center text-[10px] border-b border-purple-900/20">
+    return `<div class="grid grid-cols-12 py-1.5 items-center text-[10px] border-b border-white/[0.06]">
       <div class="col-span-3 text-slate-400 font-mono">${row.period.slice(-4)}</div>
       <div class="col-span-3 text-center">${targetBadge}</div>
       <div class="col-span-3 text-center font-bold text-slate-200">${row.number} (${row.size})</div>
@@ -9671,7 +9717,7 @@ function setInitModalTimeframe(tf) {
     if (btn) {
       btn.className = t === tf
         ? 'py-2 rounded-xl bg-amber-400 text-slate-950 font-black shadow transition'
-        : 'py-2 rounded-xl bg-white/10 text-purple-200 font-bold hover:bg-purple-800 transition';
+        : 'py-2 rounded-xl bg-white/10 text-slate-300 font-bold hover:bg-white/20 transition';
     }
   });
 
@@ -9684,7 +9730,7 @@ function setInitModalTimeframe(tf) {
     if (b) {
       b.className = t===tf
         ? 'py-2 px-1 rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 text-slate-950 font-black text-xs flex flex-col items-center shadow active:scale-95'
-        : 'py-2 px-1 rounded-xl bg-app-card text-purple-200 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition';
+        : 'py-2 px-1 rounded-xl bg-app-card text-slate-300 font-bold text-xs flex flex-col items-center hover:bg-app-cardLight active:scale-95 transition';
     }
   });
 
