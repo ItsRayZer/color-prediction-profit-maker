@@ -1599,6 +1599,67 @@
       finalReason = `🛡️ ${v5Ensemble.sizeSource} | Recovery Stake ₹${staking.stake}`;
     }
 
+    // 10. Adaptive Intelligence Layer (Master Diagnostic & Orchestration Mesh)
+    const last3Draws = history.slice(-3).map(r => r.size);
+    const isCurrentChop = (last3Draws.length >= 3 && last3Draws[0] !== last3Draws[1] && last3Draws[1] !== last3Draws[2]);
+    const activeStreakCount = (function() {
+      let st = 1;
+      const lastS = history.length ? history[history.length - 1].size : '';
+      for (let i = history.length - 2; i >= 0; i--) {
+        if (history[i].size === lastS) st++;
+        else break;
+      }
+      return st;
+    })();
+
+    const masterDangerScore = Number((
+      (effectiveLossStreak * 0.22) +
+      (sizeConsensus.houseAdversary?.trapDetected ? 0.25 : 0.05) +
+      (entropy * 0.20) +
+      (Math.abs(dominantProb - 0.5) < 0.08 ? 0.20 : 0.05)
+    ).toFixed(2));
+
+    const metadata = {
+      consciousness: {
+        selfWarningLevel: effectiveLossStreak >= 3 ? 'CRITICAL' : effectiveLossStreak >= 2 ? 'HIGH' : 'NORMAL',
+        lastMistake: effectiveLossStreak > 0 ? (isCurrentChop ? 'CHOP_PHASE_SHIFT' : 'TREND_REVERSAL') : null,
+        trustedSources: [
+          dragonRider.isDragon ? 'DRAGON_RIDER' : null,
+          regimePatterns.isHighConfidence ? 'REGIME_DNA' : null,
+          v5Ensemble?.sizeSource?.includes('Ensemble') ? 'V5_ENSEMBLE' : null,
+          'MARKOV_CHAIN'
+        ].filter(Boolean),
+        untrustedSources: sizeConsensus.houseAdversary?.trapDetected ? ['BASE_DIRECT_MOMENTUM'] : [],
+        strategyVersion: 'v5.2-adaptive-fortress'
+      },
+      neuralMesh: {
+        dominantModel: sizeConsensus.neuralNet?.signal ? '2_LAYER_NEURAL_MESH' : 'V5_ENSEMBLE',
+        modelAgreement: Number(dominantProb.toFixed(2)),
+        neuralConfidence: Number((sizeConsensus.neuralNet?.prob || dominantProb).toFixed(2))
+      },
+      godsEye: {
+        masterDangerScore: Math.min(1.0, masterDangerScore),
+        regimeStability: Number((1.0 - Math.min(1.0, entropy * 0.8)).toFixed(2)),
+        trapPressure: sizeConsensus.houseAdversary?.trapDetected ? 0.75 : 0.15,
+        violetPressure: 0.10
+      },
+      timeTraveller: {
+        nextLossRisk: Number((1 - dominantProb).toFixed(2)),
+        historicalSimilarity: Number((0.72 + (Math.min(10, activeStreakCount) * 0.02)).toFixed(2)),
+        simulatedBestChoice: finalTarget
+      },
+      reality: {
+        worldState: effectiveLossStreak >= 3 ? 'WORLD_SHIFTING' : (dragonRider.isDragon ? 'WORLD_STREAK_HEAVY' : 'WORLD_STABLE'),
+        changeDetected: effectiveLossStreak >= 2,
+        activeStreakLength: activeStreakCount
+      },
+      lossShield: {
+        level: effectiveLossStreak,
+        active: effectiveLossStreak >= 2,
+        chosenDefense: effectiveLossStreak >= 3 ? 'FORTRESS_CIRCUIT_BREAKER' : (effectiveLossStreak >= 2 ? 'INVERSION_MONITOR' : 'NORMAL_CONSENSUS')
+      }
+    };
+
     const pickDesc = `🎯 Target: ${finalTarget}`;
 
     return {
@@ -1634,7 +1695,8 @@
       adaptiveWeights,
       reason: finalReason,
       pickDesc,
-      v5Ensemble
+      v5Ensemble,
+      metadata
     };
   }
 

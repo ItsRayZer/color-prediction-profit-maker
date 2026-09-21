@@ -3529,7 +3529,8 @@ function runAI() {
     engines: outcome.engines || [],
     scores: outcome.scores,
     zScore: outcome.zScore,
-    isTest
+    isTest,
+    metadata: outcome.metadata || null
   };
   S.aiReady = true;
 
@@ -3546,7 +3547,8 @@ function runAI() {
       reason: reasonFinal,
       entropy: outcome.entropy || 0.5,
       stake: outcome.stake || 1,
-      isTest
+      isTest,
+      metadata: outcome.metadata || null
     };
     if (!S.aiPredictionMap) S.aiPredictionMap = {};
     S.aiPredictionMap[pStr] = predRecord;
