@@ -497,6 +497,109 @@
       z-index: 0;
       animation: logoAtmosphericGlowPulse 2.4s ease-in-out infinite;
     }
+  
+    /* Realistic Floating Dollar Notes (Cinematic Celebration) */
+    @keyframes floatMoneyDown {
+      0% {
+        transform: translateY(-28px) rotate(-15deg) scale(0.6);
+        opacity: 0;
+      }
+      20% {
+        opacity: 1;
+        transform: translateY(0px) rotate(12deg) scale(1);
+      }
+      55% {
+        transform: translateY(22px) rotate(-18deg) scale(0.95);
+      }
+      85% {
+        opacity: 0.9;
+        transform: translateY(44px) rotate(15deg) scale(0.85);
+      }
+      100% {
+        transform: translateY(68px) rotate(-25deg) scale(0.7);
+        opacity: 0;
+      }
+    }
+    .dollar-bill-particle {
+      position: absolute;
+      pointer-events: none;
+      z-index: 30;
+      font-size: 11px;
+      line-height: 1;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
+      animation: floatMoneyDown 2.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    }
+
+    /* Cinematic Damaged Glass Crack Effect on Loss */
+    @keyframes crackShatterPulse {
+      0% {
+        opacity: 0;
+        transform: scale(0.85) rotate(-3deg);
+        filter: drop-shadow(0 0 1px #f43f5e);
+      }
+      15% {
+        opacity: 1;
+        transform: scale(1) rotate(0deg);
+        filter: drop-shadow(0 0 4px #f43f5e);
+      }
+      80% {
+        opacity: 0.9;
+        transform: scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(1.02);
+      }
+    }
+    .damage-crack-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 25;
+      overflow: hidden;
+      animation: crackShatterPulse 2.8s ease-out forwards;
+    }
+
+    /* Fluid Sibling Resizing & Morphing Classes */
+    #smartHeroRowGrid {
+      transition: all 0.75s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+    #smartTargetCardBox {
+      transition: all 0.75s cubic-bezier(0.16, 1, 0.3, 1) !important;
+      position: relative !important;
+    }
+    #smartHeroCol1Period, #smartHeroCol3Timer {
+      transition: all 0.75s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+    .hero-grid-fluid-win {
+      background: rgba(16, 185, 129, 0.05) !important;
+      border: 1px solid rgba(52, 211, 153, 0.4) !important;
+      box-shadow: 0 0 24px -4px rgba(16, 185, 129, 0.3) !important;
+    }
+    .hero-grid-fluid-loss {
+      background: rgba(244, 63, 94, 0.05) !important;
+      border: 1px solid rgba(244, 63, 94, 0.35) !important;
+      box-shadow: 0 0 24px -4px rgba(244, 63, 94, 0.25) !important;
+    }
+    /* Sibling compression without overlapping */
+    .col-fluid-compress-win {
+      transform: scale(0.94) !important;
+      opacity: 0.75 !important;
+      border-color: rgba(52, 211, 153, 0.3) !important;
+    }
+    .col-fluid-compress-loss {
+      transform: scale(0.97) !important;
+      opacity: 0.85 !important;
+      border-color: rgba(244, 63, 94, 0.3) !important;
+    }
+    /* Ultra smooth 0.8s fluid easing when returning back to normal */
+    .smart-box-fluid-restoring {
+      transition: all 0.85s cubic-bezier(0.16, 1, 0.3, 1) !important;
+      transform: scale(1) translateY(0) rotate(0deg) !important;
+      opacity: 1 !important;
+      filter: none !important;
+    }
+
   </style>
 </head>
 <body class="bg-app-bg min-h-screen text-white overflow-x-hidden relative">
@@ -517,17 +620,16 @@
     <div id="realWorldClock" class="text-[10px] font-mono text-white/50 font-semibold bg-white/[0.04] backdrop-blur-md px-3 py-1 rounded-full border border-white/[0.06]">--:--:-- UTC+5:30</div>
   </div>
 
-  <!-- Center: 01:01 Logo right in the middle (and Martingale status if active) -->
-  <div class="absolute left-1/2 -translate-x-1/2 flex items-center gap-3 relative">
-    <!-- Atmospheric Ambient Glow Aura Behind Logo -->
-    <div id="navbarLogoAuraGlow" class="logo-aura-glow bg-white/[0.08] opacity-60"></div>
-    <img id="navbarLogoImg" src="logo_0101.jpg" class="h-10 sm:h-12 w-auto object-contain select-none relative z-10 filter drop-shadow-[0_2px_14px_rgba(255,255,255,0.25)] transition-all duration-500 hover:scale-105 cursor-pointer" alt="01:01" onclick="if(typeof toggleAIGlow==='function')toggleAIGlow()" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-    <div style="display:none" class="items-center gap-1">
-      <span class="text-2xl font-black text-white tracking-tight">01:01</span>
+  <!-- Center: 01:01 Logo right in the exact middle -->
+  <div class="absolute left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-auto">
+    <div class="relative flex items-center justify-center">
+      <div id="navbarLogoAuraGlow" class="logo-aura-glow bg-white/[0.04] opacity-40"></div>
+      <img id="navbarLogoImg" src="logo_0101.jpg" class="h-10 sm:h-12 w-auto object-contain select-none relative z-10 filter drop-shadow-[0_2px_14px_rgba(255,255,255,0.22)] transition-all duration-500 hover:scale-105 cursor-pointer" alt="01:01" onclick="if(typeof toggleAIGlow==='function')toggleAIGlow()" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+      <div style="display:none" class="items-center gap-1">
+        <span class="text-2xl font-black text-white tracking-tight">01:01</span>
+      </div>
     </div>
-
-    <!-- Martingale status centered with logo when active -->
-    <div id="mgHeaderStatus" class="hidden items-center gap-2.5 px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-full text-[10px] backdrop-blur-md ml-2">
+    <div id="mgHeaderStatus" class="hidden absolute left-full ml-3" class="hidden items-center gap-2.5 px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-full text-[10px] backdrop-blur-md ml-2">
       <i class="fa-solid fa-rotate text-amber-400 animate-spin" style="animation-duration:3s"></i>
       <span class="text-amber-300 font-bold">MARTINGALE</span>
       <span class="text-slate-300 font-mono">Next: <b id="mgHeaderCurrent" class="text-amber-400 font-black">₹1</b></span>
@@ -6128,9 +6230,8 @@ function applyPriceScaleShift(stepDelta = 0) {
 }
 
 function panChartVertical(dir) {
-  // dir: +1 (arrow up) -> moves view camera up (higher prices)
-  // dir: -1 (arrow down) -> moves view camera down (lower prices)
-  applyPriceScaleShift(dir * 1);
+  // Inverted sign so clicking Up moves chart view upwards and Down moves it downwards
+  applyPriceScaleShift(dir * -1);
   if (typeof showToast === 'function') {
     showToast(dir > 0 ? '▲ Pan Up (Auto-Center Off)' : '▼ Pan Down (Auto-Center Off)', 'info');
   }
@@ -6193,13 +6294,13 @@ function rearrangeTradingViewToMiddleRight(force = false) {
 
 // ── Infinite Horizontal Pan (Left into History, Right into Future) ──
 function panChartHorizontal(dir, steps = 10) {
-  // dir: -1 (scroll left/back in history) or +1 (scroll right/forward)
   if (!tradingChartInstance) return;
   setTradingChartAutoCenter(false);
   const timeScale = tradingChartInstance.timeScale();
   const range = timeScale.getVisibleLogicalRange();
   if (range && Number.isFinite(range.from) && Number.isFinite(range.to)) {
     const shift = dir * steps;
+    window._savedUserLogicalRange = { from: range.from + shift, to: range.to + shift };
     try {
       window._isProgrammaticRangeChange = true;
       timeScale.setVisibleLogicalRange({
@@ -6239,6 +6340,7 @@ function tradingChartZoom(dir, multiplier = 3) {
       const factor = dir > 0 ? 0.75 : 1.35;
       const newSpan = Math.max(2, Math.round(span * factor));
       const mid = (curRange.from + curRange.to) / 2;
+      window._savedUserLogicalRange = { from: mid - newSpan / 2, to: mid + newSpan / 2 };
       try {
         window._isProgrammaticRangeChange = true;
         timeScale.setVisibleLogicalRange({
@@ -6272,6 +6374,7 @@ function tradingChartLongZoom(dir) {
       const factor = dir > 0 ? 0.45 : 2.5;
       const newSpan = Math.max(2, Math.round(span * factor));
       const mid = (curRange.from + curRange.to) / 2;
+      window._savedUserLogicalRange = { from: mid - newSpan / 2, to: mid + newSpan / 2 };
       try {
         window._isProgrammaticRangeChange = true;
         timeScale.setVisibleLogicalRange({
@@ -6294,6 +6397,7 @@ function tradingChartLongZoom(dir) {
 
 function tradingChartReset() {
   if (tradingChartInstance) {
+    window._savedUserLogicalRange = null;
     setTradingChartAutoCenter(true);
     resetPriceScaleShift();
     try {
@@ -6520,6 +6624,16 @@ function initTradingCandleChart() {
     }
   });
   ro.observe(container);
+
+  try {
+    chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+      if (!range) return;
+      if (window._isProgrammaticRangeChange) return;
+      window.tradingChartAutoCenter = false;
+      window._savedUserLogicalRange = { from: range.from, to: range.to };
+      updateAutoCenterButtonUI();
+    });
+  } catch(e) {}
 
   tradingChartInstance = chart;
   rebuildTradingSeries();
@@ -6851,6 +6965,14 @@ function _renderTradingCandleChartCore(force = false) {
         rearrangeTradingViewToMiddleRight();
       } catch(e) {
         try { tradingChartInstance.timeScale().scrollToRealTime(); } catch(e2){}
+      }
+    } else if (window._savedUserLogicalRange && tradingChartInstance) {
+      try {
+        window._isProgrammaticRangeChange = true;
+        tradingChartInstance.timeScale().setVisibleLogicalRange(window._savedUserLogicalRange);
+      } catch(e) {}
+      finally {
+        setTimeout(() => { window._isProgrammaticRangeChange = false; }, 80);
       }
     }
   }
@@ -10364,19 +10486,67 @@ window._aiTargetBoxResultAnimation = { active: false, outcome: null };
 window._aiTargetBoxAnimTimeout = null;
 
 function setLogoAuraGlow(state) {
+  // Color glow on win/loss completely removed per user request:
+  // Logo keeps neutral clean luxury drop-shadow and stays perfectly centered.
   const glowEl = document.getElementById('navbarLogoAuraGlow');
   const imgEl = document.getElementById('navbarLogoImg');
-  if (!glowEl) return;
-  if (state === 'WIN') {
-    glowEl.className = 'logo-aura-glow bg-emerald-500/40 opacity-90 shadow-[0_0_35px_12px_rgba(16,185,129,0.55)]';
-    if (imgEl) imgEl.style.filter = 'drop-shadow(0 0 16px rgba(52,211,153,0.75))';
-  } else if (state === 'LOSS') {
-    glowEl.className = 'logo-aura-glow bg-rose-500/40 opacity-90 shadow-[0_0_35px_12px_rgba(244,63,94,0.55)]';
-    if (imgEl) imgEl.style.filter = 'drop-shadow(0 0 16px rgba(244,63,94,0.75))';
-  } else {
-    glowEl.className = 'logo-aura-glow bg-white/[0.08] opacity-60';
-    if (imgEl) imgEl.style.filter = 'drop-shadow(0 2px 14px rgba(255,255,255,0.25))';
+  if (glowEl) {
+    glowEl.className = 'logo-aura-glow bg-white/[0.04] opacity-40';
   }
+  if (imgEl) {
+    imgEl.style.filter = 'drop-shadow(0 2px 14px rgba(255,255,255,0.22))';
+  }
+}
+
+// Helper: Spawn realistic cinematic falling dollar notes inside the win box
+function spawnRealisticMoneyRain(containerEl) {
+  if (!containerEl) return;
+  const existing = containerEl.querySelectorAll('.dollar-bill-particle');
+  existing.forEach(e => e.remove());
+
+  // Realistic bill icons & styling
+  const bills = [
+    { text: '💵', left: '12%', delay: '0s', dur: '2.1s' },
+    { text: '💲', left: '28%', delay: '0.15s', dur: '1.9s' },
+    { text: '💵', left: '48%', delay: '0.05s', dur: '2.2s' },
+    { text: '💸', left: '68%', delay: '0.2s', dur: '2.0s' },
+    { text: '💵', left: '84%', delay: '0.1s', dur: '2.3s' },
+    { text: '💲', left: '38%', delay: '0.35s', dur: '1.8s' }
+  ];
+
+  bills.forEach(b => {
+    const el = document.createElement('div');
+    el.className = 'dollar-bill-particle select-none';
+    el.textContent = b.text;
+    el.style.left = b.left;
+    el.style.top = '-10px';
+    el.style.animationDelay = b.delay;
+    el.style.animationDuration = b.dur;
+    containerEl.appendChild(el);
+  });
+}
+
+// Helper: Spawn realistic glass crack damage lines on loss
+function spawnGlassCrackDamage(containerEl) {
+  if (!containerEl) return;
+  const existing = containerEl.querySelectorAll('.damage-crack-layer');
+  existing.forEach(e => e.remove());
+
+  const crackEl = document.createElement('div');
+  crackEl.className = 'damage-crack-layer';
+  crackEl.innerHTML = `
+    <svg viewBox="0 0 200 70" class="w-full h-full opacity-80" preserveAspectRatio="none">
+      <!-- Realistic jagged glass fracture lines -->
+      <path d="M 10 35 L 45 32 L 80 42 L 120 28 L 155 36 L 190 33" stroke="rgba(244, 63, 94, 0.9)" stroke-width="1.2" fill="none" stroke-linecap="round" />
+      <path d="M 80 42 L 72 15 L 60 5" stroke="rgba(244, 63, 94, 0.7)" stroke-width="0.9" fill="none" />
+      <path d="M 80 42 L 95 62 L 105 68" stroke="rgba(244, 63, 94, 0.7)" stroke-width="0.9" fill="none" />
+      <path d="M 120 28 L 130 12 L 142 4" stroke="rgba(244, 63, 94, 0.75)" stroke-width="0.9" fill="none" />
+      <path d="M 120 28 L 115 52 L 122 65" stroke="rgba(244, 63, 94, 0.75)" stroke-width="0.9" fill="none" />
+      <circle cx="80" cy="42" r="2.5" fill="rgba(255, 255, 255, 0.8)" filter="drop-shadow(0 0 3px #f43f5e)" />
+      <circle cx="120" cy="28" r="2" fill="rgba(255, 255, 255, 0.8)" filter="drop-shadow(0 0 3px #f43f5e)" />
+    </svg>
+  `;
+  containerEl.appendChild(crackEl);
 }
 
 function triggerAITargetBoxAnimation(outcome, details = {}) {
@@ -10389,7 +10559,7 @@ function triggerAITargetBoxAnimation(outcome, details = {}) {
   const textEl = document.getElementById('smartResultAnimText');
   const subEl = document.getElementById('smartResultAnimSubText');
   
-  // Neighboring elements to react smoothly
+  // Fluid grid container and in-flow sibling columns
   const heroGrid = document.getElementById('smartHeroRowGrid');
   const col1Period = document.getElementById('smartHeroCol1Period');
   const col3Timer = document.getElementById('smartHeroCol3Timer');
@@ -10399,6 +10569,19 @@ function triggerAITargetBoxAnimation(outcome, details = {}) {
   if (window._aiTargetBoxAnimTimeout) {
     clearTimeout(window._aiTargetBoxAnimTimeout);
     window._aiTargetBoxAnimTimeout = null;
+  }
+
+  // Clear previous transient particles / cracks / restoring classes
+  boxEl.querySelectorAll('.dollar-bill-particle, .damage-crack-layer').forEach(el => el.remove());
+  boxEl.classList.remove('smart-box-win-elastic', 'smart-box-loss-sad', 'smart-box-fluid-restoring');
+  if (heroGrid) {
+    heroGrid.classList.remove('hero-grid-fluid-win', 'hero-grid-fluid-loss', 'smart-box-fluid-restoring');
+  }
+  if (col1Period) {
+    col1Period.classList.remove('col-fluid-compress-win', 'col-fluid-compress-loss', 'smart-box-fluid-restoring');
+  }
+  if (col3Timer) {
+    col3Timer.classList.remove('col-fluid-compress-win', 'col-fluid-compress-loss', 'smart-box-fluid-restoring');
   }
 
   window._aiTargetBoxResultAnimation = {
@@ -10413,25 +10596,17 @@ function triggerAITargetBoxAnimation(outcome, details = {}) {
 
   const isWin = outcome === 'WIN';
 
-  // Set top logo atmospheric glow
-  setLogoAuraGlow(isWin ? 'WIN' : 'LOSS');
-
-  // Clear previous animation classes
-  boxEl.classList.remove('smart-box-win-elastic', 'smart-box-loss-sad');
-  if (heroGrid) heroGrid.classList.remove('hero-grid-react-win', 'hero-grid-react-loss');
-  if (col1Period) col1Period.classList.remove('side-col-react-win', 'side-col-react-loss');
-  if (col3Timer) col3Timer.classList.remove('side-col-react-win', 'side-col-react-loss');
-
-  // Trigger reflow so animation restarts cleanly
+  // Trigger reflow so fresh animations start synchronously
   void boxEl.offsetWidth;
 
   if (isWin) {
-    // ── CELEBRATION WIN: Elastic scale expansion, rich emerald glow, impact on borders and siblings ──
-    boxEl.className = 'p-1.5 bg-gradient-to-br from-emerald-500/30 via-emerald-950/80 to-black rounded-lg border-2 border-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.6),inset_0_1px_2px_rgba(255,255,255,0.3)] flex flex-col justify-center items-center transition-all duration-500 overflow-hidden relative min-h-[58px] z-20 smart-box-win-elastic';
+    // ── CELEBRATION WIN: Fluid In-Flow Expansion + Falling Dollar Notes ──
+    // Does NOT pop out or overlap siblings: siblings smoothly compress in-flow
+    boxEl.className = 'p-1.5 bg-gradient-to-br from-emerald-500/25 via-[#0e241b] to-black rounded-lg border-2 border-emerald-400/90 shadow-[0_0_24px_rgba(16,185,129,0.5),inset_0_1px_1px_rgba(255,255,255,0.25)] flex flex-col justify-center items-center overflow-hidden relative min-h-[58px] z-10 smart-box-win-elastic';
     
-    if (heroGrid) heroGrid.classList.add('hero-grid-react-win');
-    if (col1Period) col1Period.classList.add('side-col-react-win');
-    if (col3Timer) col3Timer.classList.add('side-col-react-win');
+    if (heroGrid) heroGrid.classList.add('hero-grid-fluid-win');
+    if (col1Period) col1Period.classList.add('col-fluid-compress-win');
+    if (col3Timer) col3Timer.classList.add('col-fluid-compress-win');
 
     if (dotEl) dotEl.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block';
     if (headerEl) {
@@ -10447,13 +10622,17 @@ function triggerAITargetBoxAnimation(outcome, details = {}) {
       subEl.className = 'text-[7.5px] text-emerald-200 font-mono font-bold tracking-tight';
       subEl.textContent = details.size ? details.size + ' #' + (details.number ?? '') + ' (Celebration)' : 'Target Hit!';
     }
-  } else {
-    // ── LIVING SAD LOSS: Height decreases, droops head down, living shrink, muted crimson glow ──
-    boxEl.className = 'p-1 bg-gradient-to-br from-rose-500/20 via-rose-950/70 to-black rounded-lg border border-rose-500/70 shadow-[0_4px_22px_rgba(244,63,94,0.45),inset_0_0_12px_rgba(244,63,94,0.3)] flex flex-col justify-center items-center transition-all duration-700 overflow-hidden relative min-h-[50px] z-10 smart-box-loss-sad';
 
-    if (heroGrid) heroGrid.classList.add('hero-grid-react-loss');
-    if (col1Period) col1Period.classList.add('side-col-react-loss');
-    if (col3Timer) col3Timer.classList.add('side-col-react-loss');
+    // Spawn cinematic realistic dollar notes falling gracefully
+    spawnRealisticMoneyRain(boxEl);
+
+  } else {
+    // ── LIVING SAD LOSS: Height decreases, droops head down, realistic glass cracking ──
+    boxEl.className = 'p-1 bg-gradient-to-br from-rose-500/20 via-[#260e14] to-black rounded-lg border border-rose-500/70 shadow-[0_4px_20px_rgba(244,63,94,0.4),inset_0_0_12px_rgba(244,63,94,0.3)] flex flex-col justify-center items-center overflow-hidden relative min-h-[50px] z-10 smart-box-loss-sad';
+
+    if (heroGrid) heroGrid.classList.add('hero-grid-fluid-loss');
+    if (col1Period) col1Period.classList.add('col-fluid-compress-loss');
+    if (col3Timer) col3Timer.classList.add('col-fluid-compress-loss');
 
     if (dotEl) dotEl.className = 'w-1.5 h-1.5 rounded-full bg-rose-400/80 inline-block';
     if (headerEl) {
@@ -10469,30 +10648,70 @@ function triggerAITargetBoxAnimation(outcome, details = {}) {
       subEl.className = 'text-[7px] text-rose-300/70 font-mono font-bold tracking-tight';
       subEl.textContent = details.size ? 'Got ' + details.size + ' #' + (details.number ?? '') : 'Recalibrating...';
     }
+
+    // Spawn realistic glass fracture crack effect
+    spawnGlassCrackDamage(boxEl);
   }
 
-  // Exactly 3 seconds cinematic animation, then cleanly restore upcoming prediction and normal bounds
+  // Exactly 3 seconds of animation, followed by an ultra-smooth, fluid liquid transition back to normal
   window._aiTargetBoxAnimTimeout = setTimeout(() => {
-    window._aiTargetBoxResultAnimation.active = false;
-    window._aiTargetBoxAnimTimeout = null;
-
-    setLogoAuraGlow('NORMAL');
-
+    // 1. Mark animation as finishing and add smooth fluid restoring transition
     if (boxEl) {
       boxEl.classList.remove('smart-box-win-elastic', 'smart-box-loss-sad');
+      boxEl.classList.add('smart-box-fluid-restoring');
+      boxEl.querySelectorAll('.dollar-bill-particle, .damage-crack-layer').forEach(el => {
+        el.style.transition = 'opacity 0.6s ease-out';
+        el.style.opacity = '0';
+        setTimeout(() => el.remove(), 600);
+      });
     }
-    if (heroGrid) heroGrid.classList.remove('hero-grid-react-win', 'hero-grid-react-loss');
-    if (col1Period) col1Period.classList.remove('side-col-react-win', 'side-col-react-loss');
-    if (col3Timer) col3Timer.classList.remove('side-col-react-win', 'side-col-react-loss');
 
+    if (heroGrid) {
+      heroGrid.classList.remove('hero-grid-fluid-win', 'hero-grid-fluid-loss');
+      heroGrid.classList.add('smart-box-fluid-restoring');
+    }
+    if (col1Period) {
+      col1Period.classList.remove('col-fluid-compress-win', 'col-fluid-compress-loss');
+      col1Period.classList.add('smart-box-fluid-restoring');
+    }
+    if (col3Timer) {
+      col3Timer.classList.remove('col-fluid-compress-win', 'col-fluid-compress-loss');
+      col3Timer.classList.add('smart-box-fluid-restoring');
+    }
+
+    // 2. Smoothly crossfade content back to upcoming AI target prediction
     if (animView) {
-      animView.classList.add('hidden');
-      animView.classList.remove('flex');
+      animView.style.transition = 'opacity 0.4s ease-out';
+      animView.style.opacity = '0';
+      setTimeout(() => {
+        animView.classList.add('hidden');
+        animView.classList.remove('flex');
+        animView.style.opacity = '1';
+
+        if (normalView) {
+          normalView.classList.remove('hidden');
+          normalView.style.opacity = '0';
+          normalView.style.transition = 'opacity 0.5s ease-in';
+          requestAnimationFrame(() => {
+            normalView.style.opacity = '1';
+          });
+        }
+      }, 350);
+    } else {
+      if (normalView) normalView.classList.remove('hidden');
     }
-    if (normalView) {
-      normalView.classList.remove('hidden');
-    }
-    renderSmartView();
+
+    // 3. Conclude animation state and restore standard styling
+    setTimeout(() => {
+      window._aiTargetBoxResultAnimation.active = false;
+      window._aiTargetBoxAnimTimeout = null;
+      if (boxEl) boxEl.classList.remove('smart-box-fluid-restoring');
+      if (heroGrid) heroGrid.classList.remove('smart-box-fluid-restoring');
+      if (col1Period) col1Period.classList.remove('smart-box-fluid-restoring');
+      if (col3Timer) col3Timer.classList.remove('smart-box-fluid-restoring');
+      renderSmartView();
+    }, 850);
+
   }, 3000);
 }
 
