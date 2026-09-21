@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Dhani.win – WinGo Quant AI Terminal</title>
+  <title>01:01 – Quant AI Terminal</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://unpkg.com/lightweight-charts@5.0.9/dist/lightweight-charts.standalone.production.js"></script>
@@ -13,7 +13,7 @@
       theme: {
         extend: {
           colors: {
-            app: { bg: '#140c27', surface: '#1d1238', card: '#27194a', cardLight: '#382468' }
+            app: { bg: '#000000', surface: '#0a0a0a', card: '#121214', cardLight: '#1c1c1e' }
           }
         }
       }
@@ -22,7 +22,7 @@
   <style>
     * { box-sizing: border-box; }
     body {
-      background: #0d071b;
+      background: #000000;
       color: #fff;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       -webkit-tap-highlight-color: transparent;
@@ -402,12 +402,7 @@
 </head>
 <body class="bg-app-bg min-h-screen text-white overflow-x-hidden relative">
 
-<!-- Ambient Liquid Glass Lighting Blobs -->
-<div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
-  <div class="absolute -top-32 -left-32 w-96 h-96 bg-purple-600/15 rounded-full blur-[120px]"></div>
-  <div class="absolute top-1/3 -right-32 w-96 h-96 bg-amber-500/10 rounded-full blur-[140px]"></div>
-  <div class="absolute -bottom-32 left-1/3 w-96 h-96 bg-indigo-600/15 rounded-full blur-[130px]"></div>
-</div>
+<!-- AMOLED Pure Black — no ambient blobs -->
 
 <!-- ════════════════════════════════════════════════════════════
      TOAST CONTAINER (Apple Minimal Liquid Glass - Top Right)
@@ -417,17 +412,14 @@
 <!-- ════════════════════════════════════════════════════════════
      FULL-WIDTH TOP NAVBAR (Apple Frosted Glass)
 ════════════════════════════════════════════════════════════ -->
-<header class="flex items-center justify-between px-6 py-2.5 bg-black/40 backdrop-blur-2xl sticky top-0 z-30 border-b border-white/10 w-full shadow-lg">
+<header class="flex items-center justify-between px-4 py-2 bg-black/60 backdrop-blur-2xl sticky top-0 z-30 border-b border-white/[0.08] w-full">
   <div class="flex items-center gap-3">
-    <button onclick="toggleAIGlow()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-amber-400 hover:text-white transition active:scale-95 border border-white/10">
-      <i class="fa-solid fa-bolt-lightning text-xs"></i>
-    </button>
-    <div class="flex items-center gap-2 cursor-pointer" onclick="toggleAIGlow()">
-      <span class="text-xl font-black italic text-indigo-400">Dhani</span>
-      <span class="text-xl font-black italic text-amber-400">.win</span>
-      <span class="ml-1 text-[9px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-black border border-amber-400/30">QUANT AI</span>
+    <img src="logo_0101.jpg" class="h-8 w-auto object-contain select-none" alt="01:01" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+    <div style="display:none" class="items-center gap-1.5">
+      <span class="text-xl font-black text-white tracking-tight">01:01</span>
     </div>
-    <div id="realWorldClock" class="text-[10px] font-mono text-purple-300 font-semibold bg-white/5 px-2.5 py-0.5 rounded-full border border-white/10">--:--:-- UTC+5:30</div>
+    <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/50 font-black border border-white/10 tracking-wider">QUANT AI</span>
+    <div id="realWorldClock" class="text-[10px] font-mono text-white/40 font-semibold bg-white/[0.04] px-2.5 py-0.5 rounded-full border border-white/[0.08]">--:--:-- UTC+5:30</div>
   </div>
 
   <!-- Center: Martingale status in header when active -->
@@ -441,81 +433,127 @@
     <span class="text-slate-400 font-mono text-[10px]" id="mgHeaderPnl">PnL: <span class="text-emerald-400">+₹0</span></span>
   </div>
 
-    <!-- Desktop Window Layout Quick Dock (Show / Hide 3 Windows + Reset) -->
-    <div id="windowLayoutDock" class="hidden lg:flex items-center bg-black/60 p-0.5 rounded-2xl border border-white/10 gap-1 shadow-inner">
-      <span class="text-[9px] font-mono text-slate-400 pl-2 pr-1 uppercase font-bold flex items-center gap-1">
-        <i class="fa-solid fa-table-columns text-purple-400 text-[9.5px]"></i> Windows
-      </span>
-      <button id="dockCol1Btn" onclick="toggleWindowCol('col1')" class="apple-btn apple-btn-amber px-2.5 py-1 rounded-xl text-[9px] font-black uppercase flex items-center gap-1 shadow-sm" title="Toggle Live History & Audit (Column 1)">
-        <i class="fa-solid fa-eye text-amber-400 text-[8.5px]"></i>
-        <span>1. History</span>
+    <!-- Right: Live dot + Settings gear only -->
+    <div class="flex items-center gap-2">
+      <div class="flex items-center gap-1.5 text-[10px] text-white/40 font-mono bg-white/[0.04] px-2.5 py-1 rounded-full border border-white/[0.08]">
+        <i class="fa-solid fa-circle text-[5px] text-emerald-400 animate-pulse"></i>
+        <span id="liveStatusText">Live</span>
+      </div>
+      <button onclick="toggleSettingsPanel()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-white/60 hover:text-white transition active:scale-95" title="Settings">
+        <i class="fa-solid fa-gear text-sm"></i>
       </button>
-      <button id="dockCol2Btn" onclick="toggleWindowCol('col2')" class="apple-btn apple-btn-amber px-2.5 py-1 rounded-xl text-[9px] font-black uppercase flex items-center gap-1 shadow-sm" title="Toggle WinGo Hero & Trading Chart (Column 2)">
-        <i class="fa-solid fa-eye text-amber-400 text-[8.5px]"></i>
-        <span>2. Chart</span>
-      </button>
-      <button id="dockCol3Btn" onclick="toggleWindowCol('col3')" class="apple-btn apple-btn-amber px-2.5 py-1 rounded-xl text-[9px] font-black uppercase flex items-center gap-1 shadow-sm" title="Toggle Intelligence Hub & Web View (Column 3)">
-        <i class="fa-solid fa-eye text-amber-400 text-[8.5px]"></i>
-        <span>3. Hub</span>
-      </button>
-      <button onclick="resetWindowLayout()" class="apple-btn px-2 py-1 rounded-xl text-[9px] font-bold text-slate-300 hover:text-white flex items-center gap-1" title="Reset all 3 windows to default equal widths">
-        <i class="fa-solid fa-rotate-left text-[8.5px]"></i>
-        <span>Cols</span>
-      </button>
-      <button onclick="resetCardPositions()" class="apple-btn px-2 py-1 rounded-xl text-[9px] font-bold text-slate-300 hover:text-white flex items-center gap-1" title="Reset cards to default positions">
-        <i class="fa-solid fa-grip text-[8.5px] text-amber-400"></i>
-        <span>Cards</span>
-      </button>
+    </div>
+  </div>
+</header>
 
-      <!-- + Add Element Dropdown -->
-      <div class="relative inline-block ml-0.5">
-        <button id="btnAddElementsDropdown" onclick="toggleAddElementsMenu(event)" class="apple-btn apple-btn-emerald px-2.5 py-1 rounded-xl text-[9px] font-black uppercase flex items-center gap-1.5 shadow-sm" title="Add / Restore closed window elements">
-          <i class="fa-solid fa-plus text-[8.5px]"></i>
-          <span>Add Element</span>
-          <span id="closedElementsCountBadge" class="hidden px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[7.5px] font-mono font-bold">0</span>
+<!-- ════════════════════════════════════════════════════════════
+     APPLE SETTINGS PANEL (slide-over from right)
+════════════════════════════════════════════════════════════ -->
+<div id="settingsPanelBackdrop" onclick="toggleSettingsPanel()" class="hidden fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm"></div>
+<div id="settingsPanel" class="fixed top-0 right-0 h-full w-80 z-[201] bg-[#111111] border-l border-white/[0.08] flex flex-col transform translate-x-full transition-transform duration-300 ease-out overflow-y-auto" style="scrollbar-width:thin;scrollbar-color:#333 transparent;">
+  <div class="flex items-center justify-between px-5 py-4 border-b border-white/[0.08] sticky top-0 bg-[#111111] z-10">
+    <span class="text-base font-bold text-white tracking-tight">Settings</span>
+    <button onclick="toggleSettingsPanel()" class="w-7 h-7 flex items-center justify-center rounded-full bg-white/[0.08] text-white/60 hover:text-white transition active:scale-95">
+      <i class="fa-solid fa-xmark text-xs"></i>
+    </button>
+  </div>
+  <!-- Layout -->
+  <div class="px-4 pt-5 pb-2">
+    <div class="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-3 px-1">Layout</div>
+    <div class="bg-white/[0.04] rounded-2xl border border-white/[0.07] overflow-hidden divide-y divide-white/[0.06]">
+      <button id="dockCol1Btn" onclick="toggleWindowCol('col1')" class="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.05] transition text-left">
+        <div class="flex items-center gap-3"><i class="fa-solid fa-clock-rotate-left text-amber-400 w-4 text-xs"></i><span class="text-sm text-white/80">History Window</span></div>
+        <i class="fa-solid fa-chevron-right text-white/20 text-[9px]"></i>
+      </button>
+      <button id="dockCol2Btn" onclick="toggleWindowCol('col2')" class="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.05] transition text-left">
+        <div class="flex items-center gap-3"><i class="fa-solid fa-chart-candlestick text-blue-400 w-4 text-xs"></i><span class="text-sm text-white/80">Chart Window</span></div>
+        <i class="fa-solid fa-chevron-right text-white/20 text-[9px]"></i>
+      </button>
+      <button id="dockCol3Btn" onclick="toggleWindowCol('col3')" class="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.05] transition text-left">
+        <div class="flex items-center gap-3"><i class="fa-solid fa-brain text-purple-400 w-4 text-xs"></i><span class="text-sm text-white/80">Intelligence Hub</span></div>
+        <i class="fa-solid fa-chevron-right text-white/20 text-[9px]"></i>
+      </button>
+      <button onclick="resetWindowLayout()" class="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.05] transition text-left">
+        <div class="flex items-center gap-3"><i class="fa-solid fa-table-columns text-white/40 w-4 text-xs"></i><span class="text-sm text-white/80">Reset Column Layout</span></div>
+        <i class="fa-solid fa-chevron-right text-white/20 text-[9px]"></i>
+      </button>
+      <button onclick="resetCardPositions()" class="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.05] transition text-left">
+        <div class="flex items-center gap-3"><i class="fa-solid fa-grip text-white/40 w-4 text-xs"></i><span class="text-sm text-white/80">Reset Card Positions</span></div>
+        <i class="fa-solid fa-chevron-right text-white/20 text-[9px]"></i>
+      </button>
+      <div class="relative">
+        <button id="btnAddElementsDropdown" onclick="toggleAddElementsMenu(event)" class="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.05] transition text-left">
+          <div class="flex items-center gap-3"><i class="fa-solid fa-plus text-emerald-400 w-4 text-xs"></i><span class="text-sm text-white/80">Add / Restore Element</span></div>
+          <span id="closedElementsCountBadge" class="hidden px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[8px] font-mono font-bold">0</span>
         </button>
-
-        <!-- Dropdown Menu -->
-        <div id="addElementsDropdownMenu" class="hidden absolute right-0 mt-2 w-72 bg-[#120a24]/95 backdrop-blur-2xl border border-purple-800/60 rounded-2xl shadow-2xl p-2.5 z-50 text-[10px] space-y-2">
+        <div id="addElementsDropdownMenu" class="hidden absolute right-0 mt-1 w-72 bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl p-2.5 z-50 text-[10px] space-y-2">
           <div class="flex items-center justify-between pb-1.5 border-b border-white/10 font-mono">
-            <span class="font-bold text-white uppercase text-[9px] flex items-center gap-1.5"><i class="fa-solid fa-layer-group text-amber-400"></i> Manage Window Elements</span>
+            <span class="font-bold text-white uppercase text-[9px] flex items-center gap-1.5"><i class="fa-solid fa-layer-group text-amber-400"></i> Elements</span>
             <button onclick="restoreAllElements()" class="text-[8px] text-amber-400 hover:underline font-bold">Restore All</button>
           </div>
-          <div id="addElementsList" class="space-y-1 max-h-72 overflow-y-auto" style="scrollbar-width:thin;scrollbar-color:#6b21a8 transparent;">
-            <!-- Injected dynamically by updateAddElementsMenu() -->
-          </div>
+          <div id="addElementsList" class="space-y-1 max-h-64 overflow-y-auto" style="scrollbar-width:thin;scrollbar-color:#333 transparent;"></div>
         </div>
       </div>
     </div>
-
-    <button onclick="toggleResultPopup()" id="popupToggleBtn" class="apple-btn apple-btn-emerald flex items-center gap-1.5 px-3 py-1.5 rounded-2xl font-black text-xs shadow" title="Toggle Result Popup ON or OFF">
-      <i class="fa-solid fa-bell text-xs"></i>
-      <span id="popupToggleText">Popup: ON</span>
-    </button>
-    <button onclick="toggleProMode()" id="proModeToggleBtn" class="apple-btn apple-btn-amber flex items-center gap-1.5 px-3 py-1.5 rounded-2xl font-black text-xs shadow" title="Switch between Pro and Normal view">
-      <i class="fa-solid fa-layer-group text-amber-400 text-xs"></i>
-      <span id="proModeBtnText">⚡ PRO MODE: ON</span>
-    </button>
-    <button onclick="toggleRightPanelView()" id="headerWebToggleBtn" class="apple-btn apple-btn-indigo flex items-center gap-1.5 px-3 py-1.5 rounded-2xl font-black text-xs shadow" title="Toggle Website View (dhaniwin99.com) in Right Panel">
-      <i class="fa-solid fa-globe text-sky-400"></i>
-      <span id="headerWebToggleText">Web View</span>
-    </button>
-    <div class="hidden lg:flex items-center gap-1 text-[10px] text-slate-400 font-mono apple-btn px-3 py-1.5 rounded-2xl">
-      <i class="fa-solid fa-circle text-[6px] text-emerald-400 animate-pulse"></i>
-      <span id="liveStatusText">Connecting...</span>
-    </div>
-    <button onclick="toggleAutoBet()" id="autoBetToggleBtn" class="apple-btn w-8 h-8 flex items-center justify-center rounded-full text-slate-300 hover:text-emerald-400" title="Martingale Auto-Bet">
-      <i class="fa-solid fa-robot text-xs"></i>
-    </button>
-    <button onclick="openImportModal()" class="apple-btn w-8 h-8 flex items-center justify-center rounded-full text-slate-300 hover:text-white" title="Data Import">
-      <i class="fa-solid fa-database text-xs"></i>
-    </button>
-    <a href="/" class="apple-btn apple-btn-blue px-3 py-1.5 flex items-center gap-1.5 rounded-2xl text-xs font-bold" title="Open TradingView Prediction Chart">
-      <i class="fa-solid fa-chart-line text-blue-300"></i>
-      <span>Trading Chart</span>
-    </a>
   </div>
-</header>
+  <!-- Prediction -->
+  <div class="px-4 pt-4 pb-2">
+    <div class="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-3 px-1">Prediction</div>
+    <div class="bg-white/[0.04] rounded-2xl border border-white/[0.07] overflow-hidden divide-y divide-white/[0.06]">
+      <button onclick="toggleProMode()" id="proModeToggleBtn" class="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.05] transition text-left">
+        <div class="flex items-center gap-3"><i class="fa-solid fa-layer-group text-amber-400 w-4 text-xs"></i><span class="text-sm text-white/80">Pro Mode</span></div>
+        <span id="proModeBtnText" class="text-[10px] text-amber-300 font-bold">ON</span>
+      </button>
+      <button onclick="toggleResultPopup()" id="popupToggleBtn" class="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.05] transition text-left">
+        <div class="flex items-center gap-3"><i class="fa-solid fa-bell text-emerald-400 w-4 text-xs"></i><span class="text-sm text-white/80">Result Popup</span></div>
+        <span id="popupToggleText" class="text-[10px] text-emerald-300 font-bold">ON</span>
+      </button>
+      <button onclick="toggleRightPanelView()" id="headerWebToggleBtn" class="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.05] transition text-left">
+        <div class="flex items-center gap-3"><i class="fa-solid fa-globe text-sky-400 w-4 text-xs"></i><span class="text-sm text-white/80">Web View</span></div>
+        <span id="headerWebToggleText" class="text-[10px] text-sky-300 font-bold">OFF</span>
+      </button>
+    </div>
+  </div>
+  <!-- Bot -->
+  <div class="px-4 pt-4 pb-2">
+    <div class="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-3 px-1">Auto-Bet</div>
+    <div class="bg-white/[0.04] rounded-2xl border border-white/[0.07] overflow-hidden">
+      <button onclick="toggleAutoBet()" id="autoBetToggleBtn" class="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.05] transition text-left">
+        <div class="flex items-center gap-3"><i class="fa-solid fa-robot text-emerald-400 w-4 text-xs"></i><span class="text-sm text-white/80">Martingale Auto-Bet</span></div>
+        <i class="fa-solid fa-chevron-right text-white/20 text-[9px]"></i>
+      </button>
+    </div>
+  </div>
+  <!-- Data -->
+  <div class="px-4 pt-4 pb-2">
+    <div class="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-3 px-1">Data</div>
+    <div class="bg-white/[0.04] rounded-2xl border border-white/[0.07] overflow-hidden divide-y divide-white/[0.06]">
+      <button onclick="openImportModal()" class="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.05] transition text-left">
+        <div class="flex items-center gap-3"><i class="fa-solid fa-file-import text-blue-400 w-4 text-xs"></i><span class="text-sm text-white/80">Import CSV</span></div>
+        <i class="fa-solid fa-chevron-right text-white/20 text-[9px]"></i>
+      </button>
+      <button onclick="downloadCSVReport()" class="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.05] transition text-left">
+        <div class="flex items-center gap-3"><i class="fa-solid fa-file-export text-emerald-400 w-4 text-xs"></i><span class="text-sm text-white/80">Export History CSV</span></div>
+        <i class="fa-solid fa-chevron-right text-white/20 text-[9px]"></i>
+      </button>
+      <a href="/" class="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.05] transition text-left">
+        <div class="flex items-center gap-3"><i class="fa-solid fa-chart-line text-blue-300 w-4 text-xs"></i><span class="text-sm text-white/80">Trading Chart View</span></div>
+        <i class="fa-solid fa-chevron-right text-white/20 text-[9px]"></i>
+      </a>
+    </div>
+  </div>
+  <!-- About -->
+  <div class="px-4 pt-4 pb-8">
+    <div class="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-3 px-1">About</div>
+    <div class="bg-white/[0.04] rounded-2xl border border-white/[0.07] px-4 py-3 flex items-center gap-3">
+      <img src="logo_0101.jpg" class="h-6 w-auto" alt="01:01" onerror="this.style.display='none'">
+      <div>
+        <div class="text-sm font-bold text-white">01:01 Quant AI</div>
+        <div class="text-[10px] text-white/30">Adaptive Prediction Terminal</div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ════════════════════════════════════════════════════════════
      TIMEFRAME FAST LOADING SCREEN (Apple-Style Activity Indicator)
@@ -1228,28 +1266,28 @@
     </div>
 
     <!-- ── TRADINGVIEW CANDLESTICK TRADING CHART (COLUMN 2) ── -->
-    <div id="card-col2-chart" class="liquid-glass-card apple-glass-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-2xl flex flex-col relative transition-all card-draggable" draggable="false" data-card-id="card-col2-chart">
+    <div id="card-col2-chart" class="liquid-glass-card apple-glass-card rounded-2xl overflow-hidden border border-white/[0.07] shadow-2xl flex flex-col relative transition-all card-draggable" draggable="false" data-card-id="card-col2-chart">
       <!-- Top Control Bar -->
-      <div class="p-2 bg-gradient-to-r from-purple-950 via-slate-900 to-[#131722] border-b border-purple-900/40 flex items-center justify-between flex-wrap gap-1.5">
+      <div class="p-2 bg-black/80 border-b border-white/[0.07] flex items-center justify-between flex-wrap gap-1.5">
         <div class="flex items-center gap-1.5">
           <div class="card-drag-handle p-1 rounded-md text-slate-500 hover:text-white hover:bg-white/10 transition cursor-grab active:cursor-grabbing shrink-0" title="Drag to move card anywhere">
             <i class="fa-solid fa-grip-vertical text-[10px]"></i>
           </div>
           <div class="w-2.5 h-2.5 rounded-sm bg-[#2962ff]"></div>
-          <span class="font-black text-xs text-white uppercase tracking-wider">Trading Candlestick Chart</span>
-          <span class="text-[8.5px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/30 font-mono">Live Candles</span>
+          <span class="font-black text-xs text-white uppercase tracking-wider">Trading Chart</span>
+          <span class="text-[8.5px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/30 font-mono">Live</span>
         </div>
 
         <!-- Toolbar Actions -->
         <div class="flex items-center gap-1 flex-wrap">
           <!-- Scale Mode: Ball Weighted (1x-5x) vs Fixed (±1) -->
-          <button id="chartScaleModeBtn" onclick="toggleTradingChartScaleMode()" class="px-2 py-0.5 rounded bg-purple-900/60 hover:bg-purple-800 text-purple-200 text-[8.5px] font-mono border border-purple-700/50 flex items-center gap-1 active:scale-95" title="Toggle Ball Delta Movement vs Fixed Step">
+          <button id="chartScaleModeBtn" onclick="toggleTradingChartScaleMode()" class="px-2 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] text-white/60 text-[8.5px] font-mono border border-white/10 flex items-center gap-1 active:scale-95" title="Toggle Ball Delta Movement vs Fixed Step">
             <i class="fa-solid fa-weight-scale text-amber-400"></i>
-            <span id="chartScaleModeLabel">Ball Dynamic (1x-5x)</span>
+            <span id="chartScaleModeLabel">Ball Dynamic</span>
           </button>
 
           <!-- Chart Type Selector -->
-          <select id="tradingChartTypeSelect" onchange="switchTradingChartType(this.value)" class="bg-black/60 text-slate-200 border border-purple-800/50 text-[8.5px] rounded px-1.5 py-0.5 outline-none cursor-pointer">
+          <select id="tradingChartTypeSelect" onchange="switchTradingChartType(this.value)" class="bg-black/80 text-white/60 border border-white/10 text-[8.5px] rounded px-1.5 py-0.5 outline-none cursor-pointer">
             <option value="candlestick">Candles</option>
             <option value="hollow">Hollow</option>
             <option value="line">Line</option>
@@ -1257,25 +1295,32 @@
             <option value="bar">Bars</option>
           </select>
 
+          <!-- WIN/LOSS mode toggle -->
+          <button id="chartDisplayModeBtn" onclick="toggleChartDisplayMode()" class="px-2 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] text-white/60 border border-white/10 text-[8.5px] font-mono font-bold flex items-center gap-1 active:scale-95" title="Toggle BIG/SMALL vs WIN/LOSS candle mode">
+            <i class="fa-solid fa-arrows-up-down text-emerald-400 text-[8px]"></i>
+            <span id="chartDisplayModeLabel">SIZE</span>
+          </button>
+
           <!-- Technical Indicators -->
           <button id="btnToggleSMA" onclick="toggleTradingIndicator('sma')" class="px-1.5 py-0.5 rounded bg-blue-600/30 text-blue-300 border border-blue-500/40 text-[8.5px] font-bold">SMA</button>
           <button id="btnToggleEMA" onclick="toggleTradingIndicator('ema')" class="px-1.5 py-0.5 rounded bg-amber-600/30 text-amber-300 border border-amber-500/40 text-[8.5px] font-bold">EMA</button>
-          <button id="btnToggleBB" onclick="toggleTradingIndicator('bb')" class="px-1.5 py-0.5 rounded bg-purple-600/30 text-purple-300 border border-purple-500/40 text-[8.5px] font-bold">BB</button>
+          <button id="btnToggleBB" onclick="toggleTradingIndicator('bb')" class="px-1.5 py-0.5 rounded bg-white/[0.06] text-white/50 border border-white/10 text-[8.5px] font-bold">BB</button>
 
           <!-- Zoom & Fit -->
-          <button onclick="tradingChartZoom(1, 3)" ondblclick="tradingChartLongZoom(1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white text-[9px]" title="Zoom In (Double-click for Long Zoom In)"><i class="fa-solid fa-plus"></i></button>
-          <button onclick="tradingChartZoom(-1, 3)" ondblclick="tradingChartLongZoom(-1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white text-[9px]" title="Zoom Out (Double-click for Long Zoom Out)"><i class="fa-solid fa-minus"></i></button>
-          <button onclick="tradingChartLongZoom(1)" class="px-1 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[7.5px] font-mono font-bold" title="Long Zoom In (+7 steps)">Zoom+</button>
-          <button onclick="tradingChartLongZoom(-1)" class="px-1 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 text-[7.5px] font-mono font-bold" title="Long Zoom Out (-7 steps)">Zoom-</button>
-          <button onclick="panChartVertical(-1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-slate-200 text-[8px]" title="Pan Chart Up (▲)"><i class="fa-solid fa-chevron-up"></i></button>
-          <button onclick="panChartVertical(1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-slate-200 text-[8px]" title="Pan Chart Down (▼)"><i class="fa-solid fa-chevron-down"></i></button>
-          <button onclick="tradingChartReset()" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-amber-400 text-[9px]" title="Auto-Fit & Rearrange Middle-Right"><i class="fa-solid fa-expand"></i></button>
+          <button onclick="tradingChartZoom(1, 3)" ondblclick="tradingChartLongZoom(1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white text-[9px]" title="Zoom In"><i class="fa-solid fa-plus"></i></button>
+          <button onclick="tradingChartZoom(-1, 3)" ondblclick="tradingChartLongZoom(-1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white text-[9px]" title="Zoom Out"><i class="fa-solid fa-minus"></i></button>
+          <button onclick="tradingChartLongZoom(1)" class="px-1 py-0.5 rounded bg-white/[0.06] text-white/50 border border-white/10 text-[7.5px] font-mono font-bold" title="Long Zoom In">Z+</button>
+          <button onclick="tradingChartLongZoom(-1)" class="px-1 py-0.5 rounded bg-white/[0.06] text-white/50 border border-white/10 text-[7.5px] font-mono font-bold" title="Long Zoom Out">Z-</button>
+          <button onclick="panChartVertical(-1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-slate-200 text-[8px]" title="Pan Up"><i class="fa-solid fa-chevron-up"></i></button>
+          <button onclick="panChartVertical(1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-slate-200 text-[8px]" title="Pan Down"><i class="fa-solid fa-chevron-down"></i></button>
+          <!-- Recenter (clears user lock so auto-position resumes) -->
+          <button onclick="isUserInteractingWithChart=false;tradingChartReset();" class="px-1.5 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] text-amber-400 border border-white/10 text-[7.5px] font-mono font-bold" title="Recenter chart">⊕ Fit</button>
 
           <!-- Chart Height Resizer (+ / -) -->
-          <div class="flex items-center bg-black/60 p-0.5 rounded border border-purple-800/50 text-[8px] font-mono ml-0.5" title="Adjust Chart Height">
-            <button onclick="adjustChartHeight(-60)" class="w-4 h-4 flex items-center justify-center rounded hover:bg-white/10 text-slate-300 hover:text-white transition active:scale-95" title="Decrease Chart Height (-60px)"><i class="fa-solid fa-minus text-[6.5px]"></i></button>
-            <span id="chartHeightLabel" class="px-1 text-amber-400 select-none font-bold text-[8px]">480px</span>
-            <button onclick="adjustChartHeight(80)" class="w-4 h-4 flex items-center justify-center rounded hover:bg-white/10 text-slate-300 hover:text-white transition active:scale-95" title="Increase Chart Height (+80px)"><i class="fa-solid fa-plus text-[6.5px]"></i></button>
+          <div class="flex items-center bg-black/60 p-0.5 rounded border border-white/10 text-[8px] font-mono ml-0.5" title="Adjust Chart Height">
+            <button onclick="adjustChartHeight(-60)" class="w-4 h-4 flex items-center justify-center rounded hover:bg-white/10 text-slate-300 hover:text-white transition active:scale-95"><i class="fa-solid fa-minus text-[6.5px]"></i></button>
+            <span id="chartHeightLabel" class="px-1 text-white/40 select-none font-bold text-[8px]">480px</span>
+            <button onclick="adjustChartHeight(80)" class="w-4 h-4 flex items-center justify-center rounded hover:bg-white/10 text-slate-300 hover:text-white transition active:scale-95"><i class="fa-solid fa-plus text-[6.5px]"></i></button>
           </div>
 
           <!-- Fullscreen button -->
@@ -1284,21 +1329,21 @@
           </button>
 
           <!-- Open in Separate Tab button -->
-          <button onclick="openTradingChartNewTab()" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-emerald-300 text-[9px] transition active:scale-95" title="Open Trading Chart in Separate Tab">
+          <button onclick="openTradingChartNewTab()" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-emerald-300 text-[9px] transition active:scale-95" title="Open in Separate Tab">
             <i class="fa-solid fa-arrow-up-right-from-square"></i>
           </button>
 
           <!-- Close button -->
-          <button onclick="closeCardElement('col2-chart')" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-rose-500/30 text-rose-300 text-[9px] transition font-bold" title="Close element (can re-add via + button at top)">
+          <button onclick="closeCardElement('col2-chart')" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-rose-500/30 text-rose-300 text-[9px] transition font-bold" title="Close element">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
       </div>
 
       <!-- HUD Candlestick Data Bar -->
-      <div class="px-3 py-1 bg-black/50 border-b border-purple-900/30 flex items-center justify-between text-[9px] font-mono">
+      <div class="px-3 py-1 bg-black/70 border-b border-white/[0.05] flex items-center justify-between text-[9px] font-mono">
         <div id="tradingCandleHud" class="flex items-center gap-2 text-slate-300 flex-wrap">
-          <span class="text-amber-400 font-bold">CANDLE:</span>
+          <span class="text-white/40 font-bold">CANDLE:</span>
           <span>O: <b id="hudOpen" class="text-white">—</b></span>
           <span>H: <b id="hudHigh" class="text-emerald-400">—</b></span>
           <span>L: <b id="hudLow" class="text-rose-400">—</b></span>
@@ -1306,14 +1351,14 @@
           <span>Move: <b id="hudResult" class="text-amber-400">—</b></span>
         </div>
         <div class="flex items-center gap-1.5 text-[8px] text-slate-400">
-          <span class="text-emerald-400 font-bold">▲ BIG = UP</span>
+          <span id="hudModeLabel" class="text-emerald-400 font-bold">▲ BIG = UP</span>
           <span>|</span>
-          <span class="text-rose-400 font-bold">▼ SMALL = DOWN</span>
+          <span class="text-rose-400 font-bold">▼ DOWN</span>
         </div>
       </div>
 
       <!-- Canvas Chart Container with Left Drawing Tools Toolbar and Drawing Overlay -->
-      <div id="tradingChartCanvasWrapper" class="relative w-full bg-[#131722] flex overflow-hidden" style="height: 480px;">
+      <div id="tradingChartCanvasWrapper" class="relative w-full bg-black flex overflow-hidden" style="height: 480px;">
         
         <!-- Left Side Floating Apple Glass Drawing Tools Bar -->
         <div id="chartDrawToolbar" class="absolute left-2 top-2 bottom-2 z-20 flex flex-col items-center py-2 px-1 rounded-2xl bg-[#0e0a1ad9] backdrop-blur-xl border border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.65)] space-y-1.5 select-none" style="width: 36px;">
@@ -6010,7 +6055,18 @@ let tradingBBLowerSeries = null;
 
 let tradingChartType = 'candlestick';
 let tradingChartScaleMode = 'dynamic'; // 'dynamic' (1x-5x ball delta) or 'fixed' (±1)
+let tradingChartDisplayMode = 'size'; // 'size' = BIG/SMALL direction, 'winloss' = WIN/LOSS direction
 let tradingIndicators = { sma: false, ema: false, bb: false };
+
+function toggleChartDisplayMode() {
+  tradingChartDisplayMode = tradingChartDisplayMode === 'size' ? 'winloss' : 'size';
+  const label = document.getElementById('chartDisplayModeLabel');
+  const hudLabel = document.getElementById('hudModeLabel');
+  if (label) label.textContent = tradingChartDisplayMode === 'size' ? 'SIZE' : 'WIN/LOSS';
+  if (hudLabel) hudLabel.textContent = tradingChartDisplayMode === 'size' ? '▲ BIG = UP' : '▲ WIN = UP';
+  renderTradingCandleChart(true);
+}
+
 
 function toggleTradingChartScaleMode() {
   tradingChartScaleMode = tradingChartScaleMode === 'dynamic' ? 'fixed' : 'dynamic';
@@ -6049,10 +6105,8 @@ let userInteractionTimeout = null;
 
 function markUserChartInteraction() {
   isUserInteractingWithChart = true;
-  if (userInteractionTimeout) clearTimeout(userInteractionTimeout);
-  userInteractionTimeout = setTimeout(() => {
-    isUserInteractingWithChart = false;
-  }, 12000);
+  // Never auto-reset — user stays in control until explicit recenter button click
+  if (userInteractionTimeout) { clearTimeout(userInteractionTimeout); userInteractionTimeout = null; }
 }
 
 function getAutoscalePriceRange() {
@@ -6307,14 +6361,14 @@ function initTradingCandleChart() {
     width: container.clientWidth || 400,
     height: container.clientHeight || 480,
     layout: {
-      background: { color: '#131722' },
-      textColor: '#d1d4dc',
+      background: { color: '#000000' },
+      textColor: '#888888',
       fontSize: 10,
       fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif'
     },
     grid: {
-      vertLines: { color: '#1e222d' },
-      horzLines: { color: '#1e222d' }
+      vertLines: { color: '#111111' },
+      horzLines: { color: '#111111' }
     },
     crosshair: {
       mode: window.LightweightCharts.CrosshairMode.Normal,
@@ -6514,7 +6568,7 @@ function _renderTradingCandleChartCore(force = false) {
   if (!realHist.length) return;
 
   const latestRow = realHist[realHist.length - 1];
-  const currentFingerprint = `${realHist.length}_${latestRow ? latestRow.period : ''}_${latestRow ? latestRow.number : ''}_${tradingChartScaleMode}_${tradingChartType}_${JSON.stringify(tradingIndicators)}`;
+  const currentFingerprint = `${realHist.length}_${latestRow ? latestRow.period : ''}_${latestRow ? latestRow.number : ''}_${tradingChartScaleMode}_${tradingChartType}_${tradingChartDisplayMode}_${JSON.stringify(tradingIndicators)}`;
   const isDataChanged = force || (currentFingerprint !== _lastTradingChartFingerprint);
 
   const candles = [];
@@ -6529,7 +6583,17 @@ function _renderTradingCandleChartCore(force = false) {
 
   for (let i = 0; i < realHist.length; i++) {
     const r = realHist[i];
-    const isBig = r.size === 'BIG';
+    const isSizeBig = r.size === 'BIG';
+    // WIN/LOSS mode: determine if AI prediction was correct
+    let isUp;
+    if (tradingChartDisplayMode === 'winloss') {
+      const aiPred = S.aiPredictionMap && S.aiPredictionMap[r.period];
+      const wasWin = aiPred && aiPred.prediction && r.size && aiPred.prediction.toUpperCase() === r.size.toUpperCase();
+      isUp = wasWin;
+    } else {
+      isUp = isSizeBig;
+    }
+    const isBig = isSizeBig; // keep for count tracking
     const num = (r.number !== undefined && r.number !== null) ? Number(r.number) : (isBig ? 7 : 2);
     const color = r.color || (num === 0 || num === 5 ? 'violet' : [1,3,7,9].includes(num) ? 'green' : 'red');
 
@@ -6545,7 +6609,7 @@ function _renderTradingCandleChartCore(force = false) {
     let low = open;
 
     if (tradingChartScaleMode === 'dynamic') {
-      if (isBig) {
+      if (isUp) {
         const delta = Math.max(1, num >= 5 ? (num - 4) : 1);
         close = open + delta;
         high = close + 0.4;
@@ -6557,7 +6621,7 @@ function _renderTradingCandleChartCore(force = false) {
         low = close - 0.4;
       }
     } else {
-      if (isBig) {
+      if (isUp) {
         close = open + 1.0;
         high = close;
         low = open;
@@ -10771,11 +10835,47 @@ function loadFromLocalStorage() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// SETTINGS PANEL
+// ═══════════════════════════════════════════════════════════════
+let _settingsPanelOpen = false;
+function toggleSettingsPanel() {
+  _settingsPanelOpen = !_settingsPanelOpen;
+  const panel = document.getElementById('settingsPanel');
+  const backdrop = document.getElementById('settingsPanelBackdrop');
+  if (!panel) return;
+  if (_settingsPanelOpen) {
+    panel.style.transform = 'translateX(0)';
+    if (backdrop) backdrop.classList.remove('hidden');
+  } else {
+    panel.style.transform = 'translateX(100%)';
+    if (backdrop) backdrop.classList.add('hidden');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BOOT LOADER
+// ═══════════════════════════════════════════════════════════════
+function showBootLoader(show) {
+  const el = document.getElementById('bootLoader');
+  if (!el) return;
+  if (show) {
+    el.style.opacity = '1';
+    el.style.pointerEvents = 'auto';
+  } else {
+    el.style.opacity = '0';
+    el.style.pointerEvents = 'none';
+    setTimeout(() => { el.style.display = 'none'; }, 500);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // BOOTSTRAP
 // ═══════════════════════════════════════════════════════════════
 window.onload = () => {
-  // ── 0. Guarantee that loading overlay is completely dismissed on initial load / refresh ──
+  // ── 0. Show boot loader, hide timeframe overlay ──
+  showBootLoader(true);
   showTimeframeLoading(null, false);
+
 
   // ── 1. Start real-time engine IMMEDIATELY so countdown timer is active from the first millisecond ──
   startRTEngine();
@@ -10809,6 +10909,8 @@ window.onload = () => {
         renderGameHistoryAnalysisTab(S.timeframe);
       }
       showToast(`💾 ${S.history.length} rounds restored! Syncing live data...`, 'success');
+      // Hide boot loader — data is ready
+      setTimeout(() => showBootLoader(false), 400);
       // Always try live sync in background to append new data
       setTimeout(() => fetchLiveAPIResults(S.timeframe).catch(() => showOfflineBanner(true)), 800);
     } else {
@@ -10822,12 +10924,15 @@ window.onload = () => {
       renderSmartView();
       renderPatternAnalytics();
       showToast('✨ Initialized session. Syncing live results...', 'info');
+      // Hide boot loader
+      setTimeout(() => showBootLoader(false), 400);
       setTimeout(() => {
         fetchLiveAPIResults(S.timeframe).catch(() => showOfflineBanner(true));
       }, 600);
     }
   } catch (initErr) {
     console.warn('Bootstrap initialization notice:', initErr);
+    showBootLoader(false); // always dismiss loader even on error
   }
 };
 
@@ -11325,5 +11430,35 @@ function simBotReset()  { SimBot.reset(); }
   }, 350);
 })();
 </script>
+
+<!-- ════════════════════════════════════════════════════════════
+     PREMIUM BOOT LOADER (Apple-style full-page loading screen)
+════════════════════════════════════════════════════════════ -->
+<div id="bootLoader" class="fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center" style="transition: opacity 0.5s ease; opacity: 1; pointer-events: auto;">
+  <!-- Logo -->
+  <div class="flex flex-col items-center gap-6">
+    <img src="logo_0101.jpg" class="h-16 w-auto object-contain select-none" alt="01:01" onerror="this.style.display='none';document.getElementById('bootTextLogo').style.display='block'">
+    <div id="bootTextLogo" style="display:none" class="text-4xl font-black text-white tracking-tight">01:01</div>
+    <!-- iOS-style spinner -->
+    <div class="relative w-8 h-8 flex items-center justify-center">
+      <svg class="w-7 h-7 animate-spin text-white/40" viewBox="0 0 24 24" fill="none" style="animation-duration: 0.85s;">
+        <line x1="12" y1="2" x2="12" y2="6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="1.0"/>
+        <line x1="17" y1="3.34" x2="15" y2="6.8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.9"/>
+        <line x1="20.66" y1="7" x2="17.2" y2="9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+        <line x1="22" y1="12" x2="18" y2="12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+        <line x1="20.66" y1="17" x2="17.2" y2="15" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+        <line x1="17" y1="20.66" x2="15" y2="17.2" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+        <line x1="12" y1="22" x2="12" y2="18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
+        <line x1="7" y1="20.66" x2="9" y2="17.2" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.35"/>
+        <line x1="3.34" y1="17" x2="6.8" y2="15" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.3"/>
+        <line x1="2" y1="12" x2="6" y2="12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.25"/>
+        <line x1="3.34" y1="7" x2="6.8" y2="9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.2"/>
+        <line x1="7" y1="3.34" x2="9" y2="6.8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" opacity="0.15"/>
+      </svg>
+    </div>
+    <p class="text-[11px] text-white/20 font-mono tracking-widest uppercase">Quant AI Terminal</p>
+  </div>
+</div>
+
 </body>
 </html>
