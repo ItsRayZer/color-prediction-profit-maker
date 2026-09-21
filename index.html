@@ -28,13 +28,13 @@
       -webkit-tap-highlight-color: transparent;
       user-select: none;
     }
-    ::-webkit-scrollbar { width: 3px; } ::-webkit-scrollbar-thumb { background: #4a347c; border-radius: 4px; }
+    ::-webkit-scrollbar { width: 3px; } ::-webkit-scrollbar-thumb { background: #26262a; border-radius: 4px; }
 
     /* ── Ticket Card (yellow sawtooth) ── */
     .ticket-card { background: linear-gradient(135deg,#fbc531,#e1b12c); position:relative; overflow:hidden; }
     .ticket-card::before,.ticket-card::after {
       content:''; position:absolute; width:18px; height:18px;
-      background:#0d071b; border-radius:50%; top:50%; transform:translateY(-50%);
+      background:#000000; border-radius:50%; top:50%; transform:translateY(-50%);
     }
     /* ── Apple Liquid Glass UI ── */
     .liquid-glass {
@@ -486,7 +486,7 @@
           <div class="flex items-center gap-3"><i class="fa-solid fa-plus text-emerald-400 w-4 text-xs"></i><span class="text-sm text-white/80">Add / Restore Element</span></div>
           <span id="closedElementsCountBadge" class="hidden px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[8px] font-mono font-bold">0</span>
         </button>
-        <div id="addElementsDropdownMenu" class="hidden absolute right-0 mt-1 w-72 bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl p-2.5 z-50 text-[10px] space-y-2">
+        <div id="addElementsDropdownMenu" class="hidden absolute right-0 mt-1 w-72 bg-[#121214] border border-white/10 rounded-2xl shadow-2xl p-2.5 z-50 text-[10px] space-y-2">
           <div class="flex items-center justify-between pb-1.5 border-b border-white/10 font-mono">
             <span class="font-bold text-white uppercase text-[9px] flex items-center gap-1.5"><i class="fa-solid fa-layer-group text-amber-400"></i> Elements</span>
             <button onclick="restoreAllElements()" class="text-[8px] text-amber-400 hover:underline font-bold">Restore All</button>
@@ -592,12 +592,12 @@
   <!-- ╔══════════════════════════════════════════════════════════
        LEFT PANEL — Manual Betting & Legacy Terminal (Normal Mode Only)
   ══════════════════════════════════════════════════════════╗ -->
-  <aside id="leftAsidePanel" class="hidden lg:border-r border-purple-900/30 overflow-y-auto overflow-x-hidden bg-app-bg" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
+  <aside id="leftAsidePanel" class="hidden lg:border-r border-white/[0.08] overflow-y-auto overflow-x-hidden bg-app-bg" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#26262a transparent;">
     <div class="p-3 space-y-3">
 
       <!-- ── QUANT AI SIGNAL TERMINAL ── -->
-      <div id="quantBox" class="p-3.5 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border border-amber-500/40 rounded-2xl shadow-xl">
-        <div class="flex items-center justify-between pb-2 border-b border-purple-800/40">
+      <div id="quantBox" class="p-3.5 bg-gradient-to-r from-[#141416] via-[#0a0a0a] to-[#141416] border border-amber-500/40 rounded-2xl shadow-xl">
+        <div class="flex items-center justify-between pb-2 border-b border-white/[0.08]">
           <div class="flex items-center gap-2">
             <span id="aiReadyDot" class="w-2 h-2 rounded-full bg-slate-500"></span>
             <span class="text-[11px] font-black text-amber-400 uppercase tracking-wider">Markov + Martingale Engine</span>
@@ -637,20 +637,20 @@
         </div>
 
         <!-- Telemetry strip -->
-        <div class="mt-2.5 pt-2 border-t border-purple-800/40 grid grid-cols-4 gap-1 text-[10px] text-center font-mono">
-          <div class="bg-purple-950/70 border border-purple-800/30 py-1.5 rounded-xl">
+        <div class="mt-2.5 pt-2 border-t border-white/[0.08] grid grid-cols-4 gap-1 text-[10px] text-center font-mono">
+          <div class="bg-[#141416] border border-white/[0.08] py-1.5 rounded-xl">
             <span class="text-[8px] text-slate-400 block font-sans font-semibold">ROUNDS</span>
             <b id="dataCountDisplay" class="text-amber-300">0</b>
           </div>
-          <div class="bg-purple-950/70 border border-purple-800/30 py-1.5 rounded-xl">
+          <div class="bg-[#141416] border border-white/[0.08] py-1.5 rounded-xl">
             <span class="text-[8px] text-slate-400 block font-sans font-semibold">ENTROPY</span>
             <b id="entropyDisplay" class="text-slate-200">1.00</b>
           </div>
-          <div class="bg-purple-950/70 border border-purple-800/30 py-1.5 rounded-xl">
+          <div class="bg-[#141416] border border-white/[0.08] py-1.5 rounded-xl">
             <span class="text-[8px] text-slate-400 block font-sans font-semibold">WIN RATE</span>
             <b id="winRateDisplay" class="text-emerald-400">—</b>
           </div>
-          <div class="bg-purple-950/70 border border-purple-800/30 py-1.5 rounded-xl">
+          <div class="bg-[#141416] border border-white/[0.08] py-1.5 rounded-xl">
             <span class="text-[8px] text-slate-400 block font-sans font-semibold">STREAK</span>
             <b id="streakDisplay" class="text-rose-400">0/3</b>
           </div>
@@ -740,7 +740,7 @@
       </div>
 
       <!-- ── BETTING BOARD (Manual clicker – Hidden in Pro Mode) ── -->
-      <div class="bg-app-card rounded-2xl border border-purple-900/30 shadow-lg" id="bettingBoardWrapper" style="position:relative;">
+      <div class="bg-app-card rounded-2xl border border-white/[0.08] shadow-lg" id="bettingBoardWrapper" style="position:relative;">
         <div id="betBlockOverlay">
           <div class="countdown-ring" style="--prog:100%">
             <div class="countdown-inner">
@@ -855,11 +855,11 @@
   <!-- ╔══════════════════════════════════════════════════════════
        COLUMN 1: LIVE REAL HISTORY FEED & REPEATED COLOR/DIGIT AUDIT
   ══════════════════════════════════════════════════════════╗ -->
-  <section id="col1Container" class="overflow-y-auto overflow-x-hidden p-3 space-y-3 bg-[#0a0615] lg:border-r border-purple-900/30 flex-col" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
+  <section id="col1Container" class="overflow-y-auto overflow-x-hidden p-3 space-y-3 bg-[#000000] lg:border-r border-white/[0.08] flex-col" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#26262a transparent;">
     
     <!-- ── LIVE PERFORMANCE & STREAK AUDIT (ABOVE LIVE HISTORY) ── -->
-    <div id="card-col1-audit" class="liquid-glass-card apple-glass-card rounded-2xl p-2.5 border border-purple-900/40 shadow-xl space-y-2 relative transition-all card-draggable" draggable="false" data-card-id="card-col1-audit">
-      <div class="flex items-center justify-between pb-1.5 border-b border-purple-900/30">
+    <div id="card-col1-audit" class="liquid-glass-card apple-glass-card rounded-2xl p-2.5 border border-white/[0.08] shadow-xl space-y-2 relative transition-all card-draggable" draggable="false" data-card-id="card-col1-audit">
+      <div class="flex items-center justify-between pb-1.5 border-b border-white/[0.08]">
         <div class="flex items-center gap-1.5">
           <div class="card-drag-handle p-1 rounded-md text-slate-500 hover:text-white hover:bg-white/10 transition cursor-grab active:cursor-grabbing shrink-0" title="Drag to move card anywhere">
             <i class="fa-solid fa-grip-vertical text-[10px]"></i>
@@ -868,7 +868,7 @@
           <span class="text-[10px] font-black uppercase tracking-wider text-white">Live Prediction Audit</span>
         </div>
         <div class="flex items-center gap-1">
-          <span id="perfAuditTfBadge" class="text-[8px] px-1.5 py-0.5 rounded-full bg-purple-900/50 text-purple-300 font-mono border border-purple-700/40">WinGo 30s</span>
+          <span id="perfAuditTfBadge" class="text-[8px] px-1.5 py-0.5 rounded-full bg-white/10 text-purple-300 font-mono border border-white/[0.08]">WinGo 30s</span>
           <button onclick="resetLiveAudit()" title="Reset session metrics without modifying draw history" class="px-1.5 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-mono text-[8px] font-bold border border-rose-500/30 active:scale-95 transition flex items-center gap-1">
             <i class="fa-solid fa-rotate-left text-[7.5px]"></i> Reset
           </button>
@@ -888,17 +888,17 @@
       <!-- Metric Grid: Accuracy & AI Streaks -->
       <div class="grid grid-cols-3 gap-1.5 text-center font-mono text-[9px]">
         <!-- 1. Win Rate -->
-        <div class="p-1.5 bg-purple-950/60 rounded-xl border border-purple-800/30">
+        <div class="p-1.5 bg-[#141416] rounded-xl border border-white/[0.08]">
           <span class="text-[7.5px] text-slate-400 block font-sans uppercase">Win Rate</span>
           <b id="liveAuditWinRate" class="text-xs font-black text-emerald-400">—</b>
         </div>
         <!-- 2. Wins / Losses -->
-        <div class="p-1.5 bg-purple-950/60 rounded-xl border border-purple-800/30">
+        <div class="p-1.5 bg-[#141416] rounded-xl border border-white/[0.08]">
           <span class="text-[7.5px] text-slate-400 block font-sans uppercase">AI Correct / Wrong</span>
           <b class="text-xs font-black"><span id="liveAuditWins" class="text-emerald-400">0</span><span class="text-slate-500"> / </span><span id="liveAuditLosses" class="text-rose-400">0</span></b>
         </div>
         <!-- 3. Current Streak -->
-        <div class="p-1.5 bg-purple-950/60 rounded-xl border border-purple-800/30">
+        <div class="p-1.5 bg-[#141416] rounded-xl border border-white/[0.08]">
           <span class="text-[7.5px] text-slate-400 block font-sans uppercase">AI Current Streak</span>
           <b id="liveAuditCurStreak" class="text-xs font-black text-amber-300">—</b>
         </div>
@@ -913,7 +913,7 @@
           <b id="liveAuditMaxWinStreak" class="text-xs font-black text-emerald-300">0W</b>
         </div>
         <!-- 6. Total Evaluated Rounds -->
-        <div class="p-1.5 bg-purple-950/60 rounded-xl border border-purple-800/30">
+        <div class="p-1.5 bg-[#141416] rounded-xl border border-white/[0.08]">
           <span class="text-[7.5px] text-slate-400 block font-sans uppercase">Evaluated</span>
           <b id="liveAuditTotalRounds" class="text-xs font-black text-slate-200">0</b>
         </div>
@@ -921,15 +921,15 @@
 
       <!-- Pattern Run Streaks (Size & Color) -->
       <div class="grid grid-cols-3 gap-1.5 text-center font-mono text-[9px] pt-0.5">
-        <div class="p-1 bg-purple-950/60 rounded-xl border border-purple-800/30">
+        <div class="p-1 bg-[#141416] rounded-xl border border-white/[0.08]">
           <span class="text-[7px] text-slate-400 block font-sans uppercase">Size Streak</span>
           <b id="liveAuditSizeStreak" class="text-[11px] font-black text-amber-300">—</b>
         </div>
-        <div class="p-1 bg-purple-950/60 rounded-xl border border-purple-800/30">
+        <div class="p-1 bg-[#141416] rounded-xl border border-white/[0.08]">
           <span class="text-[7px] text-slate-400 block font-sans uppercase">Color Streak</span>
           <b id="liveAuditColorStreak" class="text-[11px] font-black text-emerald-400">—</b>
         </div>
-        <div class="p-1 bg-purple-950/60 rounded-xl border border-purple-800/30">
+        <div class="p-1 bg-[#141416] rounded-xl border border-white/[0.08]">
           <span class="text-[7px] text-slate-400 block font-sans uppercase">Max Run</span>
           <b id="liveAuditMaxPatternStreak" class="text-[11px] font-black text-indigo-300">—</b>
         </div>
@@ -946,14 +946,14 @@
     </div>
 
     <!-- 1. LIVE REAL HISTORY FEED & TREND ROAD TAB -->
-    <div id="card-col1-history" class="liquid-glass-card apple-glass-card rounded-2xl overflow-hidden border border-purple-900/40 shadow-xl flex flex-col relative transition-all card-draggable" draggable="false" data-card-id="card-col1-history">
-      <div class="p-2 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border-b border-purple-900/40 flex items-center justify-between flex-wrap gap-1.5">
+    <div id="card-col1-history" class="liquid-glass-card apple-glass-card rounded-2xl overflow-hidden border border-white/[0.08] shadow-xl flex flex-col relative transition-all card-draggable" draggable="false" data-card-id="card-col1-history">
+      <div class="p-2 bg-gradient-to-r from-[#141416] via-[#0a0a0a] to-[#141416] border-b border-white/[0.08] flex items-center justify-between flex-wrap gap-1.5">
         <div class="flex items-center gap-1.5">
           <div class="card-drag-handle p-1 rounded-md text-slate-500 hover:text-white hover:bg-white/10 transition cursor-grab active:cursor-grabbing shrink-0" title="Drag to move card anywhere">
             <i class="fa-solid fa-grip-vertical text-[10px]"></i>
           </div>
           <!-- Segmented Tab Switcher: Live History vs Trend Graph -->
-          <div class="flex items-center bg-black/60 p-0.5 rounded-xl border border-purple-800/40">
+          <div class="flex items-center bg-black/60 p-0.5 rounded-xl border border-white/[0.08]">
             <button id="col1TabHistoryBtn" onclick="switchCol1Tab('history')" class="px-2.5 py-1 rounded-lg text-[9.5px] font-black uppercase transition bg-amber-400 text-slate-950 shadow flex items-center gap-1">
               <i class="fa-solid fa-list-check text-[9px]"></i>
               <span>Live History</span>
@@ -967,7 +967,7 @@
         
         <div class="flex items-center gap-1.5">
           <!-- Height Controls (Increase / Decrease Height) -->
-          <div class="flex items-center bg-black/60 p-0.5 rounded-lg border border-purple-800/40 text-[8px] font-mono" title="Adjust Live History Height">
+          <div class="flex items-center bg-black/60 p-0.5 rounded-lg border border-white/[0.08] text-[8px] font-mono" title="Adjust Live History Height">
             <button onclick="adjustHistoryHeight(-80)" class="w-4 h-4 flex items-center justify-center rounded hover:bg-white/10 text-slate-300 hover:text-white transition active:scale-95" title="Decrease Height (-80px)">
               <i class="fa-solid fa-minus text-[6.5px]"></i>
             </button>
@@ -999,16 +999,16 @@
 
       <!-- Tab View A: Live History Feed Table -->
       <div id="col1HistoryView">
-        <div class="grid grid-cols-12 py-1.5 px-3 bg-purple-950/80 text-slate-300 font-bold text-[9px] border-b border-purple-900/30 font-mono">
+        <div class="grid grid-cols-12 py-1.5 px-3 bg-[#141416] text-slate-300 font-bold text-[9px] border-b border-white/[0.08] font-mono">
           <div class="col-span-3">Period</div>
           <div class="col-span-3 text-center">Result &amp; Color</div>
           <div class="col-span-3 text-center">AI Signal</div>
           <div class="col-span-3 text-right pr-1">Status</div>
         </div>
-        <div id="smartHistoryRows" class="divide-y divide-purple-900/30 text-[9.5px] font-mono max-h-[520px] overflow-y-auto" style="scrollbar-width:thin;scrollbar-color:#4c1d95 transparent;"></div>
+        <div id="smartHistoryRows" class="divide-y divide-white/[0.06] text-[9.5px] font-mono max-h-[520px] overflow-y-auto" style="scrollbar-width:thin;scrollbar-color:#4c1d95 transparent;"></div>
         <!-- Hidden fallback hook for any legacy calls -->
         <div id="gameHistoryRows" class="hidden"></div>
-        <div class="flex items-center justify-between p-2 bg-app-surface border-t border-purple-900/40 text-[9px] text-purple-300 font-mono">
+        <div class="flex items-center justify-between p-2 bg-app-surface border-t border-white/[0.08] text-[9px] text-purple-300 font-mono">
           <span id="rowCountBadge" class="font-bold text-slate-400">0 records</span>
           <button onclick="downloadCSVReport()" class="text-amber-400 hover:text-amber-300 font-bold text-[9.5px] flex items-center gap-1 active:scale-95 transition">
             <i class="fa-solid fa-download"></i> Export CSV
@@ -1028,10 +1028,10 @@
             <div class="text-center">9</div>
           </div>
         </div>
-        <div id="chartStatsRows" class="divide-y divide-purple-900/30 px-3 text-[8.5px] font-mono bg-purple-950/40"></div>
+        <div id="chartStatsRows" class="divide-y divide-white/[0.06] px-3 text-[8.5px] font-mono bg-[#111113]"></div>
 
         <!-- Grid Columns -->
-        <div class="grid gap-0 px-2 pt-1.5 pb-1 bg-purple-950/60 border-t border-purple-900/30" style="grid-template-columns:60px repeat(10,1fr) 26px 26px 26px">
+        <div class="grid gap-0 px-2 pt-1.5 pb-1 bg-[#141416] border-t border-white/[0.08]" style="grid-template-columns:60px repeat(10,1fr) 26px 26px 26px">
           <div class="text-[8.5px] text-slate-400 font-bold font-mono">Period</div>
           <div class="text-[8.5px] text-center text-slate-300 font-bold">0</div>
           <div class="text-[8.5px] text-center text-slate-300 font-bold">1</div>
@@ -1055,15 +1055,15 @@
         </div>
 
         <!-- Summary Stats Footer -->
-        <div class="grid grid-cols-3 gap-2 p-2 border-t border-purple-900/40 text-center text-[9px] font-mono bg-purple-950/30">
-          <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block font-sans">BIG RATIO</span><b id="chartBigPct" class="text-amber-400">50%</b></div>
-          <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block font-sans">SMALL RATIO</span><b id="chartSmallPct" class="text-sky-400">50%</b></div>
-          <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block font-sans">WIN ACCURACY</span><b id="chartWinRatio" class="text-emerald-400">—</b></div>
+        <div class="grid grid-cols-3 gap-2 p-2 border-t border-white/[0.08] text-center text-[9px] font-mono bg-[#111113]">
+          <div class="p-1 bg-[#141416] rounded-lg border border-white/[0.08]"><span class="text-[7.5px] text-slate-400 block font-sans">BIG RATIO</span><b id="chartBigPct" class="text-amber-400">50%</b></div>
+          <div class="p-1 bg-[#141416] rounded-lg border border-white/[0.08]"><span class="text-[7.5px] text-slate-400 block font-sans">SMALL RATIO</span><b id="chartSmallPct" class="text-sky-400">50%</b></div>
+          <div class="p-1 bg-[#141416] rounded-lg border border-white/[0.08]"><span class="text-[7.5px] text-slate-400 block font-sans">WIN ACCURACY</span><b id="chartWinRatio" class="text-emerald-400">—</b></div>
         </div>
       </div>
 
       <!-- Draggable Bottom Resize Grip for Live History & Trend Road -->
-      <div id="historyBottomResizeGrip" class="w-full py-1.5 bg-gradient-to-r from-purple-950/60 via-slate-900 to-indigo-950/60 hover:bg-amber-500/20 active:bg-amber-500/30 border-t border-purple-800/40 cursor-row-resize flex items-center justify-center select-none transition group" title="Drag up or down to resize Live History & Trend Road height">
+      <div id="historyBottomResizeGrip" class="w-full py-1.5 bg-gradient-to-r from-[#141416] via-[#0a0a0a] to-[#141416] hover:bg-amber-500/20 active:bg-amber-500/30 border-t border-white/[0.08] cursor-row-resize flex items-center justify-center select-none transition group" title="Drag up or down to resize Live History & Trend Road height">
         <div class="flex items-center gap-1.5 text-[8px] text-slate-500 group-hover:text-amber-400 transition font-mono font-bold">
           <i class="fa-solid fa-arrows-up-down text-[7px]"></i>
           <span class="text-[7.5px] uppercase tracking-wider">Drag Height</span>
@@ -1072,8 +1072,8 @@
     </div>
 
     <!-- 2. REPEATED COLOR & DIGIT ANALYSIS -->
-    <div id="card-col1-repeated" class="liquid-glass-card apple-glass-card rounded-2xl p-3 border border-purple-900/40 shadow-xl space-y-2 relative transition-all card-draggable" draggable="false" data-card-id="card-col1-repeated">
-      <div class="flex items-center justify-between pb-1.5 border-b border-purple-900/30">
+    <div id="card-col1-repeated" class="liquid-glass-card apple-glass-card rounded-2xl p-3 border border-white/[0.08] shadow-xl space-y-2 relative transition-all card-draggable" draggable="false" data-card-id="card-col1-repeated">
+      <div class="flex items-center justify-between pb-1.5 border-b border-white/[0.08]">
         <div class="flex items-center gap-1.5">
           <div class="card-drag-handle p-1 rounded-md text-slate-500 hover:text-white hover:bg-white/10 transition cursor-grab active:cursor-grabbing shrink-0" title="Drag to move card anywhere">
             <i class="fa-solid fa-grip-vertical text-[10px]"></i>
@@ -1108,8 +1108,8 @@
     </div>
 
     <!-- 3. NUMBER FREQUENCY AUDIT (0-9) -->
-    <div id="card-col1-frequency" class="liquid-glass-card apple-glass-card rounded-2xl p-3 border border-purple-900/40 shadow-xl space-y-2 relative transition-all card-draggable" draggable="false" data-card-id="card-col1-frequency">
-      <div class="flex items-center justify-between pb-1.5 border-b border-purple-900/30">
+    <div id="card-col1-frequency" class="liquid-glass-card apple-glass-card rounded-2xl p-3 border border-white/[0.08] shadow-xl space-y-2 relative transition-all card-draggable" draggable="false" data-card-id="card-col1-frequency">
+      <div class="flex items-center justify-between pb-1.5 border-b border-white/[0.08]">
         <div class="flex items-center gap-1.5">
           <div class="card-drag-handle p-1 rounded-md text-slate-500 hover:text-white hover:bg-white/10 transition cursor-grab active:cursor-grabbing shrink-0" title="Drag to move card anywhere">
             <i class="fa-solid fa-grip-vertical text-[10px]"></i>
@@ -1146,7 +1146,7 @@
   </section>
 
   <!-- Column 1 Collapsed Dock Stub (shown when Col 1 is hidden) -->
-  <div id="col1CollapsedStub" class="hidden flex-col items-center justify-between py-6 px-1.5 bg-[#0e081e] border-r border-purple-900/50 cursor-pointer hover:bg-purple-950/70 transition group select-none shadow-lg z-20" style="width:28px;flex:0 0 28px;max-height:calc(100vh - 54px);" onclick="toggleWindowCol('col1')" title="Click to show Live History window">
+  <div id="col1CollapsedStub" class="hidden flex-col items-center justify-between py-6 px-1.5 bg-[#0a0a0a] border-r border-purple-900/50 cursor-pointer hover:bg-[#141416] transition group select-none shadow-lg z-20" style="width:28px;flex:0 0 28px;max-height:calc(100vh - 54px);" onclick="toggleWindowCol('col1')" title="Click to show Live History window">
     <span class="p-1 rounded-md bg-white/5 group-hover:bg-amber-400 group-hover:text-slate-950 text-amber-400 transition text-[9px]">
       <i class="fa-solid fa-chevron-right"></i>
     </span>
@@ -1164,11 +1164,11 @@
   <!-- ╔══════════════════════════════════════════════════════════
        COLUMN 2: TOP MIDDLE WINGO HERO + TRADING CANDLESTICK CHART
   ══════════════════════════════════════════════════════════╗ -->
-  <main id="col2Container" class="overflow-y-auto overflow-x-hidden p-3 space-y-3 bg-[#0a0615] lg:border-r border-purple-900/30 flex-col" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
+  <main id="col2Container" class="overflow-y-auto overflow-x-hidden p-3 space-y-3 bg-[#000000] lg:border-r border-white/[0.08] flex-col" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#26262a transparent;">
     
     <!-- ── COMPACT PRO HERO WINGO WINDOW (TOP MIDDLE ONLY) ── -->
-    <div id="card-col2-hero" class="liquid-glass-card apple-glass-card p-2 bg-app-card/90 backdrop-blur-xl rounded-xl border border-purple-900/40 shadow-md space-y-1.5 relative transition-all card-draggable" draggable="false" data-card-id="card-col2-hero">
-      <div class="flex items-center justify-between border-b border-purple-900/30 pb-1 flex-wrap gap-1.5">
+    <div id="card-col2-hero" class="liquid-glass-card apple-glass-card p-2 bg-app-card/90 backdrop-blur-xl rounded-xl border border-white/[0.08] shadow-md space-y-1.5 relative transition-all card-draggable" draggable="false" data-card-id="card-col2-hero">
+      <div class="flex items-center justify-between border-b border-white/[0.08] pb-1 flex-wrap gap-1.5">
         <div class="flex items-center gap-1.5 flex-wrap">
           <div class="card-drag-handle p-1 rounded-md text-slate-500 hover:text-white hover:bg-white/10 transition cursor-grab active:cursor-grabbing shrink-0" title="Drag to move card anywhere">
             <i class="fa-solid fa-grip-vertical text-[10px]"></i>
@@ -1177,7 +1177,7 @@
             <i class="fa-solid fa-trophy mr-1 text-[8.5px]"></i> <span id="smartTfBadge">WinGo 30sec</span>
           </span>
           <!-- Pro Timeframe Switcher Tabs (30s, 1m, 3m, 5m) -->
-          <div class="flex items-center bg-black/60 p-0.5 rounded-lg border border-purple-800/40 gap-0.5">
+          <div class="flex items-center bg-black/60 p-0.5 rounded-lg border border-white/[0.08] gap-0.5">
             <button onclick="setTimeframe('30s')" id="proTf-30s" class="px-2 py-0.5 rounded font-black text-[8.5px] transition active:scale-95 bg-amber-400 text-slate-950 shadow">30s</button>
             <button onclick="setTimeframe('1m')" id="proTf-1m" class="px-2 py-0.5 rounded font-bold text-[8.5px] transition active:scale-95 text-slate-400 hover:text-white">1m</button>
             <button onclick="setTimeframe('3m')" id="proTf-3m" class="px-2 py-0.5 rounded font-bold text-[8.5px] transition active:scale-95 text-slate-400 hover:text-white">3m</button>
@@ -1198,32 +1198,32 @@
       <!-- Compact Core Row: Active Period | Countdown + Instant Calibration | AI Target Signal -->
       <div class="grid grid-cols-3 gap-1.5 text-center font-mono items-center">
         <!-- 1. Active Period -->
-        <div class="p-1.5 bg-purple-950/60 rounded-lg border border-purple-800/30 flex flex-col justify-center">
+        <div class="p-1.5 bg-[#141416] rounded-lg border border-white/[0.08] flex flex-col justify-center">
           <span class="text-[7.5px] text-slate-400 block font-sans uppercase font-bold tracking-wider">Active Period</span>
           <b id="smartPeriodDisplay" class="text-amber-400 text-sm font-mono font-black tracking-tight mt-0.5">—</b>
         </div>
 
         <!-- 2. Countdown Time & Instant Calibration -->
-        <div class="p-1.5 bg-gradient-to-b from-purple-950/90 to-slate-900/90 rounded-lg border border-amber-400/30 flex flex-col justify-center shadow-inner">
+        <div class="p-1.5 bg-gradient-to-b from-[#141416] to-[#0a0a0a] rounded-lg border border-amber-400/30 flex flex-col justify-center shadow-inner">
           <div class="flex items-center justify-between px-1">
             <span class="text-[7.5px] text-amber-300/80 font-sans uppercase font-bold">Time Left</span>
             <span id="timerOffsetBadge" class="px-1 py-0 bg-amber-400/20 text-amber-300 rounded font-black text-[7.5px] border border-amber-400/30">+0s</span>
           </div>
           <div class="flex items-center justify-center gap-1.5 my-0.5">
-            <button onclick="adjustTimerOffset(-1)" class="w-4 h-4 flex items-center justify-center bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 text-[9px] font-bold" title="-1s">-</button>
+            <button onclick="adjustTimerOffset(-1)" class="w-4 h-4 flex items-center justify-center bg-white/10 hover:bg-purple-800 text-slate-300 rounded border border-white/[0.08] text-[9px] font-bold" title="-1s">-</button>
             <div id="smartTimerDisplay" class="text-lg font-black text-amber-300 font-mono tracking-widest leading-none">00:00</div>
-            <button onclick="adjustTimerOffset(1)" class="w-4 h-4 flex items-center justify-center bg-purple-900/60 hover:bg-purple-800 text-slate-300 rounded border border-purple-700/40 text-[9px] font-bold" title="+1s">+</button>
+            <button onclick="adjustTimerOffset(1)" class="w-4 h-4 flex items-center justify-center bg-white/10 hover:bg-purple-800 text-slate-300 rounded border border-white/[0.08] text-[9px] font-bold" title="+1s">+</button>
           </div>
           <div class="flex items-center justify-center gap-1 font-mono text-[7.5px]">
-            <button onclick="adjustTimerOffset(-2)" class="px-1 bg-purple-900/50 hover:bg-purple-800 text-slate-300 rounded">-2s</button>
-            <button onclick="adjustTimerOffset(-0.5)" class="px-1 bg-purple-900/50 hover:bg-purple-800 text-slate-300 rounded">-0.5s</button>
-            <button onclick="adjustTimerOffset(0.5)" class="px-1 bg-purple-900/50 hover:bg-purple-800 text-slate-300 rounded">+0.5s</button>
-            <button onclick="adjustTimerOffset(2)" class="px-1 bg-purple-900/50 hover:bg-purple-800 text-slate-300 rounded">+2s</button>
+            <button onclick="adjustTimerOffset(-2)" class="px-1 bg-white/10 hover:bg-purple-800 text-slate-300 rounded">-2s</button>
+            <button onclick="adjustTimerOffset(-0.5)" class="px-1 bg-white/10 hover:bg-purple-800 text-slate-300 rounded">-0.5s</button>
+            <button onclick="adjustTimerOffset(0.5)" class="px-1 bg-white/10 hover:bg-purple-800 text-slate-300 rounded">+0.5s</button>
+            <button onclick="adjustTimerOffset(2)" class="px-1 bg-white/10 hover:bg-purple-800 text-slate-300 rounded">+2s</button>
           </div>
         </div>
 
         <!-- 3. AI Target Signal -->
-        <div id="smartTargetCardBox" class="p-1.5 bg-gradient-to-br from-amber-500/10 via-purple-950/80 to-indigo-950/80 rounded-lg border border-amber-400/30 flex flex-col justify-center transition-all duration-300">
+        <div id="smartTargetCardBox" class="p-1.5 bg-gradient-to-br from-white/[0.05] via-[#141416] to-black rounded-lg border border-white/[0.08] border border-amber-400/30 flex flex-col justify-center transition-all duration-300">
           <span class="text-[7.5px] text-amber-300 block font-sans uppercase font-bold tracking-wider">AI Target</span>
           <b id="smartSignalTarget" class="text-amber-400 text-sm font-mono font-black tracking-tight mt-0.5">WAITING...</b>
           <div class="flex items-center justify-center gap-1 mt-0.5 text-[7px] text-slate-400 font-mono">
@@ -1235,7 +1235,7 @@
       </div>
 
       <!-- Mini Trend Ribbon (Compact single strip) -->
-      <div class="bg-purple-950/40 rounded-lg px-2 py-1 border border-purple-900/30 flex items-center justify-between gap-2 text-[8px]">
+      <div class="bg-[#111113] rounded-lg px-2 py-1 border border-white/[0.08] flex items-center justify-between gap-2 text-[8px]">
         <div class="flex items-center gap-1 text-slate-400 font-bold shrink-0">
           <i class="fa-solid fa-chart-line text-amber-400 text-[8.5px]"></i>
           <span class="hidden sm:inline">Recent:</span>
@@ -1441,27 +1441,27 @@
       </div>
 
       <!-- Footer Statistics -->
-      <div class="grid grid-cols-4 gap-1 p-2 border-t border-purple-900/40 text-center text-[9px] font-mono bg-purple-950/30">
-        <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30">
+      <div class="grid grid-cols-4 gap-1 p-2 border-t border-white/[0.08] text-center text-[9px] font-mono bg-[#111113]">
+        <div class="p-1 bg-[#141416] rounded-lg border border-white/[0.08]">
           <span class="text-[7.5px] text-slate-400 block font-sans">NET PRICE SCORE</span>
           <b id="tradingNetPrice" class="text-emerald-400 font-black text-xs">0.0</b>
         </div>
-        <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30">
+        <div class="p-1 bg-[#141416] rounded-lg border border-white/[0.08]">
           <span class="text-[7.5px] text-slate-400 block font-sans">BIG RATIO (UP)</span>
           <b id="tradingBigPct" class="text-emerald-400 font-black text-xs">50%</b>
         </div>
-        <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30">
+        <div class="p-1 bg-[#141416] rounded-lg border border-white/[0.08]">
           <span class="text-[7.5px] text-slate-400 block font-sans">SMALL RATIO (DOWN)</span>
           <b id="tradingSmallPct" class="text-rose-400 font-black text-xs">50%</b>
         </div>
-        <div class="p-1 bg-purple-950/70 rounded-lg border border-purple-800/30">
+        <div class="p-1 bg-[#141416] rounded-lg border border-white/[0.08]">
           <span class="text-[7.5px] text-slate-400 block font-sans">ACTIVE STREAK</span>
           <b id="tradingActiveStreak" class="text-amber-400 font-black text-xs">—</b>
         </div>
       </div>
 
       <!-- Draggable Bottom Resize Grip for Trading Station -->
-      <div id="chartBottomResizeGrip" class="w-full py-1.5 bg-gradient-to-r from-purple-950/60 via-slate-900 to-indigo-950/60 hover:bg-amber-500/20 active:bg-amber-500/30 border-t border-purple-800/40 cursor-row-resize flex items-center justify-center select-none transition group" title="Drag up or down to resize Trading Chart height">
+      <div id="chartBottomResizeGrip" class="w-full py-1.5 bg-gradient-to-r from-[#141416] via-[#0a0a0a] to-[#141416] hover:bg-amber-500/20 active:bg-amber-500/30 border-t border-white/[0.08] cursor-row-resize flex items-center justify-center select-none transition group" title="Drag up or down to resize Trading Chart height">
         <div class="flex items-center gap-1.5 text-[8px] text-slate-500 group-hover:text-amber-400 transition font-mono font-bold">
           <i class="fa-solid fa-arrows-up-down text-[7px]"></i>
           <span class="text-[7.5px] uppercase tracking-wider">Drag Chart Height</span>
@@ -1472,7 +1472,7 @@
   </main>
 
   <!-- Column 2 Collapsed Dock Stub (shown when Col 2 is hidden) -->
-  <div id="col2CollapsedStub" class="hidden flex-col items-center justify-between py-6 px-1.5 bg-[#0e081e] border-x border-purple-900/50 cursor-pointer hover:bg-purple-950/70 transition group select-none shadow-lg z-20" style="width:28px;flex:0 0 28px;max-height:calc(100vh - 54px);" onclick="toggleWindowCol('col2')" title="Click to show Trading Station & WinGo Hero">
+  <div id="col2CollapsedStub" class="hidden flex-col items-center justify-between py-6 px-1.5 bg-[#0a0a0a] border-x border-purple-900/50 cursor-pointer hover:bg-[#141416] transition group select-none shadow-lg z-20" style="width:28px;flex:0 0 28px;max-height:calc(100vh - 54px);" onclick="toggleWindowCol('col2')" title="Click to show Trading Station & WinGo Hero">
     <span class="p-1 rounded-md bg-white/5 group-hover:bg-amber-400 group-hover:text-slate-950 text-amber-400 transition text-[9px]">
       <i class="fa-solid fa-chart-line"></i>
     </span>
@@ -1493,8 +1493,8 @@
   <aside id="col3Container" class="overflow-y-auto overflow-x-hidden bg-black/20 backdrop-blur-3xl flex-col" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.2) transparent;">
     
     <!-- ── TOP SWITCHER: APP WINDOW vs EMBEDDED WEBSITE VIEW ── -->
-    <div class="sticky top-0 z-30 px-3 pt-2.5 pb-2 bg-[#0c071a]/95 backdrop-blur-xl border-b border-purple-900/40">
-      <div class="flex items-center justify-between gap-1 p-1 bg-purple-950/80 rounded-xl border border-purple-800/50 shadow-lg">
+    <div class="sticky top-0 z-30 px-3 pt-2.5 pb-2 bg-[#000000]/95 backdrop-blur-xl border-b border-white/[0.08]">
+      <div class="flex items-center justify-between gap-1 p-1 bg-[#141416] rounded-xl border border-white/[0.08] shadow-lg">
         <button id="btnRightViewApp" onclick="switchRightPanelView('app')"
           class="flex-1 py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow">
           <i class="fa-solid fa-layer-group"></i>
@@ -1687,8 +1687,8 @@
           </div>
           <div class="flex items-center gap-1.5">
             <span id="ghActiveTfBadge" class="text-[9px] px-2 py-0.5 rounded-md bg-amber-400 text-slate-950 font-black border border-amber-400/50 shadow">30s</span>
-            <button onclick="exportGameAnalysisJSON()" class="px-1.5 py-0.5 rounded-lg bg-purple-950/70 text-purple-200 text-[9px] font-mono border border-purple-800/40 active:scale-95 transition" title="Export JSON"><i class="fa-solid fa-file-code text-amber-400"></i></button>
-            <button onclick="exportGameAnalysisCSV()" class="px-1.5 py-0.5 rounded-lg bg-purple-950/70 text-purple-200 text-[9px] font-mono border border-purple-800/40 active:scale-95 transition" title="Export CSV"><i class="fa-solid fa-file-csv text-emerald-400"></i></button>
+            <button onclick="exportGameAnalysisJSON()" class="px-1.5 py-0.5 rounded-lg bg-[#141416] text-purple-200 text-[9px] font-mono border border-white/[0.08] active:scale-95 transition" title="Export JSON"><i class="fa-solid fa-file-code text-amber-400"></i></button>
+            <button onclick="exportGameAnalysisCSV()" class="px-1.5 py-0.5 rounded-lg bg-[#141416] text-purple-200 text-[9px] font-mono border border-white/[0.08] active:scale-95 transition" title="Export CSV"><i class="fa-solid fa-file-csv text-emerald-400"></i></button>
             <button onclick="adjustElementHeight('card-col3-patternhub', -40)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition font-bold" title="Decrease Height">-</button>
             <button onclick="adjustElementHeight('card-col3-patternhub', 40)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition font-bold" title="Increase Height">+</button>
             <button onclick="toggleCardCollapse('card-col3-patternhub-body', this)" title="Minimize / Expand" class="w-5 h-5 rounded-md bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition active:scale-95">
@@ -1703,17 +1703,17 @@
         <div id="card-col3-patternhub-body" class="space-y-2.5">
         <!-- Stat Cards -->
         <div class="grid grid-cols-4 gap-1 font-mono text-center text-[9px]">
-          <div class="p-1.5 bg-purple-950/60 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block uppercase">Total</span><b id="ghStatTotal" class="text-amber-400 text-xs font-black">0</b></div>
-          <div class="p-1.5 bg-purple-950/60 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block uppercase">BIG</span><b id="ghStatBig" class="text-amber-300 text-xs font-black">0 (50%)</b></div>
-          <div class="p-1.5 bg-purple-950/60 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block uppercase">SMALL</span><b id="ghStatSmall" class="text-sky-300 text-xs font-black">0 (50%)</b></div>
-          <div class="p-1.5 bg-purple-950/60 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block uppercase">Streak</span><b id="ghStatCurStreak" class="text-emerald-400 text-xs font-black">—</b></div>
-          <div class="p-1.5 bg-purple-950/60 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block uppercase">Lng BIG</span><b id="ghStatLongestB" class="text-amber-400 text-xs font-black">0</b></div>
-          <div class="p-1.5 bg-purple-950/60 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block uppercase">Lng SML</span><b id="ghStatLongestS" class="text-sky-400 text-xs font-black">0</b></div>
-          <div class="p-1.5 bg-purple-950/60 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block uppercase">Catalog</span><b id="ghStatCatalog" class="text-indigo-300 text-xs font-black">510</b></div>
-          <div class="p-1.5 bg-purple-950/60 rounded-lg border border-purple-800/30"><span class="text-[7.5px] text-slate-400 block uppercase">Edges</span><b id="ghStatActiveEdge" class="text-emerald-400 text-xs font-black">0</b></div>
+          <div class="p-1.5 bg-[#141416] rounded-lg border border-white/[0.08]"><span class="text-[7.5px] text-slate-400 block uppercase">Total</span><b id="ghStatTotal" class="text-amber-400 text-xs font-black">0</b></div>
+          <div class="p-1.5 bg-[#141416] rounded-lg border border-white/[0.08]"><span class="text-[7.5px] text-slate-400 block uppercase">BIG</span><b id="ghStatBig" class="text-amber-300 text-xs font-black">0 (50%)</b></div>
+          <div class="p-1.5 bg-[#141416] rounded-lg border border-white/[0.08]"><span class="text-[7.5px] text-slate-400 block uppercase">SMALL</span><b id="ghStatSmall" class="text-sky-300 text-xs font-black">0 (50%)</b></div>
+          <div class="p-1.5 bg-[#141416] rounded-lg border border-white/[0.08]"><span class="text-[7.5px] text-slate-400 block uppercase">Streak</span><b id="ghStatCurStreak" class="text-emerald-400 text-xs font-black">—</b></div>
+          <div class="p-1.5 bg-[#141416] rounded-lg border border-white/[0.08]"><span class="text-[7.5px] text-slate-400 block uppercase">Lng BIG</span><b id="ghStatLongestB" class="text-amber-400 text-xs font-black">0</b></div>
+          <div class="p-1.5 bg-[#141416] rounded-lg border border-white/[0.08]"><span class="text-[7.5px] text-slate-400 block uppercase">Lng SML</span><b id="ghStatLongestS" class="text-sky-400 text-xs font-black">0</b></div>
+          <div class="p-1.5 bg-[#141416] rounded-lg border border-white/[0.08]"><span class="text-[7.5px] text-slate-400 block uppercase">Catalog</span><b id="ghStatCatalog" class="text-indigo-300 text-xs font-black">510</b></div>
+          <div class="p-1.5 bg-[#141416] rounded-lg border border-white/[0.08]"><span class="text-[7.5px] text-slate-400 block uppercase">Edges</span><b id="ghStatActiveEdge" class="text-emerald-400 text-xs font-black">0</b></div>
         </div>
         <!-- Trailing Sequence -->
-        <div class="p-2 bg-gradient-to-r from-purple-950/90 via-slate-900 to-indigo-950/90 rounded-xl border border-purple-800/40 space-y-1.5">
+        <div class="p-2 bg-gradient-to-r from-[#141416] via-[#0a0a0a] to-[#141416] rounded-xl border border-white/[0.08] space-y-1.5">
           <div class="flex items-center justify-between text-[9px] font-mono">
             <span class="text-slate-300 font-bold flex items-center gap-1"><i class="fa-solid fa-stream text-amber-400 text-[8px]"></i> Last 10 Rounds</span>
             <span id="ghSeqStatus" class="text-[8px] text-slate-400">Scanning...</span>
@@ -1721,30 +1721,30 @@
           <div id="ghTrailingSeqPills" class="flex items-center gap-1 overflow-x-auto pb-0.5 font-mono flex-wrap">
             <span class="text-slate-500 text-[9px] italic">Awaiting data...</span>
           </div>
-          <div id="ghCandidateSignalBox" class="p-1.5 rounded-lg bg-black/40 border border-purple-800/40 grid grid-cols-3 gap-1 text-[8.5px] font-mono">
+          <div id="ghCandidateSignalBox" class="p-1.5 rounded-lg bg-black/40 border border-white/[0.08] grid grid-cols-3 gap-1 text-[8.5px] font-mono">
             <div><span class="text-slate-400 text-[7.5px] block uppercase">Best Pattern</span><div id="ghCandCode" class="text-amber-300 font-bold mt-0.5">—</div></div>
             <div><span class="text-slate-400 text-[7.5px] block uppercase">Next Bias</span><div id="ghCandBias" class="text-white font-bold mt-0.5">—</div></div>
             <div><span class="text-slate-400 text-[7.5px] block uppercase">Status</span><div id="ghCandValidation" class="text-emerald-400 font-bold mt-0.5">—</div></div>
           </div>
         </div>
         <!-- Pattern Rankings -->
-        <div class="bg-black/30 rounded-xl border border-purple-900/40 overflow-hidden">
-          <div class="p-1.5 bg-purple-950/70 border-b border-purple-900/40 space-y-1">
+        <div class="bg-black/30 rounded-xl border border-white/[0.08] overflow-hidden">
+          <div class="p-1.5 bg-[#141416] border-b border-white/[0.08] space-y-1">
             <div class="flex items-center gap-1 flex-wrap">
               <button onclick="switchAnalysisRankingFilter('repeated')" id="ghFilterRepeated" class="px-2 py-0.5 rounded-lg text-[8.5px] font-black transition active:scale-95 bg-amber-400 text-slate-950 shadow">🔥 Repeated</button>
-              <button onclick="switchAnalysisRankingFilter('predictive')" id="ghFilterPredictive" class="px-2 py-0.5 rounded-lg text-[8.5px] font-bold transition active:scale-95 text-slate-300 hover:text-white bg-purple-900/40 border border-purple-800/40">🎯 Predictive</button>
-              <button onclick="switchAnalysisRankingFilter('recent')" id="ghFilterRecent" class="px-2 py-0.5 rounded-lg text-[8.5px] font-bold transition active:scale-95 text-slate-300 hover:text-white bg-purple-900/40 border border-purple-800/40">⚡ Recent</button>
-              <button onclick="switchAnalysisRankingFilter('failed')" id="ghFilterFailed" class="px-2 py-0.5 rounded-lg text-[8.5px] font-bold transition active:scale-95 text-slate-300 hover:text-white bg-purple-900/40 border border-purple-800/40">⚠️ Failed</button>
+              <button onclick="switchAnalysisRankingFilter('predictive')" id="ghFilterPredictive" class="px-2 py-0.5 rounded-lg text-[8.5px] font-bold transition active:scale-95 text-slate-300 hover:text-white bg-white/10 border border-white/[0.08]">🎯 Predictive</button>
+              <button onclick="switchAnalysisRankingFilter('recent')" id="ghFilterRecent" class="px-2 py-0.5 rounded-lg text-[8.5px] font-bold transition active:scale-95 text-slate-300 hover:text-white bg-white/10 border border-white/[0.08]">⚡ Recent</button>
+              <button onclick="switchAnalysisRankingFilter('failed')" id="ghFilterFailed" class="px-2 py-0.5 rounded-lg text-[8.5px] font-bold transition active:scale-95 text-slate-300 hover:text-white bg-white/10 border border-white/[0.08]">⚠️ Failed</button>
               <button onclick="rescanAllPatterns()" class="px-2 py-0.5 rounded-lg bg-purple-900 hover:bg-purple-800 text-purple-200 text-[8.5px] font-mono border border-purple-700/50 active:scale-95 transition ml-auto"><i class="fa-solid fa-arrows-rotate"></i> Scan</button>
             </div>
-            <input type="text" id="ghPatternSearch" oninput="filterGhTableBySearch()" placeholder="Search pattern code..." class="px-2 py-0.5 bg-black/50 border border-purple-800/40 rounded-lg text-[8.5px] text-amber-300 placeholder-slate-500 font-mono focus:outline-none focus:border-amber-400 w-full">
+            <input type="text" id="ghPatternSearch" oninput="filterGhTableBySearch()" placeholder="Search pattern code..." class="px-2 py-0.5 bg-black/50 border border-white/[0.08] rounded-lg text-[8.5px] text-amber-300 placeholder-slate-500 font-mono focus:outline-none focus:border-amber-400 w-full">
           </div>
-          <div class="grid grid-cols-12 py-1 px-2 bg-purple-950/90 text-slate-300 font-bold text-[8px] border-b border-purple-900/30 font-mono">
+          <div class="grid grid-cols-12 py-1 px-2 bg-purple-950/90 text-slate-300 font-bold text-[8px] border-b border-white/[0.08] font-mono">
             <div class="col-span-1">#</div><div class="col-span-2">Code</div><div class="col-span-3">Seq</div>
             <div class="col-span-2 text-center">Hits</div><div class="col-span-2 text-center">B/S</div><div class="col-span-2 text-right pr-1">Acc/Act</div>
           </div>
           <div id="ghRankingTableBody" class="divide-y divide-purple-900/20 text-[8.5px] font-mono max-h-[300px] overflow-y-auto" style="scrollbar-width:thin;scrollbar-color:#4c1d95 transparent;"></div>
-          <div class="flex items-center justify-between px-2 py-1 bg-app-surface border-t border-purple-900/40 text-[8px] font-mono">
+          <div class="flex items-center justify-between px-2 py-1 bg-app-surface border-t border-white/[0.08] text-[8px] font-mono">
             <span id="ghRowCountBadge" class="font-bold text-slate-400">0 patterns</span>
             <span class="text-slate-500">Wilson 95% CI</span>
           </div>
@@ -1788,7 +1788,7 @@
         </div>
 
         <!-- Meta-Cognitive Consciousness & Loss Shield Strip -->
-        <div class="p-2 bg-purple-950/20 rounded-xl border border-purple-500/20 text-[8.5px] font-mono flex flex-col gap-1">
+        <div class="p-2 bg-[#111113] rounded-xl border border-white/[0.08] text-[8.5px] font-mono flex flex-col gap-1">
           <div class="flex justify-between items-center">
             <span class="text-purple-300 font-bold">🧠 Conscious Regime:</span>
             <span id="diagRegimeName" class="text-cyan-300 font-black">BALANCED</span>
@@ -2081,7 +2081,7 @@
           </div>
 
           <!-- Bridge & Scraper Integration Strip -->
-          <div class="p-2 rounded-xl bg-purple-950/60 border border-purple-800/40 space-y-1">
+          <div class="p-2 rounded-xl bg-[#141416] border border-white/[0.08] space-y-1">
             <div class="flex items-center justify-between text-[8px] font-mono">
               <span class="text-slate-300 flex items-center gap-1.5">
                 <span id="bridgeDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block"></span>
@@ -2126,7 +2126,7 @@
           <button onclick="reloadEmbeddedWeb()" title="Reload Webpage" class="w-6 h-6 rounded-md bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white flex items-center justify-center text-[10px] transition active:scale-95">
             <i class="fa-solid fa-rotate-right"></i>
           </button>
-          <div class="flex-1 flex items-center bg-black/80 rounded-md border border-purple-800/40 px-1.5 py-0.5 gap-1 focus-within:border-amber-400">
+          <div class="flex-1 flex items-center bg-black/80 rounded-md border border-white/[0.08] px-1.5 py-0.5 gap-1 focus-within:border-amber-400">
             <i class="fa-solid fa-lock text-emerald-400 text-[7px]"></i>
             <input id="embeddedWebUrlInput" type="text" value="https://dhaniwin99.com"
               onkeydown="if(event.key==='Enter') loadEmbeddedWebUrl()"
@@ -2139,7 +2139,7 @@
           <button onclick="toggleFullscreen('card-col3-webview')" title="Fullscreen Mode" class="w-6 h-6 rounded-md bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white flex items-center justify-center text-[10px] transition active:scale-95">
             <i class="fa-solid fa-expand"></i>
           </button>
-          <button onclick="popoutEmbeddedWeb()" title="Side Window" class="w-6 h-6 rounded-md bg-purple-900/40 hover:bg-purple-900/70 text-purple-300 hover:text-white flex items-center justify-center text-[10px] transition active:scale-95">
+          <button onclick="popoutEmbeddedWeb()" title="Side Window" class="w-6 h-6 rounded-md bg-white/10 hover:bg-purple-900/70 text-purple-300 hover:text-white flex items-center justify-center text-[10px] transition active:scale-95">
             <i class="fa-solid fa-window-restore"></i>
           </button>
           <button onclick="closeCardElement('col3-webview')" title="Close Element" class="w-6 h-6 rounded-md bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 flex items-center justify-center text-[10px] transition active:scale-95">
@@ -2172,10 +2172,10 @@
         </div>
 
         <!-- Mobile Screen Viewport (Iframe) - Default Increased to 850px Height -->
-        <div id="embeddedMobileViewportContainer" class="relative w-full rounded-[22px] overflow-hidden bg-[#0c0817] border border-white/5 shadow-inner transition-all duration-200" style="height: 850px; min-height: 820px;">
+        <div id="embeddedMobileViewportContainer" class="relative w-full rounded-[22px] overflow-hidden bg-[#000000] border border-white/5 shadow-inner transition-all duration-200" style="height: 850px; min-height: 820px;">
           <iframe id="embeddedWebIframe"
             src="https://dhaniwin99.com"
-            class="w-full h-full border-0 bg-[#0c0817] block"
+            class="w-full h-full border-0 bg-[#000000] block"
             scrolling="yes"
             loading="eager"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; payment"
@@ -2191,14 +2191,14 @@
 
       <!-- Draggable bottom grip for height resizing -->
       <div id="webPhoneBottomResizeGrip" class="w-full max-w-[390px] mx-auto py-1 flex items-center justify-center cursor-ns-resize group select-none touch-none hover:bg-white/5 rounded-b-2xl transition" title="Drag to resize viewport height">
-        <div class="flex items-center gap-1 px-3 py-0.5 rounded-full bg-slate-800/80 border border-white/10 group-hover:border-purple-500/50 group-hover:bg-purple-950/40">
+        <div class="flex items-center gap-1 px-3 py-0.5 rounded-full bg-slate-800/80 border border-white/10 group-hover:border-purple-500/50 group-hover:bg-[#111113]">
           <i class="fa-solid fa-grip-lines text-[9px] text-slate-400 group-hover:text-purple-300"></i>
           <span class="text-[7.5px] font-mono text-slate-400 group-hover:text-slate-200">Drag Height</span>
         </div>
       </div>
 
       <!-- External fallback notification -->
-      <div class="p-1.5 rounded-xl bg-purple-950/40 border border-purple-800/30 text-[8px] text-slate-400 flex items-center justify-between gap-1 max-w-[390px] mx-auto font-mono">
+      <div class="p-1.5 rounded-xl bg-[#111113] border border-white/[0.08] text-[8px] text-slate-400 flex items-center justify-between gap-1 max-w-[390px] mx-auto font-mono">
         <span class="truncate"><i class="fa-solid fa-shield-halved text-amber-400 mr-1"></i>Mobile Viewport Synchronized</span>
         <button onclick="openElementInNewTab('webview')" class="text-indigo-300 hover:text-white font-bold underline whitespace-nowrap">Open Full Tab ↗</button>
       </div>
@@ -2209,7 +2209,7 @@
   </aside>
 
   <!-- Column 3 Collapsed Dock Stub (shown when Col 3 is hidden) -->
-  <div id="col3CollapsedStub" class="hidden flex-col items-center justify-between py-6 px-1.5 bg-[#0e081e] border-l border-purple-900/50 cursor-pointer hover:bg-purple-950/70 transition group select-none shadow-lg z-20" style="width:28px;flex:0 0 28px;max-height:calc(100vh - 54px);" onclick="toggleWindowCol('col3')" title="Click to show Analysis Hub window">
+  <div id="col3CollapsedStub" class="hidden flex-col items-center justify-between py-6 px-1.5 bg-[#0a0a0a] border-l border-purple-900/50 cursor-pointer hover:bg-[#141416] transition group select-none shadow-lg z-20" style="width:28px;flex:0 0 28px;max-height:calc(100vh - 54px);" onclick="toggleWindowCol('col3')" title="Click to show Analysis Hub window">
     <span class="p-1 rounded-md bg-white/5 group-hover:bg-amber-400 group-hover:text-slate-950 text-amber-400 transition text-[9px]">
       <i class="fa-solid fa-chevron-left"></i>
     </span>
@@ -2592,7 +2592,7 @@
         <span class="text-[10px] text-slate-500">Enter result from <span class="text-amber-300 font-bold">dhaniwin0.com</span></span>
         <span id="autoCloseLabel" class="text-[10px] text-emerald-400 font-bold font-mono">Auto-close in 10s</span>
       </div>
-      <div class="h-1.5 w-full rounded-full bg-purple-900/60 overflow-hidden">
+      <div class="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
         <div id="autoCloseBar" class="h-full rounded-full transition-all duration-1000" style="width:100%;background:#10b981"></div>
       </div>
     </div>
@@ -2611,7 +2611,7 @@
     </div>
 
     <!-- Pending bet summary -->
-    <div id="pendingBetInfo" class="mb-3 p-2.5 bg-app-card rounded-xl text-xs border border-purple-800/40 hidden">
+    <div id="pendingBetInfo" class="mb-3 p-2.5 bg-app-card rounded-xl text-xs border border-white/[0.08] hidden">
       <div class="flex justify-between items-center">
         <span class="text-slate-400">Your bet:</span>
         <span id="pendingBetSummary" class="font-black text-white">—</span>
@@ -2669,20 +2669,20 @@
           <p class="text-[10px] text-slate-400">Enter the last <span class="text-amber-300 font-bold">10 real results</span> to start AI predictions</p>
         </div>
       </div>
-      <button onclick="closeInitModal()" class="w-8 h-8 rounded-full bg-purple-900/60 text-slate-300 hover:text-white flex items-center justify-center shrink-0"><i class="fa-solid fa-xmark text-sm"></i></button>
+      <button onclick="closeInitModal()" class="w-8 h-8 rounded-full bg-white/10 text-slate-300 hover:text-white flex items-center justify-center shrink-0"><i class="fa-solid fa-xmark text-sm"></i></button>
     </div>
 
     <!-- Timeframe Picker inside Start Modal -->
-    <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/40 space-y-1.5">
+    <div class="p-2 bg-[#141416] rounded-xl border border-white/[0.08] space-y-1.5">
       <label class="text-[11px] text-slate-300 font-bold flex items-center justify-between">
         <span>Select Betting Section:</span>
         <b id="initTfBadge" class="text-amber-400 font-mono text-xs">WinGo 30s</b>
       </label>
       <div class="grid grid-cols-4 gap-2 text-xs">
         <button id="initTfBtn-30s" onclick="setInitModalTimeframe('30s')" class="py-2 rounded-xl bg-amber-400 text-slate-950 font-black shadow transition">30s</button>
-        <button id="initTfBtn-1m"  onclick="setInitModalTimeframe('1m')"  class="py-2 rounded-xl bg-purple-900/60 text-purple-200 font-bold hover:bg-purple-800 transition">1m</button>
-        <button id="initTfBtn-3m"  onclick="setInitModalTimeframe('3m')"  class="py-2 rounded-xl bg-purple-900/60 text-purple-200 font-bold hover:bg-purple-800 transition">3m</button>
-        <button id="initTfBtn-5m"  onclick="setInitModalTimeframe('5m')"  class="py-2 rounded-xl bg-purple-900/60 text-purple-200 font-bold hover:bg-purple-800 transition">5m</button>
+        <button id="initTfBtn-1m"  onclick="setInitModalTimeframe('1m')"  class="py-2 rounded-xl bg-white/10 text-purple-200 font-bold hover:bg-purple-800 transition">1m</button>
+        <button id="initTfBtn-3m"  onclick="setInitModalTimeframe('3m')"  class="py-2 rounded-xl bg-white/10 text-purple-200 font-bold hover:bg-purple-800 transition">3m</button>
+        <button id="initTfBtn-5m"  onclick="setInitModalTimeframe('5m')"  class="py-2 rounded-xl bg-white/10 text-purple-200 font-bold hover:bg-purple-800 transition">5m</button>
       </div>
     </div>
 
@@ -2702,13 +2702,13 @@
         <span>Data entered</span>
         <span id="initProgressLabel">0 / 10</span>
       </div>
-      <div class="h-2 bg-purple-900/60 rounded-full overflow-hidden">
+      <div class="h-2 bg-white/10 rounded-full overflow-hidden">
         <div id="initProgressBar" class="h-full bg-indigo-400 rounded-full transition-all" style="width:0%"></div>
       </div>
     </div>
 
     <!-- Entered balls display -->
-    <div id="initEnteredBalls" class="flex flex-wrap gap-2 min-h-[40px] p-2 bg-black/30 rounded-xl border border-purple-800/30">
+    <div id="initEnteredBalls" class="flex flex-wrap gap-2 min-h-[40px] p-2 bg-black/30 rounded-xl border border-white/[0.08]">
       <span class="text-[10px] text-slate-500 self-center" id="initBallsPlaceholder">Entered results will appear here (oldest → newest)...</span>
     </div>
 
@@ -2731,7 +2731,7 @@
     </button>
 
     <!-- AI Test result panel (live) -->
-    <div id="initTestPanel" class="hidden p-3 bg-purple-950/70 rounded-xl border border-purple-800/40 text-xs space-y-1">
+    <div id="initTestPanel" class="hidden p-3 bg-[#141416] rounded-xl border border-white/[0.08] text-xs space-y-1">
       <p class="font-black text-indigo-300 text-[11px] uppercase tracking-wider">🧪 AI Self-Test (Backtesting on entered data)</p>
       <div class="flex gap-4 mt-1">
         <div><span class="text-slate-400">Accuracy:</span> <b id="initAccuracy" class="text-emerald-400">—</b></div>
@@ -2755,7 +2755,7 @@
 ════════════════════════════════════════════════════════════ -->
 <div id="balanceModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
   <div class="bg-app-card border border-purple-800/60 rounded-2xl w-full max-w-xs p-5 space-y-4 shadow-2xl">
-    <div class="flex items-center justify-between border-b border-purple-800/40 pb-2">
+    <div class="flex items-center justify-between border-b border-white/[0.08] pb-2">
       <h3 class="text-sm font-bold text-white">Adjust Balance</h3>
       <button onclick="closeBalanceModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
     </div>
@@ -2767,7 +2767,7 @@
       </div>
     </div>
     <div class="flex gap-2">
-      <button onclick="closeBalanceModal()" class="flex-1 py-2 rounded-xl bg-purple-900/60 font-bold text-xs text-white">Cancel</button>
+      <button onclick="closeBalanceModal()" class="flex-1 py-2 rounded-xl bg-white/10 font-bold text-xs text-white">Cancel</button>
       <button onclick="saveNewBalance()" class="flex-1 py-2 rounded-xl bg-emerald-500 font-bold text-white text-xs hover:bg-emerald-600 transition">Save</button>
     </div>
   </div>
@@ -2778,7 +2778,7 @@
 ════════════════════════════════════════════════════════════ -->
 <div id="importModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
   <div class="bg-app-card border border-purple-800/60 rounded-2xl w-full max-w-sm p-5 space-y-4 shadow-2xl text-slate-200">
-    <div class="flex items-center justify-between border-b border-purple-800/40 pb-3">
+    <div class="flex items-center justify-between border-b border-white/[0.08] pb-3">
       <h3 class="text-sm font-bold text-white flex items-center gap-2"><i class="fa-solid fa-file-csv text-amber-400"></i> Import History CSV</h3>
       <button onclick="closeImportModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
     </div>
@@ -2816,19 +2816,19 @@
 
     <!-- Key Metrics Grid -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-center text-[10px]">
-      <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/30">
+      <div class="p-2 bg-[#141416] rounded-xl border border-white/[0.08]">
         <span class="text-[8.5px] text-slate-400 block font-sans">TOTAL SEEN</span>
         <b id="modalPatternTotal" class="text-amber-400 text-xs font-black">0</b>
       </div>
-      <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/30">
+      <div class="p-2 bg-[#141416] rounded-xl border border-white/[0.08]">
         <span class="text-[8.5px] text-slate-400 block font-sans">NEXT B COUNT</span>
         <b id="modalPatternNextB" class="text-amber-300 text-xs font-black">0 (0%)</b>
       </div>
-      <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/30">
+      <div class="p-2 bg-[#141416] rounded-xl border border-white/[0.08]">
         <span class="text-[8.5px] text-slate-400 block font-sans">NEXT S COUNT</span>
         <b id="modalPatternNextS" class="text-sky-300 text-xs font-black">0 (0%)</b>
       </div>
-      <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/30">
+      <div class="p-2 bg-[#141416] rounded-xl border border-white/[0.08]">
         <span class="text-[8.5px] text-slate-400 block font-sans">OOS ACCURACY</span>
         <b id="modalPatternOOS" class="text-emerald-400 text-xs font-black">0%</b>
       </div>
@@ -2841,7 +2841,7 @@
     </div>
 
     <!-- Statistical Edge & Confidence -->
-    <div class="p-3 bg-purple-950/40 rounded-xl border border-purple-800/30 space-y-2 font-mono text-[10px]">
+    <div class="p-3 bg-[#111113] rounded-xl border border-white/[0.08] space-y-2 font-mono text-[10px]">
       <div class="flex justify-between items-center">
         <span class="text-slate-400">Wilson 95% Confidence Interval:</span>
         <b id="modalPatternWilson" class="text-amber-300">[0.00% - 0.00%]</b>
@@ -2876,7 +2876,7 @@
 
     <div class="text-[11px] text-slate-300 leading-relaxed space-y-1.5 font-sans">
       <p>Because modern browsers enforce the <b class="text-amber-300">Same-Origin Policy</b>, direct DOM scraping, timer clicks, and auto-betting on third-party sites are executed seamlessly via this lightweight bridge script directly inside DhaniWin.</p>
-      <div class="p-2 rounded-xl bg-purple-950/60 border border-purple-800/40 text-[10px] space-y-1 font-mono">
+      <div class="p-2 rounded-xl bg-[#141416] border border-white/[0.08] text-[10px] space-y-1 font-mono">
         <div>1. Install <b>Tampermonkey</b> extension (or open Chrome DevTools <kbd class="bg-white/10 px-1 rounded">F12</kbd> → Console).</div>
         <div>2. Copy the bridge script below and paste it on <b class="text-sky-300">dhaniwin99.com</b>.</div>
         <div>3. The script automatically synchronizes the timer with our app, scrapes every live draw, and places your AI bets in real time!</div>
@@ -2893,7 +2893,7 @@
     </div>
 
     <div class="flex items-center justify-end gap-2 pt-1 border-t border-white/5">
-      <button onclick="closeBridgeScriptModal()" class="px-4 py-1.5 rounded-xl bg-purple-900/60 hover:bg-purple-800 text-purple-200 font-bold text-xs transition">Close</button>
+      <button onclick="closeBridgeScriptModal()" class="px-4 py-1.5 rounded-xl bg-white/10 hover:bg-purple-800 text-purple-200 font-bold text-xs transition">Close</button>
     </div>
   </div>
 </div>
@@ -3049,7 +3049,7 @@ function resetTimerOffset() {
   if (pauseBtn) {
     pauseBtn.innerHTML = '⏸';
     pauseBtn.classList.remove('bg-amber-500/40', 'text-amber-300', 'border-amber-400');
-    pauseBtn.classList.add('bg-purple-900/60', 'text-slate-300', 'border-purple-700/40');
+    pauseBtn.classList.add('bg-white/10', 'text-slate-300', 'border-white/[0.08]');
   }
   const { secsLeft } = computeRTState();
   const upcomingPeriod = resolveUpcomingPeriod();
@@ -3069,7 +3069,7 @@ function toggleTimerPause() {
     if (btn) {
       btn.innerHTML = '▶';
       btn.classList.add('bg-amber-500/40', 'text-amber-300', 'border-amber-400');
-      btn.classList.remove('bg-purple-900/60', 'text-slate-300', 'border-purple-700/40');
+      btn.classList.remove('bg-white/10', 'text-slate-300', 'border-white/[0.08]');
     }
     showToast('⏸️ Timer Paused', 'warning');
   } else {
@@ -3085,7 +3085,7 @@ function toggleTimerPause() {
     if (btn) {
       btn.innerHTML = '⏸';
       btn.classList.remove('bg-amber-500/40', 'text-amber-300', 'border-amber-400');
-      btn.classList.add('bg-purple-900/60', 'text-slate-300', 'border-purple-700/40');
+      btn.classList.add('bg-white/10', 'text-slate-300', 'border-white/[0.08]');
     }
     showToast('▶️ Timer Resumed', 'success');
   }
@@ -3118,7 +3118,7 @@ function snapTimerToNewRound() {
     if (pauseBtn) {
       pauseBtn.innerHTML = '⏸';
       pauseBtn.classList.remove('bg-amber-500/40', 'text-amber-300', 'border-amber-400');
-      pauseBtn.classList.add('bg-purple-900/60', 'text-slate-300', 'border-purple-700/40');
+      pauseBtn.classList.add('bg-white/10', 'text-slate-300', 'border-white/[0.08]');
     }
 
     updateTimerOffsetBadge();
@@ -4789,7 +4789,7 @@ function renderRoadRows(hist) {
       }
       // Dim circle
       return `<div class="flex items-center justify-center">
-        <div class="w-5 h-5 rounded-full border border-purple-800/50 flex items-center justify-center text-[8px] text-slate-600 font-bold">${i}</div>
+        <div class="w-5 h-5 rounded-full border border-white/[0.08] flex items-center justify-center text-[8px] text-slate-600 font-bold">${i}</div>
       </div>`;
     }).join('');
 
@@ -5828,11 +5828,11 @@ function openHistoryNewTab() {
   </style>
 </head>
 <body class="p-4 space-y-4 min-h-screen">
-  <div class="flex items-center justify-between p-3 rounded-2xl bg-[#120a24] border border-purple-800/40 shadow-xl">
+  <div class="flex items-center justify-between p-3 rounded-2xl bg-[#0a0a0a] border border-white/[0.08] shadow-xl">
     <div class="flex items-center gap-2">
       <span class="w-3 h-3 rounded-full bg-emerald-400 animate-pulse"></span>
       <h1 class="text-sm font-black uppercase tracking-wider text-white">Live History &amp; Outcome Stream</h1>
-      <span class="text-[10px] px-2 py-0.5 rounded-full bg-purple-900/60 text-purple-300 font-mono border border-purple-700/40">Synced Tab</span>
+      <span class="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-purple-300 font-mono border border-white/[0.08]">Synced Tab</span>
     </div>
     <div class="flex items-center gap-2 text-xs font-mono">
       <span id="tabStatus" class="text-emerald-400">● Realtime Sync Active</span>
@@ -5841,15 +5841,15 @@ function openHistoryNewTab() {
   </div>
 
   <div id="statsRow" class="grid grid-cols-4 gap-2 text-center text-xs font-mono">
-    <div class="p-2 rounded-xl bg-purple-950/40 border border-purple-800/30"><span class="text-[9px] text-slate-400 block uppercase">Total History</span><b id="tabTotal" class="text-amber-400 text-sm">0</b></div>
-    <div class="p-2 rounded-xl bg-purple-950/40 border border-purple-800/30"><span class="text-[9px] text-slate-400 block uppercase">BIG Outcomes</span><b id="tabBig" class="text-amber-300 text-sm">0</b></div>
-    <div class="p-2 rounded-xl bg-purple-950/40 border border-purple-800/30"><span class="text-[9px] text-slate-400 block uppercase">SMALL Outcomes</span><b id="tabSmall" class="text-sky-300 text-sm">0</b></div>
-    <div class="p-2 rounded-xl bg-purple-950/40 border border-purple-800/30"><span class="text-[9px] text-slate-400 block uppercase">Current Streak</span><b id="tabStreak" class="text-emerald-400 text-sm">—</b></div>
+    <div class="p-2 rounded-xl bg-[#111113] border border-white/[0.08]"><span class="text-[9px] text-slate-400 block uppercase">Total History</span><b id="tabTotal" class="text-amber-400 text-sm">0</b></div>
+    <div class="p-2 rounded-xl bg-[#111113] border border-white/[0.08]"><span class="text-[9px] text-slate-400 block uppercase">BIG Outcomes</span><b id="tabBig" class="text-amber-300 text-sm">0</b></div>
+    <div class="p-2 rounded-xl bg-[#111113] border border-white/[0.08]"><span class="text-[9px] text-slate-400 block uppercase">SMALL Outcomes</span><b id="tabSmall" class="text-sky-300 text-sm">0</b></div>
+    <div class="p-2 rounded-xl bg-[#111113] border border-white/[0.08]"><span class="text-[9px] text-slate-400 block uppercase">Current Streak</span><b id="tabStreak" class="text-emerald-400 text-sm">—</b></div>
   </div>
 
-  <div class="overflow-x-auto rounded-2xl border border-white/10 bg-[#0e071c] shadow-2xl">
+  <div class="overflow-x-auto rounded-2xl border border-white/10 bg-[#0a0a0a] shadow-2xl">
     <table class="w-full text-xs text-left">
-      <thead class="bg-purple-950/60 text-slate-400 font-mono uppercase text-[10px] border-b border-white/10 sticky top-0">
+      <thead class="bg-[#141416] text-slate-400 font-mono uppercase text-[10px] border-b border-white/10 sticky top-0">
         <tr>
           <th class="py-2 px-3">Period</th>
           <th class="py-2 px-3 text-center">Number</th>
@@ -5945,7 +5945,7 @@ function openTradingChartNewTab() {
 </head>
 <body class="flex flex-col h-screen">
   <!-- Top Bar -->
-  <div class="flex items-center justify-between p-3 bg-[#110927] border-b border-purple-800/40 z-10">
+  <div class="flex items-center justify-between p-3 bg-[#000000] border-b border-white/[0.08] z-10">
     <div class="flex items-center gap-3">
       <div class="flex items-center gap-1.5">
         <i class="fa-solid fa-chart-line text-amber-400"></i>
@@ -5966,7 +5966,7 @@ function openTradingChartNewTab() {
   </div>
 
   <!-- Chart Container -->
-  <div id="proChartContainer" class="flex-1 w-full bg-[#070314]"></div>
+  <div id="proChartContainer" class="flex-1 w-full bg-[#000000]"></div>
 
   <script>
     const chartContainer = document.getElementById('proChartContainer');
@@ -7707,7 +7707,7 @@ function updateAIDiagnosticsDrawer() {
       logEl.innerHTML = '<div class="text-slate-500 italic text-[9px] p-1">No shadow test predictions evaluated yet...</div>';
     } else {
       logEl.innerHTML = S.aiTestResults.slice(-10).reverse().map(r =>
-        `<div class="flex items-center justify-between p-1 rounded ${r.correct?'bg-emerald-950/40 text-emerald-300':'bg-rose-950/40 text-rose-300'} border border-purple-900/30">
+        `<div class="flex items-center justify-between p-1 rounded ${r.correct?'bg-emerald-950/40 text-emerald-300':'bg-rose-950/40 text-rose-300'} border border-white/[0.08]">
           <span>Period ${String(r.period).slice(-4)}: Pred ${r.predicted} vs Real ${r.actual}</span>
           <b class="font-black">${r.correct?'✓ CORRECT':'✗ WRONG'}</b>
         </div>`
@@ -8665,7 +8665,7 @@ function switchAnalysisRankingFilter(filterType) {
     if (btn) {
       btn.className = (key === filterType)
         ? 'px-2 py-0.5 rounded-lg text-[8.5px] font-black transition active:scale-95 bg-amber-400 text-slate-950 shadow'
-        : 'px-2 py-0.5 rounded-lg text-[8.5px] font-bold transition active:scale-95 text-slate-300 hover:text-white bg-purple-900/40 border border-purple-800/40';
+        : 'px-2 py-0.5 rounded-lg text-[8.5px] font-bold transition active:scale-95 text-slate-300 hover:text-white bg-white/10 border border-white/[0.08]';
     }
   });
   renderGameHistoryAnalysisTab(currentAnalysisTf);
@@ -8855,7 +8855,7 @@ function renderGhRankingTable(data) {
       </div>
       <div class="col-span-2 text-right pr-1">
         <span class="${oosColor} text-[7.5px]">${oos}</span>
-        <button onclick="inspectPatternDetail('${p.code}')" class="mt-0.5 px-1 py-0.5 rounded bg-purple-900/60 hover:bg-purple-800 text-purple-200 text-[7.5px] font-bold border border-purple-700/40 active:scale-95 transition block ml-auto">
+        <button onclick="inspectPatternDetail('${p.code}')" class="mt-0.5 px-1 py-0.5 rounded bg-white/10 hover:bg-purple-800 text-purple-200 text-[7.5px] font-bold border border-white/[0.08] active:scale-95 transition block ml-auto">
           View
         </button>
       </div>
@@ -9103,7 +9103,7 @@ function applyProModeUI() {
   if (btn) {
     btn.className = isPro
       ? 'flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-indigo-500/20 border border-amber-400/50 text-amber-300 hover:text-white font-black text-xs transition shadow active:scale-95'
-      : 'flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-app-card border border-purple-900/40 text-slate-400 hover:text-white font-bold text-xs transition active:scale-95';
+      : 'flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-app-card border border-white/[0.08] text-slate-400 hover:text-white font-bold text-xs transition active:scale-95';
   }
 
   // Toggle elements for Pro Mode vs Normal Mode:
@@ -9670,7 +9670,7 @@ function renderPatternAnalytics() {
       const pct = Math.round(c / (realHist.length || 1) * 100);
       const isHot = c / maxC > 0.7;
       const numC = (n===0||n===5) ? 'text-purple-300' : (n%2===1 ? 'text-emerald-300' : 'text-rose-300');
-      return `<div class="p-1.5 rounded-xl bg-purple-950/60 border ${isHot ? 'border-amber-400/60 shadow-lg' : 'border-purple-800/30'} flex flex-col items-center">
+      return `<div class="p-1.5 rounded-xl bg-[#141416] border ${isHot ? 'border-amber-400/60 shadow-lg' : 'border-white/[0.08]'} flex flex-col items-center">
         <b class="${numC} text-xs font-black">${n}</b>
         <span class="text-slate-200 text-[9px] font-bold mt-0.5">${c}×</span>
         <span class="text-slate-400 text-[7.5px] font-mono">${pct}%</span>
@@ -9716,22 +9716,22 @@ function renderPatternAnalytics() {
     const lastNum = lastRound ? lastRound.number : '—';
 
     colorDigitEl.innerHTML = `
-      <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/30 space-y-0.5">
+      <div class="p-2 bg-[#141416] rounded-xl border border-white/[0.08] space-y-0.5">
         <span class="text-[7.5px] text-slate-400 block uppercase">Green Dominance</span>
         <b class="text-emerald-400 text-xs font-black">${greenCount} (${Math.round(greenCount/total*100)}%)</b>
         <span class="text-[7.5px] text-slate-400 block">Max Streak: <b class="text-emerald-300 font-bold">${maxGreenStreak}×</b></span>
       </div>
-      <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/30 space-y-0.5">
+      <div class="p-2 bg-[#141416] rounded-xl border border-white/[0.08] space-y-0.5">
         <span class="text-[7.5px] text-slate-400 block uppercase">Red Dominance</span>
         <b class="text-rose-400 text-xs font-black">${redCount} (${Math.round(redCount/total*100)}%)</b>
         <span class="text-[7.5px] text-slate-400 block">Max Streak: <b class="text-rose-300 font-bold">${maxRedStreak}×</b></span>
       </div>
-      <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/30 space-y-0.5">
+      <div class="p-2 bg-[#141416] rounded-xl border border-white/[0.08] space-y-0.5">
         <span class="text-[7.5px] text-slate-400 block uppercase">Consecutive Digits</span>
         <b class="text-amber-300 text-xs font-black">${consecPairs} Doubled</b>
         <span class="text-[7.5px] text-slate-400 block">Rate: <b class="text-amber-400 font-bold">${Math.round(consecPairs/total*100)}%</b></span>
       </div>
-      <div class="p-2 bg-purple-950/60 rounded-xl border border-purple-800/30 space-y-0.5">
+      <div class="p-2 bg-[#141416] rounded-xl border border-white/[0.08] space-y-0.5">
         <span class="text-[7.5px] text-slate-400 block uppercase">Latest Pulse</span>
         <b class="text-indigo-300 text-xs font-black">#${lastNum} (${lastColor})</b>
         <span class="text-[7.5px] text-slate-400 block">Violet Hits: <b class="text-purple-400 font-bold">${violetCount}×</b></span>
@@ -9855,7 +9855,7 @@ function setInitModalTimeframe(tf) {
     if (btn) {
       btn.className = t === tf
         ? 'py-2 rounded-xl bg-amber-400 text-slate-950 font-black shadow transition'
-        : 'py-2 rounded-xl bg-purple-900/60 text-purple-200 font-bold hover:bg-purple-800 transition';
+        : 'py-2 rounded-xl bg-white/10 text-purple-200 font-bold hover:bg-purple-800 transition';
     }
   });
 
@@ -10317,7 +10317,7 @@ function showBatchModal() {
       `<button onclick="batchPick(${qi},${i})" id="bp-${qi}-${i}"
         class="num-pick ball-3d ${ballColors[i]} text-white w-8 h-8 text-[10px] font-black rounded-full transition">${i}</button>`
     ).join('');
-    return `<div class="mb-4 p-3 bg-black/30 rounded-2xl border border-purple-800/30">
+    return `<div class="mb-4 p-3 bg-black/30 rounded-2xl border border-white/[0.08]">
       <div class="flex items-center justify-between mb-2">
         <span class="text-[10px] font-mono text-slate-400">Period ${String(period).slice(-6)}</span>
         <span id="bpSel-${qi}" class="text-[10px] font-bold text-amber-300">— not selected—</span>
@@ -10881,7 +10881,7 @@ function renderHeatmap() {
   const maxC = Math.max(...counts, 1);
   grid.innerHTML = counts.map((c, n) => {
     const pct = c / maxC;
-    const heat = pct > 0.7 ? 'bg-rose-500' : pct > 0.4 ? 'bg-amber-500' : pct > 0.2 ? 'bg-indigo-500' : 'bg-purple-900/40';
+    const heat = pct > 0.7 ? 'bg-rose-500' : pct > 0.4 ? 'bg-amber-500' : pct > 0.2 ? 'bg-indigo-500' : 'bg-white/10';
     const textC = pct > 0.2 ? 'text-white' : 'text-slate-400';
     const numC = (n===0||n===5) ? 'text-purple-300' : (n%2===1 ? 'text-emerald-300' : 'text-rose-300');
     return `<div class="h-12 rounded-lg ${heat} flex flex-col items-center justify-center text-center transition-all" title="Number ${n}: ${c} times">
