@@ -410,39 +410,39 @@
 <div id="toastContainer" class="fixed top-4 right-4 z-[9999] flex flex-col items-end pointer-events-none space-y-2.5 max-w-sm w-full"></div>
 
 <!-- ════════════════════════════════════════════════════════════
-     FULL-WIDTH TOP NAVBAR (Apple Frosted Glass)
+     FULL-WIDTH TOP NAVBAR (Seamless Apple Liquid Glass)
 ════════════════════════════════════════════════════════════ -->
-<header class="flex items-center justify-between px-4 py-2 bg-black/60 backdrop-blur-2xl sticky top-0 z-30 border-b border-white/[0.08] w-full">
-  <div class="flex items-center gap-3">
-    <img src="logo_0101.jpg" class="h-8 w-auto object-contain select-none" alt="01:01" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-    <div style="display:none" class="items-center gap-1.5">
-      <span class="text-xl font-black text-white tracking-tight">01:01</span>
-    </div>
-    <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/50 font-black border border-white/10 tracking-wider">QUANT AI</span>
-    <div id="realWorldClock" class="text-[10px] font-mono text-white/40 font-semibold bg-white/[0.04] px-2.5 py-0.5 rounded-full border border-white/[0.08]">--:--:-- UTC+5:30</div>
+<header class="relative flex items-center justify-between px-5 py-2.5 bg-black/40 backdrop-blur-3xl sticky top-0 z-30 w-full select-none">
+  <!-- Left: Real World Clock -->
+  <div class="flex items-center gap-2">
+    <div id="realWorldClock" class="text-[10px] font-mono text-white/50 font-semibold bg-white/[0.04] backdrop-blur-md px-3 py-1 rounded-full border border-white/[0.06]">--:--:-- UTC+5:30</div>
   </div>
 
-  <!-- Center: Martingale status in header when active -->
-  <div id="mgHeaderStatus" class="hidden items-center gap-3 px-4 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-[11px] backdrop-blur-md">
-    <i class="fa-solid fa-rotate text-amber-400 animate-spin" style="animation-duration:3s"></i>
-    <span class="text-amber-300 font-black">MARTINGALE ACTIVE</span>
-    <span class="text-slate-300">Base: <b id="mgHeaderBase" class="text-white font-mono">₹1</b></span>
-    <span class="text-slate-500">|</span>
-    <span class="text-slate-300">Next: <b id="mgHeaderCurrent" class="text-amber-400 font-mono font-black text-sm">₹1</b></span>
-    <span id="mgHeaderLevel" class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black text-[9px]">Lvl 0</span>
-    <span class="text-slate-400 font-mono text-[10px]" id="mgHeaderPnl">PnL: <span class="text-emerald-400">+₹0</span></span>
+  <!-- Center: 01:01 Logo right in the middle (and Martingale status if active) -->
+  <div class="absolute left-1/2 -translate-x-1/2 flex items-center gap-3">
+    <img src="logo_0101.jpg" class="h-10 sm:h-12 w-auto object-contain select-none filter drop-shadow-[0_2px_14px_rgba(255,255,255,0.2)] transition hover:scale-105 cursor-pointer" alt="01:01" onclick="if(typeof toggleAIGlow==='function')toggleAIGlow()" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+    <div style="display:none" class="items-center gap-1">
+      <span class="text-2xl font-black text-white tracking-tight">01:01</span>
+    </div>
+
+    <!-- Martingale status centered with logo when active -->
+    <div id="mgHeaderStatus" class="hidden items-center gap-2.5 px-3 py-1 bg-amber-500/10 border border-amber-500/30 rounded-full text-[10px] backdrop-blur-md ml-2">
+      <i class="fa-solid fa-rotate text-amber-400 animate-spin" style="animation-duration:3s"></i>
+      <span class="text-amber-300 font-bold">MARTINGALE</span>
+      <span class="text-slate-300 font-mono">Next: <b id="mgHeaderCurrent" class="text-amber-400 font-black">₹1</b></span>
+      <span id="mgHeaderLevel" class="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-black text-[8px]">L0</span>
+    </div>
   </div>
 
-    <!-- Right: Live dot + Settings gear only -->
-    <div class="flex items-center gap-2">
-      <div class="flex items-center gap-1.5 text-[10px] text-white/40 font-mono bg-white/[0.04] px-2.5 py-1 rounded-full border border-white/[0.08]">
-        <i class="fa-solid fa-circle text-[5px] text-emerald-400 animate-pulse"></i>
-        <span id="liveStatusText">Live</span>
-      </div>
-      <button onclick="toggleSettingsPanel()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-white/60 hover:text-white transition active:scale-95" title="Settings">
-        <i class="fa-solid fa-gear text-sm"></i>
-      </button>
+  <!-- Right: Live status dot + Settings gear -->
+  <div class="flex items-center gap-2">
+    <div class="flex items-center gap-1.5 text-[10px] text-white/40 font-mono bg-white/[0.04] px-2.5 py-1 rounded-full border border-white/[0.06]">
+      <i class="fa-solid fa-circle text-[5px] text-emerald-400 animate-pulse"></i>
+      <span id="liveStatusText">Live</span>
     </div>
+    <button onclick="toggleSettingsPanel()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/[0.05] hover:bg-white/[0.12] border border-white/[0.06] text-white/60 hover:text-white transition active:scale-95" title="Settings">
+      <i class="fa-solid fa-gear text-sm"></i>
+    </button>
   </div>
 </header>
 
@@ -1223,7 +1223,7 @@
         </div>
 
         <!-- 3. AI Target Signal -->
-        <div class="p-1.5 bg-gradient-to-br from-amber-500/10 via-purple-950/80 to-indigo-950/80 rounded-lg border border-amber-400/30 flex flex-col justify-center">
+        <div id="smartTargetCardBox" class="p-1.5 bg-gradient-to-br from-amber-500/10 via-purple-950/80 to-indigo-950/80 rounded-lg border border-amber-400/30 flex flex-col justify-center transition-all duration-300">
           <span class="text-[7.5px] text-amber-300 block font-sans uppercase font-bold tracking-wider">AI Target</span>
           <b id="smartSignalTarget" class="text-amber-400 text-sm font-mono font-black tracking-tight mt-0.5">WAITING...</b>
           <div class="flex items-center justify-center gap-1 mt-0.5 text-[7px] text-slate-400 font-mono">
@@ -1295,26 +1295,40 @@
             <option value="bar">Bars</option>
           </select>
 
-          <!-- WIN/LOSS mode toggle -->
-          <button id="chartDisplayModeBtn" onclick="toggleChartDisplayMode()" class="px-2 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] text-white/60 border border-white/10 text-[8.5px] font-mono font-bold flex items-center gap-1 active:scale-95" title="Toggle BIG/SMALL vs WIN/LOSS candle mode">
-            <i class="fa-solid fa-arrows-up-down text-emerald-400 text-[8px]"></i>
-            <span id="chartDisplayModeLabel">SIZE</span>
-          </button>
+          <!-- Chart Mode Switcher: BIG/SMALL vs WIN/LOSS (Apple Segmented Pill) -->
+          <div class="flex items-center bg-black/90 p-0.5 rounded-xl border border-white/[0.14] shadow-inner mr-1">
+            <button id="chartModeBtn-size" onclick="setChartDisplayMode('size')" class="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase transition flex items-center gap-1 bg-amber-400 text-slate-950 shadow">
+              <i class="fa-solid fa-shapes text-[8px]"></i>
+              <span>Big / Small</span>
+            </button>
+            <button id="chartModeBtn-winloss" onclick="setChartDisplayMode('winloss')" class="px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase transition flex items-center gap-1 text-slate-400 hover:text-white">
+              <i class="fa-solid fa-chart-line text-[8px] text-emerald-400"></i>
+              <span>Win / Loss</span>
+            </button>
+          </div>
 
           <!-- Technical Indicators -->
           <button id="btnToggleSMA" onclick="toggleTradingIndicator('sma')" class="px-1.5 py-0.5 rounded bg-blue-600/30 text-blue-300 border border-blue-500/40 text-[8.5px] font-bold">SMA</button>
           <button id="btnToggleEMA" onclick="toggleTradingIndicator('ema')" class="px-1.5 py-0.5 rounded bg-amber-600/30 text-amber-300 border border-amber-500/40 text-[8.5px] font-bold">EMA</button>
           <button id="btnToggleBB" onclick="toggleTradingIndicator('bb')" class="px-1.5 py-0.5 rounded bg-white/[0.06] text-white/50 border border-white/10 text-[8.5px] font-bold">BB</button>
 
-          <!-- Zoom & Fit -->
-          <button onclick="tradingChartZoom(1, 3)" ondblclick="tradingChartLongZoom(1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white text-[9px]" title="Zoom In"><i class="fa-solid fa-plus"></i></button>
-          <button onclick="tradingChartZoom(-1, 3)" ondblclick="tradingChartLongZoom(-1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-white text-[9px]" title="Zoom Out"><i class="fa-solid fa-minus"></i></button>
-          <button onclick="tradingChartLongZoom(1)" class="px-1 py-0.5 rounded bg-white/[0.06] text-white/50 border border-white/10 text-[7.5px] font-mono font-bold" title="Long Zoom In">Z+</button>
-          <button onclick="tradingChartLongZoom(-1)" class="px-1 py-0.5 rounded bg-white/[0.06] text-white/50 border border-white/10 text-[7.5px] font-mono font-bold" title="Long Zoom Out">Z-</button>
-          <button onclick="panChartVertical(-1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-slate-200 text-[8px]" title="Pan Up"><i class="fa-solid fa-chevron-up"></i></button>
-          <button onclick="panChartVertical(1)" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-slate-200 text-[8px]" title="Pan Down"><i class="fa-solid fa-chevron-down"></i></button>
-          <!-- Recenter (clears user lock so auto-position resumes) -->
-          <button onclick="isUserInteractingWithChart=false;tradingChartReset();" class="px-1.5 py-0.5 rounded bg-white/[0.06] hover:bg-white/[0.12] text-amber-400 border border-white/10 text-[7.5px] font-mono font-bold" title="Recenter chart">⊕ Fit</button>
+          <!-- 4-Way Pan Control Cluster (Left, Right, Up, Down) -->
+          <div class="flex items-center bg-black/70 p-0.5 rounded-lg border border-white/[0.12] gap-0.5">
+            <button onclick="panChartHorizontal(-1, 8)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[8.5px] active:scale-95" title="Pan Left (Back in History)"><i class="fa-solid fa-arrow-left"></i></button>
+            <button onclick="panChartHorizontal(1, 8)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[8.5px] active:scale-95" title="Pan Right (Recent Candles)"><i class="fa-solid fa-arrow-right"></i></button>
+            <button onclick="panChartVertical(-1)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[8.5px] active:scale-95" title="Pan Up"><i class="fa-solid fa-arrow-up"></i></button>
+            <button onclick="panChartVertical(1)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[8.5px] active:scale-95" title="Pan Down"><i class="fa-solid fa-arrow-down"></i></button>
+          </div>
+
+          <!-- Unbounded Zoom Cluster -->
+          <div class="flex items-center bg-black/70 p-0.5 rounded-lg border border-white/[0.12] gap-0.5">
+            <button onclick="tradingChartZoom(1, 4)" ondblclick="tradingChartLongZoom(1)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-white text-[9px] active:scale-95" title="Zoom In (+)"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+            <button onclick="tradingChartZoom(-1, 4)" ondblclick="tradingChartLongZoom(-1)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-white text-[9px] active:scale-95" title="Zoom Out (-)"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+            <button onclick="tradingChartLongZoom(1)" class="px-1 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[7.5px] font-mono font-black" title="Deep Zoom In">Z+</button>
+            <button onclick="tradingChartLongZoom(-1)" class="px-1 py-0.5 rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 text-[7.5px] font-mono font-black" title="Super Zoom Out (Hundreds of rounds)">Z-</button>
+            <!-- Recenter & Reset -->
+            <button onclick="isUserInteractingWithChart=false;tradingChartReset();" class="px-1.5 py-0.5 rounded bg-white/[0.08] hover:bg-white/[0.18] text-amber-300 border border-white/10 text-[8px] font-mono font-black active:scale-95" title="Recenter & Fit All">⊕ Fit</button>
+          </div>
 
           <!-- Chart Height Resizer (+ / -) -->
           <div class="flex items-center bg-black/60 p-0.5 rounded border border-white/10 text-[8px] font-mono ml-0.5" title="Adjust Chart Height">
@@ -6058,13 +6072,40 @@ let tradingChartScaleMode = 'dynamic'; // 'dynamic' (1x-5x ball delta) or 'fixed
 let tradingChartDisplayMode = 'size'; // 'size' = BIG/SMALL direction, 'winloss' = WIN/LOSS direction
 let tradingIndicators = { sma: false, ema: false, bb: false };
 
-function toggleChartDisplayMode() {
-  tradingChartDisplayMode = tradingChartDisplayMode === 'size' ? 'winloss' : 'size';
-  const label = document.getElementById('chartDisplayModeLabel');
+function setChartDisplayMode(mode) {
+  tradingChartDisplayMode = mode === 'winloss' ? 'winloss' : 'size';
+  const btnSize = document.getElementById('chartModeBtn-size');
+  const btnWinLoss = document.getElementById('chartModeBtn-winloss');
+  if (btnSize && btnWinLoss) {
+    if (tradingChartDisplayMode === 'winloss') {
+      btnWinLoss.className = 'px-2.5 py-1 rounded-lg text-[9px] font-black uppercase transition flex items-center gap-1 bg-emerald-500 text-slate-950 shadow';
+      btnSize.className = 'px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase transition flex items-center gap-1 text-slate-400 hover:text-white';
+    } else {
+      btnSize.className = 'px-2.5 py-1 rounded-lg text-[9px] font-black uppercase transition flex items-center gap-1 bg-amber-400 text-slate-950 shadow';
+      btnWinLoss.className = 'px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase transition flex items-center gap-1 text-slate-400 hover:text-white';
+    }
+  }
+
   const hudLabel = document.getElementById('hudModeLabel');
-  if (label) label.textContent = tradingChartDisplayMode === 'size' ? 'SIZE' : 'WIN/LOSS';
-  if (hudLabel) hudLabel.textContent = tradingChartDisplayMode === 'size' ? '▲ BIG = UP' : '▲ WIN = UP';
+  if (hudLabel) {
+    hudLabel.innerHTML = tradingChartDisplayMode === 'winloss'
+      ? '<span class="text-emerald-400 font-black">▲ AI WIN = UP</span> | <span class="text-rose-400 font-black">▼ AI LOSS = DOWN</span>'
+      : '<span class="text-amber-400 font-black">▲ BIG = UP</span> | <span class="text-sky-400 font-black">▼ SMALL = DOWN</span>';
+  }
+
+  if (tradingMainSeries) {
+    rebuildTradingSeries();
+  }
+
+  if (typeof showToast === 'function') {
+    showToast(tradingChartDisplayMode === 'winloss' ? '📈 AI Win/Loss Chart Mode Activated' : '📊 Big/Small Chart Mode Activated', 'info');
+  }
+
   renderTradingCandleChart(true);
+}
+
+function toggleChartDisplayMode() {
+  setChartDisplayMode(tradingChartDisplayMode === 'size' ? 'winloss' : 'size');
 }
 
 
@@ -6220,21 +6261,82 @@ function rearrangeTradingViewToMiddleRight(force = false) {
   }
 }
 
+function panChartHorizontal(dir, steps = 6) {
+  // dir: -1 (scroll left/history backwards) or +1 (scroll right/newest candles)
+  if (!tradingChartInstance) return;
+  markUserChartInteraction();
+  const timeScale = tradingChartInstance.timeScale();
+  const range = timeScale.getVisibleLogicalRange();
+  if (range) {
+    const shift = dir * steps;
+    try {
+      timeScale.setVisibleLogicalRange({
+        from: range.from + shift,
+        to: range.to + shift
+      });
+    } catch(e) {
+      try { timeScale.scrollPosition(shift, false); } catch(e2) {}
+    }
+  } else {
+    try { timeScale.scrollPosition(dir * steps, false); } catch(e) {}
+  }
+}
+
 function tradingChartZoom(dir, multiplier = 3) {
   if (tradingChartInstance) {
     markUserChartInteraction();
     const timeScale = tradingChartInstance.timeScale();
-    for (let i = 0; i < multiplier; i++) {
-      if (dir > 0) timeScale.zoomIn();
-      else timeScale.zoomOut();
+    const curRange = timeScale.getVisibleLogicalRange();
+    if (curRange) {
+      const span = curRange.to - curRange.from;
+      // Calculate factor for smooth unbounded zoom
+      const factor = dir > 0 ? 0.75 : 1.35;
+      const newSpan = Math.max(2, Math.round(span * factor));
+      const mid = (curRange.from + curRange.to) / 2;
+      try {
+        timeScale.setVisibleLogicalRange({
+          from: mid - newSpan / 2,
+          to: mid + newSpan / 2
+        });
+      } catch(e) {
+        for (let i = 0; i < multiplier; i++) {
+          if (dir > 0) timeScale.zoomIn();
+          else timeScale.zoomOut();
+        }
+      }
+    } else {
+      for (let i = 0; i < multiplier; i++) {
+        if (dir > 0) timeScale.zoomIn();
+        else timeScale.zoomOut();
+      }
     }
   }
 }
 
 function tradingChartLongZoom(dir) {
-  tradingChartZoom(dir, 7);
+  if (tradingChartInstance) {
+    markUserChartInteraction();
+    const timeScale = tradingChartInstance.timeScale();
+    const curRange = timeScale.getVisibleLogicalRange();
+    if (curRange) {
+      const span = curRange.to - curRange.from;
+      const factor = dir > 0 ? 0.45 : 2.5; // Strong multi-level zoom
+      const newSpan = Math.max(2, Math.round(span * factor));
+      const mid = (curRange.from + curRange.to) / 2;
+      try {
+        timeScale.setVisibleLogicalRange({
+          from: mid - newSpan / 2,
+          to: mid + newSpan / 2
+        });
+      } catch(e) {
+        tradingChartZoom(dir, 8);
+      }
+    } else {
+      tradingChartZoom(dir, 8);
+    }
+  }
   if (typeof showToast === 'function') {
-    showToast(dir > 0 ? '🔍 Long Zoom In' : '🔭 Long Zoom Out', 'info');
+    showToast(dir > 0 ? '🔍 Deep Zoom In' : '🔭 Super Zoom Out', 'info');
   }
 }
 
@@ -6330,6 +6432,7 @@ function initChartTwoFingerGestures() {
 
   const onWheel = (e) => {
     if (!tradingChartInstance) return;
+    markUserChartInteraction();
     if (e.shiftKey || e.altKey) {
       e.preventDefault();
       const chartH = container ? container.clientHeight || 450 : 450;
@@ -6433,8 +6536,13 @@ function initTradingCandleChart() {
       if (elL) elL.textContent = Number(low).toFixed(1);
       if (elC) elC.textContent = Number(close).toFixed(1);
       if (elR) {
-        elR.textContent = isUp ? '▲ BIG (UP)' : '▼ SMALL (DOWN)';
-        elR.className = isUp ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
+        if (tradingChartDisplayMode === 'winloss') {
+          elR.textContent = isUp ? '✓ AI WIN (UP)' : '✗ AI LOSS (DOWN)';
+          elR.className = isUp ? 'text-emerald-400 font-black' : 'text-rose-400 font-black';
+        } else {
+          elR.textContent = isUp ? '▲ BIG (UP)' : '▼ SMALL (DOWN)';
+          elR.className = isUp ? 'text-amber-400 font-bold' : 'text-sky-400 font-bold';
+        }
       }
     }
   });
@@ -6503,12 +6611,13 @@ function rebuildTradingSeries() {
       lineWidth: 2
     });
   } else {
+    const isWinLoss = tradingChartDisplayMode === 'winloss';
     tradingMainSeries = chart.addSeries(LC.CandlestickSeries, {
-      upColor: '#26a69a',
-      downColor: '#ef5350',
+      upColor: isWinLoss ? '#10b981' : '#26a69a',
+      downColor: isWinLoss ? '#f43f5e' : '#ef5350',
       borderVisible: false,
-      wickUpColor: '#26a69a',
-      wickDownColor: '#ef5350'
+      wickUpColor: isWinLoss ? '#10b981' : '#26a69a',
+      wickDownColor: isWinLoss ? '#f43f5e' : '#ef5350'
     });
   }
 
@@ -6584,19 +6693,46 @@ function _renderTradingCandleChartCore(force = false) {
   for (let i = 0; i < realHist.length; i++) {
     const r = realHist[i];
     const isSizeBig = r.size === 'BIG';
-    // WIN/LOSS mode: determine if AI prediction was correct
+    const num = (r.number !== undefined && r.number !== null) ? Number(r.number) : (isSizeBig ? 7 : 2);
+    const color = r.color || (num === 0 || num === 5 ? 'violet' : [1,3,7,9].includes(num) ? 'green' : 'red');
+
+    // Retrieve AI prediction for this period (checking both S.aiPredictionMap and TimeframeManager)
+    let aiPred = (S.aiPredictionMap && (S.aiPredictionMap[r.period] || S.aiPredictionMap[String(r.period).slice(-5)])) || null;
+    if (!aiPred && window.TimeframeManager && typeof window.TimeframeManager.getSession === 'function') {
+      const sess = window.TimeframeManager.getSession(S.timeframe || '30s');
+      if (sess && sess.predictionsMap) {
+        aiPred = sess.predictionsMap[r.period] || sess.predictionsMap[String(r.period).slice(-5)] || null;
+      }
+    }
+
+    // Determine correctness
+    let isWin = false;
+    let hasPrediction = false;
+    if (aiPred && (aiPred.prediction || aiPred.target)) {
+      hasPrediction = true;
+      const predTarget = String(aiPred.prediction || aiPred.target).toUpperCase();
+      if (aiPred.type === 'COLOR' || ['RED', 'GREEN', 'VIOLET'].includes(predTarget)) {
+        const isGreen = [1,3,7,9,5].includes(num);
+        isWin = predTarget === 'GREEN' ? isGreen : !isGreen;
+      } else {
+        isWin = predTarget === (r.size || '').toUpperCase();
+      }
+    } else if (r.aiCorrect !== undefined && r.aiCorrect !== null) {
+      hasPrediction = true;
+      isWin = !!r.aiCorrect;
+    }
+
+    // Candle Direction:
+    // WIN/LOSS mode: UP if AI was correct (Win), DOWN if AI was incorrect (Loss)
+    // SIZE mode: UP if BIG, DOWN if SMALL
     let isUp;
     if (tradingChartDisplayMode === 'winloss') {
-      const aiPred = S.aiPredictionMap && S.aiPredictionMap[r.period];
-      const wasWin = aiPred && aiPred.prediction && r.size && aiPred.prediction.toUpperCase() === r.size.toUpperCase();
-      isUp = wasWin;
+      isUp = hasPrediction ? isWin : isSizeBig;
     } else {
       isUp = isSizeBig;
     }
-    const isBig = isSizeBig; // keep for count tracking
-    const num = (r.number !== undefined && r.number !== null) ? Number(r.number) : (isBig ? 7 : 2);
-    const color = r.color || (num === 0 || num === 5 ? 'violet' : [1,3,7,9].includes(num) ? 'green' : 'red');
 
+    const isBig = isSizeBig;
     if (isBig) bigCount++;
     else smallCount++;
 
@@ -6608,7 +6744,19 @@ function _renderTradingCandleChartCore(force = false) {
     let high = open;
     let low = open;
 
-    if (tradingChartScaleMode === 'dynamic') {
+    if (tradingChartDisplayMode === 'winloss') {
+      // In Win/Loss mode, all candles have the exact same standard height step
+      const winLossStep = 1.0;
+      if (isUp) {
+        close = open + winLossStep;
+        high = close + 0.2;
+        low = open - 0.2;
+      } else {
+        close = open - winLossStep;
+        high = open + 0.2;
+        low = close - 0.2;
+      }
+    } else if (tradingChartScaleMode === 'dynamic') {
       if (isUp) {
         const delta = Math.max(1, num >= 5 ? (num - 4) : 1);
         close = open + delta;
@@ -6643,22 +6791,39 @@ function _renderTradingCandleChartCore(force = false) {
       close
     });
 
+    // Custom distinct markers:
+    // When in winloss mode: Green circle with checkmark for Win, Red circle with X for Loss
+    // When in size mode: Color of ball + number and B/S tag
     let markerColor = '#26a69a';
     let markerShape = 'circle';
-    if (color.includes('violet') || num === 0 || num === 5) {
-      markerColor = '#ab47bc';
-      markerShape = 'square';
-    } else if (color.includes('red') || [2,4,6,8].includes(num)) {
-      markerColor = '#ef5350';
-      markerShape = 'circle';
+    let markerText = `${num} ${r.size ? r.size[0] : ''}`;
+
+    if (tradingChartDisplayMode === 'winloss') {
+      if (hasPrediction) {
+        markerColor = isWin ? '#10b981' : '#f43f5e';
+        markerShape = isWin ? 'arrowUp' : 'arrowDown';
+        markerText = isWin ? `W ${num}` : `L ${num}`;
+      } else {
+        markerColor = '#64748b';
+        markerShape = 'circle';
+        markerText = `${num}`;
+      }
+    } else {
+      if (color.includes('violet') || num === 0 || num === 5) {
+        markerColor = '#ab47bc';
+        markerShape = 'square';
+      } else if (color.includes('red') || [2,4,6,8].includes(num)) {
+        markerColor = '#ef5350';
+        markerShape = 'circle';
+      }
     }
 
     markers.push({
       time: candleTime,
-      position: isBig ? 'belowBar' : 'aboveBar',
+      position: isUp ? 'belowBar' : 'aboveBar',
       color: markerColor,
       shape: markerShape,
-      text: `${num}`
+      text: markerText
     });
   }
 
@@ -9048,11 +9213,31 @@ function renderSmartView() {
 
   let targetColor = 'text-amber-400';
   let icon = '🟡';
-  if (target === 'BIG')        { targetColor = 'text-amber-400'; icon = '🟡'; }
-  else if (target === 'SMALL') { targetColor = 'text-sky-400';   icon = '🔵'; }
-  else if (target === 'GREEN') { targetColor = 'text-emerald-400'; icon = '🟢'; }
-  else if (target === 'RED')   { targetColor = 'text-rose-400';    icon = '🔴'; }
-  else if (target === 'VIOLET'){ targetColor = 'text-purple-400';  icon = '🟣'; }
+  let boxBgClass = 'p-1.5 bg-gradient-to-br from-amber-500/15 via-amber-950/40 to-black/80 rounded-lg border border-amber-400/40 shadow-[0_0_15px_rgba(245,158,11,0.15)] flex flex-col justify-center transition-all duration-300';
+  if (target === 'BIG') {
+    targetColor = 'text-amber-400';
+    icon = '🟡';
+    boxBgClass = 'p-1.5 bg-gradient-to-br from-amber-500/20 via-amber-950/50 to-black/85 rounded-lg border border-amber-400/50 shadow-[0_0_18px_rgba(245,158,11,0.22)] flex flex-col justify-center transition-all duration-300';
+  } else if (target === 'SMALL') {
+    targetColor = 'text-sky-300';
+    icon = '🔵';
+    boxBgClass = 'p-1.5 bg-gradient-to-br from-sky-500/20 via-blue-950/50 to-black/85 rounded-lg border border-sky-400/50 shadow-[0_0_18px_rgba(56,189,248,0.22)] flex flex-col justify-center transition-all duration-300';
+  } else if (target === 'GREEN') {
+    targetColor = 'text-emerald-300';
+    icon = '🟢';
+    boxBgClass = 'p-1.5 bg-gradient-to-br from-emerald-500/20 via-emerald-950/50 to-black/85 rounded-lg border border-emerald-400/50 shadow-[0_0_18px_rgba(16,185,129,0.22)] flex flex-col justify-center transition-all duration-300';
+  } else if (target === 'RED') {
+    targetColor = 'text-rose-300';
+    icon = '🔴';
+    boxBgClass = 'p-1.5 bg-gradient-to-br from-rose-500/20 via-rose-950/50 to-black/85 rounded-lg border border-rose-400/50 shadow-[0_0_18px_rgba(244,63,94,0.22)] flex flex-col justify-center transition-all duration-300';
+  } else if (target === 'VIOLET') {
+    targetColor = 'text-purple-300';
+    icon = '🟣';
+    boxBgClass = 'p-1.5 bg-gradient-to-br from-purple-500/20 via-purple-950/50 to-black/85 rounded-lg border border-purple-400/50 shadow-[0_0_18px_rgba(168,85,247,0.22)] flex flex-col justify-center transition-all duration-300';
+  }
+
+  const boxEl = document.getElementById('smartTargetCardBox');
+  if (boxEl) boxEl.className = boxBgClass;
 
   if (targetEl) {
     if (target) {
