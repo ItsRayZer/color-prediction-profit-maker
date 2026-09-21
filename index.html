@@ -1876,6 +1876,24 @@
             <div id="advLlmExpert" class="font-bold text-slate-400 text-[8.5px]">STANDBY (Weak)</div>
           </div>
         </div>
+
+        <!-- 6. Engine 9: Phase-Lock Inversion & Streak Identifier -->
+        <div class="p-2 bg-white/[0.02] rounded-xl border border-white/5 space-y-1 text-[8.5px] font-mono">
+          <div class="flex justify-between items-center text-slate-400">
+            <span class="flex items-center gap-1 font-bold text-slate-300">
+              <i class="fa-solid fa-arrows-split-up-and-left text-amber-400"></i> Phase-Lock & Streak Inverter
+            </span>
+            <span id="advPhaseLockMode" class="px-1.5 py-0.5 rounded text-[7.5px] bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">NORMAL FLOW</span>
+          </div>
+          <div class="flex justify-between items-center text-[8px]">
+            <span class="text-slate-400">Engine Signal:</span>
+            <span id="advPhaseLockSignal" class="text-amber-300 font-bold">NEUTRAL</span>
+          </div>
+          <div class="flex justify-between items-center text-[8px]">
+            <span class="text-slate-400">Reason / Strategy:</span>
+            <span id="advPhaseLockReason" class="text-slate-300 truncate max-w-[160px]">Active Anti-Lag Wave</span>
+          </div>
+        </div>
       </div>
 
       <!-- ── BACKWARD-COMPATIBILITY HIDDEN REPOSITORY ── -->
@@ -7565,6 +7583,41 @@ function updateAIDiagnosticsDrawer() {
         elLlm.textContent = 'STANDBY (Weak)';
         elLlm.className = 'font-bold text-slate-400 text-[8.5px]';
       }
+    }
+
+    // Engine 9: Phase-Lock Inversion & Streak Identifier Telemetry
+    const pLock = meta.phaseLock || {};
+    const elPlMode   = document.getElementById('advPhaseLockMode');
+    const elPlSignal = document.getElementById('advPhaseLockSignal');
+    const elPlReason = document.getElementById('advPhaseLockReason');
+
+    if (elPlMode) {
+      const mode = pLock.mode || 'NORMAL';
+      if (mode === 'STREAK_RIDER') {
+        elPlMode.textContent = `STREAK RIDER (${pLock.streak || 3}x)`;
+        elPlMode.className = 'px-1.5 py-0.5 rounded text-[7.5px] bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30 animate-pulse';
+      } else if (mode === 'CONSENSUS_RECOVERY') {
+        elPlMode.textContent = 'CONSENSUS RECOVERY';
+        elPlMode.className = 'px-1.5 py-0.5 rounded text-[7.5px] bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30';
+      } else if (mode === 'STREAK_CONTINUATION') {
+        elPlMode.textContent = '2x WAVE LOCK';
+        elPlMode.className = 'px-1.5 py-0.5 rounded text-[7.5px] bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30';
+      } else if (mode === 'CHOP_PHASE_FLIP') {
+        elPlMode.textContent = 'CHOP INVERSION';
+        elPlMode.className = 'px-1.5 py-0.5 rounded text-[7.5px] bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30';
+      } else {
+        elPlMode.textContent = 'NORMAL FLOW';
+        elPlMode.className = 'px-1.5 py-0.5 rounded text-[7.5px] bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30';
+      }
+    }
+    if (elPlSignal) {
+      const sigStr = pLock.signal || 'NEUTRAL';
+      elPlSignal.textContent = sigStr;
+      elPlSignal.className = sigStr === 'BIG' ? 'text-amber-300 font-bold' : (sigStr === 'SMALL' ? 'text-sky-300 font-bold' : 'text-slate-400 font-bold');
+    }
+    if (elPlReason) {
+      elPlReason.textContent = pLock.reason || 'Active Anti-Lag Wave';
+      elPlReason.title = pLock.reason || '';
     }
   } catch(e) {
     console.warn('Advanced Intelligence Mesh drawer update error:', e);

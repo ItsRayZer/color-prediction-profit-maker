@@ -564,6 +564,92 @@
     };
   }
 
+  // -- ENGINE 9: Phase-Lock Inversion & Streak Identifier Engine --------------
+  function enginePhaseWaveInverter(hist, lossStreak = 0, consensus = null) {
+    if (!hist || hist.length < 3) {
+      return { active: false, signal: 'NEUTRAL', weight: 0, reason: 'Initializing Phase Mesh', streak: 1, isChop: false, mode: 'NORMAL' };
+    }
+    const real = hist.filter(r => !r.gap && r.number !== null && r.number !== undefined);
+    const n = real.length;
+    if (n < 3) {
+      return { active: false, signal: 'NEUTRAL', weight: 0, reason: 'Initializing Phase Mesh', streak: 1, isChop: false, mode: 'NORMAL' };
+    }
+
+    const last1 = real[n - 1].size;
+    const last2 = real[n - 2].size;
+    const last3 = n >= 3 ? real[n - 3].size : null;
+
+    let activeStreak = 1;
+    for (let j = n - 2; j >= 0; j--) {
+      if (real[j].size === last1) activeStreak++;
+      else break;
+    }
+
+    const isChop = (last3 !== null && last1 !== last2 && last2 !== last3);
+
+    // 1. STREAK IDENTIFIER: If an active streak of 3+ exists and we have experienced a loss, RIDE IT
+    if (lossStreak >= 1 && activeStreak >= 3) {
+      return {
+        active: true,
+        signal: last1,
+        weight: 90,
+        streak: activeStreak,
+        isChop: false,
+        mode: 'STREAK_RIDER',
+        reason: `🐉 Phase-Lock: Riding Active ${activeStreak}x ${last1} Streak (Anti-Contrarian Protection)`
+      };
+    }
+
+    // 2. CRITICAL CIRCUIT BREAKER RECOVERY (lossStreak >= 3)
+    if (lossStreak >= 3) {
+      if (last1 === last2) {
+        return {
+          active: true,
+          signal: last1,
+          weight: 95,
+          streak: activeStreak,
+          isChop: false,
+          mode: 'STREAK_CONTINUATION',
+          reason: `🛡️ Fortress Phase-Lock: Locked onto 2x Continuation Wave (${last1})`
+        };
+      } else if (consensus && consensus.target) {
+        return {
+          active: true,
+          signal: consensus.target,
+          weight: 92,
+          streak: activeStreak,
+          isChop,
+          mode: 'CONSENSUS_RECOVERY',
+          reason: `🛡️ Fortress Phase-Lock: Multi-Engine Recovery Consensus (${consensus.target})`
+        };
+      }
+    }
+
+    // 3. CHOP PHASE INVERSION (lossStreak >= 2 in alternating flow)
+    if (lossStreak >= 2 && isChop) {
+      const chopFlip = last1 === 'BIG' ? 'SMALL' : 'BIG';
+      return {
+        active: true,
+        signal: chopFlip,
+        weight: 75,
+        streak: 1,
+        isChop: true,
+        mode: 'CHOP_PHASE_FLIP',
+        reason: `🔀 Phase-Lock: Alternation Chop Inversion to ${chopFlip}`
+      };
+    }
+
+    return {
+      active: activeStreak >= 3,
+      signal: activeStreak >= 3 ? last1 : 'NEUTRAL',
+      weight: activeStreak >= 3 ? 60 : 0,
+      streak: activeStreak,
+      isChop,
+      mode: 'NORMAL',
+      reason: `Normal Flow (${activeStreak}x ${last1})`
+    };
+  }
+
   // -- ABSOLUTE 4-LOSS PREVENTION FORTRESS SHIELD ----------------------------
   function enforceLossPreventionShield(hist, lossStreak, candidateTarget, v5Ensemble, houseAdversary, neuralNet) {
     if (lossStreak < 3) {
@@ -1567,7 +1653,18 @@
       finalReason = `${topEngine} | ${patternNote} (${Math.round(dominantProb * 100)}% Win Rate)`;
     }
 
-    // Check 3: HARD-STOP 4-LOSS CIRCUIT BREAKER (Prevents > 4 Losses Under All Conditions)
+    // Check 2.5: Phase-Lock Inversion & Streak Identifier Engine
+    const baseConsensus = generateConsensus(history);
+    const phaseLock = enginePhaseWaveInverter(history, effectiveLossStreak, baseConsensus);
+
+    if (effectiveLossStreak >= 1 && phaseLock.active && phaseLock.mode === 'STREAK_RIDER') {
+      finalTarget = phaseLock.signal;
+      finalDominantType = 'SIZE';
+      finalReason = `${phaseLock.reason} | Stake ₹${staking.stake}`;
+      isPatternProtected = true;
+    }
+
+    // Check 3: HARD-STOP 3-LOSS CIRCUIT BREAKER (Prevents >= 4 Losses Under All Conditions)
     if (effectiveLossStreak >= 3) {
       const realHist = history.filter(r => !r.gap && r.number !== null && r.number !== undefined);
       const nReal = realHist.length;
@@ -1575,12 +1672,15 @@
         const lastDraw = realHist[nReal - 1].size;
         const prevDraw = realHist[nReal - 2].size;
         
-        let breakerTarget = lastDraw;
-        let breakerReason = `🛡️ FORTRESS CRITICAL ${effectiveLossStreak}L CIRCUIT BREAKER: Locking onto Winning Wave (${lastDraw}) to Halt Loss Streak Immediately | Stake ₹${staking.stake}`;
+        let breakerTarget;
+        let breakerReason;
 
         if (lastDraw === prevDraw) {
           breakerTarget = lastDraw;
-          breakerReason = `🛡️ FORTRESS 4-LOSS SHIELD: Locked onto 2x Trend Continuation (${lastDraw}) | 5-Loss Prevention Stake ₹${staking.stake}`;
+          breakerReason = `🛡️ FORTRESS CRITICAL ${effectiveLossStreak}L CIRCUIT BREAKER: Locked onto 2x Trend Continuation (${lastDraw}) | Max Loss Prevention Stake ₹${staking.stake}`;
+        } else {
+          breakerTarget = (baseConsensus && baseConsensus.target) ? baseConsensus.target : ((sizeConsensus && sizeConsensus.target) ? sizeConsensus.target : lastDraw);
+          breakerReason = `🛡️ FORTRESS CRITICAL ${effectiveLossStreak}L CIRCUIT BREAKER: Multi-Engine Recovery Consensus (${breakerTarget}) | Stake ₹${staking.stake}`;
         }
 
         finalTarget = breakerTarget;
@@ -1727,6 +1827,14 @@
       neuralMesh: subNeuralMesh,
       anomalyRegime,
       openRouterExpert,
+      phaseLock: {
+        active: phaseLock.active,
+        signal: phaseLock.signal,
+        weight: phaseLock.weight,
+        streak: phaseLock.streak,
+        mode: phaseLock.mode,
+        reason: phaseLock.reason
+      },
       
       // Backward-compatibility aliases
       consciousness: {
@@ -1816,6 +1924,7 @@
     engineNeuralNetwork,
     engineHouseAdversary,
     engineMetacognition,
+    enginePhaseWaveInverter,
     enforceLossPreventionShield,
     computeGroundTruthStreak,
     engineColorSum,
