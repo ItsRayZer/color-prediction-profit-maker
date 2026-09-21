@@ -398,6 +398,105 @@
       overflow-y: auto !important;
       border-radius: 0 !important;
     }
+  
+    /* Premium Cinematic Elastic Win / Living Sad Loss Animations */
+    @keyframes winElasticPop {
+      0% { transform: scale(0.92); filter: brightness(1); }
+      20% { transform: scale(1.08); filter: brightness(1.25); }
+      40% { transform: scale(0.97); }
+      60% { transform: scale(1.04); filter: brightness(1.15); }
+      80% { transform: scale(0.99); }
+      100% { transform: scale(1.03); filter: brightness(1.1); }
+    }
+    @keyframes winGlowPulse {
+      0%, 100% {
+        box-shadow: 0 0 28px 4px rgba(16, 185, 129, 0.45), inset 0 0 16px rgba(16, 185, 129, 0.35);
+        border-color: rgba(52, 211, 153, 0.9);
+      }
+      50% {
+        box-shadow: 0 0 42px 10px rgba(16, 185, 129, 0.7), inset 0 0 24px rgba(52, 211, 153, 0.5);
+        border-color: #10b981;
+      }
+    }
+    @keyframes lossSadShrinkHeadDown {
+      0% { transform: scale(1) translateY(0); filter: brightness(1); }
+      18% { transform: scale(0.91) translateY(2px) rotate(-1.2deg); filter: brightness(0.85); }
+      35% { transform: scale(0.88) translateY(6px) rotate(1deg); filter: brightness(0.75); }
+      55% { transform: scale(0.89) translateY(8px) rotate(-0.5deg); filter: brightness(0.72); }
+      75% { transform: scale(0.88) translateY(7px) rotate(0.4deg); filter: brightness(0.75); }
+      100% { transform: scale(0.89) translateY(6px) rotate(0deg); filter: brightness(0.78); }
+    }
+    @keyframes lossSadGlowPulse {
+      0%, 100% {
+        box-shadow: 0 4px 20px 2px rgba(244, 63, 94, 0.35), inset 0 0 14px rgba(244, 63, 94, 0.25);
+        border-color: rgba(244, 63, 94, 0.7);
+      }
+      50% {
+        box-shadow: 0 8px 30px 4px rgba(244, 63, 94, 0.5), inset 0 0 20px rgba(244, 63, 94, 0.4);
+        border-color: #f43f5e;
+      }
+    }
+    @keyframes celebrationSparkle {
+      0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.9; }
+      50% { transform: scale(1.3) rotate(15deg); opacity: 1; filter: drop-shadow(0 0 8px #34d399); }
+    }
+    @keyframes sadChildDroop {
+      0% { transform: translateY(0) scale(1); }
+      30% { transform: translateY(4px) scale(0.92); }
+      65% { transform: translateY(7px) scale(0.88); }
+      100% { transform: translateY(5px) scale(0.9); }
+    }
+    @keyframes logoAtmosphericGlowPulse {
+      0%, 100% { opacity: 0.55; transform: scale(1); }
+      50% { opacity: 0.85; transform: scale(1.08); }
+    }
+
+    .smart-box-win-elastic {
+      animation: winElasticPop 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) forwards, winGlowPulse 1.8s ease-in-out infinite !important;
+      transform-origin: center center;
+    }
+    .smart-box-loss-sad {
+      animation: lossSadShrinkHeadDown 1.1s cubic-bezier(0.25, 1, 0.5, 1) forwards, lossSadGlowPulse 2s ease-in-out infinite !important;
+      transform-origin: top center;
+    }
+    .hero-grid-react-win {
+      transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+      border-color: rgba(16, 185, 129, 0.35) !important;
+      box-shadow: 0 0 30px -5px rgba(16, 185, 129, 0.25) !important;
+    }
+    .hero-grid-react-loss {
+      transition: all 0.7s cubic-bezier(0.25, 1, 0.5, 1) !important;
+      border-color: rgba(244, 63, 94, 0.3) !important;
+      box-shadow: 0 0 30px -5px rgba(244, 63, 94, 0.2) !important;
+    }
+    .side-col-react-win {
+      transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+      transform: scale(0.97) !important;
+      opacity: 0.8 !important;
+      border-color: rgba(16, 185, 129, 0.25) !important;
+    }
+    .side-col-react-loss {
+      transition: all 0.7s cubic-bezier(0.25, 1, 0.5, 1) !important;
+      transform: scale(1.01) !important;
+      opacity: 0.9 !important;
+      border-color: rgba(244, 63, 94, 0.2) !important;
+    }
+    .anim-celebrate-sparkle {
+      animation: celebrationSparkle 1.2s ease-in-out infinite;
+    }
+    .anim-sad-droop {
+      animation: sadChildDroop 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+    }
+    .logo-aura-glow {
+      position: absolute;
+      inset: -8px -18px;
+      border-radius: 9999px;
+      pointer-events: none;
+      filter: blur(14px);
+      transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 0;
+      animation: logoAtmosphericGlowPulse 2.4s ease-in-out infinite;
+    }
   </style>
 </head>
 <body class="bg-app-bg min-h-screen text-white overflow-x-hidden relative">
@@ -419,8 +518,10 @@
   </div>
 
   <!-- Center: 01:01 Logo right in the middle (and Martingale status if active) -->
-  <div class="absolute left-1/2 -translate-x-1/2 flex items-center gap-3">
-    <img src="logo_0101.jpg" class="h-10 sm:h-12 w-auto object-contain select-none filter drop-shadow-[0_2px_14px_rgba(255,255,255,0.2)] transition hover:scale-105 cursor-pointer" alt="01:01" onclick="if(typeof toggleAIGlow==='function')toggleAIGlow()" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+  <div class="absolute left-1/2 -translate-x-1/2 flex items-center gap-3 relative">
+    <!-- Atmospheric Ambient Glow Aura Behind Logo -->
+    <div id="navbarLogoAuraGlow" class="logo-aura-glow bg-white/[0.08] opacity-60"></div>
+    <img id="navbarLogoImg" src="logo_0101.jpg" class="h-10 sm:h-12 w-auto object-contain select-none relative z-10 filter drop-shadow-[0_2px_14px_rgba(255,255,255,0.25)] transition-all duration-500 hover:scale-105 cursor-pointer" alt="01:01" onclick="if(typeof toggleAIGlow==='function')toggleAIGlow()" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
     <div style="display:none" class="items-center gap-1">
       <span class="text-2xl font-black text-white tracking-tight">01:01</span>
     </div>
@@ -1195,16 +1296,45 @@
       </div>
 
       <div id="card-col2-hero-body" class="space-y-1.5">
-      <!-- Compact Core Row: Active Period | Countdown + Instant Calibration | AI Target Signal -->
-      <div class="grid grid-cols-3 gap-1.5 text-center font-mono items-center">
+      <!-- Compact Core Row: Active Period | AI Prediction Target (MIDDLE) | Countdown Time -->
+      <div id="smartHeroRowGrid" class="grid grid-cols-3 gap-1.5 text-center font-mono items-center transition-all duration-500 rounded-xl p-0.5">
         <!-- 1. Active Period -->
-        <div class="p-1.5 bg-[#141416] rounded-lg border border-white/[0.08] flex flex-col justify-center">
+        <div id="smartHeroCol1Period" class="p-1.5 bg-[#141416] rounded-lg border border-white/[0.08] flex flex-col justify-center transition-all duration-500 min-h-[58px]">
           <span class="text-[7.5px] text-slate-400 block font-sans uppercase font-bold tracking-wider">Active Period</span>
           <b id="smartPeriodDisplay" class="text-amber-400 text-sm font-mono font-black tracking-tight mt-0.5">—</b>
         </div>
 
-        <!-- 2. Countdown Time & Instant Calibration -->
-        <div class="p-1.5 bg-gradient-to-b from-[#141416] to-[#0a0a0a] rounded-lg border border-amber-400/30 flex flex-col justify-center shadow-inner">
+        <!-- 2. AI Target Signal (SWAPPED TO MIDDLE) -->
+        <div id="smartTargetCardBox" class="p-1.5 bg-gradient-to-br from-white/[0.05] via-[#141416] to-black rounded-lg border border-white/[0.08] flex flex-col justify-center transition-all duration-500 overflow-hidden relative min-h-[58px] z-10">
+          <!-- Normal AI Target Prediction View -->
+          <div id="smartTargetNormalView" class="flex flex-col justify-center transition-all duration-300">
+            <span class="text-[7.5px] text-amber-300 block font-sans uppercase font-bold tracking-wider">AI Target</span>
+            <b id="smartSignalTarget" class="text-amber-400 text-sm font-mono font-black tracking-tight mt-0.5">WAITING...</b>
+            <div class="flex items-center justify-center gap-1 mt-0.5 text-[7px] text-slate-400 font-mono">
+              <span>Conf: <b id="smartSignalConf" class="text-emerald-400">—</b></span>
+              <span>|</span>
+              <span id="smartSignalType" class="text-purple-300 font-bold">—</span>
+            </div>
+          </div>
+
+          <!-- Smooth Cinematic Elastic Win / Living Sad Loss 3s Animation View -->
+          <div id="smartTargetResultAnimView" class="hidden flex-col justify-center items-center transition-all duration-300 w-full px-1">
+            <div class="flex items-center justify-center gap-1">
+              <span id="smartResultAnimDot" class="w-1.5 h-1.5 rounded-full inline-block"></span>
+              <span id="smartResultAnimHeader" class="text-[7.5px] font-sans uppercase font-black tracking-wider"></span>
+            </div>
+            <div id="smartResultAnimTitleBox" class="text-sm font-mono font-black tracking-wider flex items-center justify-center gap-1.5 my-0.5">
+              <i id="smartResultAnimIcon" class="text-xs"></i>
+              <span id="smartResultAnimText"></span>
+            </div>
+            <div id="smartResultAnimSub" class="flex items-center justify-center gap-1 text-[7px] font-mono">
+              <span id="smartResultAnimSubText"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Countdown Time & Instant Calibration (SWAPPED TO RIGHT) -->
+        <div id="smartHeroCol3Timer" class="p-1.5 bg-gradient-to-b from-[#141416] to-[#0a0a0a] rounded-lg border border-amber-400/30 flex flex-col justify-center shadow-inner transition-all duration-500 min-h-[58px]">
           <div class="flex items-center justify-between px-1">
             <span class="text-[7.5px] text-amber-300/80 font-sans uppercase font-bold">Time Left</span>
             <span id="timerOffsetBadge" class="px-1 py-0 bg-amber-400/20 text-amber-300 rounded font-black text-[7.5px] border border-amber-400/30">+0s</span>
@@ -1219,35 +1349,6 @@
             <button onclick="adjustTimerOffset(-0.5)" class="px-1 bg-white/10 hover:bg-white/20 text-slate-300 rounded">-0.5s</button>
             <button onclick="adjustTimerOffset(0.5)" class="px-1 bg-white/10 hover:bg-white/20 text-slate-300 rounded">+0.5s</button>
             <button onclick="adjustTimerOffset(2)" class="px-1 bg-white/10 hover:bg-white/20 text-slate-300 rounded">+2s</button>
-          </div>
-        </div>
-
-        <!-- 3. AI Target Signal -->
-        <div id="smartTargetCardBox" class="p-1.5 bg-gradient-to-br from-white/[0.05] via-[#141416] to-black rounded-lg border border-white/[0.08] flex flex-col justify-center transition-all duration-500 overflow-hidden relative min-h-[58px]">
-          <!-- Normal AI Target Prediction View -->
-          <div id="smartTargetNormalView" class="flex flex-col justify-center transition-all duration-300">
-            <span class="text-[7.5px] text-amber-300 block font-sans uppercase font-bold tracking-wider">AI Target</span>
-            <b id="smartSignalTarget" class="text-amber-400 text-sm font-mono font-black tracking-tight mt-0.5">WAITING...</b>
-            <div class="flex items-center justify-center gap-1 mt-0.5 text-[7px] text-slate-400 font-mono">
-              <span>Conf: <b id="smartSignalConf" class="text-emerald-400">—</b></span>
-              <span>|</span>
-              <span id="smartSignalType" class="text-purple-300 font-bold">—</span>
-            </div>
-          </div>
-
-          <!-- Smooth Premium Win / Loss 3s Animation View -->
-          <div id="smartTargetResultAnimView" class="hidden flex-col justify-center items-center transition-all duration-300">
-            <div class="flex items-center justify-center gap-1">
-              <span id="smartResultAnimDot" class="w-1.5 h-1.5 rounded-full inline-block"></span>
-              <span id="smartResultAnimHeader" class="text-[7.5px] font-sans uppercase font-black tracking-wider"></span>
-            </div>
-            <div id="smartResultAnimTitleBox" class="text-sm font-mono font-black tracking-wider flex items-center justify-center gap-1.5 my-0.5">
-              <i id="smartResultAnimIcon" class="text-xs"></i>
-              <span id="smartResultAnimText"></span>
-            </div>
-            <div id="smartResultAnimSub" class="flex items-center justify-center gap-1 text-[7px] font-mono">
-              <span id="smartResultAnimSubText"></span>
-            </div>
           </div>
         </div>
       </div>
@@ -10262,6 +10363,22 @@ function toggleResultPopup() {
 window._aiTargetBoxResultAnimation = { active: false, outcome: null };
 window._aiTargetBoxAnimTimeout = null;
 
+function setLogoAuraGlow(state) {
+  const glowEl = document.getElementById('navbarLogoAuraGlow');
+  const imgEl = document.getElementById('navbarLogoImg');
+  if (!glowEl) return;
+  if (state === 'WIN') {
+    glowEl.className = 'logo-aura-glow bg-emerald-500/40 opacity-90 shadow-[0_0_35px_12px_rgba(16,185,129,0.55)]';
+    if (imgEl) imgEl.style.filter = 'drop-shadow(0 0 16px rgba(52,211,153,0.75))';
+  } else if (state === 'LOSS') {
+    glowEl.className = 'logo-aura-glow bg-rose-500/40 opacity-90 shadow-[0_0_35px_12px_rgba(244,63,94,0.55)]';
+    if (imgEl) imgEl.style.filter = 'drop-shadow(0 0 16px rgba(244,63,94,0.75))';
+  } else {
+    glowEl.className = 'logo-aura-glow bg-white/[0.08] opacity-60';
+    if (imgEl) imgEl.style.filter = 'drop-shadow(0 2px 14px rgba(255,255,255,0.25))';
+  }
+}
+
 function triggerAITargetBoxAnimation(outcome, details = {}) {
   const boxEl = document.getElementById('smartTargetCardBox');
   const normalView = document.getElementById('smartTargetNormalView');
@@ -10271,6 +10388,11 @@ function triggerAITargetBoxAnimation(outcome, details = {}) {
   const iconEl = document.getElementById('smartResultAnimIcon');
   const textEl = document.getElementById('smartResultAnimText');
   const subEl = document.getElementById('smartResultAnimSubText');
+  
+  // Neighboring elements to react smoothly
+  const heroGrid = document.getElementById('smartHeroRowGrid');
+  const col1Period = document.getElementById('smartHeroCol1Period');
+  const col3Timer = document.getElementById('smartHeroCol3Timer');
 
   if (!boxEl || !normalView || !animView) return;
 
@@ -10291,48 +10413,77 @@ function triggerAITargetBoxAnimation(outcome, details = {}) {
 
   const isWin = outcome === 'WIN';
 
+  // Set top logo atmospheric glow
+  setLogoAuraGlow(isWin ? 'WIN' : 'LOSS');
+
+  // Clear previous animation classes
+  boxEl.classList.remove('smart-box-win-elastic', 'smart-box-loss-sad');
+  if (heroGrid) heroGrid.classList.remove('hero-grid-react-win', 'hero-grid-react-loss');
+  if (col1Period) col1Period.classList.remove('side-col-react-win', 'side-col-react-loss');
+  if (col3Timer) col3Timer.classList.remove('side-col-react-win', 'side-col-react-loss');
+
+  // Trigger reflow so animation restarts cleanly
+  void boxEl.offsetWidth;
+
   if (isWin) {
-    // Premium Apple Emerald Glow & Smooth Pulse
-    boxEl.className = 'p-1.5 bg-gradient-to-br from-emerald-500/30 via-emerald-950/70 to-black/95 rounded-lg border-2 border-emerald-400 shadow-[0_0_24px_rgba(16,185,129,0.5),inset_0_1px_0_rgba(255,255,255,0.2)] flex flex-col justify-center items-center transition-all duration-500 transform scale-[1.03] overflow-hidden relative min-h-[58px]';
+    // ── CELEBRATION WIN: Elastic scale expansion, rich emerald glow, impact on borders and siblings ──
+    boxEl.className = 'p-1.5 bg-gradient-to-br from-emerald-500/30 via-emerald-950/80 to-black rounded-lg border-2 border-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.6),inset_0_1px_2px_rgba(255,255,255,0.3)] flex flex-col justify-center items-center transition-all duration-500 overflow-hidden relative min-h-[58px] z-20 smart-box-win-elastic';
     
+    if (heroGrid) heroGrid.classList.add('hero-grid-react-win');
+    if (col1Period) col1Period.classList.add('side-col-react-win');
+    if (col3Timer) col3Timer.classList.add('side-col-react-win');
+
     if (dotEl) dotEl.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block';
     if (headerEl) {
       headerEl.className = 'text-[7.5px] text-emerald-300 font-sans uppercase font-black tracking-wider';
-      headerEl.textContent = 'AI RESULT';
+      headerEl.textContent = 'AI PREDICTION HIT';
     }
-    if (iconEl) iconEl.className = 'fa-solid fa-circle-check text-emerald-400 text-xs animate-bounce';
+    if (iconEl) iconEl.className = 'fa-solid fa-trophy text-emerald-400 text-xs anim-celebrate-sparkle';
     if (textEl) {
       textEl.className = 'text-emerald-300 text-sm font-mono font-black tracking-wider flex items-center justify-center gap-1';
       textEl.textContent = 'WIN ✓';
     }
     if (subEl) {
-      subEl.className = 'text-[7.5px] text-emerald-200/90 font-mono font-bold';
-      subEl.textContent = details.size ? details.size + ' #' + (details.number ?? '') + ' Hit!' : 'Target Hit!';
+      subEl.className = 'text-[7.5px] text-emerald-200 font-mono font-bold tracking-tight';
+      subEl.textContent = details.size ? details.size + ' #' + (details.number ?? '') + ' (Celebration)' : 'Target Hit!';
     }
   } else {
-    // Premium Apple Crimson Glow & Smooth Recoil Pulse
-    boxEl.className = 'p-1.5 bg-gradient-to-br from-rose-500/30 via-rose-950/70 to-black/95 rounded-lg border-2 border-rose-500 shadow-[0_0_24px_rgba(244,63,94,0.5),inset_0_1px_0_rgba(255,255,255,0.15)] flex flex-col justify-center items-center transition-all duration-500 transform scale-[0.98] overflow-hidden relative min-h-[58px]';
+    // ── LIVING SAD LOSS: Height decreases, droops head down, living shrink, muted crimson glow ──
+    boxEl.className = 'p-1 bg-gradient-to-br from-rose-500/20 via-rose-950/70 to-black rounded-lg border border-rose-500/70 shadow-[0_4px_22px_rgba(244,63,94,0.45),inset_0_0_12px_rgba(244,63,94,0.3)] flex flex-col justify-center items-center transition-all duration-700 overflow-hidden relative min-h-[50px] z-10 smart-box-loss-sad';
 
-    if (dotEl) dotEl.className = 'w-1.5 h-1.5 rounded-full bg-rose-400 inline-block';
+    if (heroGrid) heroGrid.classList.add('hero-grid-react-loss');
+    if (col1Period) col1Period.classList.add('side-col-react-loss');
+    if (col3Timer) col3Timer.classList.add('side-col-react-loss');
+
+    if (dotEl) dotEl.className = 'w-1.5 h-1.5 rounded-full bg-rose-400/80 inline-block';
     if (headerEl) {
-      headerEl.className = 'text-[7.5px] text-rose-300 font-sans uppercase font-black tracking-wider';
-      headerEl.textContent = 'AI RESULT';
+      headerEl.className = 'text-[7px] text-rose-300/80 font-sans uppercase font-black tracking-wider';
+      headerEl.textContent = 'AI MISS';
     }
-    if (iconEl) iconEl.className = 'fa-solid fa-circle-xmark text-rose-400 text-xs';
+    if (iconEl) iconEl.className = 'fa-solid fa-face-frown text-rose-400 text-xs anim-sad-droop';
     if (textEl) {
-      textEl.className = 'text-rose-400 text-sm font-mono font-black tracking-wider flex items-center justify-center gap-1';
+      textEl.className = 'text-rose-400 text-xs font-mono font-black tracking-wider flex items-center justify-center gap-1';
       textEl.textContent = 'LOSS ✗';
     }
     if (subEl) {
-      subEl.className = 'text-[7.5px] text-rose-200/90 font-mono font-bold';
-      subEl.textContent = details.size ? 'Got ' + details.size + ' #' + (details.number ?? '') : 'Recalibrating';
+      subEl.className = 'text-[7px] text-rose-300/70 font-mono font-bold tracking-tight';
+      subEl.textContent = details.size ? 'Got ' + details.size + ' #' + (details.number ?? '') : 'Recalibrating...';
     }
   }
 
-  // Exactly 3 seconds well-crafted animation, then cleanly restore upcoming prediction
+  // Exactly 3 seconds cinematic animation, then cleanly restore upcoming prediction and normal bounds
   window._aiTargetBoxAnimTimeout = setTimeout(() => {
     window._aiTargetBoxResultAnimation.active = false;
     window._aiTargetBoxAnimTimeout = null;
+
+    setLogoAuraGlow('NORMAL');
+
+    if (boxEl) {
+      boxEl.classList.remove('smart-box-win-elastic', 'smart-box-loss-sad');
+    }
+    if (heroGrid) heroGrid.classList.remove('hero-grid-react-win', 'hero-grid-react-loss');
+    if (col1Period) col1Period.classList.remove('side-col-react-win', 'side-col-react-loss');
+    if (col3Timer) col3Timer.classList.remove('side-col-react-win', 'side-col-react-loss');
 
     if (animView) {
       animView.classList.add('hidden');
@@ -10344,6 +10495,15 @@ function triggerAITargetBoxAnimation(outcome, details = {}) {
     renderSmartView();
   }, 3000);
 }
+
+// Global debug test function so user or developer can preview win / loss animations instantly
+window.testResultAnimation = function(type) {
+  triggerAITargetBoxAnimation(type === 'loss' ? 'LOSS' : 'WIN', {
+    period: '20260921001',
+    number: type === 'loss' ? 3 : 8,
+    size: type === 'loss' ? 'SMALL' : 'BIG'
+  });
+};
 
 function updatePopupToggleUI() {
   const btn = document.getElementById('popupToggleBtn');
