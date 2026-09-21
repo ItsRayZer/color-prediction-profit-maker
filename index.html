@@ -5895,6 +5895,16 @@ function toggleTradingIndicator(ind) {
 }
 
 let priceScaleVerticalShift = 0;
+let isUserInteractingWithChart = false;
+let userInteractionTimeout = null;
+
+function markUserChartInteraction() {
+  isUserInteractingWithChart = true;
+  if (userInteractionTimeout) clearTimeout(userInteractionTimeout);
+  userInteractionTimeout = setTimeout(() => {
+    isUserInteractingWithChart = false;
+  }, 12000);
+}
 
 function getAutoscalePriceRange() {
   const candles = window.candlestickDataSeries || [];
@@ -5912,8 +5922,9 @@ function getAutoscalePriceRange() {
     if (recent[i].high > maxP) maxP = recent[i].high;
   }
 
-  // Generous halfSpan ensures the newest candle is always comfortably in the vertical middle (50%)
-  const halfSpan = Math.max(9, (maxP - minP) * 0.95);
+  // Generous halfSpan ensures the newest candle is always comfortably centered
+  const span = Math.max(8, (maxP - minP) * 1.0);
+  const halfSpan = Math.max(6, span * 0.55);
   const centerPrice = latestPrice + priceScaleVerticalShift;
 
   return {
@@ -5922,28 +5933,37 @@ function getAutoscalePriceRange() {
       maxValue: centerPrice + halfSpan,
     },
     margins: {
-      top: 0.22,
-      bottom: 0.22,
+      top: 0.18,
+      bottom: 0.18,
     }
   };
 }
 
 function applyPriceScaleShift(deltaPrice = 0) {
-  if (!tradingMainSeries || !tradingChartInstance) return;
+  if (!tradingChartInstance) return;
+  markUserChartInteraction();
   priceScaleVerticalShift += deltaPrice;
-  try {
-    tradingMainSeries.applyOptions({
-      autoscaleInfoProvider: (original) => {
-        const custom = getAutoscalePriceRange();
-        return custom || (original ? original() : null);
+  if (tradingMainSeries) {
+    try {
+      if (Math.abs(priceScaleVerticalShift) > 0.01) {
+        tradingMainSeries.applyOptions({
+          autoscaleInfoProvider: (original) => {
+            const custom = getAutoscalePriceRange();
+            return custom || (original ? original() : null);
+          }
+        });
+      } else {
+        tradingMainSeries.applyOptions({
+          autoscaleInfoProvider: null
+        });
       }
-    });
-  } catch(e) {}
+    } catch(e) {}
+  }
 }
 
 function panChartVertical(dir) {
   // dir: -1 (pan up) or +1 (pan down)
-  applyPriceScaleShift(dir * 4.5);
+  applyPriceScaleShift(dir * 3.5);
   if (typeof showToast === 'function') {
     showToast(dir < 0 ? '▲ Panned View Up' : '▼ Panned View Down', 'info');
   }
@@ -5951,11 +5971,19 @@ function panChartVertical(dir) {
 
 function resetPriceScaleShift() {
   priceScaleVerticalShift = 0;
-  applyPriceScaleShift(0);
+  isUserInteractingWithChart = false;
+  if (tradingMainSeries) {
+    try {
+      tradingMainSeries.applyOptions({
+        autoscaleInfoProvider: null
+      });
+    } catch(e) {}
+  }
 }
 
-function rearrangeTradingViewToMiddleRight() {
+function rearrangeTradingViewToMiddleRight(force = false) {
   if (!tradingChartInstance) return;
+  if (!force && isUserInteractingWithChart) return;
   const timeScale = tradingChartInstance.timeScale();
   const hist = (S.history || []).filter(r => !r.gap && r.size);
   const N = hist.length;
@@ -5965,7 +5993,7 @@ function rearrangeTradingViewToMiddleRight() {
   const width = container ? container.clientWidth : 400;
   const currentRange = timeScale.getVisibleLogicalRange();
 
-  let visibleSpan = 26;
+  let visibleSpan = 24;
   if (currentRange && (currentRange.to - currentRange.from) > 4) {
     visibleSpan = currentRange.to - currentRange.from;
   } else {
@@ -5974,10 +6002,10 @@ function rearrangeTradingViewToMiddleRight() {
 
   const futureSpaceBoost = isFuturePredictionSpaceEnabled ? 15 : 0;
 
-  // Position newest candle (index N - 1) at ~66% across viewport (middle right),
-  // leaving ~34% open breathing space on the right for future projection and drawings.
-  const leftBars = Math.round(visibleSpan * 0.66);
-  const rightBars = Math.round(visibleSpan * 0.34) + futureSpaceBoost;
+  // Position newest candle (index N - 1) comfortably at ~65% across viewport (middle right),
+  // leaving ~35% open breathing space on the right for future projection and free inspection.
+  const leftBars = Math.round(visibleSpan * 0.65);
+  const rightBars = Math.round(visibleSpan * 0.35) + futureSpaceBoost;
 
   const from = (N - 1) - leftBars;
   const to = (N - 1) + rightBars;
@@ -5987,11 +6015,11 @@ function rearrangeTradingViewToMiddleRight() {
   } catch(e) {
     try { timeScale.scrollToRealTime(); } catch(e2) {}
   }
-  applyPriceScaleShift(0);
 }
 
 function tradingChartZoom(dir, multiplier = 3) {
   if (tradingChartInstance) {
+    markUserChartInteraction();
     const timeScale = tradingChartInstance.timeScale();
     for (let i = 0; i < multiplier; i++) {
       if (dir > 0) timeScale.zoomIn();
@@ -6011,7 +6039,7 @@ function tradingChartReset() {
   if (tradingChartInstance) {
     resetPriceScaleShift();
     tradingChartInstance.timeScale().fitContent();
-    rearrangeTradingViewToMiddleRight();
+    rearrangeTradingViewToMiddleRight(true);
   }
 }
 
@@ -6148,8 +6176,8 @@ function initTradingCandleChart() {
       borderColor: '#2a2e39',
       autoScale: true,
       scaleMargins: {
-        top: 0.22,
-        bottom: 0.22
+        top: 0.16,
+        bottom: 0.16
       }
     },
     timeScale: {
@@ -6158,9 +6186,10 @@ function initTradingCandleChart() {
       secondsVisible: true,
       rightOffset: isFuturePredictionSpaceEnabled ? 35 : 18,
       barSpacing: 10,
-      minBarSpacing: 0.15, // Allows ultra-wide long zoom out to fit hundreds of rounds
-      maxBarSpacing: 80,   // Allows deep long zoom in for single candle inspection
-      fixLeftEdge: false
+      minBarSpacing: 0.05, // Extreme long zoom out (can see hundreds of rounds smoothly)
+      maxBarSpacing: 120,  // Deep long zoom in (inspect individual candles up-close)
+      fixLeftEdge: false,
+      fixRightEdge: false
     },
     kineticScroll: {
       touch: true,
@@ -6174,6 +6203,7 @@ function initTradingCandleChart() {
     },
     handleScale: {
       axisPressedMouseMove: { time: true, price: true },
+      axisDoubleClickReset: { time: true, price: true },
       mouseWheel: true,
       pinch: true
     }
@@ -6279,8 +6309,8 @@ function rebuildTradingSeries() {
     });
   }
 
-  // Attach autoscaleInfoProvider to support vertical middle centering and pan/shift
-  if (tradingMainSeries) {
+  // Setup autoscale options: only attach custom autoscaleInfoProvider if a vertical shift is active
+  if (tradingMainSeries && Math.abs(priceScaleVerticalShift) > 0.01) {
     try {
       tradingMainSeries.applyOptions({
         autoscaleInfoProvider: (original) => {
@@ -6325,7 +6355,13 @@ function _renderTradingCandleChartCore(force = false) {
   }
   if (!tradingMainSeries) return;
 
-  const realHist = (S.history || []).filter(r => !r.gap && r.size);
+  let realHist = (S.history || []).filter(r => !r.gap && r.size);
+  if (!realHist.length) {
+    if (typeof loadInitDemoData === 'function') {
+      try { loadInitDemoData(); } catch(e){}
+      realHist = (S.history || []).filter(r => !r.gap && r.size);
+    }
+  }
   if (!realHist.length) return;
 
   const latestRow = realHist[realHist.length - 1];
