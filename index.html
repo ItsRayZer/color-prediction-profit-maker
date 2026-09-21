@@ -505,7 +505,7 @@
         <span id="proModeBtnText" class="text-[10px] text-amber-300 font-bold">ON</span>
       </button>
       <button onclick="toggleResultPopup()" id="popupToggleBtn" class="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.05] transition text-left">
-        <div class="flex items-center gap-3"><i class="fa-solid fa-bell text-emerald-400 w-4 text-xs"></i><span class="text-sm text-white/80">Result Popup</span></div>
+        <div class="flex items-center gap-3"><i class="fa-solid fa-bell text-emerald-400 w-4 text-xs"></i><span class="text-sm text-white/80">Target Box Win/Loss</span></div>
         <span id="popupToggleText" class="text-[10px] text-emerald-300 font-bold">ON</span>
       </button>
       <button onclick="toggleRightPanelView()" id="headerWebToggleBtn" class="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.05] transition text-left">
@@ -1223,13 +1223,31 @@
         </div>
 
         <!-- 3. AI Target Signal -->
-        <div id="smartTargetCardBox" class="p-1.5 bg-gradient-to-br from-white/[0.05] via-[#141416] to-black rounded-lg border border-white/[0.08] border border-amber-400/30 flex flex-col justify-center transition-all duration-300">
-          <span class="text-[7.5px] text-amber-300 block font-sans uppercase font-bold tracking-wider">AI Target</span>
-          <b id="smartSignalTarget" class="text-amber-400 text-sm font-mono font-black tracking-tight mt-0.5">WAITING...</b>
-          <div class="flex items-center justify-center gap-1 mt-0.5 text-[7px] text-slate-400 font-mono">
-            <span>Conf: <b id="smartSignalConf" class="text-emerald-400">—</b></span>
-            <span>|</span>
-            <span id="smartSignalType" class="text-purple-300 font-bold">—</span>
+        <div id="smartTargetCardBox" class="p-1.5 bg-gradient-to-br from-white/[0.05] via-[#141416] to-black rounded-lg border border-white/[0.08] flex flex-col justify-center transition-all duration-500 overflow-hidden relative min-h-[58px]">
+          <!-- Normal AI Target Prediction View -->
+          <div id="smartTargetNormalView" class="flex flex-col justify-center transition-all duration-300">
+            <span class="text-[7.5px] text-amber-300 block font-sans uppercase font-bold tracking-wider">AI Target</span>
+            <b id="smartSignalTarget" class="text-amber-400 text-sm font-mono font-black tracking-tight mt-0.5">WAITING...</b>
+            <div class="flex items-center justify-center gap-1 mt-0.5 text-[7px] text-slate-400 font-mono">
+              <span>Conf: <b id="smartSignalConf" class="text-emerald-400">—</b></span>
+              <span>|</span>
+              <span id="smartSignalType" class="text-purple-300 font-bold">—</span>
+            </div>
+          </div>
+
+          <!-- Smooth Premium Win / Loss 3s Animation View -->
+          <div id="smartTargetResultAnimView" class="hidden flex-col justify-center items-center transition-all duration-300">
+            <div class="flex items-center justify-center gap-1">
+              <span id="smartResultAnimDot" class="w-1.5 h-1.5 rounded-full inline-block"></span>
+              <span id="smartResultAnimHeader" class="text-[7.5px] font-sans uppercase font-black tracking-wider"></span>
+            </div>
+            <div id="smartResultAnimTitleBox" class="text-sm font-mono font-black tracking-wider flex items-center justify-center gap-1.5 my-0.5">
+              <i id="smartResultAnimIcon" class="text-xs"></i>
+              <span id="smartResultAnimText"></span>
+            </div>
+            <div id="smartResultAnimSub" class="flex items-center justify-center gap-1 text-[7px] font-mono">
+              <span id="smartResultAnimSubText"></span>
+            </div>
           </div>
         </div>
       </div>
@@ -2369,210 +2387,6 @@
 
     <div style="text-align:center;margin-top:12px;font-size:9.5px;color:#475569;">
       ⚠️ Martingale doubles on loss. Manage your risk accordingly.
-    </div>
-  </div>
-</div>
-
-<!-- ════════════════════════════════════════════════════════════
-     WIN CELEBRATION POPUP (Apple Minimalist Liquid Glass - Top Right)
-════════════════════════════════════════════════════════════ -->
-<div id="winPopup" style="position:fixed;top:16px;right:16px;z-index:9999;display:none;align-items:flex-start;justify-content:flex-end;pointer-events:none;">
-  <div id="winPopupCard" class="apple-glass-card apple-toast pointer-events-auto relative p-3.5 space-y-2 border border-emerald-500/40 text-left shadow-[0_16px_48px_rgba(0,0,0,0.7),0_0_24px_rgba(16,185,129,0.2)]" style="max-width:330px;width:100%;background:rgba(12,8,22,0.88);backdrop-filter:blur(28px) saturate(190%);border-radius:20px;">
-    
-    <!-- Top Row: Timeframe, Period & Dismiss -->
-    <div class="flex items-center justify-between pb-1.5 border-b border-white/10 font-mono text-[9px]">
-      <div class="flex items-center gap-1.5">
-        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block"></span>
-        <span id="winSessionTfBadge" class="text-emerald-300 font-bold uppercase tracking-wider">WinGo 30s</span>
-        <span class="text-slate-500">·</span>
-        <span id="winPeriodEl" class="text-slate-300 font-bold truncate max-w-[130px]">Period —</span>
-      </div>
-      <button onclick="closeResultPopups()" class="w-5 h-5 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center text-[9px] transition active:scale-95" title="Close">✕</button>
-    </div>
-
-    <!-- Main Outcome Row -->
-    <div class="flex items-center gap-3 pt-0.5">
-      <div class="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center font-black text-base shrink-0 shadow-[0_0_16px_rgba(16,185,129,0.35)]">
-        <i class="fa-solid fa-check"></i>
-      </div>
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-1.5">
-          <span id="winTitleHeaderEl" class="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Profit</span>
-          <span id="winColorBadge" class="text-[8px] font-black px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono">—</span>
-          <span id="winSizeBadge" class="text-[8px] font-black px-1.5 py-0.2 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 font-mono">—</span>
-        </div>
-        <div id="winAmountEl" class="text-xl font-black text-emerald-400 tracking-tight leading-tight">+₹0.00</div>
-      </div>
-    </div>
-
-    <!-- Sub readouts -->
-    <div class="space-y-1 pt-1 text-[8.5px] font-mono border-t border-white/5">
-      <div id="winAiPredictionEl" class="text-amber-300 font-semibold truncate"></div>
-      <div id="winAiBadge" class="text-slate-400 text-[8px] flex items-center gap-1"></div>
-      
-      <!-- Session stats pill -->
-      <div class="flex items-center justify-between p-1.5 rounded-xl bg-black/40 border border-white/5 text-[8px] text-slate-400">
-        <span id="winSessionAccBadge" class="text-emerald-300 font-bold">—% Acc</span>
-        <span>Streak: <b id="winSessionCurStreak" class="text-emerald-400">—</b></span>
-        <span>Score: <b id="winSessionCorrect" class="text-emerald-400">0</b>/<b id="winSessionWrong" class="text-rose-400">0</b></span>
-      </div>
-
-      <!-- Martingale reset info -->
-      <div id="winMgNextBet" style="display:none;" class="p-1 rounded-lg bg-cyan-950/40 border border-cyan-500/30 text-cyan-300 text-[8px] font-bold text-center">
-        🔄 Martingale Reset → Next: <span id="winMgNextAmt" class="text-emerald-400 font-black">₹1</span>
-      </div>
-    </div>
-
-    <!-- Auto close footer -->
-    <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] text-slate-500 font-mono">
-      <div id="winCountdownBox" class="w-2 h-2 rounded-full bg-emerald-400/60"></div>
-      <span id="winCountdownLabel">3s auto close</span>
-    </div>
-  </div>
-</div>
-
-<!-- ════════════════════════════════════════════════════════════
-     LOSS "SORRY" POPUP (Apple Minimalist Liquid Glass - Top Right)
-════════════════════════════════════════════════════════════ -->
-<div id="lossPopup" style="position:fixed;top:16px;right:16px;z-index:9999;display:none;align-items:flex-start;justify-content:flex-end;pointer-events:none;">
-  <div id="lossPopupCard" class="apple-glass-card apple-toast pointer-events-auto relative p-3.5 space-y-2 border border-rose-500/40 text-left shadow-[0_16px_48px_rgba(0,0,0,0.7),0_0_24px_rgba(244,63,94,0.2)]" style="max-width:330px;width:100%;background:rgba(12,8,22,0.88);backdrop-filter:blur(28px) saturate(190%);border-radius:20px;">
-    
-    <!-- Top Row: Timeframe, Period & Dismiss -->
-    <div class="flex items-center justify-between pb-1.5 border-b border-white/10 font-mono text-[9px]">
-      <div class="flex items-center gap-1.5">
-        <span class="w-2 h-2 rounded-full bg-rose-400 inline-block"></span>
-        <span id="lossSessionTfBadge" class="text-rose-300 font-bold uppercase tracking-wider">WinGo 30s</span>
-        <span class="text-slate-500">·</span>
-        <span id="lossPeriodEl" class="text-slate-300 font-bold truncate max-w-[130px]">Period —</span>
-      </div>
-      <button onclick="closeResultPopups()" class="w-5 h-5 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center text-[9px] transition active:scale-95" title="Close">✕</button>
-    </div>
-
-    <!-- Main Outcome Row -->
-    <div class="flex items-center gap-3 pt-0.5">
-      <div class="w-10 h-10 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center font-black text-base shrink-0 shadow-[0_0_16px_rgba(244,63,94,0.35)]">
-        <i class="fa-solid fa-xmark"></i>
-      </div>
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-1.5">
-          <span id="lossTitleHeaderEl" class="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Outcome</span>
-          <span id="lossColorBadge" class="text-[8px] font-black px-1.5 py-0.2 rounded-full bg-slate-700/60 text-slate-300 border border-white/10 font-mono">—</span>
-          <span id="lossSizeBadge" class="text-[8px] font-black px-1.5 py-0.2 rounded-full bg-slate-700/60 text-slate-300 border border-white/10 font-mono">—</span>
-        </div>
-        <div id="lossAmountEl" class="text-xl font-black text-rose-400 tracking-tight leading-tight">-₹0.00</div>
-      </div>
-    </div>
-
-    <!-- Sub readouts -->
-    <div class="space-y-1 pt-1 text-[8.5px] font-mono border-t border-white/5">
-      <div id="lossAiPredictionEl" class="text-amber-300 font-semibold truncate"></div>
-      <div id="lossBalanceEl" class="text-slate-400 text-[8px] truncate"></div>
-      
-      <!-- Session stats pill -->
-      <div class="flex items-center justify-between p-1.5 rounded-xl bg-black/40 border border-white/5 text-[8px] text-slate-400">
-        <span id="lossSessionAccBadge" class="text-rose-300 font-bold">—% Acc</span>
-        <span>Streak: <b id="lossSessionCurStreak" class="text-rose-400">—</b></span>
-        <span>Score: <b id="lossSessionCorrect" class="text-emerald-400">0</b>/<b id="lossSessionWrong" class="text-rose-400">0</b></span>
-      </div>
-
-      <!-- Martingale doubled bet info -->
-      <div id="lossMgNextBet" style="display:none;" class="p-1 rounded-lg bg-rose-950/40 border border-rose-500/30 text-rose-300 text-[8px] font-bold text-center">
-        📈 Martingale Doubles → Next: <span id="lossMgNextAmt" class="text-rose-400 font-black">₹2</span>
-      </div>
-    </div>
-
-    <!-- Auto close footer -->
-    <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] text-slate-500 font-mono">
-      <div id="lossCountdownBox" class="w-2 h-2 rounded-full bg-rose-400/60"></div>
-      <span id="lossCountdownLabel">3s auto close</span>
-    </div>
-  </div>
-</div>
-
-<!-- ════════════════════════════════════════════════════════════
-     FLOATING QUANT HUD
-════════════════════════════════════════════════════════════ -->
-<div class="fixed bottom-6 right-6 z-40 floating-hud cursor-pointer" onclick="toggleAIGlow()" title="AI Telemetry">
-  <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-amber-400 via-rose-400 to-emerald-400 p-0.5 shadow-2xl flex items-center justify-center">
-    <div class="w-full h-full rounded-full bg-app-bg flex flex-col items-center justify-center">
-      <i class="fa-solid fa-brain text-lg text-amber-400"></i>
-      <span class="text-[7px] font-black uppercase text-emerald-400">QUANT</span>
-    </div>
-  </div>
-</div>
-
-<!-- ════════════════════════════════════════════════════════════
-     CONFIRMATION BET SHEET (exact clone from screenshot)
-════════════════════════════════════════════════════════════ -->
-<div id="confirmSheetBackdrop" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[85] hidden" onclick="closeBetSheet()"></div>
-<div id="confirmSheet" class="hidden">
-  <div id="confirmSheetInner" class="sheet-enter">
-    <!-- Handle -->
-    <div class="w-12 h-1.5 bg-slate-600 rounded-full mx-auto mb-4"></div>
-
-    <!-- Header -->
-    <div class="text-center mb-5">
-      <p class="text-base font-black text-white" id="sheetTitle">WinGo 30sec</p>
-      <div id="sheetSelectionLabel" class="mt-2 py-2.5 rounded-xl bg-app-bg border border-purple-700 text-center font-bold text-sm text-white">Select Big</div>
-    </div>
-
-    <!-- AI Recommendation Banner -->
-    <div id="aiRecommendBanner" class="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 hidden">
-      <div class="flex items-center gap-2 text-xs">
-        <i class="fa-solid fa-robot text-amber-400 text-sm"></i>
-        <div>
-          <p class="font-black text-amber-300">AI RECOMMENDS: <span id="aiRecommendChoice">BIG</span></p>
-          <p class="text-slate-400 mt-0.5" id="aiRecommendReason">Markov Edge – 62% confidence</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Amount Row -->
-    <div class="mb-4">
-      <p class="text-xs text-slate-400 font-bold mb-2">Amount</p>
-      <div class="flex gap-2">
-        <button onclick="setAmount(1)"    id="amt-1"    class="amount-btn active flex-1">1</button>
-        <button onclick="setAmount(10)"   id="amt-10"   class="amount-btn inactive flex-1">10</button>
-        <button onclick="setAmount(100)"  id="amt-100"  class="amount-btn inactive flex-1">100</button>
-        <button onclick="setAmount(1000)" id="amt-1000" class="amount-btn inactive flex-1">1000</button>
-      </div>
-    </div>
-
-    <!-- Quantity Row -->
-    <div class="mb-4">
-      <p class="text-xs text-slate-400 font-bold mb-2">Quantity</p>
-      <div class="flex items-center gap-3">
-        <button onclick="changeQty(-1)" class="w-10 h-10 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-black text-xl active:scale-90 transition">−</button>
-        <div class="flex-1 py-2 rounded-xl bg-app-bg border border-purple-700 text-center font-black text-white" id="qtyDisplay">1</div>
-        <button onclick="changeQty(+1)" class="w-10 h-10 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xl active:scale-90 transition">+</button>
-      </div>
-    </div>
-
-    <!-- Multiplier Row -->
-    <div class="mb-5">
-      <div class="flex gap-1.5 overflow-x-auto pb-1">
-        <button onclick="setMultiplier(1)"   id="mul-1"   class="amount-btn active shrink-0">X1</button>
-        <button onclick="setMultiplier(5)"   id="mul-5"   class="amount-btn inactive shrink-0">X5</button>
-        <button onclick="setMultiplier(10)"  id="mul-10"  class="amount-btn inactive shrink-0">X10</button>
-        <button onclick="setMultiplier(20)"  id="mul-20"  class="amount-btn inactive shrink-0">X20</button>
-        <button onclick="setMultiplier(50)"  id="mul-50"  class="amount-btn inactive shrink-0">X50</button>
-        <button onclick="setMultiplier(100)" id="mul-100" class="amount-btn inactive shrink-0">X100</button>
-      </div>
-    </div>
-
-    <!-- Presale agree + action -->
-    <div class="flex items-center gap-2 mb-4">
-      <div class="w-6 h-6 rounded-full bg-amber-400 flex items-center justify-center shrink-0">
-        <i class="fa-solid fa-check text-slate-900 text-xs"></i>
-      </div>
-      <span class="text-xs text-slate-300">Agree <span class="text-amber-400 font-bold underline">Presale Rules</span></span>
-    </div>
-
-    <div class="grid grid-cols-2 gap-3">
-      <button onclick="closeBetSheet()" class="py-3.5 rounded-2xl bg-slate-700 text-white font-black text-sm active:scale-95 transition">Cancel</button>
-      <button onclick="confirmBet()" class="py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-900 font-black text-sm active:scale-95 transition" id="confirmBetBtn">
-        Total ₹<span id="totalAmountDisplay">1.00</span>
-      </button>
     </div>
   </div>
 </div>
@@ -9237,7 +9051,9 @@ function renderSmartView() {
   }
 
   const boxEl = document.getElementById('smartTargetCardBox');
-  if (boxEl) boxEl.className = boxBgClass;
+  if (boxEl && !window._aiTargetBoxResultAnimation?.active) {
+    boxEl.className = boxBgClass;
+  }
 
   if (targetEl) {
     if (target) {
@@ -10397,184 +10213,128 @@ function toggleResultPopup() {
   showToast(S.popupEnabled ? '🔔 Result Popups enabled (Bottom-Right)' : '🔕 Result Popups disabled', 'info');
 }
 
+window._aiTargetBoxResultAnimation = { active: false, outcome: null };
+window._aiTargetBoxAnimTimeout = null;
+
+function triggerAITargetBoxAnimation(outcome, details = {}) {
+  const boxEl = document.getElementById('smartTargetCardBox');
+  const normalView = document.getElementById('smartTargetNormalView');
+  const animView = document.getElementById('smartTargetResultAnimView');
+  const dotEl = document.getElementById('smartResultAnimDot');
+  const headerEl = document.getElementById('smartResultAnimHeader');
+  const iconEl = document.getElementById('smartResultAnimIcon');
+  const textEl = document.getElementById('smartResultAnimText');
+  const subEl = document.getElementById('smartResultAnimSubText');
+
+  if (!boxEl || !normalView || !animView) return;
+
+  if (window._aiTargetBoxAnimTimeout) {
+    clearTimeout(window._aiTargetBoxAnimTimeout);
+    window._aiTargetBoxAnimTimeout = null;
+  }
+
+  window._aiTargetBoxResultAnimation = {
+    active: true,
+    outcome: outcome,
+    timestamp: Date.now()
+  };
+
+  normalView.classList.add('hidden');
+  animView.classList.remove('hidden');
+  animView.classList.add('flex');
+
+  const isWin = outcome === 'WIN';
+
+  if (isWin) {
+    // Premium Apple Emerald Glow & Smooth Pulse
+    boxEl.className = 'p-1.5 bg-gradient-to-br from-emerald-500/30 via-emerald-950/70 to-black/95 rounded-lg border-2 border-emerald-400 shadow-[0_0_24px_rgba(16,185,129,0.5),inset_0_1px_0_rgba(255,255,255,0.2)] flex flex-col justify-center items-center transition-all duration-500 transform scale-[1.03] overflow-hidden relative min-h-[58px]';
+    
+    if (dotEl) dotEl.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block';
+    if (headerEl) {
+      headerEl.className = 'text-[7.5px] text-emerald-300 font-sans uppercase font-black tracking-wider';
+      headerEl.textContent = 'AI RESULT';
+    }
+    if (iconEl) iconEl.className = 'fa-solid fa-circle-check text-emerald-400 text-xs animate-bounce';
+    if (textEl) {
+      textEl.className = 'text-emerald-300 text-sm font-mono font-black tracking-wider flex items-center justify-center gap-1';
+      textEl.textContent = 'WIN ✓';
+    }
+    if (subEl) {
+      subEl.className = 'text-[7.5px] text-emerald-200/90 font-mono font-bold';
+      subEl.textContent = details.size ? details.size + ' #' + (details.number ?? '') + ' Hit!' : 'Target Hit!';
+    }
+  } else {
+    // Premium Apple Crimson Glow & Smooth Recoil Pulse
+    boxEl.className = 'p-1.5 bg-gradient-to-br from-rose-500/30 via-rose-950/70 to-black/95 rounded-lg border-2 border-rose-500 shadow-[0_0_24px_rgba(244,63,94,0.5),inset_0_1px_0_rgba(255,255,255,0.15)] flex flex-col justify-center items-center transition-all duration-500 transform scale-[0.98] overflow-hidden relative min-h-[58px]';
+
+    if (dotEl) dotEl.className = 'w-1.5 h-1.5 rounded-full bg-rose-400 inline-block';
+    if (headerEl) {
+      headerEl.className = 'text-[7.5px] text-rose-300 font-sans uppercase font-black tracking-wider';
+      headerEl.textContent = 'AI RESULT';
+    }
+    if (iconEl) iconEl.className = 'fa-solid fa-circle-xmark text-rose-400 text-xs';
+    if (textEl) {
+      textEl.className = 'text-rose-400 text-sm font-mono font-black tracking-wider flex items-center justify-center gap-1';
+      textEl.textContent = 'LOSS ✗';
+    }
+    if (subEl) {
+      subEl.className = 'text-[7.5px] text-rose-200/90 font-mono font-bold';
+      subEl.textContent = details.size ? 'Got ' + details.size + ' #' + (details.number ?? '') : 'Recalibrating';
+    }
+  }
+
+  // Exactly 3 seconds well-crafted animation, then cleanly restore upcoming prediction
+  window._aiTargetBoxAnimTimeout = setTimeout(() => {
+    window._aiTargetBoxResultAnimation.active = false;
+    window._aiTargetBoxAnimTimeout = null;
+
+    if (animView) {
+      animView.classList.add('hidden');
+      animView.classList.remove('flex');
+    }
+    if (normalView) {
+      normalView.classList.remove('hidden');
+    }
+    renderSmartView();
+  }, 3000);
+}
+
 function updatePopupToggleUI() {
   const btn = document.getElementById('popupToggleBtn');
   const txt = document.getElementById('popupToggleText');
   if (!btn) return;
-  if (S.popupEnabled) {
+  if (S.popupEnabled !== false) {
     btn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 hover:text-white font-black text-xs transition active:scale-95 shadow';
-    if (txt) txt.textContent = 'Popup: ON';
+    if (txt) txt.textContent = 'Alerts: ON';
   } else {
     btn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-slate-800/80 border border-slate-700 text-slate-400 hover:text-white font-black text-xs transition active:scale-95 shadow';
-    if (txt) txt.textContent = 'Popup: OFF';
+    if (txt) txt.textContent = 'Alerts: OFF';
   }
 }
 
 function closeResultPopups() {
-  clearTimeout(_popupTimer);
-  const w = document.getElementById('winPopup');
-  const l = document.getElementById('lossPopup');
-  if (w) w.style.display = 'none';
-  if (l) l.style.display = 'none';
-}
-
-function showWinPopup({ period, number, color, size, profit, balance, aiCorrect, hasBet, tf, correctCount, wrongCount, accPct, curStreak, maxWin, maxLoss, target }) {
-  if (S.popupEnabled === false) return;
-  const el = document.getElementById('winPopup');
-  if (!el) return;
-  const colorLabel = (color || '').replace('_', '-');
-  const activeTf = tf || S.timeframe || '30s';
-  const stats = (window.TimeframeManager && typeof window.TimeframeManager.getStats === 'function')
-    ? window.TimeframeManager.getStats(activeTf)
-    : null;
-
-  document.getElementById('winColorBadge').textContent = colorLabel;
-  document.getElementById('winSizeBadge').textContent  = size;
-
-  const isRealBet = (hasBet !== undefined) ? hasBet : (S.autoBetEnabled && S.myBets.some(b => b.period === period && b.status === 'WON'));
-  const aiPred = getAIPredictionForPeriod(period);
-  const aiTarget = target || (aiPred ? aiPred.target : (S.aiSignal?.target || 'BIG'));
-
-  const mgNextEl = document.getElementById('winMgNextBet');
-  const mgNextAmt = document.getElementById('winMgNextAmt');
-
-  if (isRealBet && profit > 0) {
-    document.getElementById('winTitleHeaderEl').textContent = 'Profit';
-    document.getElementById('winAmountEl').textContent = `+₹${profit.toFixed(2)}`;
-    if (mgNextEl) {
-      mgNextEl.style.display = 'block';
-      if (mgNextAmt) mgNextAmt.textContent = `₹${(S.martingaleBase || 1).toFixed(0)}`;
-    }
-  } else {
-    document.getElementById('winTitleHeaderEl').textContent = 'AI Status';
-    document.getElementById('winAmountEl').textContent = `🎯 Prediction Correct`;
-    if (mgNextEl) mgNextEl.style.display = 'none';
+  if (window._aiTargetBoxAnimTimeout) {
+    clearTimeout(window._aiTargetBoxAnimTimeout);
+    window._aiTargetBoxAnimTimeout = null;
   }
-
-  document.getElementById('winPeriodEl').textContent = `Period ${String(period).slice(-6)} · Real Number: ${number} (${size})`;
-  document.getElementById('winAiPredictionEl').textContent = `AI Target: ${aiTarget} | Result: ${number} (${size})`;
-  document.getElementById('winAiBadge').textContent = '🤖 AI Prediction Matched!';
-
-  // Populate session statistics strictly for current active timeframe
-  const cCount = correctCount !== undefined ? correctCount : (stats ? stats.correctCount : S.totalWins || 0);
-  const wCount = wrongCount !== undefined ? wrongCount : (stats ? stats.wrongCount : Math.max(0, (S.totalBets || 0) - (S.totalWins || 0)));
-  const aPct = accPct !== undefined ? accPct : (stats ? stats.accPct : (cCount + wCount > 0 ? Math.round(cCount / (cCount + wCount) * 100) : 0));
-  const cStreak = curStreak !== undefined ? curStreak : (stats ? (stats.curStreak >= 0 ? `${stats.curStreak}W` : `${Math.abs(stats.curStreak)}L`) : `${S.winStreak || 1}W`);
-  const mW = maxWin !== undefined ? maxWin : (stats ? `${stats.maxWinStreak}W` : '—');
-  const mL = maxLoss !== undefined ? maxLoss : (stats ? `${stats.maxLossStreak}L` : '—');
-
-  if (document.getElementById('winSessionTfBadge')) document.getElementById('winSessionTfBadge').textContent = `WinGo ${activeTf}`;
-  if (document.getElementById('winSessionAccBadge')) document.getElementById('winSessionAccBadge').textContent = `${aPct}% Accuracy`;
-  if (document.getElementById('winSessionCorrect')) document.getElementById('winSessionCorrect').textContent = cCount;
-  if (document.getElementById('winSessionWrong')) document.getElementById('winSessionWrong').textContent = wCount;
-  if (document.getElementById('winSessionCurStreak')) document.getElementById('winSessionCurStreak').textContent = cStreak;
-  if (document.getElementById('winSessionMaxWin')) document.getElementById('winSessionMaxWin').textContent = mW;
-  if (document.getElementById('winSessionMaxLoss')) document.getElementById('winSessionMaxLoss').textContent = mL;
-
-  // Make sure lossPopup is closed
-  const other = document.getElementById('lossPopup');
-  if (other) other.style.display = 'none';
-
-  el.style.display = 'flex';
-  let t = 3;
-  clearTimeout(_popupTimer);
-  const tick = () => {
-    const lbl = document.getElementById('winCountdownLabel');
-    if (lbl) lbl.textContent = `${t}s auto close`;
-    if (t <= 0) { el.style.display = 'none'; return; }
-    t--; _popupTimer = setTimeout(tick, 1000);
-  };
-  tick();
+  window._aiTargetBoxResultAnimation.active = false;
+  const animView = document.getElementById('smartTargetResultAnimView');
+  const normalView = document.getElementById('smartTargetNormalView');
+  if (animView) animView.classList.add('hidden');
+  if (normalView) normalView.classList.remove('hidden');
+  renderSmartView();
 }
 
-function showLossPopup({ period, number, color, size, lost, balance, hasBet, tf, correctCount, wrongCount, accPct, curStreak, maxWin, maxLoss, target }) {
-  if (S.popupEnabled === false) return;
-  const el = document.getElementById('lossPopup');
-  if (!el) return;
-  const colorLabel = (color || '').replace('_', '-');
-  const activeTf = tf || S.timeframe || '30s';
-  const stats = (window.TimeframeManager && typeof window.TimeframeManager.getStats === 'function')
-    ? window.TimeframeManager.getStats(activeTf)
-    : null;
-
-  document.getElementById('lossColorBadge').textContent = colorLabel;
-  document.getElementById('lossSizeBadge').textContent  = size;
-
-  const isRealBet = (hasBet !== undefined) ? hasBet : (S.autoBetEnabled && S.myBets.some(b => b.period === period && b.status === 'LOST'));
-  const aiPred = getAIPredictionForPeriod(period);
-  const aiTarget = target || (aiPred ? aiPred.target : (S.aiSignal?.target || 'BIG'));
-
-  const mgNextEl = document.getElementById('lossMgNextBet');
-  const mgNextAmt = document.getElementById('lossMgNextAmt');
-
-  if (isRealBet && lost > 0) {
-    document.getElementById('lossTitleHeaderEl').textContent = 'Amount Lost';
-    document.getElementById('lossAmountEl').textContent      = `-₹${lost.toFixed(2)}`;
-    document.getElementById('lossBalanceEl').textContent     = `Balance: ₹${(balance !== undefined ? balance : S.balance).toFixed(2)}`;
-    if (mgNextEl) {
-      mgNextEl.style.display = 'block';
-      if (mgNextAmt) mgNextAmt.textContent = `₹${(S.martingaleCurrent || 2).toFixed(0)}`;
-    }
-  } else {
-    // If auto-betting is OFF / no bet: show ONLY prediction was wrong, NEVER show loss money!
-    document.getElementById('lossTitleHeaderEl').textContent = 'AI Status';
-    document.getElementById('lossAmountEl').textContent      = `Prediction Incorrect`;
-    document.getElementById('lossBalanceEl').textContent     = `Session Monitored (No Money Lost)`;
-    if (mgNextEl) mgNextEl.style.display = 'none';
-  }
-
-  document.getElementById('lossPeriodEl').textContent = `Period ${String(period).slice(-6)} · Real Number: ${number} (${size})`;
-  document.getElementById('lossAiPredictionEl').textContent = `AI Target: ${aiTarget} | Result: ${number} (${size})`;
-
-  // Populate session statistics strictly for current active timeframe
-  const cCount = correctCount !== undefined ? correctCount : (stats ? stats.correctCount : S.totalWins || 0);
-  const wCount = wrongCount !== undefined ? wrongCount : (stats ? stats.wrongCount : Math.max(0, (S.totalBets || 0) - (S.totalWins || 0)));
-  const aPct = accPct !== undefined ? accPct : (stats ? stats.accPct : (cCount + wCount > 0 ? Math.round(cCount / (cCount + wCount) * 100) : 0));
-  const cStreak = curStreak !== undefined ? curStreak : (stats ? (stats.curStreak >= 0 ? `${stats.curStreak}W` : `${Math.abs(stats.curStreak)}L`) : `${S.lossStreak || 1}L`);
-  const mW = maxWin !== undefined ? maxWin : (stats ? `${stats.maxWinStreak}W` : '—');
-  const mL = maxLoss !== undefined ? maxLoss : (stats ? `${stats.maxLossStreak}L` : '—');
-
-  if (document.getElementById('lossSessionTfBadge')) document.getElementById('lossSessionTfBadge').textContent = `WinGo ${activeTf}`;
-  if (document.getElementById('lossSessionAccBadge')) document.getElementById('lossSessionAccBadge').textContent = `${aPct}% Accuracy`;
-  if (document.getElementById('lossSessionCorrect')) document.getElementById('lossSessionCorrect').textContent = cCount;
-  if (document.getElementById('lossSessionWrong')) document.getElementById('lossSessionWrong').textContent = wCount;
-  if (document.getElementById('lossSessionCurStreak')) document.getElementById('lossSessionCurStreak').textContent = cStreak;
-  if (document.getElementById('lossSessionMaxWin')) document.getElementById('lossSessionMaxWin').textContent = mW;
-  if (document.getElementById('lossSessionMaxLoss')) document.getElementById('lossSessionMaxLoss').textContent = mL;
-
-  // Make sure winPopup is closed
-  const other = document.getElementById('winPopup');
-  if (other) other.style.display = 'none';
-
-  el.style.display = 'flex';
-  let t = 3;
-  clearTimeout(_popupTimer);
-  const tick = () => {
-    const lbl = document.getElementById('lossCountdownLabel');
-    if (lbl) lbl.textContent = `${t}s auto close`;
-    if (t <= 0) { el.style.display = 'none'; return; }
-    t--; _popupTimer = setTimeout(tick, 1000);
-  };
-  tick();
+function showWinPopup(args) {
+  triggerAITargetBoxAnimation('WIN', args);
 }
 
-let _lastPopupTimestamp = 0;
+function showLossPopup(args) {
+  triggerAITargetBoxAnimation('LOSS', args);
+}
 
-// ── Trigger Result Popup on actively settled round ────────
+// ── Trigger Win / Loss Notification inside AI Target Box (3s animated display) ────────
 function triggerResultPopup(period, number, size, color, passedIsCorrect = null, passedTarget = null) {
-  if (S.popupEnabled === false) return;
-
-  // Rule: Never show more than 1 win/loss popup at a time, wait at least 10s between popups
-  const now = Date.now();
-  if (now - _lastPopupTimestamp < 10000) return;
-
-  const winEl  = document.getElementById('winPopup');
-  const lossEl = document.getElementById('lossPopup');
-  if ((winEl && winEl.style.display === 'flex') || (lossEl && lossEl.style.display === 'flex')) {
-    return;
-  }
-  _lastPopupTimestamp = now;
-
   const tf = S.timeframe || '30s';
   const pred = (window.TimeframeManager && typeof window.TimeframeManager.getPredictionForPeriod === 'function')
     ? window.TimeframeManager.getPredictionForPeriod(tf, period)
@@ -10594,30 +10354,15 @@ function triggerResultPopup(period, number, size, color, passedIsCorrect = null,
     isCorrect = String(target).toUpperCase() === String(size).toUpperCase();
   }
 
-  const stats = (window.TimeframeManager && typeof window.TimeframeManager.getStats === 'function')
-    ? window.TimeframeManager.getStats(tf)
-    : null;
-
-  const bet = (S.myBets || []).find(b => String(b.period) === String(period) || String(b.period).slice(-5) === String(period).slice(-5));
-  const hasBet = !!bet;
-  const betWon = bet ? (bet.status === 'WON' || bet.result === 'WIN') : isCorrect;
-  const betAmt = bet ? (bet.stake || bet.amount || 0) : 0;
-  const profit = bet ? (betWon ? (bet.profit !== undefined ? bet.profit : betAmt * 0.96) : 0) : 0;
-  const lost   = bet ? (!betWon ? betAmt : 0) : 0;
-
-  if (isCorrect) {
-    showWinPopup({
-      period, number: n, color, size,
-      profit, balance: S.balance, aiCorrect: true, hasBet,
-      tf, target
-    });
-  } else {
-    showLossPopup({
-      period, number: n, color, size,
-      lost, balance: S.balance, hasBet,
-      tf, target
-    });
-  }
+  // Trigger smooth premium 3-second animated Win or Loss display inside AI Target Box!
+  triggerAITargetBoxAnimation(isCorrect ? 'WIN' : 'LOSS', {
+    period,
+    number: n,
+    size,
+    color,
+    target,
+    isCorrect
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════
