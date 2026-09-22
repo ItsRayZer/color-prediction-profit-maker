@@ -2214,7 +2214,7 @@
     </div><!-- end #rightPanelAppContent -->
 
     <!-- ── 2. PREDICTION RANK & ADAPTIVE TOURNAMENT ARENA (In-Charge Champion & Model Roster) ── -->
-    <div id="rightPanelRankContent" class="hidden p-3 space-y-3">
+    <div id="rightPanelRankContent" class="p-3 space-y-3" style="display:none;">
 
       <!-- ── A. ARENA HEADER & ISOLATION STATUS ── -->
       <div class="liquid-glass-card apple-glass-card p-3 space-y-2 border border-amber-500/30 bg-gradient-to-b from-amber-950/20 via-slate-950/80 to-slate-950/90 shadow-xl rounded-2xl relative">
@@ -4234,7 +4234,7 @@
     </div><!-- end #rightPanelRankContent -->
 
     <!-- ── 3. EMBEDDED WEBSITE VIEW & REAL AUTO-BETTING (DhaniWin Mobile View) ── -->
-    <div id="rightPanelWebContent" class="hidden p-2 space-y-2.5 max-w-[410px] mx-auto">
+    <div id="rightPanelWebContent" class="p-2 space-y-2.5 max-w-[410px] mx-auto" style="display:none;">
       
       <!-- ── A. REAL AUTO-BETTING CONTROLLER (ABOVE WEB VIEW) ── -->
       <div class="liquid-glass-card apple-glass-card p-3 space-y-2 border border-emerald-500/30 bg-gradient-to-b from-emerald-950/30 via-slate-950/70 to-purple-950/40 shadow-xl rounded-2xl relative transition-all card-draggable" id="card-col3-autobet" draggable="false" data-card-id="card-col3-autobet">
@@ -5072,7 +5072,15 @@ let _savedTimerOffset = 0;
 try {
   const currentTf = (typeof S !== 'undefined' && S.timeframe) ? S.timeframe : '30s';
   const v = localStorage.getItem('wingo_timer_offset_sec_' + currentTf);
-  if (v !== null) _savedTimerOffset = parseInt(v, 10) || 0;
+  if (v !== null) {
+    const parsed = parseInt(v, 10);
+    // Sanitize any corrupt or extreme offsets from older buggy runs
+    if (!isNaN(parsed) && Math.abs(parsed) <= 15) {
+      _savedTimerOffset = parsed;
+    } else {
+      localStorage.removeItem('wingo_timer_offset_sec_' + currentTf);
+    }
+  }
 } catch (e) {}
 window._timerOffsetSec = _savedTimerOffset;
 
@@ -5146,36 +5154,10 @@ function toggleTimerPause() {
  * Instantly sets timer to 0 when a new result arrives, then restarts to starting point (29 for 30s, 59 for 1m, 179 for 3m, 299 for 5m).
  */
 function snapTimerToNewRound() {
-  const tf = S.timeframe || '30s';
-  const dur = tf === '30s' ? 30 : (tf === '1m' ? 60 : (tf === '3m' ? 180 : 300));
-  const startSec = dur - 1; // 29 for 30s, 59 for 1m, 179 for 3m, 299 for 5m
-
-  // 1. When new result comes, make timer 0 first
-  window._snappingTimer = true;
-  S.secondsLeft = 0;
+  const { secsLeft } = computeRTState();
+  S.secondsLeft = secsLeft;
   updateTimerUI();
-
-  // 2. Restart and snap to starting point
-  setTimeout(() => {
-    const nowUtc = new Date();
-    const totalSecUtc = nowUtc.getUTCHours() * 3600 + nowUtc.getUTCMinutes() * 60 + nowUtc.getUTCSeconds();
-    const curElapsed = totalSecUtc % dur;
-    window._timerOffsetSec = -curElapsed;
-    window._timerPaused = false;
-    try { localStorage.setItem('wingo_timer_offset_sec_' + tf, String(window._timerOffsetSec)); } catch (e) {}
-
-    const pauseBtn = document.getElementById('timerPauseBtn');
-    if (pauseBtn) {
-      pauseBtn.innerHTML = '⏸';
-      pauseBtn.classList.remove('bg-amber-500/40', 'text-amber-300', 'border-amber-400');
-      pauseBtn.classList.add('bg-white/10', 'text-slate-300', 'border-white/[0.08]');
-    }
-
-    updateTimerOffsetBadge();
-    S.secondsLeft = startSec;
-    updateTimerUI();
-    window._snappingTimer = false;
-  }, 300);
+  updateTimerOffsetBadge();
 }
 
 function updateTimerOffsetBadge() {
@@ -5260,16 +5242,14 @@ function resolveUpcomingPeriod() {
 function startRTEngine() {
   if (window._rtTimer) clearInterval(window._rtTimer);
   
-  // Continuous real-time live server synchronization every 3 seconds
+  // Continuous real-time live server synchronization (responsive 2s cadence)
   if (window._livePollTimer) clearInterval(window._livePollTimer);
   window._livePollTimer = setInterval(() => {
     fetchLiveAPIResults(S.timeframe).catch(() => {});
-  }, 3000);
+  }, 2000);
 
   window._rtTimer = setInterval(() => {
     try {
-      if (window._snappingTimer) return;
-
       const { secsLeft, periodStr, clockStr, dur } = computeRTState();
       
       const clockEl = document.getElementById('realWorldClock');
@@ -5324,6 +5304,7 @@ function startRTEngine() {
           }
           onPeriodRollover(finishedPeriod);
           runAI();
+          renderSmartView();
         } catch (aiErr) {
           console.warn('Rollover notice:', aiErr);
         }
@@ -5331,10 +5312,12 @@ function startRTEngine() {
         lastPeriod = upcomingPeriod;
       }
 
-      // Fast sync trigger right around rollover
-      if (secsLeft === 0 || secsLeft === dur - 1) {
-        setTimeout(() => fetchLiveAPIResults(S.timeframe).catch(() => {}), 800);
-        setTimeout(() => fetchLiveAPIResults(S.timeframe).catch(() => {}), 2500);
+      // High-speed sync trigger right around rollover (debounced to once per rollover period)
+      if ((secsLeft <= 1 || secsLeft >= dur - 2) && window._lastRolloverSyncPeriod !== upcomingPeriod) {
+        window._lastRolloverSyncPeriod = upcomingPeriod;
+        fetchLiveAPIResults(S.timeframe).catch(() => {});
+        setTimeout(() => fetchLiveAPIResults(S.timeframe).catch(() => {}), 1000);
+        setTimeout(() => fetchLiveAPIResults(S.timeframe).catch(() => {}), 2200);
       }
 
       // ── Real Auto-Betting Continuous Supervisor ──
@@ -6451,6 +6434,13 @@ function saveRealResult(period, numberInput, isLiveRound = false) {
 
   S.history.sort((a,b) => String(a.period).localeCompare(String(b.period)));
 
+  // 1. Run AI first to generate fresh prediction for upcoming round with new history
+  try {
+    runAI();
+  } catch (e) {
+    console.warn('runAI notice:', e);
+  }
+
   renderHistoryTable();
   renderMiniBalls();
   renderMyBets();
@@ -6462,7 +6452,14 @@ function saveRealResult(period, numberInput, isLiveRound = false) {
   if (typeof renderGameHistoryAnalysisTab === 'function') renderGameHistoryAnalysisTab(S.timeframe);
   updateMartingaleUI();
   updateBalanceDisplay();
-  runAI();
+
+  // 3. Immediately refresh Prediction Arena Leaderboard
+  try {
+    if (typeof updateArenaLeaderboardUI === 'function') {
+      updateArenaLeaderboardUI();
+    }
+  } catch (e) {}
+
   saveToLocalStorage();
 }
 
@@ -10082,33 +10079,40 @@ function switchRightPanelView(view) {
   const headerBtn = document.getElementById('headerWebToggleBtn');
   const headerBtnText = document.getElementById('headerWebToggleText');
 
-  // Ensure Column 3 is visible if it was minimized/collapsed
-  if (typeof windowLayoutState !== 'undefined' && windowLayoutState.col3 && !windowLayoutState.col3.visible) {
+  // ── Always force col3 visible (override any layout collapse) ──
+  if (col3) {
+    col3.style.display = 'flex';
+    col3.style.visibility = 'visible';
+    col3.style.opacity = '1';
+    col3.style.minWidth = '220px';
+  }
+  if (typeof windowLayoutState !== 'undefined' && windowLayoutState.col3) {
     windowLayoutState.col3.visible = true;
     if (typeof saveWindowLayout === 'function') saveWindowLayout();
-    if (typeof applyDesktopLayout === 'function') applyDesktopLayout();
-  } else if (col3 && window.innerWidth >= 1024 && col3.style.display === 'none') {
-    col3.style.display = 'flex';
   }
+
+  // ── Hide ALL panels first using only inline style ──
+  // (Never use Tailwind 'hidden' class — it has !important which can't be overridden by style)
+  if (appContent) { appContent.style.display = 'none'; }
+  if (rankContent) { rankContent.style.display = 'none'; }
+  if (webContent)  { webContent.style.display = 'none'; }
 
   const inactiveBtnClass = 'flex-1 py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 text-slate-300 hover:text-white hover:bg-white/5';
   const activeGoldClass = 'flex-1 py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow';
   const activeSkyClass = 'flex-1 py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow';
 
   if (currentRightPanelView === 'rank') {
-    if (col3) { col3.style.display = 'flex'; }
-    if (appContent) { appContent.classList.add('hidden'); appContent.style.display = 'none'; }
-    if (webContent) { webContent.classList.add('hidden'); webContent.style.display = 'none'; }
-    if (rankContent) { rankContent.classList.remove('hidden'); rankContent.style.display = 'block'; }
+    // ── RANK VIEW ──
+    if (rankContent) { rankContent.style.display = 'block'; }
     if (btnApp) btnApp.className = inactiveBtnClass;
     if (btnRank) btnRank.className = activeGoldClass;
     if (btnWeb) btnWeb.className = inactiveBtnClass;
     if (headerBtnText) headerBtnText.textContent = 'Rank View';
     loadPredictionArenaLeaderboard();
+
   } else if (currentRightPanelView === 'web') {
-    if (appContent) { appContent.classList.add('hidden'); appContent.style.display = 'none'; }
-    if (rankContent) { rankContent.classList.add('hidden'); rankContent.style.display = 'none'; }
-    if (webContent) { webContent.classList.remove('hidden'); webContent.style.display = 'block'; }
+    // ── WEB VIEW ──
+    if (webContent) { webContent.style.display = 'block'; }
     if (btnApp) btnApp.className = inactiveBtnClass;
     if (btnRank) btnRank.className = inactiveBtnClass;
     if (btnWeb) btnWeb.className = activeSkyClass;
@@ -10116,15 +10120,13 @@ function switchRightPanelView(view) {
       headerBtn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-sky-500/20 border border-sky-400/60 text-sky-300 hover:text-white font-black text-xs transition active:scale-95 shadow-[0_0_12px_rgba(56,189,248,0.25)]';
     }
     if (headerBtnText) headerBtnText.textContent = 'App View';
-
     const input = document.getElementById('embeddedWebUrlInput');
     const targetUrl = (input && input.value) ? input.value : 'https://dhaniwin99.com';
     loadEmbeddedWebUrl(targetUrl);
+
   } else {
-    // 'app' view
-    if (webContent) { webContent.classList.add('hidden'); webContent.style.display = 'none'; }
-    if (rankContent) { rankContent.classList.add('hidden'); rankContent.style.display = 'none'; }
-    if (appContent) { appContent.classList.remove('hidden'); appContent.style.display = 'block'; }
+    // ── APP VIEW ──
+    if (appContent) { appContent.style.display = 'block'; }
     if (btnApp) btnApp.className = activeGoldClass;
     if (btnRank) btnRank.className = inactiveBtnClass;
     if (btnWeb) btnWeb.className = inactiveBtnClass;
