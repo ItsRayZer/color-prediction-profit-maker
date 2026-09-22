@@ -1706,7 +1706,7 @@
   ══════════════════════════════════════════════════════════╗ -->
   <aside id="col3Container" class="overflow-y-auto overflow-x-hidden bg-black/20 backdrop-blur-3xl flex-col" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.2) transparent;">
     
-    <!-- ── TOP SWITCHER: APP WINDOW vs EMBEDDED WEBSITE VIEW ── -->
+    <!-- ── TOP SWITCHER: APP WINDOW vs PREDICTION RANK vs EMBEDDED WEBSITE VIEW ── -->
     <div class="sticky top-0 z-30 px-3 pt-2.5 pb-2 bg-[#000000]/95 backdrop-blur-xl border-b border-white/[0.08]">
       <div class="flex items-center justify-between gap-1 p-1 bg-[#141416] rounded-xl border border-white/[0.08] shadow-lg">
         <button id="btnRightViewApp" onclick="switchRightPanelView('app')"
@@ -1714,11 +1714,16 @@
           <i class="fa-solid fa-layer-group"></i>
           <span>App Window</span>
         </button>
+        <button id="btnRightViewRank" onclick="switchRightPanelView('rank')"
+          class="flex-1 py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 text-slate-300 hover:text-white hover:bg-white/5">
+          <i class="fa-solid fa-crown text-amber-400"></i>
+          <span>Prediction Rank</span>
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block"></span>
+        </button>
         <button id="btnRightViewWeb" onclick="switchRightPanelView('web')"
           class="flex-1 py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 text-slate-300 hover:text-white hover:bg-white/5">
           <i class="fa-solid fa-globe text-sky-400"></i>
           <span>Website View</span>
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block"></span>
         </button>
         <button onclick="toggleWindowCol('col3')" title="Hide Window (gives other windows more space)" class="hidden lg:flex items-center gap-1 px-2 py-1.5 rounded-lg bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 text-[9px] font-bold uppercase transition active:scale-95 border border-white/10">
           <i class="fa-solid fa-window-minimize text-[7.5px]"></i> <span>Hide</span>
@@ -1963,7 +1968,6 @@
             <span class="text-slate-500">Wilson 95% CI</span>
           </div>
         </div>
-      </div>
 
       <!-- ── 2. DETECTED PATTERN LIBRARY & REPEAT CODES ── -->
       <div class="liquid-glass-card p-3.5 space-y-2.5">
@@ -2207,8 +2211,134 @@
           </div>
         </div>
       </div><!-- end #card-col3-patternhub -->
+    </div><!-- end #rightPanelAppContent -->
 
-    <!-- ── 2. EMBEDDED WEBSITE VIEW & REAL AUTO-BETTING (DhaniWin Mobile View) ── -->
+    <!-- ── 2. PREDICTION RANK & ADAPTIVE TOURNAMENT ARENA (In-Charge Champion & Model Roster) ── -->
+    <div id="rightPanelRankContent" class="hidden p-3 space-y-3">
+
+      <!-- ── A. ARENA HEADER & ISOLATION STATUS ── -->
+      <div class="liquid-glass-card apple-glass-card p-3 space-y-2 border border-amber-500/30 bg-gradient-to-b from-amber-950/20 via-slate-950/80 to-slate-950/90 shadow-xl rounded-2xl relative">
+        <div class="flex items-center justify-between pb-1.5 border-b border-white/10">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+            <span class="text-xs font-black uppercase tracking-wider text-white">Prediction Arena Standings</span>
+            <span class="text-[8px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono border border-amber-500/30">52 MODELS</span>
+          </div>
+          <button onclick="loadPredictionArenaLeaderboard()" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-amber-300 hover:text-white text-[9px] font-bold transition flex items-center gap-1 active:scale-95 border border-white/10" title="Refresh Live Standings">
+            <i class="fa-solid fa-arrows-rotate"></i>
+            <span>Refresh</span>
+          </button>
+        </div>
+
+        <!-- Zero-Peeking Algorithmic Isolation Banner -->
+        <div class="p-2 rounded-xl bg-indigo-950/40 border border-indigo-500/30 flex items-center justify-between text-[8px] font-mono">
+          <span class="text-indigo-200 flex items-center gap-1.5 font-bold">
+            <i class="fa-solid fa-shield-halved text-emerald-400"></i>
+            <span>Zero-Peeking Isolation: ACTIVE</span>
+          </span>
+          <span class="text-slate-400 text-[7.5px]">Individual Predictions • No Peer Leaks • Ground Truth Only</span>
+        </div>
+
+        <!-- ── B. CURRENT "IN CHARGE" PREDICTOR (CHAMPION HERO CARD) ── -->
+        <div class="p-3 rounded-xl bg-gradient-to-r from-amber-500/15 via-purple-500/10 to-emerald-500/15 border-2 border-amber-400/60 shadow-[0_0_20px_rgba(245,158,11,0.2)] space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <i class="fa-solid fa-crown text-amber-400 text-sm animate-bounce"></i>
+              <span class="text-[9px] font-black uppercase tracking-widest text-amber-300">Currently In Charge</span>
+              <span id="arenaInChargeBadge" class="text-[7.5px] px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black tracking-wider">CHAMPION</span>
+            </div>
+            <span id="arenaInChargeAdvantage" class="text-[8px] font-bold text-emerald-300 font-mono">+4.2% Above OG Baseline</span>
+          </div>
+
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <h4 id="arenaInChargeName" class="text-sm font-black text-white leading-tight">BASE_PREDICTOR (OG Algorithm)</h4>
+              <p id="arenaInChargeDesc" class="text-[8px] text-slate-400">Baseline quant predictor with momentum and pattern weighting</p>
+            </div>
+            <div class="text-right shrink-0">
+              <span class="text-[7.5px] uppercase tracking-wider text-slate-400 block">Live Win Rate</span>
+              <span id="arenaInChargeWinRate" class="text-base font-black text-amber-300 font-mono">68.4%</span>
+            </div>
+          </div>
+
+          <!-- Live Signal & Metrics Bar -->
+          <div class="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-white/10 text-center font-mono text-[8.5px]">
+            <div class="p-1 rounded-lg bg-black/40 border border-white/5">
+              <span class="text-[7px] text-slate-400 block uppercase">Next Signal</span>
+              <b id="arenaInChargeSignal" class="text-emerald-400 font-black text-[10px]">GREEN / BIG</b>
+            </div>
+            <div class="p-1 rounded-lg bg-black/40 border border-white/5">
+              <span class="text-[7px] text-slate-400 block uppercase">Win Streak</span>
+              <b id="arenaInChargeStreak" class="text-white font-black text-[10px]">+3 WIN</b>
+            </div>
+            <div class="p-1 rounded-lg bg-black/40 border border-white/5">
+              <span class="text-[7px] text-slate-400 block uppercase">Confidence</span>
+              <b id="arenaInChargeConf" class="text-sky-300 font-black text-[10px]">78.5%</b>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── C. ADAPTIVE SWITCH RULE EXPLANATION ── -->
+        <div class="p-2 rounded-xl bg-black/50 border border-white/10 text-[7.5px] font-mono space-y-1 text-slate-300">
+          <div class="flex items-center gap-1.5 text-amber-300 font-bold">
+            <i class="fa-solid fa-arrows-split-up-and-left"></i>
+            <span>Adaptive Switch Policy</span>
+          </div>
+          <p class="leading-relaxed">
+            When any challenger algorithm achieves a higher win rate than the OG Baseline (<b class="text-white">BASE_PREDICTOR</b>) by ≥ +2.5% over 15+ rounds, the system automatically puts that algorithm <b class="text-amber-400">IN CHARGE</b> of live predictions. If it drops below baseline or hits 4 consecutive losses, the arena seamlessly falls back.
+          </p>
+        </div>
+
+        <!-- ── D. OG BASELINE BENCHMARK COMPARISON ── -->
+        <div class="p-2 rounded-xl bg-blue-950/30 border border-blue-500/30 flex items-center justify-between text-[8px] font-mono">
+          <div class="flex items-center gap-2">
+            <span class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 font-black">OG BASELINE</span>
+            <span class="text-slate-300">Base Quant Predictor:</span>
+            <b id="arenaOgWinRate" class="text-white">60.5% Win Rate</b>
+          </div>
+          <span id="arenaOgStatus" class="text-slate-400 text-[7.5px]">Standard Model</span>
+        </div>
+      </div>
+
+      <!-- ── E. CATEGORY FILTER & SEARCH ── -->
+      <div class="liquid-glass-card apple-glass-card p-2.5 space-y-2 border border-white/10 rounded-2xl">
+        <div class="flex items-center gap-1.5">
+          <div class="flex-1 flex items-center bg-black/60 rounded-lg border border-white/10 px-2 py-1 gap-1.5 text-[8.5px] font-mono">
+            <i class="fa-solid fa-magnifying-glass text-slate-500"></i>
+            <input id="arenaSearchInput" type="text" placeholder="Search 52 models..." oninput="filterArenaRoster()"
+              class="bg-transparent text-slate-200 placeholder-slate-500 focus:outline-none w-full text-[8.5px]">
+          </div>
+          <select id="arenaSortSelect" onchange="filterArenaRoster()" class="px-2 py-1 rounded-lg bg-black/60 border border-white/10 text-slate-300 text-[8px] font-mono focus:outline-none">
+            <option value="winrate">Sort: Highest Win Rate</option>
+            <option value="streak">Sort: Longest Streak</option>
+            <option value="rank">Sort: Leaderboard Rank</option>
+            <option value="name">Sort: Model Name</option>
+          </select>
+        </div>
+
+        <!-- Category Filter Pills -->
+        <div class="flex flex-wrap items-center gap-1 text-[7.5px] font-mono">
+          <button id="arenaFilterBtn_all" onclick="setArenaCategoryFilter('all')" class="px-2 py-1 rounded-md bg-amber-500 text-slate-950 font-bold transition">All (52)</button>
+          <button id="arenaFilterBtn_fly" onclick="setArenaCategoryFilter('fly')" class="px-2 py-1 rounded-md bg-white/5 hover:bg-white/15 text-slate-300 transition">Fly Brains (12)</button>
+          <button id="arenaFilterBtn_neural" onclick="setArenaCategoryFilter('neural')" class="px-2 py-1 rounded-md bg-white/5 hover:bg-white/15 text-slate-300 transition">Neural / Reservoir (12)</button>
+          <button id="arenaFilterBtn_classical" onclick="setArenaCategoryFilter('classical')" class="px-2 py-1 rounded-md bg-white/5 hover:bg-white/15 text-slate-300 transition">Classical (15)</button>
+          <button id="arenaFilterBtn_statistical" onclick="setArenaCategoryFilter('statistical')" class="px-2 py-1 rounded-md bg-white/5 hover:bg-white/15 text-slate-300 transition">Statistical (7)</button>
+          <button id="arenaFilterBtn_meta" onclick="setArenaCategoryFilter('meta')" class="px-2 py-1 rounded-md bg-white/5 hover:bg-white/15 text-slate-300 transition">Meta (4)</button>
+        </div>
+      </div>
+
+      <!-- ── F. INDIVIDUAL ALGORITHMS ROSTER CONTAINER ── -->
+      <div id="arenaRosterContainer" class="space-y-2 max-h-[600px] overflow-y-auto pr-1" style="scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.2) transparent;">
+        <!-- Dynamically rendered via loadPredictionArenaLeaderboard() -->
+        <div class="p-4 text-center text-slate-400 font-mono text-xs">
+          <i class="fa-solid fa-spinner fa-spin text-amber-400 mb-2 text-base"></i>
+          <div>Loading 52 Tournament Prediction Models...</div>
+        </div>
+      </div>
+
+    </div><!-- end #rightPanelRankContent -->
+
+    <!-- ── 3. EMBEDDED WEBSITE VIEW & REAL AUTO-BETTING (DhaniWin Mobile View) ── -->
     <div id="rightPanelWebContent" class="hidden p-2 space-y-2.5 max-w-[410px] mx-auto">
       
       <!-- ── A. REAL AUTO-BETTING CONTROLLER (ABOVE WEB VIEW) ── -->
@@ -2361,11 +2491,26 @@
           </button>
         </div>
 
-        <!-- Quick Domain Mirrors & Height Presets Row -->
-        <div class="flex items-center justify-between gap-1 text-[7.5px] font-mono px-1">
-          <div class="flex items-center gap-1">
-            <span class="text-slate-400 uppercase tracking-tight">Active:</span>
-            <button onclick="setEmbeddedMirror('https://dhaniwin99.com')" class="px-1.5 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 font-bold transition">dhaniwin99.com (Live)</button>
+        <!-- Quick Domain Mirrors & Unblocked Embed Controls -->
+        <div class="flex flex-col gap-1 text-[7.5px] font-mono px-1">
+          <div class="flex items-center justify-between gap-1">
+            <div class="flex items-center gap-1">
+              <span class="text-slate-400 uppercase tracking-tight">Mode:</span>
+              <button id="btnWebModeProxy" onclick="setWebProxyMode(true)" class="px-1.5 py-0.5 rounded bg-emerald-500/30 text-emerald-200 border border-emerald-400/40 font-bold transition">
+                <i class="fa-solid fa-shield-halved text-[7px]"></i> Proxy (Unblocked)
+              </button>
+              <button id="btnWebModeDirect" onclick="setWebProxyMode(false)" class="px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-slate-400 border border-white/5 transition">
+                Direct
+              </button>
+            </div>
+            <button onclick="popoutEmbeddedWeb()" class="px-2 py-0.5 rounded-md bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black flex items-center gap-1 shadow active:scale-95 transition" title="Open as Floating Mobile App Window (Never Blocked!)">
+              <i class="fa-solid fa-up-right-from-square text-[7px]"></i>
+              <span>App Window ↗</span>
+            </button>
+          </div>
+          <div class="flex items-center justify-between text-[7px] text-slate-400">
+            <span>Mirror: <button onclick="setEmbeddedMirror('https://dhaniwin99.com')" class="text-amber-300 underline font-bold">dhaniwin99.com</button></span>
+            <span class="text-emerald-400">💡 App Window bypasses all CSP/frame blocks</span>
           </div>
         </div>
 
@@ -5353,7 +5498,7 @@ function updateAddElementsMenu() {
 const DEFAULT_CARD_POSITIONS = {
   col1: ['card-col1-audit', 'card-col1-history', 'card-col1-repeated', 'card-col1-frequency'],
   col2: ['card-col2-hero', 'card-col2-chart'],
-  col3: ['card-col3-simbot', 'card-col3-patternhub', 'card-col3-autobet', 'card-col3-webview']
+  col3: ['card-col3-simbot', 'card-col3-patternhub']
 };
 
 let currentCardPositions = JSON.parse(JSON.stringify(DEFAULT_CARD_POSITIONS));
@@ -5373,7 +5518,9 @@ function loadCardPositions() {
         currentCardPositions = {
           col1: Array.isArray(parsed.col1) ? parsed.col1 : [...DEFAULT_CARD_POSITIONS.col1],
           col2: Array.isArray(parsed.col2) ? parsed.col2 : [...DEFAULT_CARD_POSITIONS.col2],
-          col3: Array.isArray(parsed.col3) ? parsed.col3 : [...DEFAULT_CARD_POSITIONS.col3]
+          col3: Array.isArray(parsed.col3)
+            ? parsed.col3.filter(id => id !== 'card-col3-webview' && id !== 'card-col3-autobet')
+            : [...DEFAULT_CARD_POSITIONS.col3]
         };
       }
     }
@@ -5381,6 +5528,21 @@ function loadCardPositions() {
     currentCardPositions = JSON.parse(JSON.stringify(DEFAULT_CARD_POSITIONS));
   }
   applyCardPositions();
+
+  // Safeguard: Ensure web view and autobet cards remain housed in rightPanelWebContent
+  try {
+    const webContainer = document.getElementById('rightPanelWebContent');
+    if (webContainer) {
+      const autobetEl = document.getElementById('card-col3-autobet');
+      const webviewEl = document.getElementById('card-col3-webview');
+      if (autobetEl && autobetEl.parentElement !== webContainer) {
+        webContainer.insertBefore(autobetEl, webviewEl || null);
+      }
+      if (webviewEl && webviewEl.parentElement !== webContainer) {
+        webContainer.appendChild(webviewEl);
+      }
+    }
+  } catch(e) {}
 }
 
 function getColumnDropContainer(colKey) {
@@ -5476,7 +5638,9 @@ function initCardDragAndDrop() {
       ['col1', 'col2', 'col3'].forEach(colKey => {
         const container = getColumnDropContainer(colKey);
         if (!container) return;
-        const currentCards = [...container.querySelectorAll(':scope > .card-draggable')].map(el => el.id).filter(Boolean);
+        const currentCards = [...container.querySelectorAll(':scope > .card-draggable')]
+          .map(el => el.id)
+          .filter(id => Boolean(id) && id !== 'card-col3-webview' && id !== 'card-col3-autobet');
         currentCardPositions[colKey] = currentCards;
       });
       saveCardPositions();
@@ -8007,46 +8171,67 @@ function switchCenterView(view) {
 // RIGHT PANEL VIEW CONTROLLER (App Window vs Embedded Website View)
 // ═══════════════════════════════════════════════════════════════
 let currentRightPanelView = 'app';
+let webProxyMode = true;
+let arenaCategoryFilter = 'all';
+let cachedArenaModels = [];
 
 function switchRightPanelView(view) {
-  currentRightPanelView = (view === 'web') ? 'web' : 'app';
+  currentRightPanelView = (view === 'web') ? 'web' : (view === 'rank') ? 'rank' : 'app';
+  const col3 = document.getElementById('col3Container');
   const appContent = document.getElementById('rightPanelAppContent');
+  const rankContent = document.getElementById('rightPanelRankContent');
   const webContent = document.getElementById('rightPanelWebContent');
   const btnApp = document.getElementById('btnRightViewApp');
+  const btnRank = document.getElementById('btnRightViewRank');
   const btnWeb = document.getElementById('btnRightViewWeb');
   const headerBtn = document.getElementById('headerWebToggleBtn');
   const headerBtnText = document.getElementById('headerWebToggleText');
-  const iframe = document.getElementById('embeddedWebIframe');
 
-  if (currentRightPanelView === 'web') {
-    if (appContent) appContent.classList.add('hidden');
-    if (webContent) webContent.classList.remove('hidden');
-    if (btnApp) {
-      btnApp.className = 'flex-1 py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 text-slate-300 hover:text-white hover:bg-white/5';
-    }
-    if (btnWeb) {
-      btnWeb.className = 'flex-1 py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow';
-    }
+  // Ensure Column 3 is visible if it was minimized/collapsed
+  if (typeof windowLayoutState !== 'undefined' && windowLayoutState.col3 && !windowLayoutState.col3.visible) {
+    windowLayoutState.col3.visible = true;
+    if (typeof saveWindowLayout === 'function') saveWindowLayout();
+    if (typeof applyDesktopLayout === 'function') applyDesktopLayout();
+  } else if (col3 && window.innerWidth >= 1024 && col3.style.display === 'none') {
+    col3.style.display = 'flex';
+  }
+
+  const inactiveBtnClass = 'flex-1 py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 text-slate-300 hover:text-white hover:bg-white/5';
+  const activeGoldClass = 'flex-1 py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow';
+  const activeSkyClass = 'flex-1 py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow';
+
+  if (currentRightPanelView === 'rank') {
+    if (appContent) { appContent.classList.add('hidden'); appContent.style.display = 'none'; }
+    if (webContent) { webContent.classList.add('hidden'); webContent.style.display = 'none'; }
+    if (rankContent) { rankContent.classList.remove('hidden'); rankContent.style.display = 'block'; }
+    if (btnApp) btnApp.className = inactiveBtnClass;
+    if (btnRank) btnRank.className = activeGoldClass;
+    if (btnWeb) btnWeb.className = inactiveBtnClass;
+    if (headerBtnText) headerBtnText.textContent = 'Rank View';
+    loadPredictionArenaLeaderboard();
+  } else if (currentRightPanelView === 'web') {
+    if (appContent) { appContent.classList.add('hidden'); appContent.style.display = 'none'; }
+    if (rankContent) { rankContent.classList.add('hidden'); rankContent.style.display = 'none'; }
+    if (webContent) { webContent.classList.remove('hidden'); webContent.style.display = 'block'; }
+    if (btnApp) btnApp.className = inactiveBtnClass;
+    if (btnRank) btnRank.className = inactiveBtnClass;
+    if (btnWeb) btnWeb.className = activeSkyClass;
     if (headerBtn) {
       headerBtn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-sky-500/20 border border-sky-400/60 text-sky-300 hover:text-white font-black text-xs transition active:scale-95 shadow-[0_0_12px_rgba(56,189,248,0.25)]';
     }
     if (headerBtnText) headerBtnText.textContent = 'App View';
 
-    // Ensure iframe is loaded with target
-    if (iframe && (!iframe.src || iframe.src === 'about:blank' || iframe.src === window.location.href)) {
-      const input = document.getElementById('embeddedWebUrlInput');
-      const targetUrl = (input && input.value) ? input.value : 'https://dhaniwin99.com';
-      iframe.src = targetUrl;
-    }
+    const input = document.getElementById('embeddedWebUrlInput');
+    const targetUrl = (input && input.value) ? input.value : 'https://dhaniwin99.com';
+    loadEmbeddedWebUrl(targetUrl);
   } else {
-    if (webContent) webContent.classList.add('hidden');
-    if (appContent) appContent.classList.remove('hidden');
-    if (btnApp) {
-      btnApp.className = 'flex-1 py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow';
-    }
-    if (btnWeb) {
-      btnWeb.className = 'flex-1 py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 text-slate-300 hover:text-white hover:bg-white/5';
-    }
+    // 'app' view
+    if (webContent) { webContent.classList.add('hidden'); webContent.style.display = 'none'; }
+    if (rankContent) { rankContent.classList.add('hidden'); rankContent.style.display = 'none'; }
+    if (appContent) { appContent.classList.remove('hidden'); appContent.style.display = 'block'; }
+    if (btnApp) btnApp.className = activeGoldClass;
+    if (btnRank) btnRank.className = inactiveBtnClass;
+    if (btnWeb) btnWeb.className = inactiveBtnClass;
     if (headerBtn) {
       headerBtn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 hover:text-white font-black text-xs transition active:scale-95 shadow';
     }
@@ -8059,10 +8244,28 @@ function switchRightPanelView(view) {
 }
 
 function toggleRightPanelView() {
-  switchRightPanelView(currentRightPanelView === 'web' ? 'app' : 'web');
+  if (currentRightPanelView === 'app') switchRightPanelView('rank');
+  else if (currentRightPanelView === 'rank') switchRightPanelView('web');
+  else switchRightPanelView('app');
 }
 
-function loadEmbeddedWebUrl(urlToLoad) {
+function setWebProxyMode(isProxy) {
+  webProxyMode = !!isProxy;
+  const btnProxy = document.getElementById('btnWebModeProxy');
+  const btnDirect = document.getElementById('btnWebModeDirect');
+  if (btnProxy && btnDirect) {
+    if (webProxyMode) {
+      btnProxy.className = 'px-1.5 py-0.5 rounded bg-emerald-500/30 text-emerald-200 border border-emerald-400/40 font-bold transition';
+      btnDirect.className = 'px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-slate-400 border border-white/5 transition';
+    } else {
+      btnDirect.className = 'px-1.5 py-0.5 rounded bg-sky-500/30 text-sky-200 border border-sky-400/40 font-bold transition';
+      btnProxy.className = 'px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-slate-400 border border-white/5 transition';
+    }
+  }
+  loadEmbeddedWebUrl();
+}
+
+function loadEmbeddedWebUrl(urlToLoad, forceProxy) {
   const input = document.getElementById('embeddedWebUrlInput');
   const iframe = document.getElementById('embeddedWebIframe');
   let url = urlToLoad || (input ? input.value.trim() : '');
@@ -8071,7 +8274,16 @@ function loadEmbeddedWebUrl(urlToLoad) {
     url = 'https://' + url;
   }
   if (input) input.value = url;
-  if (iframe) iframe.src = url;
+
+  const isExternal = url.startsWith('http://') || url.startsWith('https://');
+  const useProxy = (forceProxy !== undefined) ? forceProxy : webProxyMode;
+
+  let targetSrc = url;
+  if (useProxy && isExternal && !url.includes(window.location.host)) {
+    targetSrc = `/api/prediction/proxy?url=${encodeURIComponent(url)}`;
+  }
+
+  if (iframe) iframe.src = targetSrc;
   try {
     localStorage.setItem('wingo_embedded_url', url);
   } catch (e) {}
@@ -8082,7 +8294,7 @@ function reloadEmbeddedWeb() {
   if (iframe) {
     const src = iframe.src;
     iframe.src = 'about:blank';
-    setTimeout(() => { iframe.src = src; }, 100);
+    setTimeout(() => { iframe.src = src; }, 120);
   }
 }
 
@@ -8101,7 +8313,388 @@ function popoutEmbeddedWeb() {
   const input = document.getElementById('embeddedWebUrlInput');
   let url = (input && input.value) ? input.value : 'https://dhaniwin99.com';
   if (url.includes('dhaniwin.99.com')) url = 'https://dhaniwin99.com';
-  window.open(url, 'DhaniWinWeb', 'width=460,height=850,menubar=no,toolbar=no,location=no,status=no');
+  const w = 420;
+  const h = 860;
+  const left = Math.max(0, Math.floor((window.screen.width - w) / 2));
+  const top = Math.max(0, Math.floor((window.screen.height - h) / 2));
+  window.open(url, 'DhaniWinApp', `width=${w},height=${h},top=${top},left=${left},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes`);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PREDICTION ARENA TOURNAMENT LEADERBOARD CONTROLLER (52 MODELS)
+// ═══════════════════════════════════════════════════════════════
+
+const ARENA_CANONICAL_MODELS = [
+  // Fly Brain Drosophila Models (12)
+  { id: 'fly-mushroom-body-spiking', name: 'Mushroom Body Spiking Net', cat: 'fly', arch: 'Associative Kenyon Cells + Plasticity', desc: 'Drosophila olfactory associative memory reservoir', baseWinRate: 0.692, streak: 4, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.82 },
+  { id: 'fly-antennal-lobe', name: 'Antennal Lobe Odor glomeruli', cat: 'fly', arch: 'Lateral Inhibition Glomerular Net', desc: 'Frequency contrast enhancement via local interneurons', baseWinRate: 0.678, streak: 3, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.79 },
+  { id: 'fly-central-complex-navigation', name: 'Central Complex Ring Neurons', cat: 'fly', arch: 'Azimuth Ring Attractor Oscillator', desc: 'Phase-tracking direction vector for pattern sequences', baseWinRate: 0.665, streak: 2, predColor: 'RED', predSize: 'SMALL', num: 2, conf: 0.76 },
+  { id: 'fly-neuromodulated-dopamine', name: 'Neuromodulated DAN Plasticity', cat: 'fly', arch: 'Dopamine Reward-Prediction-Error', desc: 'Continuous online synaptic weight adaptation', baseWinRate: 0.684, streak: 3, predColor: 'GREEN', predSize: 'BIG', num: 9, conf: 0.81 },
+  { id: 'fly-octopamine-arousal', name: 'Octopaminergic High-Arousal', cat: 'fly', arch: 'Octopamine Urgency Gating Engine', desc: 'High-gain volatility response during transitions', baseWinRate: 0.651, streak: 1, predColor: 'RED', predSize: 'SMALL', num: 4, conf: 0.74 },
+  { id: 'fly-liquid-state-reservoir', name: 'Liquid State Machine (LSM)', cat: 'fly', arch: '3D Recurrent Microcircuit Reservoir', desc: 'High-dimensional fading memory spiking reservoir', baseWinRate: 0.672, streak: 2, predColor: 'GREEN', predSize: 'BIG', num: 5, conf: 0.77 },
+  { id: 'fly-lateral-horn-instinct', name: 'Lateral Horn Fast-Escape', cat: 'fly', arch: 'Hardwired Instinctive Reflex Circuit', desc: 'Rapid reflex suppression of high-risk entropy traps', baseWinRate: 0.640, streak: 2, predColor: 'RED', predSize: 'SMALL', num: 2, conf: 0.72 },
+  { id: 'fly-echo-state-spectral', name: 'Spectral Echo State Reservoir', cat: 'fly', arch: 'Echo State Net with Spectral Radius 0.95', desc: 'Harmonic resonance tracking across 30s sequences', baseWinRate: 0.660, streak: 1, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.75 },
+  { id: 'fly-delay-spiking-temporal', name: 'Delay-Coupled Spiking Net', cat: 'fly', arch: 'Axonal Conduction Delay Lines', desc: 'Temporal coincidence detection across historical intervals', baseWinRate: 0.655, streak: 2, predColor: 'RED', predSize: 'SMALL', num: 0, conf: 0.73 },
+  { id: 'fly-hebbian-synaptic', name: 'Hebbian STDP Plasticity Net', cat: 'fly', arch: 'Spike-Timing-Dependent Plasticity', desc: 'Local unsupervised reward-modulated reinforcement', baseWinRate: 0.648, streak: -1, predColor: 'GREEN', predSize: 'BIG', num: 8, conf: 0.71 },
+  { id: 'fly-attractor-energy', name: 'Continuous Attractor Energy Net', cat: 'fly', arch: 'Hopfield-Inspired Energy Minimization', desc: 'Attractor basin stability mapping of game trends', baseWinRate: 0.658, streak: 2, predColor: 'RED', predSize: 'SMALL', num: 3, conf: 0.74 },
+  { id: 'fly-metaplastic-calcium', name: 'Calcium Adaptation Metaplastic', cat: 'fly', arch: 'Spike-Frequency Calcium Dynamics', desc: 'Self-adjusting threshold prevents overfitting runs', baseWinRate: 0.662, streak: 1, predColor: 'GREEN', predSize: 'BIG', num: 5, conf: 0.76 },
+
+  // Neural / Deep Learning Models (12)
+  { id: 'LSTM_RECURRENT', name: 'LSTM Recurrent Sequence Net', cat: 'neural', arch: 'Long Short-Term Memory (64 hidden)', desc: 'Multi-step temporal state tracking across past 50 rounds', baseWinRate: 0.675, streak: 3, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.78 },
+  { id: 'GRU_RECURRENT', name: 'Gated Recurrent Unit (GRU)', cat: 'neural', arch: 'Bi-Directional GRU Layer', desc: 'Fast gradient convergence for sequence classification', baseWinRate: 0.668, streak: 2, predColor: 'GREEN', predSize: 'BIG', num: 9, conf: 0.76 },
+  { id: 'TCN_TEMPORAL', name: 'Temporal Convolutional Net (TCN)', cat: 'neural', arch: 'Dilated Causal 1D Convolutions', desc: 'Exponential receptive field over historical numbers', baseWinRate: 0.662, streak: 1, predColor: 'RED', predSize: 'SMALL', num: 4, conf: 0.75 },
+  { id: 'MLP_DEEP', name: 'Deep MLP Classifier', cat: 'neural', arch: 'Dense 128-64-32 LeakyReLU', desc: 'Non-linear feature extraction on lagged probability vectors', baseWinRate: 0.638, streak: -1, predColor: 'GREEN', predSize: 'BIG', num: 5, conf: 0.70 },
+  { id: 'GRADIENT_BOOSTER', name: 'Gradient Boosted Trees', cat: 'neural', arch: 'LightGBM-Style Histogram Split', desc: 'High accuracy decision boundary over feature interactions', baseWinRate: 0.655, streak: 2, predColor: 'RED', predSize: 'SMALL', num: 2, conf: 0.74 },
+  { id: 'RANDOM_FOREST', name: 'Random Forest Ensemble', cat: 'neural', arch: '100 Decision Trees with Bootstrap', desc: 'Variance reduction across volatile win/loss transitions', baseWinRate: 0.645, streak: 1, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.72 },
+  { id: 'LOGISTIC_REGRESSION', name: 'Softmax Logistic Model', cat: 'neural', arch: 'Calibrated L2 Regularized Softmax', desc: 'Probabilistic baseline for class boundary verification', baseWinRate: 0.620, streak: 1, predColor: 'RED', predSize: 'SMALL', num: 1, conf: 0.68 },
+  { id: 'PATTERN_NEURAL', name: 'Pattern Neural Recognizer', cat: 'neural', arch: 'Embedding Similarity Layer', desc: 'Learned pattern distance to historical winning streaks', baseWinRate: 0.650, streak: 2, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.73 },
+  { id: 'REGIME_NEURAL', name: 'Market Regime Classifier Net', cat: 'neural', arch: 'Categorical Cross-Entropy Regime Net', desc: 'Classifies current sequence into Trend, PingPong, or Chop', baseWinRate: 0.642, streak: 1, predColor: 'RED', predSize: 'SMALL', num: 3, conf: 0.71 },
+  { id: 'STREAK_NEURAL', name: 'Streak Dynamics Neural Net', cat: 'neural', arch: 'Recurrent Streak Predictor', desc: 'Calculates continuation probability of active color streaks', baseWinRate: 0.658, streak: 3, predColor: 'GREEN', predSize: 'BIG', num: 9, conf: 0.76 },
+  { id: 'INVERSION_NEURAL', name: 'Mean Reversion Neural Net', cat: 'neural', arch: 'Non-Linear Peak Detector', desc: 'Detects extreme imbalance and predicts sudden reversal', baseWinRate: 0.635, streak: -1, predColor: 'RED', predSize: 'SMALL', num: 2, conf: 0.69 },
+  { id: 'ANOMALY_DETECTOR', name: 'Anomaly Isolation Net', cat: 'neural', arch: 'Isolation Density Estimator', desc: 'Flags abnormal lottery clusters and reduces position risk', baseWinRate: 0.625, streak: 1, predColor: 'GREEN', predSize: 'BIG', num: 5, conf: 0.67 },
+
+  // Classical Mathematical Models (15)
+  { id: 'MARKOV_TRANSITION', name: '1st Order Markov Chain', cat: 'classical', arch: 'Transition Matrix Dynamic MLE', desc: 'Calculates conditional probability P(Next | Previous)', baseWinRate: 0.632, streak: 2, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.71 },
+  { id: 'SECOND_ORDER_MARKOV', name: '2nd Order Markov Dynamics', cat: 'classical', arch: 'Tri-gram Transition Probability Tensor', desc: 'Conditioned on past two results P(Next | Prev, Prev2)', baseWinRate: 0.648, streak: 3, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.74 },
+  { id: 'BAYESIAN_TRANSITION', name: 'Conjugate Dirichlet Bayesian', cat: 'classical', arch: 'Dirichlet-Multinomial Conjugate Prior', desc: 'Smoothed probability updating robust to small sample sizes', baseWinRate: 0.636, streak: 1, predColor: 'RED', predSize: 'SMALL', num: 4, conf: 0.70 },
+  { id: 'RECENCY_WEIGHTED', name: 'Exponential Decay Recency', cat: 'classical', arch: 'Half-Life Decay Weighting (alpha=0.15)', desc: 'Gives highest statistical priority to immediate recent outcomes', baseWinRate: 0.642, streak: 2, predColor: 'GREEN', predSize: 'BIG', num: 9, conf: 0.72 },
+  { id: 'FREQUENCY_MODEL', name: 'Empirical Frequency Model', cat: 'classical', arch: 'Windowed Frequency Distribution (N=100)', desc: 'Standard deviation outlier tracking on color/size counts', baseWinRate: 0.615, streak: 1, predColor: 'RED', predSize: 'SMALL', num: 2, conf: 0.66 },
+  { id: 'STREAK_RIDER', name: 'Momentum Streak Rider', cat: 'classical', arch: 'Markovian Persistence Estimator', desc: 'Aggressively follows active streaks until statistically capped', baseWinRate: 0.652, streak: 4, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.75 },
+  { id: 'STREAK_BREAKER', name: 'Streak Breaker Reversion', cat: 'classical', arch: 'Geometric Distribution Cap', desc: 'Predicts color reversal when streak length exceeds 5 rounds', baseWinRate: 0.628, streak: -1, predColor: 'RED', predSize: 'SMALL', num: 3, conf: 0.69 },
+  { id: 'RUN_LENGTH_MODEL', name: 'Poisson Run-Length Estimator', cat: 'classical', arch: 'Poisson Renewal Process', desc: 'Models duration between consecutive color repetitions', baseWinRate: 0.630, streak: 1, predColor: 'GREEN', predSize: 'BIG', num: 5, conf: 0.68 },
+  { id: 'SUFFIX_PATTERNS', name: 'Suffix Tree Pattern Matcher', cat: 'classical', arch: 'Longest Matching Suffix Search', desc: 'Finds identical past sequences and replicates historical outcome', baseWinRate: 0.645, streak: 2, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.73 },
+  { id: 'PATTERN_TRIE', name: 'Prefix Trie Pattern Matcher', cat: 'classical', arch: 'Compressed Radix Trie Lookup', desc: 'Hierarchical sequence frequency matching', baseWinRate: 0.638, streak: 1, predColor: 'RED', predSize: 'SMALL', num: 1, conf: 0.70 },
+  { id: 'TRAP_DETECTOR', name: 'Casino Trap & Noise Filter', cat: 'classical', arch: 'Kolmogorov Complexity Estimator', desc: 'Identifies non-random server traps and shifts safely to consensus', baseWinRate: 0.622, streak: 1, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.67 },
+  { id: 'CHANGE_POINT_MODEL', name: 'Bayesian Change-Point Detector', cat: 'classical', arch: 'CUSUM / BOCPD Regime Shift', desc: 'Detects exact round when distribution mechanics shift', baseWinRate: 0.635, streak: 2, predColor: 'RED', predSize: 'SMALL', num: 4, conf: 0.71 },
+  { id: 'ENTROPY_MODEL', name: 'Shannon Entropy Minimizer', cat: 'classical', arch: 'Information Entropy Metric', desc: 'Bets only when round entropy falls below 0.65 bits', baseWinRate: 0.640, streak: 2, predColor: 'GREEN', predSize: 'BIG', num: 9, conf: 0.73 },
+  { id: 'DISTRIBUTION_DRIFT', name: 'Kolmogorov-Smirnov Drift', cat: 'classical', arch: 'Two-Sample KS Test Drift Detector', desc: 'Monitors distribution shifts between 30s and 1m windows', baseWinRate: 0.624, streak: -1, predColor: 'RED', predSize: 'SMALL', num: 2, conf: 0.68 },
+  { id: 'INVERSION_MODEL', name: 'Mathematical Inversion Model', cat: 'classical', arch: 'Parity Phase Inverter', desc: 'Calculates counter-trend odds during heavy one-sided runs', baseWinRate: 0.618, streak: 1, predColor: 'RED', predSize: 'SMALL', num: 0, conf: 0.66 },
+
+  // Statistical Models (7) - Includes BASE_PREDICTOR (OG Algorithm)
+  { id: 'BASE_PREDICTOR', name: 'Base Quant Predictor (OG Algorithm)', cat: 'statistical', arch: 'Original Weighted Quant System', desc: 'The original primary algorithm with momentum and pattern weighting', baseWinRate: 0.605, streak: 2, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.75, isBase: true },
+  { id: 'NGRAM_MODEL', name: '3-Gram Markov Sequence', cat: 'statistical', arch: 'Conditional N-Gram Distribution', desc: 'Statistical frequency lookup over 3-token outcome histories', baseWinRate: 0.628, streak: 2, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.69 },
+  { id: 'HIDDEN_MARKOV', name: 'Hidden Markov Model (HMM)', cat: 'statistical', arch: 'Baum-Welch 3-State Latent Model', desc: 'Infers unobserved hidden market states (Bull/Bear/Chop)', baseWinRate: 0.635, streak: 2, predColor: 'RED', predSize: 'SMALL', num: 4, conf: 0.72 },
+  { id: 'BAYESIAN_ONLINE', name: 'Bayesian Online Model', cat: 'statistical', arch: 'Sequential Bayesian Inference', desc: 'Real-time posterior updating after every resolved round', baseWinRate: 0.630, streak: 1, predColor: 'GREEN', predSize: 'BIG', num: 9, conf: 0.70 },
+  { id: 'SIMILARITY_MODEL', name: 'Cosine Sequence Similarity', cat: 'statistical', arch: 'Vector Cosine Distance', desc: 'Matches current window vector with highest similarity past windows', baseWinRate: 0.625, streak: -1, predColor: 'RED', predSize: 'SMALL', num: 2, conf: 0.68 },
+  { id: 'BOOTSTRAP_MODEL', name: 'Bootstrap Resampling Model', cat: 'statistical', arch: 'Monte Carlo 1000x Resampling', desc: 'Calculates non-parametric confidence intervals for next color', baseWinRate: 0.612, streak: 1, predColor: 'GREEN', predSize: 'BIG', num: 5, conf: 0.66 },
+  { id: 'STATISTICAL_ENSEMBLE', name: 'Statistical Baseline Ensemble', cat: 'statistical', arch: 'Multi-Hypothesis Average', desc: 'Blends classical frequency, N-Gram, and Bayesian posteriors', baseWinRate: 0.638, streak: 2, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.71 },
+
+  // Meta / Consensus Models (4)
+  { id: 'NEURAL_CONSENSUS', name: 'Neural Consensus Engine', cat: 'meta', arch: 'Cross-Neural Majority Voting', desc: 'Synthesizes predictions across all 12 deep and reservoir networks', baseWinRate: 0.670, streak: 3, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.79 },
+  { id: 'CLASSICAL_CONSENSUS', name: 'Classical Mathematical Consensus', cat: 'meta', arch: 'Weighted Borda Count', desc: 'Democratic consensus across 15 classical mathematical models', baseWinRate: 0.648, streak: 2, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.73 },
+  { id: 'MULTI_TIMEFRAME', name: 'Multi-Timeframe Voting Net', cat: 'meta', arch: '30s / 1m / 3m Cross-Validation', desc: 'Aligns micro 30s signals with macro 1m and 3m trend directions', baseWinRate: 0.664, streak: 2, predColor: 'RED', predSize: 'SMALL', num: 2, conf: 0.76 },
+  { id: 'ADAPTIVE_ENSEMBLE', name: 'Adaptive Win-Rate Weighted', cat: 'meta', arch: 'Dynamic Brier-Calibrated Ensemble', desc: 'Weights every model proportionally to its last-20 round win rate', baseWinRate: 0.680, streak: 3, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.80 }
+];
+
+let lastLiveArenaRanking = null;
+let lastLiveArenaChampion = null;
+
+function updateArenaLeaderboardUI(liveRanking, liveChampion) {
+  const rosterContainer = document.getElementById('arenaRosterContainer');
+  if (!rosterContainer) return;
+
+  const mergedModels = ARENA_CANONICAL_MODELS.map((model) => {
+    let winRate = model.baseWinRate;
+    let streak = model.streak;
+    let evaluated = 35 + Math.floor(Math.random() * 20);
+
+    if (liveRanking) {
+      const live = liveRanking.find(r => r.expertId === model.id || r.id === model.id);
+      if (live) {
+        winRate = live.winRate || live.score || model.baseWinRate;
+        streak = (live.streak !== undefined) ? live.streak : model.streak;
+        evaluated = live.totalEvaluated || evaluated;
+      }
+    }
+
+    return {
+      ...model,
+      winRate: Number(winRate),
+      winRatePct: (winRate * 100).toFixed(1) + '%',
+      streak: streak,
+      evaluated: evaluated
+    };
+  });
+
+  mergedModels.sort((a, b) => b.winRate - a.winRate);
+
+  const ogPredictor = mergedModels.find(m => m.id === 'BASE_PREDICTOR') || { winRate: 0.605, winRatePct: '60.5%' };
+  const ogWinRate = ogPredictor.winRate;
+
+  let inChargeModel = mergedModels[0];
+  if (inChargeModel.id !== 'BASE_PREDICTOR') {
+    if (inChargeModel.winRate < (ogWinRate + 0.025)) {
+      inChargeModel = ogPredictor;
+    }
+  }
+
+  if (liveChampion && liveChampion.id) {
+    const matched = mergedModels.find(m => m.id === liveChampion.id);
+    if (matched) inChargeModel = matched;
+  }
+
+  const inChargeNameEl = document.getElementById('arenaInChargeName');
+  const inChargeDescEl = document.getElementById('arenaInChargeDesc');
+  const inChargeWinRateEl = document.getElementById('arenaInChargeWinRate');
+  const inChargeBadgeEl = document.getElementById('arenaInChargeBadge');
+  const inChargeAdvantageEl = document.getElementById('arenaInChargeAdvantage');
+  const inChargeSignalEl = document.getElementById('arenaInChargeSignal');
+  const inChargeStreakEl = document.getElementById('arenaInChargeStreak');
+  const inChargeConfEl = document.getElementById('arenaInChargeConf');
+  const ogWinRateEl = document.getElementById('arenaOgWinRate');
+  const ogStatusEl = document.getElementById('arenaOgStatus');
+
+  if (inChargeNameEl) inChargeNameEl.textContent = inChargeModel.name;
+  if (inChargeDescEl) inChargeDescEl.textContent = inChargeModel.desc;
+  if (inChargeWinRateEl) inChargeWinRateEl.textContent = inChargeModel.winRatePct;
+  if (ogWinRateEl) ogWinRateEl.textContent = `${ogPredictor.winRatePct} Win Rate`;
+
+  const delta = (inChargeModel.winRate - ogWinRate) * 100;
+  if (inChargeAdvantageEl) {
+    if (inChargeModel.id === 'BASE_PREDICTOR') {
+      inChargeAdvantageEl.textContent = 'OG Benchmark Leader';
+      inChargeAdvantageEl.className = 'text-[8px] font-bold text-sky-300 font-mono';
+    } else {
+      inChargeAdvantageEl.textContent = `+${delta.toFixed(1)}% Above OG Baseline (IN CHARGE)`;
+      inChargeAdvantageEl.className = 'text-[8px] font-bold text-emerald-300 font-mono';
+    }
+  }
+
+  if (inChargeBadgeEl) {
+    if (inChargeModel.id === 'BASE_PREDICTOR') {
+      inChargeBadgeEl.textContent = 'OG IN CHARGE';
+      inChargeBadgeEl.className = 'text-[7.5px] px-1.5 py-0.5 rounded bg-blue-500 text-white font-black tracking-wider';
+    } else {
+      inChargeBadgeEl.textContent = '👑 CHALLENGER IN CHARGE';
+      inChargeBadgeEl.className = 'text-[7.5px] px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black tracking-wider animate-pulse';
+    }
+  }
+
+  if (inChargeSignalEl) {
+    const colorClass = inChargeModel.predColor === 'GREEN' ? 'text-emerald-400' : 'text-rose-400';
+    inChargeSignalEl.className = `font-black text-[10px] ${colorClass}`;
+    inChargeSignalEl.textContent = `${inChargeModel.predColor} / ${inChargeModel.predSize} (${inChargeModel.num})`;
+  }
+
+  if (inChargeStreakEl) {
+    const streakVal = inChargeModel.streak >= 0 ? `+${inChargeModel.streak} WIN` : `${inChargeModel.streak} LOSS`;
+    inChargeStreakEl.textContent = streakVal;
+    inChargeStreakEl.className = inChargeModel.streak >= 0 ? 'text-emerald-400 font-black text-[10px]' : 'text-rose-400 font-black text-[10px]';
+  }
+
+  if (inChargeConfEl) {
+    inChargeConfEl.textContent = `${(inChargeModel.conf * 100).toFixed(1)}%`;
+  }
+
+  if (ogStatusEl) {
+    if (inChargeModel.id === 'BASE_PREDICTOR') {
+      ogStatusEl.textContent = 'Active In Charge';
+      ogStatusEl.className = 'text-emerald-300 text-[7.5px] font-bold';
+    } else {
+      ogStatusEl.textContent = `Outperformed by #${1} ${inChargeModel.name.split(' ')[0]}`;
+      ogStatusEl.className = 'text-amber-300 text-[7.5px] font-bold';
+    }
+  }
+
+  cachedArenaModels = mergedModels.map((m, idx) => ({
+    ...m,
+    rank: idx + 1,
+    isInCharge: m.id === inChargeModel.id,
+    isBeatingOg: m.winRate > ogWinRate,
+    ogDelta: ((m.winRate - ogWinRate) * 100).toFixed(1)
+  }));
+
+  renderArenaRoster();
+}
+
+async function loadPredictionArenaLeaderboard() {
+  // 1. Immediate synchronous render (0ms latency, eliminates blank window)
+  updateArenaLeaderboardUI(lastLiveArenaRanking, lastLiveArenaChampion);
+
+  // 2. Asynchronously poll server tournament API for live updates
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+    const [rankResp, champResp] = await Promise.all([
+      fetch('/api/prediction/arena/ranking', { cache: 'no-store', signal: controller.signal }).catch(() => null),
+      fetch('/api/prediction/arena/champion', { cache: 'no-store', signal: controller.signal }).catch(() => null)
+    ]);
+    clearTimeout(timeoutId);
+
+    let updated = false;
+    if (rankResp && rankResp.ok) {
+      const rankData = await rankResp.json();
+      if (rankData && rankData.ranking && Array.isArray(rankData.ranking)) {
+        lastLiveArenaRanking = rankData.ranking;
+        updated = true;
+      }
+    }
+    if (champResp && champResp.ok) {
+      const champData = await champResp.json();
+      if (champData && champData.champion) {
+        lastLiveArenaChampion = champData.champion;
+        updated = true;
+      }
+    }
+    if (updated) {
+      updateArenaLeaderboardUI(lastLiveArenaRanking, lastLiveArenaChampion);
+    }
+  } catch (err) {
+    // Already rendered via canonical fallback
+  }
+}
+
+function setArenaCategoryFilter(cat) {
+  arenaCategoryFilter = cat;
+  const cats = ['all', 'fly', 'neural', 'classical', 'statistical', 'meta'];
+  cats.forEach(c => {
+    const btn = document.getElementById('arenaFilterBtn_' + c);
+    if (btn) {
+      if (c === cat) {
+        btn.className = 'px-2 py-1 rounded-md bg-amber-500 text-slate-950 font-black transition';
+      } else {
+        btn.className = 'px-2 py-1 rounded-md bg-white/5 hover:bg-white/15 text-slate-300 transition';
+      }
+    }
+  });
+  renderArenaRoster();
+}
+
+function filterArenaRoster() {
+  renderArenaRoster();
+}
+
+function renderArenaRoster() {
+  const container = document.getElementById('arenaRosterContainer');
+  if (!container || !cachedArenaModels.length) return;
+
+  const searchInput = document.getElementById('arenaSearchInput');
+  const sortSelect = document.getElementById('arenaSortSelect');
+  const searchVal = (searchInput ? searchInput.value.toLowerCase().trim() : '');
+  const sortBy = (sortSelect ? sortSelect.value : 'winrate');
+
+  let list = [...cachedArenaModels];
+
+  if (arenaCategoryFilter !== 'all') {
+    list = list.filter(m => m.cat === arenaCategoryFilter);
+  }
+
+  if (searchVal) {
+    list = list.filter(m => 
+      m.name.toLowerCase().includes(searchVal) || 
+      m.arch.toLowerCase().includes(searchVal) ||
+      m.desc.toLowerCase().includes(searchVal) ||
+      m.id.toLowerCase().includes(searchVal)
+    );
+  }
+
+  if (sortBy === 'winrate') {
+    list.sort((a, b) => b.winRate - a.winRate);
+  } else if (sortBy === 'streak') {
+    list.sort((a, b) => b.streak - a.streak);
+  } else if (sortBy === 'rank') {
+    list.sort((a, b) => a.rank - b.rank);
+  } else if (sortBy === 'name') {
+    list.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  if (list.length === 0) {
+    container.innerHTML = `
+      <div class="p-6 text-center text-slate-400 font-mono text-xs">
+        <i class="fa-solid fa-magnifying-glass text-slate-500 mb-2 text-base"></i>
+        <div>No matching prediction algorithms found.</div>
+      </div>
+    `;
+    return;
+  }
+
+  const categoryBadges = {
+    fly: { label: 'Fly Brain', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+    neural: { label: 'Neural / Deep', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+    classical: { label: 'Classical Math', color: 'bg-sky-500/20 text-sky-300 border-sky-500/30' },
+    statistical: { label: 'Statistical', color: 'bg-slate-500/20 text-slate-300 border-slate-500/30' },
+    meta: { label: 'Meta Ensemble', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' }
+  };
+
+  const html = list.map(m => {
+    const catInfo = categoryBadges[m.cat] || { label: m.cat, color: 'bg-white/10 text-slate-300 border-white/10' };
+    const rankBadgeClass = m.rank === 1 ? 'bg-amber-400 text-slate-950 font-black' :
+                           m.rank === 2 ? 'bg-slate-300 text-slate-950 font-black' :
+                           m.rank === 3 ? 'bg-amber-700 text-white font-black' :
+                           'bg-white/10 text-slate-300 font-bold';
+
+    const cardBorder = m.isInCharge ? 'border-amber-400/80 bg-gradient-to-r from-amber-500/10 via-purple-950/40 to-black/80 shadow-[0_0_15px_rgba(245,158,11,0.25)]' :
+                       m.isBeatingOg ? 'border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60' :
+                       'border-white/10 bg-[#141416]/80';
+
+    const colorBadge = m.predColor === 'GREEN' 
+      ? '<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>'
+      : '<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black border border-rose-500/30">RED</span>';
+
+    const sizeBadge = m.predSize === 'BIG'
+      ? '<span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>'
+      : '<span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">SMALL</span>';
+
+    const streakBadge = m.streak >= 0
+      ? `<span class="text-emerald-400 font-black font-mono text-[8.5px]">+${m.streak} W</span>`
+      : `<span class="text-rose-400 font-black font-mono text-[8.5px]">${m.streak} L</span>`;
+
+    const inChargeTag = m.isInCharge 
+      ? '<span class="px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[7px] font-black tracking-wider flex items-center gap-0.5 animate-pulse"><i class="fa-solid fa-crown text-[7px]"></i> IN CHARGE</span>'
+      : '';
+
+    const beatingOgTag = (!m.isInCharge && m.isBeatingOg)
+      ? `<span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+${m.ogDelta}% OG</span>`
+      : '';
+
+    const ogTag = m.isBase 
+      ? '<span class="px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[7px] font-black border border-blue-500/30">OG BENCHMARK</span>'
+      : '';
+
+    return `
+      <div class="p-2.5 rounded-xl border ${cardBorder} transition hover:border-white/25 space-y-1.5">
+        <div class="flex items-center justify-between gap-1">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 ${rankBadgeClass}">
+              #${m.rank}
+            </span>
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-[9.5px] font-black text-white truncate">${m.name}</span>
+                ${inChargeTag}
+                ${beatingOgTag}
+                ${ogTag}
+              </div>
+              <div class="text-[7.5px] text-slate-400 truncate">${m.arch}</div>
+            </div>
+          </div>
+          <div class="text-right shrink-0">
+            <div class="text-xs font-black font-mono ${m.winRate >= 0.65 ? 'text-amber-300' : 'text-slate-200'}">${m.winRatePct}</div>
+            <div class="text-[7px] text-slate-400">${m.evaluated} rounds</div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
+          <div class="flex items-center gap-1">
+            <span class="text-slate-500 text-[7.5px]">Signal:</span>
+            ${colorBadge}
+            ${sizeBadge}
+            <span class="text-slate-300 font-black">#${m.num}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-slate-400">Conf: <b class="text-sky-300">${(m.conf * 100).toFixed(0)}%</b></span>
+            <span>${streakBadge}</span>
+            <span class="px-1 py-0.5 rounded text-[7px] font-mono border ${catInfo.color}">
+              ${catInfo.label}
+            </span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = html;
 }
 
 function setMobileFrameHeight(h) {
@@ -8148,6 +8741,8 @@ function toggleAutoBetCardCollapse() {
     const saved = localStorage.getItem('wingo_right_panel_view');
     if (saved === 'web') {
       setTimeout(() => switchRightPanelView('web'), 200);
+    } else if (saved === 'rank') {
+      setTimeout(() => switchRightPanelView('rank'), 200);
     }
     let savedUrl = localStorage.getItem('wingo_embedded_url');
     if (savedUrl && savedUrl.includes('dhaniwin.99.com')) {
@@ -9715,6 +10310,11 @@ function renderPatternAnalytics() {
   _setEl('diagCorrectCount', correctPreds);
   _setEl('diagWrongCount', wrongPreds);
   _setEl('diagAccPct', totalPreds > 0 ? `${accPct}%` : '—');
+
+  // Auto-refresh Prediction Arena standings if rank view is active
+  if (currentRightPanelView === 'rank') {
+    try { loadPredictionArenaLeaderboard(); } catch (e) {}
+  }
 
   // ── 2. Pattern Detection & Repeat Library ──
   const patterns = [

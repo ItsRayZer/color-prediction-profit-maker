@@ -1,0 +1,24 @@
+{
+  "modelName": "Drosophila_LIF_Compact_Reservoir",
+  "sourceReference": "Shiu et al. (Nature 2024) / FlyWire v630 Connectome",
+  "neuronType": "Leaky Integrate-and-Fire (LIF)",
+  "membraneDynamics": {
+    "vRest": -52.0,
+    "vThresh": -45.0,
+    "vReset": -52.0,
+    "leakConstant": 0.88,
+    "refractoryPeriodSteps": 2,
+    "dtMs": 1.0
+  },
+  "connectivity": {
+    "neuronCount": 1000,
+    "sparsity": 0.08,
+    "spectralRadius": 0.95,
+    "format": "Compressed Sparse Row (CSR)"
+  },
+  "readout": {
+    "type": "Regularized Ridge Linear Readout",
+    "l2Penalty": 0.01,
+    "learningRate": 0.02
+  }
+}
