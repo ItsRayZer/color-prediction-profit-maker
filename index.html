@@ -2235,80 +2235,106 @@
           <span class="text-indigo-200 flex items-center gap-1.5 font-bold">
             <i class="fa-solid fa-shield-halved text-emerald-400"></i>
             <span>Zero-Peeking Isolation: ACTIVE</span>
+    <!-- ── 2. PREDICTION RANK & ADAPTIVE TOURNAMENT ARENA (In-Charge Champion & Model Roster) ── -->
+    <div id="rightPanelRankContent" class="p-3 space-y-3" style="display:none;">
+
+      <!-- ── A. ARENA HEADER & ISOLATION STATUS ── -->
+      <div class="liquid-glass-card apple-glass-card p-3 space-y-2 border border-amber-500/30 bg-gradient-to-b from-amber-950/20 via-slate-950/80 to-slate-950/90 shadow-xl rounded-2xl relative">
+        <div class="flex items-center justify-between pb-1.5 border-b border-white/10">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+            <span class="text-xs font-black uppercase tracking-wider text-white">Prediction Arena Standings</span>
+            <span class="text-[8px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono border border-amber-500/30">52 MODELS</span>
+          </div>
+          <button onclick="loadPredictionArenaLeaderboard()" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-amber-300 hover:text-white text-[9px] font-bold transition flex items-center gap-1 active:scale-95 border border-white/10" title="Refresh Live Standings">
+            <i class="fa-solid fa-arrows-rotate"></i>
+            <span>Refresh</span>
+          </button>
+        </div>
+
+        <!-- Zero-Peeking Algorithmic Isolation Banner -->
+        <div class="p-2 rounded-xl bg-indigo-950/40 border border-indigo-500/30 flex items-center justify-between text-[8px] font-mono">
+          <span class="text-indigo-200 flex items-center gap-1.5 font-bold">
+            <i class="fa-solid fa-shield-halved text-emerald-400"></i>
+            <span>Zero-Peeking Isolation: ACTIVE</span>
           </span>
           <span class="text-slate-400 text-[7.5px]">Individual Predictions • No Peer Leaks • Ground Truth Only</span>
         </div>
 
         <!-- ── B. CURRENT "IN CHARGE" PREDICTOR (CHAMPION HERO CARD) ── -->
-        <div class="p-3 rounded-xl bg-gradient-to-r from-amber-500/15 via-purple-500/10 to-emerald-500/15 border-2 border-amber-400/60 shadow-[0_0_20px_rgba(245,158,11,0.2)] space-y-2">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-1.5">
-              <i class="fa-solid fa-crown text-amber-400 text-sm animate-bounce"></i>
-              <span class="text-[9px] font-black uppercase tracking-widest text-amber-300">Currently In Charge</span>
-              <span id="arenaInChargeBadge" class="text-[7.5px] px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black tracking-wider">CHAMPION</span>
+        <div class="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/25 via-[#1c182a] to-[#111320] border-2 border-amber-400/80 shadow-[0_0_30px_rgba(245,158,11,0.3)] space-y-2.5 relative overflow-hidden">
+          <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
+          
+          <div class="flex items-center justify-between relative z-10">
+            <div class="flex items-center gap-2">
+              <span class="w-6 h-6 rounded-lg bg-amber-400/20 border border-amber-400/40 flex items-center justify-center shadow-sm">
+                <i class="fa-solid fa-crown text-amber-400 text-xs animate-bounce"></i>
+              </span>
+              <span class="text-[9.5px] font-black uppercase tracking-widest text-amber-300">Currently In Charge</span>
+              <span id="arenaInChargeBadge" class="text-[8px] px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black tracking-wider shadow">👑 CHAMPION</span>
             </div>
-            <span id="arenaInChargeAdvantage" class="text-[8px] font-bold text-emerald-300 font-mono">+4.2% Above OG Baseline</span>
+            <span id="arenaInChargeAdvantage" class="text-[8.5px] font-bold text-emerald-300 font-mono bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-500/30">+4.2% Above OG Baseline</span>
           </div>
 
-          <div class="flex items-start justify-between gap-2">
+          <div class="flex items-start justify-between gap-3 relative z-10">
             <div>
-              <h4 id="arenaInChargeName" class="text-sm font-black text-white leading-tight">BASE_PREDICTOR (OG Algorithm)</h4>
-              <p id="arenaInChargeDesc" class="text-[8px] text-slate-400">Baseline quant predictor with momentum and pattern weighting</p>
+              <h4 id="arenaInChargeName" class="text-sm font-black text-white leading-tight drop-shadow-sm">BASE_PREDICTOR (OG Algorithm)</h4>
+              <p id="arenaInChargeDesc" class="text-[8.5px] text-slate-300 mt-0.5 font-medium">Baseline quant predictor with momentum and pattern weighting</p>
             </div>
-            <div class="text-right shrink-0">
-              <span class="text-[7.5px] uppercase tracking-wider text-slate-400 block">Live Win Rate</span>
-              <span id="arenaInChargeWinRate" class="text-base font-black text-amber-300 font-mono">68.4%</span>
+            <div class="text-right shrink-0 bg-black/40 px-2.5 py-1 rounded-xl border border-white/10">
+              <span class="text-[7.5px] uppercase tracking-wider text-slate-400 block font-mono">Live Win Rate</span>
+              <span id="arenaInChargeWinRate" class="text-lg font-black text-amber-300 font-mono tracking-tight drop-shadow">68.4%</span>
             </div>
           </div>
 
           <!-- Live Signal & Metrics Bar -->
-          <div class="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-white/10 text-center font-mono text-[8.5px]">
-            <div class="p-1 rounded-lg bg-black/40 border border-white/5">
+          <div class="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-white/10 text-center font-mono text-[8.5px] relative z-10">
+            <div class="p-1.5 rounded-xl bg-black/50 border border-white/10 shadow-inner">
               <span class="text-[7px] text-slate-400 block uppercase">Next Signal</span>
-              <b id="arenaInChargeSignal" class="text-emerald-400 font-black text-[10px]">GREEN / BIG</b>
+              <b id="arenaInChargeSignal" class="text-emerald-400 font-black text-[10.5px]">GREEN / BIG</b>
             </div>
-            <div class="p-1 rounded-lg bg-black/40 border border-white/5">
+            <div class="p-1.5 rounded-xl bg-black/50 border border-white/10 shadow-inner">
               <span class="text-[7px] text-slate-400 block uppercase">Win Streak</span>
-              <b id="arenaInChargeStreak" class="text-white font-black text-[10px]">+3 WIN</b>
+              <b id="arenaInChargeStreak" class="text-white font-black text-[10.5px]">+3 WIN</b>
             </div>
-            <div class="p-1 rounded-lg bg-black/40 border border-white/5">
+            <div class="p-1.5 rounded-xl bg-black/50 border border-white/10 shadow-inner">
               <span class="text-[7px] text-slate-400 block uppercase">Confidence</span>
-              <b id="arenaInChargeConf" class="text-sky-300 font-black text-[10px]">78.5%</b>
+              <b id="arenaInChargeConf" class="text-sky-300 font-black text-[10.5px]">78.5%</b>
             </div>
           </div>
         </div>
 
         <!-- ── C. ADAPTIVE SWITCH RULE EXPLANATION ── -->
-        <div class="p-2 rounded-xl bg-black/50 border border-white/10 text-[7.5px] font-mono space-y-1 text-slate-300">
-          <div class="flex items-center gap-1.5 text-amber-300 font-bold">
-            <i class="fa-solid fa-arrows-split-up-and-left"></i>
-            <span>Adaptive Switch Policy</span>
+        <div class="p-2.5 rounded-xl bg-gradient-to-r from-purple-950/30 via-slate-900/60 to-slate-900/80 border border-purple-500/20 text-[8px] font-mono space-y-1 text-slate-200">
+          <div class="flex items-center gap-1.5 text-amber-300 font-black">
+            <i class="fa-solid fa-arrows-split-up-and-left text-[9px]"></i>
+            <span class="uppercase tracking-wider">Adaptive Switch Policy</span>
           </div>
-          <p class="leading-relaxed">
-            When any challenger algorithm achieves a higher win rate than the OG Baseline (<b class="text-white">BASE_PREDICTOR</b>) by ≥ +2.5% over 15+ rounds, the system automatically puts that algorithm <b class="text-amber-400">IN CHARGE</b> of live predictions. If it drops below baseline or hits 4 consecutive losses, the arena seamlessly falls back.
+          <p class="leading-relaxed text-slate-300">
+            When any challenger algorithm achieves a higher win rate than the OG Baseline (<b class="text-white">BASE_PREDICTOR</b>) by ≥ <b class="text-amber-300">+2.5%</b> over 15+ rounds, the system automatically puts that algorithm <b class="text-amber-400 font-black">IN CHARGE</b> of live predictions. If it drops below baseline or hits 4 consecutive losses, the arena seamlessly falls back.
           </p>
         </div>
 
         <!-- ── D. OG BASELINE BENCHMARK COMPARISON ── -->
-        <div class="p-2 rounded-xl bg-blue-950/30 border border-blue-500/30 flex items-center justify-between text-[8px] font-mono">
+        <div class="p-2.5 rounded-xl bg-gradient-to-r from-blue-950/40 via-slate-900/60 to-slate-900/80 border border-blue-500/30 flex items-center justify-between text-[8px] font-mono shadow-sm">
           <div class="flex items-center gap-2">
-            <span class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 font-black">OG BASELINE</span>
+            <span class="px-2 py-0.5 rounded-md bg-blue-500/25 text-blue-200 font-black border border-blue-400/30">OG BASELINE</span>
             <span class="text-slate-300">Base Quant Predictor:</span>
-            <b id="arenaOgWinRate" class="text-white">60.5% Win Rate</b>
+            <b id="arenaOgWinRate" class="text-white font-bold">60.5% Win Rate</b>
           </div>
-          <span id="arenaOgStatus" class="text-slate-400 text-[7.5px]">Standard Model</span>
+          <span id="arenaOgStatus" class="text-slate-300 text-[8px] font-mono bg-white/5 px-2 py-0.5 rounded">Standard Model</span>
         </div>
       </div>
 
       <!-- ── E. CATEGORY FILTER & SEARCH ── -->
-      <div class="liquid-glass-card apple-glass-card p-2.5 space-y-2 border border-white/10 rounded-2xl">
+      <div class="liquid-glass-card apple-glass-card p-3 space-y-2 border border-white/10 rounded-2xl bg-[#14151f]/80">
         <div class="flex items-center gap-1.5">
-          <div class="flex-1 flex items-center bg-black/60 rounded-lg border border-white/10 px-2 py-1 gap-1.5 text-[8.5px] font-mono">
-            <i class="fa-solid fa-magnifying-glass text-slate-500"></i>
+          <div class="flex-1 flex items-center bg-black/70 rounded-xl border border-white/10 px-2.5 py-1.5 gap-2 text-[9px] font-mono shadow-inner">
+            <i class="fa-solid fa-magnifying-glass text-slate-400"></i>
             <input id="arenaSearchInput" type="text" placeholder="Search 52 models..." oninput="filterArenaRoster()"
-              class="bg-transparent text-slate-200 placeholder-slate-500 focus:outline-none w-full text-[8.5px]">
+              class="bg-transparent text-white placeholder-slate-400 focus:outline-none w-full text-[9px]">
           </div>
-          <select id="arenaSortSelect" onchange="filterArenaRoster()" class="px-2 py-1 rounded-lg bg-black/60 border border-white/10 text-slate-300 text-[8px] font-mono focus:outline-none">
+          <select id="arenaSortSelect" onchange="filterArenaRoster()" class="px-2.5 py-1.5 rounded-xl bg-black/70 border border-white/10 text-slate-200 text-[8.5px] font-mono focus:outline-none shadow">
             <option value="winrate">Sort: Highest Win Rate</option>
             <option value="streak">Sort: Longest Streak</option>
             <option value="rank">Sort: Leaderboard Rank</option>
@@ -2317,18 +2343,18 @@
         </div>
 
         <!-- Category Filter Pills -->
-        <div class="flex flex-wrap items-center gap-1 text-[7.5px] font-mono">
-          <button id="arenaFilterBtn_all" onclick="setArenaCategoryFilter('all')" class="px-2 py-1 rounded-md bg-amber-500 text-slate-950 font-bold transition">All (52)</button>
-          <button id="arenaFilterBtn_fly" onclick="setArenaCategoryFilter('fly')" class="px-2 py-1 rounded-md bg-white/5 hover:bg-white/15 text-slate-300 transition">Fly Brains (12)</button>
-          <button id="arenaFilterBtn_neural" onclick="setArenaCategoryFilter('neural')" class="px-2 py-1 rounded-md bg-white/5 hover:bg-white/15 text-slate-300 transition">Neural / Reservoir (12)</button>
-          <button id="arenaFilterBtn_classical" onclick="setArenaCategoryFilter('classical')" class="px-2 py-1 rounded-md bg-white/5 hover:bg-white/15 text-slate-300 transition">Classical (15)</button>
-          <button id="arenaFilterBtn_statistical" onclick="setArenaCategoryFilter('statistical')" class="px-2 py-1 rounded-md bg-white/5 hover:bg-white/15 text-slate-300 transition">Statistical (7)</button>
-          <button id="arenaFilterBtn_meta" onclick="setArenaCategoryFilter('meta')" class="px-2 py-1 rounded-md bg-white/5 hover:bg-white/15 text-slate-300 transition">Meta (4)</button>
+        <div class="flex flex-wrap items-center gap-1.5 text-[8px] font-mono">
+          <button id="arenaFilterBtn_all" onclick="setArenaCategoryFilter('all')" class="px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 font-black shadow transition">All (52)</button>
+          <button id="arenaFilterBtn_fly" onclick="setArenaCategoryFilter('fly')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-slate-200 border border-white/5 transition">Fly Brains (12)</button>
+          <button id="arenaFilterBtn_neural" onclick="setArenaCategoryFilter('neural')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-slate-200 border border-white/5 transition">Neural / Reservoir (12)</button>
+          <button id="arenaFilterBtn_classical" onclick="setArenaCategoryFilter('classical')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-slate-200 border border-white/5 transition">Classical (15)</button>
+          <button id="arenaFilterBtn_statistical" onclick="setArenaCategoryFilter('statistical')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-slate-200 border border-white/5 transition">Statistical (7)</button>
+          <button id="arenaFilterBtn_meta" onclick="setArenaCategoryFilter('meta')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-slate-200 border border-white/5 transition">Meta (4)</button>
         </div>
       </div>
 
       <!-- ── F. INDIVIDUAL ALGORITHMS ROSTER CONTAINER ── -->
-      <div id="arenaRosterContainer" class="space-y-2 max-h-[600px] overflow-y-auto pr-1" style="scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.2) transparent;">
+      <div id="arenaRosterContainer" class="space-y-2.5 pb-6">
         <div class="p-2.5 rounded-xl border border-amber-400/80 bg-gradient-to-r from-amber-500/10 via-purple-950/40 to-black/80 shadow-[0_0_15px_rgba(245,158,11,0.25)] transition hover:border-white/25 space-y-1.5">
           <div class="flex items-center justify-between gap-1">
             <div class="flex items-center gap-1.5 min-w-0">
@@ -4398,14 +4424,14 @@
                 Direct
               </button>
             </div>
-            <button onclick="popoutEmbeddedWeb()" class="px-2 py-0.5 rounded-md bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black flex items-center gap-1 shadow active:scale-95 transition" title="Open as Floating Mobile App Window (Never Blocked!)">
-              <i class="fa-solid fa-up-right-from-square text-[7px]"></i>
-              <span>App Window ↗</span>
+            <button onclick="popoutEmbeddedWeb()" class="px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black flex items-center gap-1 shadow-[0_0_12px_rgba(245,158,11,0.4)] active:scale-95 transition hover:brightness-110" title="Open as Floating Mobile App Window (Never Blocked!)">
+              <i class="fa-solid fa-up-right-from-square text-[8px]"></i>
+              <span class="text-[8.5px]">App Window ↗</span>
             </button>
           </div>
           <div class="flex items-center justify-between text-[7px] text-slate-400">
             <span>Mirror: <button onclick="setEmbeddedMirror('https://dhaniwin99.com')" class="text-amber-300 underline font-bold">dhaniwin99.com</button></span>
-            <span class="text-emerald-400">💡 App Window bypasses all CSP/frame blocks</span>
+            <span class="text-emerald-400 font-bold">💡 App Window bypasses all CSP/frame blocks</span>
           </div>
         </div>
 
@@ -4425,11 +4451,75 @@
           </div>
         </div>
 
-        <!-- Mobile Screen Viewport (Iframe) - Default Increased to 850px Height -->
-        <div id="embeddedMobileViewportContainer" class="relative w-full rounded-[22px] overflow-hidden bg-[#000000] border border-white/5 shadow-inner transition-all duration-200" style="height: 850px; min-height: 820px;">
+        <!-- Mobile Screen Viewport (Iframe + Active Companion HUD) -->
+        <div id="embeddedMobileViewportContainer" class="relative w-full rounded-[22px] overflow-hidden bg-gradient-to-b from-[#13141f] to-[#0c0d14] border border-white/10 shadow-2xl transition-all duration-200" style="height: 850px; min-height: 820px;">
+          
+          <!-- Active DhaniWin Companion / Unblock Fast Launcher Card -->
+          <div id="iframeBlockedFallbackCard" class="absolute inset-0 z-10 flex flex-col items-center justify-center p-4 text-center bg-gradient-to-b from-[#181a28]/95 via-[#10111a]/95 to-[#0b0c12]/95 backdrop-blur-md space-y-4">
+            <div class="relative">
+              <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-sky-500/20 border border-amber-400/30 flex items-center justify-center shadow-[0_0_25px_rgba(245,158,11,0.25)]">
+                <i class="fa-solid fa-mobile-screen-button text-2xl text-amber-400"></i>
+              </div>
+              <span class="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-slate-950 animate-pulse"></span>
+            </div>
+
+            <div class="space-y-1 max-w-xs">
+              <h4 class="text-sm font-black text-white uppercase tracking-wider">DhaniWin Mobile Terminal</h4>
+              <p class="text-[9px] text-slate-300 font-mono leading-relaxed">
+                Direct in-frame browser embedding of third-party platforms is protected by host security policies (CSP / X-Frame-Options).
+              </p>
+            </div>
+
+            <!-- Primary Unblocked Action Buttons -->
+            <div class="w-full max-w-xs space-y-2 font-mono">
+              <button onclick="popoutEmbeddedWeb()" class="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(245,158,11,0.4)] active:scale-95 transition hover:brightness-110">
+                <i class="fa-solid fa-up-right-from-square text-[11px]"></i>
+                <span>LAUNCH APP WINDOW (UNBLOCKED)</span>
+              </button>
+              <div class="grid grid-cols-2 gap-2">
+                <button onclick="openEmbeddedInNewTab()" class="py-2 px-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-[9px] border border-white/10 flex items-center justify-center gap-1.5 transition active:scale-95">
+                  <i class="fa-solid fa-globe text-sky-400 text-[9px]"></i>
+                  <span>Open Full Tab</span>
+                </button>
+                <button onclick="toggleFallbackOverlay()" class="py-2 px-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white font-bold text-[9px] border border-white/10 flex items-center justify-center gap-1.5 transition active:scale-95">
+                  <i class="fa-solid fa-eye text-emerald-400 text-[9px]"></i>
+                  <span>Toggle Iframe</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Live Prediction Signal Companion HUD -->
+            <div class="w-full max-w-xs p-3 rounded-xl bg-black/60 border border-white/10 space-y-2 text-left font-mono">
+              <div class="flex items-center justify-between text-[8px] text-slate-400 border-b border-white/10 pb-1">
+                <span class="flex items-center gap-1 text-amber-300 font-bold">
+                  <i class="fa-solid fa-satellite-dish text-emerald-400"></i> LIVE SIGNAL SYNC
+                </span>
+                <span class="text-emerald-300 font-bold">CONNECTED</span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-[9px]">
+                <div class="bg-white/5 p-1.5 rounded-lg border border-white/5">
+                  <span class="text-[7.5px] text-slate-400 block">AI Bet Target:</span>
+                  <b id="webFallbackSignal" class="text-emerald-400 font-black text-xs">GREEN / BIG</b>
+                </div>
+                <div class="bg-white/5 p-1.5 rounded-lg border border-white/5">
+                  <span class="text-[7.5px] text-slate-400 block">AI Stake (Martingale):</span>
+                  <b id="webFallbackStake" class="text-amber-300 font-black text-xs">₹10</b>
+                </div>
+              </div>
+              <div class="flex items-center justify-between text-[7.5px] text-slate-400 pt-0.5">
+                <span>Timer: <b id="webFallbackTimer" class="text-sky-300">30s WinGo</b></span>
+                <span>Model: <b id="webFallbackModel" class="text-purple-300">In Charge</b></span>
+              </div>
+            </div>
+
+            <p class="text-[7.5px] text-slate-400 font-mono">
+              💡 Floating App Window opens side-by-side with zero CSP blocking and full login session support.
+            </p>
+          </div>
+
           <iframe id="embeddedWebIframe"
             src="https://dhaniwin99.com"
-            class="w-full h-full border-0 bg-[#000000] block"
+            class="w-full h-full border-0 bg-transparent block"
             scrolling="yes"
             loading="eager"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; payment"
@@ -10079,40 +10169,54 @@ function switchRightPanelView(view) {
   const headerBtn = document.getElementById('headerWebToggleBtn');
   const headerBtnText = document.getElementById('headerWebToggleText');
 
-  // ── Always force col3 visible (override any layout collapse) ──
+  // ── 1. Always force Column 3 visible and reset scroll to top ──
   if (col3) {
     col3.style.display = 'flex';
     col3.style.visibility = 'visible';
     col3.style.opacity = '1';
-    col3.style.minWidth = '220px';
+    col3.style.minWidth = '240px';
+    col3.scrollTop = 0; // Essential: prevents scrolling into dark/empty space
   }
   if (typeof windowLayoutState !== 'undefined' && windowLayoutState.col3) {
     windowLayoutState.col3.visible = true;
     if (typeof saveWindowLayout === 'function') saveWindowLayout();
+    if (typeof applyDesktopLayout === 'function') applyDesktopLayout();
   }
 
-  // ── Hide ALL panels first using only inline style ──
-  // (Never use Tailwind 'hidden' class — it has !important which can't be overridden by style)
+  // ── 2. Hide ALL panels first using explicit inline styles ──
   if (appContent) { appContent.style.display = 'none'; }
   if (rankContent) { rankContent.style.display = 'none'; }
   if (webContent)  { webContent.style.display = 'none'; }
 
   const inactiveBtnClass = 'flex-1 py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 text-slate-300 hover:text-white hover:bg-white/5';
-  const activeGoldClass = 'flex-1 py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow';
-  const activeSkyClass = 'flex-1 py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow';
+  const activeGoldClass = 'flex-1 py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.4)]';
+  const activeSkyClass = 'flex-1 py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow-[0_0_12px_rgba(56,189,248,0.4)]';
 
   if (currentRightPanelView === 'rank') {
     // ── RANK VIEW ──
-    if (rankContent) { rankContent.style.display = 'block'; }
+    if (rankContent) {
+      rankContent.style.display = 'block';
+      rankContent.style.visibility = 'visible';
+      rankContent.style.opacity = '1';
+    }
     if (btnApp) btnApp.className = inactiveBtnClass;
     if (btnRank) btnRank.className = activeGoldClass;
     if (btnWeb) btnWeb.className = inactiveBtnClass;
     if (headerBtnText) headerBtnText.textContent = 'Rank View';
-    loadPredictionArenaLeaderboard();
+    try {
+      updateArenaLeaderboardUI();
+      loadPredictionArenaLeaderboard();
+    } catch(e) {
+      console.warn('Rank leaderboard load error:', e);
+    }
 
   } else if (currentRightPanelView === 'web') {
     // ── WEB VIEW ──
-    if (webContent) { webContent.style.display = 'block'; }
+    if (webContent) {
+      webContent.style.display = 'block';
+      webContent.style.visibility = 'visible';
+      webContent.style.opacity = '1';
+    }
     if (btnApp) btnApp.className = inactiveBtnClass;
     if (btnRank) btnRank.className = inactiveBtnClass;
     if (btnWeb) btnWeb.className = activeSkyClass;
@@ -10126,7 +10230,11 @@ function switchRightPanelView(view) {
 
   } else {
     // ── APP VIEW ──
-    if (appContent) { appContent.style.display = 'block'; }
+    if (appContent) {
+      appContent.style.display = 'block';
+      appContent.style.visibility = 'visible';
+      appContent.style.opacity = '1';
+    }
     if (btnApp) btnApp.className = activeGoldClass;
     if (btnRank) btnRank.className = inactiveBtnClass;
     if (btnWeb) btnWeb.className = inactiveBtnClass;
@@ -10216,6 +10324,13 @@ function popoutEmbeddedWeb() {
   const left = Math.max(0, Math.floor((window.screen.width - w) / 2));
   const top = Math.max(0, Math.floor((window.screen.height - h) / 2));
   window.open(url, 'DhaniWinApp', `width=${w},height=${h},top=${top},left=${left},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=yes`);
+}
+
+function toggleFallbackOverlay() {
+  const card = document.getElementById('iframeBlockedFallbackCard');
+  if (card) {
+    card.style.display = (card.style.display === 'none') ? 'flex' : 'none';
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -10402,6 +10517,29 @@ function updateArenaLeaderboardUI(liveRanking, liveChampion) {
     ogDelta: ((m.winRate - ogWinRate) * 100).toFixed(1)
   }));
 
+  // Sync Web View Fallback Companion HUD
+  try {
+    const fallbackSig = document.getElementById('webFallbackSignal');
+    const fallbackStake = document.getElementById('webFallbackStake');
+    const fallbackTimer = document.getElementById('webFallbackTimer');
+    const fallbackModel = document.getElementById('webFallbackModel');
+    if (fallbackSig && inChargeModel) {
+      fallbackSig.textContent = `${inChargeModel.predColor} / ${inChargeModel.predSize} (#${inChargeModel.num})`;
+      fallbackSig.className = inChargeModel.predColor === 'GREEN' ? 'text-emerald-400 font-black text-xs' : 'text-rose-400 font-black text-xs';
+    }
+    if (fallbackStake) {
+      const stakeEl = document.getElementById('realAutoStakeDisplay') || document.getElementById('signalStake');
+      if (stakeEl) fallbackStake.textContent = stakeEl.textContent;
+    }
+    if (fallbackTimer) {
+      const tfEl = document.getElementById('realAutoTfDisplay');
+      if (tfEl) fallbackTimer.textContent = tfEl.textContent + ' WinGo';
+    }
+    if (fallbackModel && inChargeModel) {
+      fallbackModel.textContent = inChargeModel.name.split(' ')[0];
+    }
+  } catch(e) {}
+
   renderArenaRoster();
 }
 
@@ -10522,74 +10660,83 @@ function renderArenaRoster() {
   };
 
   const html = list.map(m => {
-    const catInfo = categoryBadges[m.cat] || { label: m.cat, color: 'bg-white/10 text-slate-300 border-white/10' };
-    const rankBadgeClass = m.rank === 1 ? 'bg-amber-400 text-slate-950 font-black' :
-                           m.rank === 2 ? 'bg-slate-300 text-slate-950 font-black' :
+    const catInfo = categoryBadges[m.cat] || { label: m.cat, color: 'bg-white/10 text-slate-300 border-white/20' };
+    const rankBadgeClass = m.rank === 1 ? 'bg-amber-400 text-slate-950 font-black shadow-[0_0_10px_rgba(245,158,11,0.6)]' :
+                           m.rank === 2 ? 'bg-slate-200 text-slate-950 font-black' :
                            m.rank === 3 ? 'bg-amber-700 text-white font-black' :
-                           'bg-white/10 text-slate-300 font-bold';
+                           'bg-white/15 text-slate-200 font-bold border border-white/10';
 
-    const cardBorder = m.isInCharge ? 'border-amber-400/80 bg-gradient-to-r from-amber-500/10 via-purple-950/40 to-black/80 shadow-[0_0_15px_rgba(245,158,11,0.25)]' :
-                       m.isBeatingOg ? 'border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60' :
-                       'border-white/10 bg-[#141416]/80';
+    const cardBorder = m.isInCharge 
+      ? 'border-2 border-amber-400 bg-gradient-to-br from-amber-950/60 via-[#1b1526] to-[#10121c] shadow-[0_0_24px_rgba(245,158,11,0.35)]' 
+      : m.isBeatingOg 
+      ? 'border border-emerald-500/70 bg-gradient-to-br from-emerald-950/40 via-[#131a18] to-[#10131c] shadow-[0_0_14px_rgba(16,185,129,0.22)]' 
+      : 'border border-white/[0.14] bg-gradient-to-r from-[#191a24] to-[#12131b] hover:border-amber-400/60 shadow-md';
 
     const colorBadge = m.predColor === 'GREEN' 
-      ? '<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>'
-      : '<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black border border-rose-500/30">RED</span>';
+      ? '<span class="px-2 py-0.5 rounded-md bg-emerald-500/30 text-emerald-200 font-black border border-emerald-400/50 shadow-sm flex items-center gap-1">🟢 GREEN</span>'
+      : '<span class="px-2 py-0.5 rounded-md bg-rose-500/30 text-rose-200 font-black border border-rose-400/50 shadow-sm flex items-center gap-1">🔴 RED</span>';
 
     const sizeBadge = m.predSize === 'BIG'
-      ? '<span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>'
-      : '<span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">SMALL</span>';
+      ? '<span class="px-2 py-0.5 rounded-md bg-indigo-500/30 text-indigo-200 font-black border border-indigo-400/50 shadow-sm">🟡 BIG</span>'
+      : '<span class="px-2 py-0.5 rounded-md bg-amber-500/30 text-amber-200 font-black border border-amber-400/50 shadow-sm">🔵 SMALL</span>';
 
     const streakBadge = m.streak >= 0
-      ? `<span class="text-emerald-400 font-black font-mono text-[8.5px]">+${m.streak} W</span>`
-      : `<span class="text-rose-400 font-black font-mono text-[8.5px]">${m.streak} L</span>`;
+      ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black font-mono text-[8px] border border-emerald-500/30">🔥 +${m.streak} W</span>`
+      : `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black font-mono text-[8px] border border-rose-500/30">${m.streak} L</span>`;
 
     const inChargeTag = m.isInCharge 
-      ? '<span class="px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[7px] font-black tracking-wider flex items-center gap-0.5 animate-pulse"><i class="fa-solid fa-crown text-[7px]"></i> IN CHARGE</span>'
+      ? '<span class="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[7.5px] font-black tracking-wider flex items-center gap-1 shadow animate-pulse"><i class="fa-solid fa-crown text-[8px]"></i> IN CHARGE</span>'
       : '';
 
     const beatingOgTag = (!m.isInCharge && m.isBeatingOg)
-      ? `<span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+${m.ogDelta}% OG</span>`
+      ? `<span class="px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-200 text-[7.5px] font-black border border-emerald-400/40">+${m.ogDelta}% OG</span>`
       : '';
 
     const ogTag = m.isBase 
-      ? '<span class="px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[7px] font-black border border-blue-500/30">OG BENCHMARK</span>'
+      ? '<span class="px-2 py-0.5 rounded-full bg-blue-500/30 text-blue-200 text-[7.5px] font-black border border-blue-400/50">OG BASELINE</span>'
       : '';
 
+    const winPctNum = Math.min(100, Math.max(0, m.winRate * 100));
+
     return `
-      <div class="p-2.5 rounded-xl border ${cardBorder} transition hover:border-white/25 space-y-1.5">
+      <div class="p-3 rounded-2xl border ${cardBorder} transition duration-150 hover:translate-y-[-1px] space-y-2">
         <div class="flex items-center justify-between gap-1">
-          <div class="flex items-center gap-1.5 min-w-0">
-            <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 ${rankBadgeClass}">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-mono shrink-0 ${rankBadgeClass}">
               #${m.rank}
             </span>
             <div class="min-w-0">
               <div class="flex items-center gap-1.5 flex-wrap">
-                <span class="text-[9.5px] font-black text-white truncate">${m.name}</span>
+                <span class="text-[10px] font-black text-white truncate">${m.name}</span>
                 ${inChargeTag}
                 ${beatingOgTag}
                 ${ogTag}
               </div>
-              <div class="text-[7.5px] text-slate-400 truncate">${m.arch}</div>
+              <div class="text-[8px] text-slate-300 truncate font-mono">${m.arch}</div>
             </div>
           </div>
           <div class="text-right shrink-0">
-            <div class="text-xs font-black font-mono ${m.winRate >= 0.65 ? 'text-amber-300' : 'text-slate-200'}">${m.winRatePct}</div>
-            <div class="text-[7px] text-slate-400">${m.evaluated} rounds</div>
+            <div class="text-sm font-black font-mono tracking-tight ${m.winRate >= 0.65 ? 'text-amber-400' : 'text-slate-100'}">${m.winRatePct}</div>
+            <div class="text-[7.5px] text-slate-400 font-mono">${m.evaluated} rounds evaluated</div>
           </div>
         </div>
 
-        <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-          <div class="flex items-center gap-1">
-            <span class="text-slate-500 text-[7.5px]">Signal:</span>
+        <!-- Accuracy Visual Meter -->
+        <div class="w-full bg-black/60 rounded-full h-1.5 overflow-hidden border border-white/10">
+          <div class="h-full rounded-full ${m.winRate >= 0.65 ? 'bg-gradient-to-r from-amber-400 to-amber-500' : 'bg-gradient-to-r from-sky-400 to-indigo-500'}" style="width: ${winPctNum}%"></div>
+        </div>
+
+        <div class="flex items-center justify-between pt-1 border-t border-white/[0.08] text-[8.5px] font-mono">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-slate-400 text-[8px] font-bold">Signal:</span>
             ${colorBadge}
             ${sizeBadge}
-            <span class="text-slate-300 font-black">#${m.num}</span>
+            <span class="px-1.5 py-0.5 rounded bg-white/10 text-white font-black">#${m.num}</span>
           </div>
-          <div class="flex items-center gap-2">
-            <span class="text-slate-400">Conf: <b class="text-sky-300">${(m.conf * 100).toFixed(0)}%</b></span>
-            <span>${streakBadge}</span>
-            <span class="px-1 py-0.5 rounded text-[7px] font-mono border ${catInfo.color}">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-slate-300">Conf: <b class="text-sky-300 font-black">${(m.conf * 100).toFixed(0)}%</b></span>
+            ${streakBadge}
+            <span class="px-1.5 py-0.5 rounded text-[7.5px] font-mono border ${catInfo.color}">
               ${catInfo.label}
             </span>
           </div>
