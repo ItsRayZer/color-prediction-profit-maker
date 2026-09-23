@@ -5767,9 +5767,24 @@ function runAI() {
   const pLast5 = pStr ? pStr.slice(-5) : null;
   const lockedPred = pStr && (S.aiPredictionMap?.[pStr] || S.aiPredictionMap?.[pLast5]);
 
-  // Delegate to modular QuantAlgorithm or reuse locked prediction
+  // Check if a challenger model is currently IN CHARGE in the arena
+  const activeInCharge = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
   let outcome;
-  if (lockedPred && lockedPred.target) {
+  if (activeInCharge && activeInCharge.id !== 'BASE_PREDICTOR' && activeInCharge.predSize) {
+    outcome = {
+      ready: true,
+      decision: 'BET',
+      target: activeInCharge.predSize,
+      type: 'SIZE',
+      sizeTarget: activeInCharge.predSize,
+      colorTarget: activeInCharge.predColor,
+      prob: activeInCharge.conf || 0.78,
+      entropy: 0.45,
+      reason: `👑 ${activeInCharge.name} (IN CHARGE — ${activeInCharge.winRatePct || '0.0%'} Win Rate)`,
+      engines: [activeInCharge.name],
+      stake: 1
+    };
+  } else if (lockedPred && lockedPred.target) {
     // Prediction is already locked for this period: preserve it unconditionally
     outcome = {
       ready: true,
@@ -5850,6 +5865,11 @@ function runAI() {
     metadata: outcome.metadata || null
   };
   S.aiReady = true;
+
+  // Sync In-Charge Model with newly computed AI Signal
+  if (typeof syncArenaInChargeWithSignal === 'function') {
+    syncArenaInChargeWithSignal();
+  }
 
   // Store AI Prediction for current period (both full string and 5-digit suffix) - Lock it!
   if (S.currentPeriod && !lockedPred) {
@@ -10441,6 +10461,95 @@ function setArenaManualInCharge(modelId) {
 }
 
 // Predict next signals for a model under Zero-Peeking Algorithmic Isolation
+
+// Retrieve active in-charge algorithm
+function getArenaActiveInChargeModel() {
+  if (typeof cachedArenaModels !== 'undefined' && Array.isArray(cachedArenaModels) && cachedArenaModels.length > 0) {
+    const inCharge = cachedArenaModels.find(m => m.isInCharge);
+    if (inCharge) return inCharge;
+  }
+  if (typeof manualArenaInChargeId !== 'undefined' && manualArenaInChargeId && typeof ARENA_CANONICAL_MODELS !== 'undefined') {
+    const m = ARENA_CANONICAL_MODELS.find(x => x.id === manualArenaInChargeId);
+    if (m) return m;
+  }
+  if (typeof ARENA_CANONICAL_MODELS !== 'undefined' && ARENA_CANONICAL_MODELS.length > 0) {
+    return ARENA_CANONICAL_MODELS.find(x => x.id === 'BASE_PREDICTOR') || ARENA_CANONICAL_MODELS[0];
+  }
+  return null;
+}
+
+// Synchronize in-charge model prediction with global S.aiSignal and vice versa
+function syncArenaInChargeWithSignal() {
+  const activeInCharge = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
+  if (!activeInCharge) return;
+
+  if (activeInCharge.id === 'BASE_PREDICTOR' && typeof S !== 'undefined' && S.aiSignal && S.aiSignal.target) {
+    if (['BIG', 'SMALL'].includes(S.aiSignal.target)) {
+      activeInCharge.predSize = S.aiSignal.target;
+      activeInCharge.predColor = S.aiSignal.colorTarget || (S.aiSignal.target === 'BIG' ? 'GREEN' : 'RED');
+    } else if (['RED', 'GREEN', 'VIOLET'].includes(S.aiSignal.target)) {
+      activeInCharge.predColor = S.aiSignal.target === 'VIOLET' ? 'RED' : S.aiSignal.target;
+      activeInCharge.predSize = S.aiSignal.sizeTarget || (activeInCharge.predColor === 'GREEN' ? 'BIG' : 'SMALL');
+    }
+    activeInCharge.conf = S.aiSignal.prob || 0.75;
+    activeInCharge.num = activeInCharge.predColor === 'GREEN'
+      ? (activeInCharge.predSize === 'BIG' ? 7 : 1)
+      : (activeInCharge.predSize === 'BIG' ? 8 : 2);
+
+    // Save to live stats for BASE_PREDICTOR
+    try {
+      const stats = getArenaLiveStats();
+      if (!stats['BASE_PREDICTOR']) {
+        stats['BASE_PREDICTOR'] = { wins: 0, losses: 0, streak: 0, totalEvaluated: 0, winRate: 0 };
+      }
+      stats['BASE_PREDICTOR'].predColor = activeInCharge.predColor;
+      stats['BASE_PREDICTOR'].predSize = activeInCharge.predSize;
+      stats['BASE_PREDICTOR'].num = activeInCharge.num;
+      stats['BASE_PREDICTOR'].conf = activeInCharge.conf;
+      saveArenaLiveStats(stats);
+    } catch(e) {}
+  } else if (activeInCharge.id !== 'BASE_PREDICTOR' && typeof S !== 'undefined') {
+    // Challenger is in charge: adapt S.aiSignal so entire app follows champion
+    const targetChoice = activeInCharge.predSize || (activeInCharge.predColor === 'GREEN' ? 'BIG' : 'SMALL');
+    const isTest = S.aiTestMode || false;
+
+    S.aiSignal = {
+      decision: 'BET',
+      target: targetChoice,
+      type: 'SIZE',
+      sizeTarget: activeInCharge.predSize || 'BIG',
+      colorTarget: activeInCharge.predColor || 'GREEN',
+      prob: activeInCharge.conf || 0.78,
+      reason: `👑 ${activeInCharge.name} (IN CHARGE — ${activeInCharge.winRatePct || '0.0%'} Win Rate)`,
+      engines: [activeInCharge.name],
+      stake: S.aiSignal?.stake || 1,
+      isTest
+    };
+
+    if (S.currentPeriod) {
+      const pStr = String(S.currentPeriod);
+      if (!S.aiPredictionMap) S.aiPredictionMap = {};
+      S.aiPredictionMap[pStr] = S.aiSignal;
+      S.aiPredictionMap[pStr.slice(-5)] = S.aiSignal;
+    }
+  }
+
+  // Update inChargeSignalEl in Prediction Rank hero card
+  const inChargeSignalEl = document.getElementById('arenaInChargeSignal');
+  if (inChargeSignalEl && activeInCharge.predColor && activeInCharge.predSize) {
+    const colorClass = activeInCharge.predColor === 'GREEN' ? 'text-emerald-400' : 'text-rose-400';
+    inChargeSignalEl.className = `font-black text-[10.5px] ${colorClass}`;
+    inChargeSignalEl.textContent = `${activeInCharge.predColor} / ${activeInCharge.predSize} (#${activeInCharge.num})`;
+  }
+
+  // Update Web View Fallback Companion HUD
+  const fallbackSig = document.getElementById('webFallbackSignal');
+  if (fallbackSig && activeInCharge.predColor && activeInCharge.predSize) {
+    fallbackSig.textContent = `${activeInCharge.predColor} / ${activeInCharge.predSize} (#${activeInCharge.num})`;
+    fallbackSig.className = activeInCharge.predColor === 'GREEN' ? 'text-emerald-400 font-black text-xs' : 'text-rose-400 font-black text-xs';
+  }
+}
+
 function generateModelNextPrediction(model, history) {
   const hist = Array.isArray(history) ? history.filter(r => !r.gap) : [];
   const len = hist.length;
@@ -10507,14 +10616,25 @@ function generateModelNextPrediction(model, history) {
   // Statistical & Markov
   else if (model.cat === 'statistical') {
     if (model.id === 'BASE_PREDICTOR') {
-      if (typeof currentPrediction !== 'undefined' && currentPrediction && currentPrediction.target) {
-        color = currentPrediction.type === 'COLOR' ? currentPrediction.target : (last1.color || 'GREEN');
-        size = currentPrediction.type === 'SIZE' ? currentPrediction.target : (last1.size || 'BIG');
-        conf = currentPrediction.prob || 0.75;
+      const activeSig = (typeof S !== 'undefined' && S.aiSignal && S.aiSignal.target) ? S.aiSignal : null;
+      if (activeSig) {
+        if (['BIG', 'SMALL'].includes(activeSig.target)) {
+          size = activeSig.target;
+          color = activeSig.colorTarget || (activeSig.target === 'BIG' ? (last1 ? last1.color : 'GREEN') : (last1 ? last1.color : 'RED'));
+        } else if (['RED', 'GREEN', 'VIOLET'].includes(activeSig.target)) {
+          color = activeSig.target === 'VIOLET' ? 'RED' : activeSig.target;
+          size = activeSig.sizeTarget || (color === 'GREEN' ? 'BIG' : 'SMALL');
+        } else {
+          size = 'BIG';
+          color = 'GREEN';
+        }
+        conf = activeSig.prob || 0.75;
       } else {
-        color = last1.color === 'GREEN' ? 'RED' : 'GREEN';
-        size = last1.size === 'BIG' ? 'SMALL' : 'BIG';
+        color = last1 ? (last1.color === 'GREEN' ? 'RED' : 'GREEN') : 'GREEN';
+        size = last1 ? (last1.size === 'BIG' ? 'SMALL' : 'BIG') : 'BIG';
+        conf = 0.70;
       }
+      num = color === 'GREEN' ? (size === 'BIG' ? 7 : 1) : (size === 'BIG' ? 8 : 2);
     } else {
       color = (last1.number + (last2 ? last2.number : 0)) % 2 === 1 ? 'GREEN' : 'RED';
       size = (last1.number >= 5) ? 'BIG' : 'SMALL';
@@ -10723,6 +10843,12 @@ function updateArenaLeaderboardUI(liveRanking, liveChampion) {
     inChargeSignalEl.className = `font-black text-[10.5px] ${colorClass}`;
     inChargeSignalEl.textContent = `${inChargeModel.predColor} / ${inChargeModel.predSize} (#${inChargeModel.num})`;
   }
+
+  // Synchronize In-Charge Model with live S.aiSignal and update Smart View immediately
+  try {
+    syncArenaInChargeWithSignal();
+    if (typeof renderSmartView === 'function') renderSmartView();
+  } catch(e) {}
 
   if (inChargeStreakEl) {
     const streakVal = inChargeModel.evaluated === 0
@@ -12234,8 +12360,15 @@ function renderSmartView() {
     } catch(e) {}
   }
 
-  const target = currentPred?.target;
-  const confVal = currentPred?.prob ? Math.round(currentPred.prob * 100) : (currentPred?.confidence ? Math.round(currentPred.confidence * 100) : 65);
+  const activeChamp = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
+  let target = currentPred?.target;
+  // If active in-charge model is defined and has predSize, prioritize matching it
+  if (activeChamp && activeChamp.predSize) {
+    if (!target || (activeChamp.id !== 'BASE_PREDICTOR' && target !== activeChamp.predSize)) {
+      target = activeChamp.predSize;
+    }
+  }
+  const confVal = currentPred?.prob ? Math.round(currentPred.prob * 100) : (activeChamp?.conf ? Math.round(activeChamp.conf * 100) : 65);
   const decisionType = currentPred?.isTest ? 'TEST' : (currentPred?.decision || (['RED', 'GREEN', 'VIOLET'].includes(target) ? 'COLOR' : 'SIZE') || 'BET');
 
   let targetColor = 'text-amber-400';
@@ -12295,8 +12428,10 @@ function renderSmartView() {
 
   if (typeEl) {
     if (target) {
-      typeEl.textContent = decisionType;
-      typeEl.className = decisionType === 'TEST' ? 'text-amber-300 font-bold' : 'text-purple-300 font-bold';
+      const champLabel = activeChamp ? (activeChamp.id === 'BASE_PREDICTOR' ? 'OG Quant' : '👑 ' + activeChamp.name.split(' ')[0]) : decisionType;
+      const colorLabel = activeChamp?.predColor ? ` • ${activeChamp.predColor}` : '';
+      typeEl.textContent = `${champLabel}${colorLabel}`;
+      typeEl.className = (activeChamp?.predColor === 'GREEN') ? 'text-emerald-300 font-bold' : (activeChamp?.predColor === 'RED') ? 'text-rose-300 font-bold' : 'text-purple-300 font-bold';
     } else {
       typeEl.textContent = '—';
       typeEl.className = 'text-slate-500 font-bold';
