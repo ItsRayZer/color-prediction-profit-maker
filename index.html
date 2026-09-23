@@ -3391,8 +3391,23 @@ function startRTEngine() {
   // Continuous real-time live server synchronization (responsive 2s cadence)
   if (window._livePollTimer) clearInterval(window._livePollTimer);
   window._livePollTimer = setInterval(() => {
-    fetchLiveAPIResults(S.timeframe).catch(() => {});
-  }, 2000);
+    const { secsLeft, dur } = computeRTState();
+    // Adaptive polling: during critical round rollover (last 3s or first 4s of new round), poll continuously
+    const isRolloverZone = secsLeft <= 3 || secsLeft >= (dur - 4);
+    if (!isRolloverZone) {
+      fetchLiveAPIResults(S.timeframe).catch(() => {});
+    }
+  }, 1000);
+
+  // Dedicated high-frequency fast-polling thread during rollover zone (every 350ms)
+  if (window._fastPollTimer) clearInterval(window._fastPollTimer);
+  window._fastPollTimer = setInterval(() => {
+    const { secsLeft, dur } = computeRTState();
+    const isRolloverZone = secsLeft <= 3 || secsLeft >= (dur - 4);
+    if (isRolloverZone) {
+      fetchLiveAPIResults(S.timeframe).catch(() => {});
+    }
+  }, 350);
 
   window._rtTimer = setInterval(() => {
     try {
@@ -3486,7 +3501,7 @@ function startRTEngine() {
     } catch (e) {
       console.warn('RT Timer notice:', e);
     }
-  }, 500);
+  }, 150);
 }
 
 function updateTimerUI() {
@@ -6563,83 +6578,57 @@ function panChartHorizontal(dir, steps = 10) {
   }
 }
 
-function tradingChartZoom(dir, multiplier = 3) {
-  if (tradingChartInstance) {
-    setTradingChartAutoCenter(false);
-    const timeScale = tradingChartInstance.timeScale();
-    const curRange = timeScale.getVisibleLogicalRange();
-    if (curRange) {
-      const span = curRange.to - curRange.from;
-      const factor = dir > 0 ? 0.75 : 1.35;
-      const newSpan = Math.max(2, Math.round(span * factor));
-      const mid = (curRange.from + curRange.to) / 2;
-      window._savedUserLogicalRange = { from: mid - newSpan / 2, to: mid + newSpan / 2 };
-      try {
-        window._isProgrammaticRangeChange = true;
-        timeScale.setVisibleLogicalRange({
-          from: mid - newSpan / 2,
-          to: mid + newSpan / 2
-        });
-      } catch(e) {
-        for (let i = 0; i < multiplier; i++) {
-          if (dir > 0) timeScale.zoomIn();
-          else timeScale.zoomOut();
-        }
-      } finally {
-        setTimeout(() => { window._isProgrammaticRangeChange = false; }, 80);
-      }
-    } else {
-      for (let i = 0; i < multiplier; i++) {
-        if (dir > 0) timeScale.zoomIn();
-        else timeScale.zoomOut();
-      }
-    }
+function tradingChartZoom(dir, multiplier = 1) {
+  if (!tradingChartInstance) return;
+  setTradingChartAutoCenter(false);
+  const timeScale = tradingChartInstance.timeScale();
+  const curOptions = timeScale.options ? timeScale.options() : null;
+  const curSpacing = (curOptions && curOptions.barSpacing) ? curOptions.barSpacing : 14;
+
+  // Zoom changes candle width/spacing directly, keeping spacing >= 6 so candles never overlap
+  const factor = dir > 0 ? (1.25 * multiplier) : (0.78 / multiplier);
+  const newSpacing = Math.min(50, Math.max(6, Number((curSpacing * factor).toFixed(1))));
+
+  timeScale.applyOptions({ barSpacing: newSpacing });
+  window._currentChartBarSpacing = newSpacing;
+
+  if (typeof showToast === 'function') {
+    showToast(dir > 0 ? `🔍 Zoom In (${Math.round(newSpacing)}px)` : `🔭 Zoom Out (${Math.round(newSpacing)}px)`, 'info');
   }
 }
 
 function tradingChartLongZoom(dir) {
-  if (tradingChartInstance) {
-    setTradingChartAutoCenter(false);
-    const timeScale = tradingChartInstance.timeScale();
-    const curRange = timeScale.getVisibleLogicalRange();
-    if (curRange) {
-      const span = curRange.to - curRange.from;
-      const factor = dir > 0 ? 0.45 : 2.5;
-      const newSpan = Math.max(2, Math.round(span * factor));
-      const mid = (curRange.from + curRange.to) / 2;
-      window._savedUserLogicalRange = { from: mid - newSpan / 2, to: mid + newSpan / 2 };
-      try {
-        window._isProgrammaticRangeChange = true;
-        timeScale.setVisibleLogicalRange({
-          from: mid - newSpan / 2,
-          to: mid + newSpan / 2
-        });
-      } catch(e) {
-        tradingChartZoom(dir, 8);
-      } finally {
-        setTimeout(() => { window._isProgrammaticRangeChange = false; }, 80);
-      }
-    } else {
-      tradingChartZoom(dir, 8);
-    }
-  }
-  if (typeof showToast === 'function') {
-    showToast(dir > 0 ? '🔍 Deep Zoom In' : '🔭 Super Zoom Out', 'info');
-  }
+  tradingChartZoom(dir, 1.8);
 }
 
 function tradingChartReset() {
-  if (tradingChartInstance) {
-    window._savedUserLogicalRange = null;
-    setTradingChartAutoCenter(true);
-    resetPriceScaleShift();
+  if (!tradingChartInstance) return;
+  window._savedUserLogicalRange = null;
+  setTradingChartAutoCenter(true);
+  resetPriceScaleShift();
+
+  const timeScale = tradingChartInstance.timeScale();
+  // Reset to Normal Fit: standard 14px candle width with clean separation (never squeeze all 500 candles)
+  timeScale.applyOptions({ barSpacing: 14 });
+  window._currentChartBarSpacing = 14;
+
+  const N = (window.candlestickDataSeries || []).length;
+  if (N > 0) {
+    const visibleCount = 28; // Comfortable readable window
     try {
-      tradingChartInstance.timeScale().fitContent();
+      window._isProgrammaticRangeChange = true;
+      timeScale.setVisibleLogicalRange({
+        from: Math.max(0, N - visibleCount),
+        to: N + 4
+      });
     } catch(e) {}
-    rearrangeTradingViewToMiddleRight(true);
-    if (typeof showToast === 'function') {
-      showToast('⊕ Auto-Fit Active (Newest in Middle)', 'info');
+    finally {
+      setTimeout(() => { window._isProgrammaticRangeChange = false; }, 80);
     }
+  }
+
+  if (typeof showToast === 'function') {
+    showToast('⊕ Normal Mode: Clean Spacing (28 Candles)', 'info');
   }
 }
 
@@ -6786,9 +6775,9 @@ function initTradingCandleChart() {
       timeVisible: true,
       secondsVisible: true,
       rightOffset: 20,
-      barSpacing: 12,
-      minBarSpacing: 0.01, // Unlimited extreme zoom out
-      maxBarSpacing: 150,  // Deep zoom in
+      barSpacing: 14,
+      minBarSpacing: 6, // Prevents candles from overlapping
+      maxBarSpacing: 50,  // Deep zoom in
       fixLeftEdge: false,
       fixRightEdge: false,
       shiftVisibleRangeOnNewBar: false // Do NOT snap range automatically on new data
@@ -12198,7 +12187,7 @@ async function fetchLiveAPIResults(tfOverride) {
 
     async function fetchSingle(url) {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 2500);
+      const timer = setTimeout(() => controller.abort(), 1200);
       try {
         const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: controller.signal });
         clearTimeout(timer);
