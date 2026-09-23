@@ -1706,33 +1706,126 @@
   ══════════════════════════════════════════════════════════╗ -->
   <aside id="col3Container" class="overflow-y-auto overflow-x-hidden bg-black/20 backdrop-blur-3xl flex-col" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.2) transparent;">
     
-    <!-- ── TOP SWITCHER: APP WINDOW vs PREDICTION RANK vs EMBEDDED WEBSITE VIEW ── -->
+    <!-- ── TOP SWITCHER: ADAPTIVE AI vs EMBEDDED WEBSITE VIEW (Apple-Like Minimal) ── -->
     <div class="sticky top-0 z-30 px-3 pt-2.5 pb-2 bg-[#000000]/95 backdrop-blur-xl border-b border-white/[0.08]">
-      <div class="flex items-center justify-between gap-1 p-1 bg-[#141416] rounded-xl border border-white/[0.08] shadow-lg">
-        <button id="btnRightViewApp" onclick="switchRightPanelView('app')"
-          class="flex-1 py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow">
-          <i class="fa-solid fa-layer-group"></i>
-          <span>App Window</span>
-        </button>
-        <button id="btnRightViewRank" onclick="switchRightPanelView('rank')"
-          class="flex-1 py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 text-slate-300 hover:text-white hover:bg-white/5">
-          <i class="fa-solid fa-crown text-amber-400"></i>
-          <span>Prediction Rank</span>
-          <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block"></span>
+      <div class="flex items-center justify-between gap-1 p-1 bg-[#09090b] rounded-xl border border-white/[0.08] shadow-lg">
+        <button id="btnRightViewAdaptive" onclick="switchRightPanelView('adaptive')"
+          class="flex-1 py-1.5 px-3 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 bg-zinc-800 text-white shadow border border-white/10">
+          <i class="fa-solid fa-brain text-emerald-400"></i>
+          <span>Adaptive AI</span>
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block"></span>
         </button>
         <button id="btnRightViewWeb" onclick="switchRightPanelView('web')"
-          class="flex-1 py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 text-slate-300 hover:text-white hover:bg-white/5">
-          <i class="fa-solid fa-globe text-sky-400"></i>
+          class="flex-1 py-1.5 px-3 rounded-lg text-[9.5px] font-bold uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 text-zinc-400 hover:text-white hover:bg-white/5">
+          <i class="fa-solid fa-globe text-zinc-400"></i>
           <span>Website View</span>
         </button>
-        <button onclick="toggleWindowCol('col3')" title="Hide Window (gives other windows more space)" class="hidden lg:flex items-center gap-1 px-2 py-1.5 rounded-lg bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 text-[9px] font-bold uppercase transition active:scale-95 border border-white/10">
+        <button onclick="toggleWindowCol('col3')" title="Hide Window" class="hidden lg:flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-zinc-900/80 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-300 text-[9px] font-bold uppercase transition active:scale-95 border border-white/5">
           <i class="fa-solid fa-window-minimize text-[7.5px]"></i> <span>Hide</span>
         </button>
       </div>
     </div>
 
-    <!-- ── 1. APP WINDOW CONTENT (Simulation Bot & Pattern Intelligence Hub) ── -->
-    <div id="rightPanelAppContent" class="p-3.5 space-y-3.5">
+    <!-- ── UNIFIED ADAPTIVE AI VIEW (Apple-Like Minimal Theme) ── -->
+    <div id="rightPanelAdaptiveContent" class="p-3 space-y-3">
+
+      <!-- ── A. HERO IN-CHARGE CHAMPION (Apple Minimalist Black) ── -->
+      <div class="p-3.5 rounded-2xl bg-[#09090b] border border-white/[0.08] shadow-xl space-y-2.5 relative overflow-hidden">
+        <div class="flex items-center justify-between relative z-10">
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shadow-sm">
+              <i class="fa-solid fa-crown text-emerald-400 text-xs"></i>
+            </span>
+            <span class="text-[9.5px] font-black uppercase tracking-widest text-zinc-300">Currently In Charge</span>
+            <span id="arenaInChargeBadge" class="text-[7.5px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black tracking-wider">👑 LEADER</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button onclick="resetArenaLiveStats()" class="px-2 py-0.5 rounded-lg bg-white/5 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-300 border border-white/10 text-[8px] font-mono font-bold transition active:scale-95" title="Reset all 52 model win rates to 0.0%">
+              <i class="fa-solid fa-rotate-left text-[7.5px]"></i> Reset 0%
+            </button>
+            <button onclick="loadPredictionArenaLeaderboard()" class="px-2 py-0.5 rounded-lg bg-white/5 hover:bg-white/15 text-zinc-300 hover:text-white border border-white/10 text-[8px] font-mono transition active:scale-95" title="Refresh Live Standings">
+              <i class="fa-solid fa-arrows-rotate text-[7.5px]"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-start justify-between gap-3 relative z-10">
+          <div class="min-w-0">
+            <h4 id="arenaInChargeName" class="text-sm font-black text-white leading-tight truncate">BASE_PREDICTOR (OG Algorithm)</h4>
+            <p id="arenaInChargeDesc" class="text-[8.5px] text-zinc-400 mt-0.5 font-medium truncate">Baseline quant predictor with momentum and pattern weighting</p>
+          </div>
+          <div class="text-right shrink-0 bg-black/60 px-2.5 py-1 rounded-xl border border-white/[0.08]">
+            <span class="text-[7px] uppercase tracking-wider text-zinc-500 block font-mono">Live Win Rate</span>
+            <span id="arenaInChargeWinRate" class="text-lg font-black text-emerald-400 font-mono tracking-tight">0.0%</span>
+          </div>
+        </div>
+
+        <!-- Live Signal, Streak & Neuro-State Bar -->
+        <div class="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-white/[0.06] text-center font-mono text-[8.5px] relative z-10">
+          <div class="p-1.5 rounded-xl bg-black/50 border border-white/[0.06]">
+            <span class="text-[7px] text-zinc-500 block uppercase">Next Signal</span>
+            <b id="arenaInChargeSignal" class="text-emerald-400 font-black text-[11px]">🟢 GREEN</b>
+          </div>
+          <div class="p-1.5 rounded-xl bg-black/50 border border-white/[0.06]">
+            <span class="text-[7px] text-zinc-500 block uppercase">Streak Path</span>
+            <b id="arenaInChargeStreak" class="text-zinc-200 font-black text-[10.5px]">0 ROUNDS</b>
+          </div>
+          <div class="p-1.5 rounded-xl bg-black/50 border border-white/[0.06]">
+            <span class="text-[7px] text-zinc-500 block uppercase">Neuro-State</span>
+            <b id="arenaInChargeNeuro" class="text-emerald-300 font-black text-[10.5px]">⚡ 85% Dopamine</b>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── B. APPLE-STYLE SEGMENTED SUB-NAVIGATION ── -->
+      <div class="flex items-center p-1 bg-[#09090b] rounded-xl border border-white/[0.08] text-[9px] font-mono">
+        <button id="btnAdaptiveSub_roster" onclick="switchAdaptiveSubView('roster')" class="flex-1 py-1 px-2 rounded-lg bg-zinc-800 text-white font-bold transition shadow-sm">
+          <i class="fa-solid fa-list-ol mr-1"></i> 52 Algorithms
+        </button>
+        <button id="btnAdaptiveSub_audit" onclick="switchAdaptiveSubView('audit')" class="flex-1 py-1 px-2 rounded-lg text-zinc-400 hover:text-white transition">
+          <i class="fa-solid fa-clock-rotate-left mr-1"></i> Live Audit
+        </button>
+        <button id="btnAdaptiveSub_sim" onclick="switchAdaptiveSubView('sim')" class="flex-1 py-1 px-2 rounded-lg text-zinc-400 hover:text-white transition">
+          <i class="fa-solid fa-robot mr-1"></i> Simulation Bot
+        </button>
+      </div>
+
+      <!-- ── SUB-VIEW 1: 52 ISOLATED ALGORITHMS ROSTER ── -->
+      <div id="adaptiveSubView_roster" class="space-y-2.5">
+        <!-- Search, Sort & Category Filter -->
+        <div class="p-2.5 rounded-2xl bg-[#09090b] border border-white/[0.08] space-y-2">
+          <div class="flex items-center gap-1.5">
+            <div class="flex-1 flex items-center bg-black/60 rounded-xl border border-white/10 px-2.5 py-1.5 gap-2 text-[9px] font-mono">
+              <i class="fa-solid fa-magnifying-glass text-zinc-500"></i>
+              <input id="arenaSearchInput" type="text" placeholder="Search 52 algorithms..." oninput="filterArenaRoster()"
+                class="bg-transparent text-white placeholder-zinc-500 focus:outline-none w-full text-[9px]">
+            </div>
+            <select id="arenaSortSelect" onchange="filterArenaRoster()" class="px-2.5 py-1.5 rounded-xl bg-black/60 border border-white/10 text-zinc-300 text-[8.5px] font-mono focus:outline-none">
+              <option value="winrate">Sort: Highest Win Rate</option>
+              <option value="streak">Sort: Longest Streak</option>
+              <option value="rank">Sort: Leaderboard Rank</option>
+              <option value="name">Sort: Model Name</option>
+            </select>
+          </div>
+
+          <!-- Category Filter Pills (Apple Minimalist Monochrome) -->
+          <div class="flex flex-wrap items-center gap-1 text-[8px] font-mono">
+            <button id="arenaFilterBtn_all" onclick="setArenaCategoryFilter('all')" class="px-2 py-0.5 rounded-md bg-zinc-700 text-white font-bold transition">All (52)</button>
+            <button id="arenaFilterBtn_fly" onclick="setArenaCategoryFilter('fly')" class="px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-zinc-200 transition">Fly Brains (14)</button>
+            <button id="arenaFilterBtn_neural" onclick="setArenaCategoryFilter('neural')" class="px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-zinc-200 transition">Neural (12)</button>
+            <button id="arenaFilterBtn_classical" onclick="setArenaCategoryFilter('classical')" class="px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-zinc-200 transition">Classical (15)</button>
+            <button id="arenaFilterBtn_statistical" onclick="setArenaCategoryFilter('statistical')" class="px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-zinc-200 transition">Statistical (7)</button>
+            <button id="arenaFilterBtn_meta" onclick="setArenaCategoryFilter('meta')" class="px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-zinc-200 transition">Meta (4)</button>
+          </div>
+        </div>
+
+        <!-- 52 Models Dynamic Container -->
+        <div id="arenaRosterContainer" class="space-y-2 pb-6"></div>
+      </div>
+
+      <!-- ── SUB-VIEW 2: LIVE AUDIT TRAIL ── -->
+      <div id="adaptiveSubView_audit" class="space-y-2.5" style="display:none;">
+        <div id="rightPanelAppContent" class="p-3.5 space-y-3.5">
 
       <!-- ── 1. SIMULATION TEST MODE BOT ── -->
       <div class="liquid-glass-card apple-glass-card p-3 space-y-2 relative transition-all card-draggable" id="card-col3-simbot" draggable="false" data-card-id="card-col3-simbot">
@@ -2213,2039 +2306,14 @@
       </div><!-- end #card-col3-patternhub -->
     </div><!-- end #rightPanelAppContent -->
 
-    <!-- ── 2. PREDICTION RANK & ADAPTIVE TOURNAMENT ARENA (In-Charge Champion & Model Roster) ── -->
-    <div id="rightPanelRankContent" class="p-3 space-y-3" style="display:none;">
+          </div><!-- end #adaptiveSubView_audit -->
 
-      <!-- ── A. ARENA HEADER & ISOLATION STATUS ── -->
-      <div class="liquid-glass-card apple-glass-card p-3 space-y-2 border border-amber-500/30 bg-gradient-to-b from-amber-950/20 via-slate-950/80 to-slate-950/90 shadow-xl rounded-2xl relative">
-        <div class="flex items-center justify-between pb-1.5 border-b border-white/10">
-          <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
-            <span class="text-xs font-black uppercase tracking-wider text-white">Prediction Arena Standings</span>
-            <span class="text-[8px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono border border-amber-500/30">52 MODELS</span>
-          </div>
-          <div class="flex items-center gap-1.5">
-            <button onclick="resetArenaLiveStats()" class="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/30 text-[9px] font-black transition flex items-center gap-1.5 active:scale-95 shadow-sm" title="Reset all 52 model win rates and stats back to 0.0%">
-              <i class="fa-solid fa-rotate-left text-[9px]"></i>
-              <span>Reset Win Rates to 0%</span>
-            </button>
-            <button onclick="loadPredictionArenaLeaderboard()" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-amber-300 hover:text-white text-[9px] font-bold transition flex items-center gap-1 active:scale-95 border border-white/10" title="Refresh Live Standings">
-              <i class="fa-solid fa-arrows-rotate"></i>
-              <span>Refresh</span>
-            </button>
-          </div>
-        </div>
+      <!-- ── SUB-VIEW 3: SIMULATION BOT ── -->
+      <div id="adaptiveSubView_sim" class="space-y-2.5" style="display:none;">
+        <div id="simBotMountPlaceholder"></div>
+      </div><!-- end #adaptiveSubView_sim -->
 
-        <!-- Zero-Peeking Algorithmic Isolation Banner -->
-        <div class="p-2 rounded-xl bg-indigo-950/40 border border-indigo-500/30 flex items-center justify-between text-[8px] font-mono">
-          <span class="text-indigo-200 flex items-center gap-1.5 font-bold">
-            <i class="fa-solid fa-shield-halved text-emerald-400"></i>
-            <span>Zero-Peeking Isolation: ACTIVE</span>
-          </span>
-          <span class="text-slate-400 text-[7.5px]">Individual Predictions • No Peer Leaks • Ground Truth Only</span>
-        </div>
-
-        <!-- ── B. CURRENT "IN CHARGE" PREDICTOR (CHAMPION HERO CARD) ── -->
-        <div class="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/25 via-[#1c182a] to-[#111320] border-2 border-amber-400/80 shadow-[0_0_30px_rgba(245,158,11,0.3)] space-y-2.5 relative overflow-hidden">
-          <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
-          
-          <div class="flex items-center justify-between relative z-10">
-            <div class="flex items-center gap-2">
-              <span class="w-6 h-6 rounded-lg bg-amber-400/20 border border-amber-400/40 flex items-center justify-center shadow-sm">
-                <i class="fa-solid fa-crown text-amber-400 text-xs animate-bounce"></i>
-              </span>
-              <span class="text-[9.5px] font-black uppercase tracking-widest text-amber-300">Currently In Charge</span>
-              <span id="arenaInChargeBadge" class="text-[8px] px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black tracking-wider shadow">👑 CHAMPION</span>
-            </div>
-            <span id="arenaInChargeAdvantage" class="text-[8.5px] font-bold text-emerald-300 font-mono bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-500/30">0.0% Starting Baseline</span>
-          </div>
-
-          <div class="flex items-start justify-between gap-3 relative z-10">
-            <div>
-              <h4 id="arenaInChargeName" class="text-sm font-black text-white leading-tight drop-shadow-sm">BASE_PREDICTOR (OG Algorithm)</h4>
-              <p id="arenaInChargeDesc" class="text-[8.5px] text-slate-300 mt-0.5 font-medium">Baseline quant predictor with momentum and pattern weighting</p>
-            </div>
-            <div class="text-right shrink-0 bg-black/40 px-2.5 py-1 rounded-xl border border-white/10">
-              <span class="text-[7.5px] uppercase tracking-wider text-slate-400 block font-mono">Live Win Rate</span>
-              <span id="arenaInChargeWinRate" class="text-lg font-black text-amber-300 font-mono tracking-tight drop-shadow">0.0%</span>
-            </div>
-          </div>
-
-          <!-- Live Signal & Metrics Bar -->
-          <div class="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-white/10 text-center font-mono text-[8.5px] relative z-10">
-            <div class="p-1.5 rounded-xl bg-black/50 border border-white/10 shadow-inner">
-              <span class="text-[7px] text-slate-400 block uppercase">Next Signal</span>
-              <b id="arenaInChargeSignal" class="text-emerald-400 font-black text-[11px]">🟢 GREEN</b>
-            </div>
-            <div class="p-1.5 rounded-xl bg-black/50 border border-white/10 shadow-inner">
-              <span class="text-[7px] text-slate-400 block uppercase">Win Streak</span>
-              <b id="arenaInChargeStreak" class="text-white font-black text-[10.5px]">0 ROUNDS</b>
-            </div>
-            <div class="p-1.5 rounded-xl bg-black/50 border border-white/10 shadow-inner">
-              <span class="text-[7px] text-slate-400 block uppercase">Confidence</span>
-              <b id="arenaInChargeConf" class="text-sky-300 font-black text-[10.5px]">78.5%</b>
-            </div>
-          </div>
-        </div>
-
-        <!-- ── C. ADAPTIVE SWITCH RULE EXPLANATION ── -->
-        <div class="p-2.5 rounded-xl bg-gradient-to-r from-purple-950/30 via-slate-900/60 to-slate-900/80 border border-purple-500/20 text-[8px] font-mono space-y-1 text-slate-200">
-          <div class="flex items-center gap-1.5 text-amber-300 font-black">
-            <i class="fa-solid fa-arrows-split-up-and-left text-[9px]"></i>
-            <span class="uppercase tracking-wider">Adaptive Switch Policy</span>
-          </div>
-          <p class="leading-relaxed text-slate-300">
-            When any challenger algorithm achieves a higher win rate than the OG Baseline (<b class="text-white">BASE_PREDICTOR</b>) by ≥ <b class="text-amber-300">+2.5%</b> over 15+ rounds, the system automatically puts that algorithm <b class="text-amber-400 font-black">IN CHARGE</b> of live predictions. If it drops below baseline or hits 4 consecutive losses, the arena seamlessly falls back.
-          </p>
-        </div>
-
-        <!-- ── D. OG BASELINE BENCHMARK COMPARISON ── -->
-        <div class="p-2.5 rounded-xl bg-gradient-to-r from-blue-950/40 via-slate-900/60 to-slate-900/80 border border-blue-500/30 flex items-center justify-between text-[8px] font-mono shadow-sm">
-          <div class="flex items-center gap-2">
-            <span class="px-2 py-0.5 rounded-md bg-blue-500/25 text-blue-200 font-black border border-blue-400/30">OG BASELINE</span>
-            <span class="text-slate-300">Base Quant Predictor:</span>
-            <b id="arenaOgWinRate" class="text-white font-bold">0.0% Win Rate</b>
-          </div>
-          <span id="arenaOgStatus" class="text-slate-300 text-[8px] font-mono bg-white/5 px-2 py-0.5 rounded">0/0 rounds (0.0%)</span>
-        </div>
-      </div>
-
-      <!-- ── E. CATEGORY FILTER & SEARCH ── -->
-      <div class="liquid-glass-card apple-glass-card p-3 space-y-2 border border-white/10 rounded-2xl bg-[#14151f]/80">
-        <div class="flex items-center gap-1.5">
-          <div class="flex-1 flex items-center bg-black/70 rounded-xl border border-white/10 px-2.5 py-1.5 gap-2 text-[9px] font-mono shadow-inner">
-            <i class="fa-solid fa-magnifying-glass text-slate-400"></i>
-            <input id="arenaSearchInput" type="text" placeholder="Search 52 models..." oninput="filterArenaRoster()"
-              class="bg-transparent text-white placeholder-slate-400 focus:outline-none w-full text-[9px]">
-          </div>
-          <select id="arenaSortSelect" onchange="filterArenaRoster()" class="px-2.5 py-1.5 rounded-xl bg-black/70 border border-white/10 text-slate-200 text-[8.5px] font-mono focus:outline-none shadow">
-            <option value="winrate">Sort: Highest Win Rate</option>
-            <option value="streak">Sort: Longest Streak</option>
-            <option value="rank">Sort: Leaderboard Rank</option>
-            <option value="name">Sort: Model Name</option>
-          </select>
-          <button onclick="resetArenaLiveStats()" class="px-2.5 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 hover:text-white border border-rose-500/40 text-[8.5px] font-black font-mono transition flex items-center gap-1 shadow active:scale-95 shrink-0" title="Reset all model win rates to 0.0%">
-            <i class="fa-solid fa-rotate-left text-[8.5px]"></i>
-            <span>Reset 0%</span>
-          </button>
-        </div>
-
-        <!-- Category Filter Pills -->
-        <div class="flex flex-wrap items-center gap-1.5 text-[8px] font-mono">
-          <button id="arenaFilterBtn_all" onclick="setArenaCategoryFilter('all')" class="px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 font-black shadow transition">All (52)</button>
-          <button id="arenaFilterBtn_fly" onclick="setArenaCategoryFilter('fly')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-slate-200 border border-white/5 transition">Fly Brains (14)</button>
-          <button id="arenaFilterBtn_neural" onclick="setArenaCategoryFilter('neural')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-slate-200 border border-white/5 transition">Neural / Reservoir (12)</button>
-          <button id="arenaFilterBtn_classical" onclick="setArenaCategoryFilter('classical')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-slate-200 border border-white/5 transition">Classical (15)</button>
-          <button id="arenaFilterBtn_statistical" onclick="setArenaCategoryFilter('statistical')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-slate-200 border border-white/5 transition">Statistical (7)</button>
-          <button id="arenaFilterBtn_meta" onclick="setArenaCategoryFilter('meta')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-slate-200 border border-white/5 transition">Meta (4)</button>
-        </div>
-      </div>
-
-      <!-- ── F. INDIVIDUAL ALGORITHMS ROSTER CONTAINER ── -->
-      <div id="arenaRosterContainer" class="space-y-2.5 pb-6">
-        <div class="p-2.5 rounded-xl border border-amber-400/80 bg-gradient-to-r from-amber-500/10 via-purple-950/40 to-black/80 shadow-[0_0_15px_rgba(245,158,11,0.25)] transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-amber-400 text-slate-950 font-black">
-                #1
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Mushroom Body Spiking Net</span>
-                  <span class="px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[7px] font-black tracking-wider flex items-center gap-0.5 animate-pulse"><i class="fa-solid fa-crown text-[7px]"></i> IN CHARGE</span>
-                  
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Associative Kenyon Cells + Plasticity</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-amber-300">69.2%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#7</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">82%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+4 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
-                Fly Brain
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-slate-300 text-slate-950 font-black">
-                #2
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Neuromodulated DAN Plasticity</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+7.9% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Dopamine Reward-Prediction-Error</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-amber-300">68.4%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#9</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">81%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+3 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
-                Fly Brain
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-amber-700 text-white font-black">
-                #3
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Adaptive Win-Rate Weighted</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+7.5% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Dynamic Brier-Calibrated Ensemble</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-amber-300">68.0%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#7</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">80%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+3 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-amber-500/20 text-amber-300 border-amber-500/30">
-                Meta Ensemble
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #4
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Antennal Lobe Odor glomeruli</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+7.3% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Lateral Inhibition Glomerular Net</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-amber-300">67.8%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#7</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">79%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+3 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
-                Fly Brain
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #5
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">LSTM Recurrent Sequence Net</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+7.0% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Long Short-Term Memory (64 hidden)</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-amber-300">67.5%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#7</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">78%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+3 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-purple-500/20 text-purple-300 border-purple-500/30">
-                Neural / Deep
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #6
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Liquid State Machine (LSM)</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+6.7% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">3D Recurrent Microcircuit Reservoir</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-amber-300">67.2%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#5</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">77%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+2 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
-                Fly Brain
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #7
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Neural Consensus Engine</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+6.5% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Cross-Neural Majority Voting</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-amber-300">67.0%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#7</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">79%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+3 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-amber-500/20 text-amber-300 border-amber-500/30">
-                Meta Ensemble
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #8
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Gated Recurrent Unit (GRU)</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+6.3% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Bi-Directional GRU Layer</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-amber-300">66.8%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#9</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">76%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+2 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-purple-500/20 text-purple-300 border-purple-500/30">
-                Neural / Deep
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #9
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Central Complex Ring Neurons</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+6.0% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Azimuth Ring Attractor Oscillator</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-amber-300">66.5%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black border border-rose-500/30">RED</span>
-              <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">SMALL</span>
-              <span class="text-slate-300 font-black">#2</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">76%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+2 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
-                Fly Brain
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #10
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Multi-Timeframe Voting Net</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+5.9% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">30s / 1m / 3m Cross-Validation</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-amber-300">66.4%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black border border-rose-500/30">RED</span>
-              <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">SMALL</span>
-              <span class="text-slate-300 font-black">#2</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">76%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+2 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-amber-500/20 text-amber-300 border-amber-500/30">
-                Meta Ensemble
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #11
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Calcium Adaptation Metaplastic</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+5.7% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Spike-Frequency Calcium Dynamics</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-amber-300">66.2%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#5</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">76%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+1 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
-                Fly Brain
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #12
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Temporal Convolutional Net (TCN)</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+5.7% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Dilated Causal 1D Convolutions</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-amber-300">66.2%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black border border-rose-500/30">RED</span>
-              <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">SMALL</span>
-              <span class="text-slate-300 font-black">#4</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">75%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+1 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-purple-500/20 text-purple-300 border-purple-500/30">
-                Neural / Deep
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #13
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Spectral Echo State Reservoir</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+5.5% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Echo State Net with Spectral Radius 0.95</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-amber-300">66.0%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#7</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">75%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+1 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
-                Fly Brain
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #14
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Continuous Attractor Energy Net</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+5.3% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Hopfield-Inspired Energy Minimization</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-amber-300">65.8%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black border border-rose-500/30">RED</span>
-              <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">SMALL</span>
-              <span class="text-slate-300 font-black">#3</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">74%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+2 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
-                Fly Brain
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #15
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Streak Dynamics Neural Net</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+5.3% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Recurrent Streak Predictor</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-amber-300">65.8%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#9</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">76%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+3 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-purple-500/20 text-purple-300 border-purple-500/30">
-                Neural / Deep
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #16
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Delay-Coupled Spiking Net</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+5.0% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Axonal Conduction Delay Lines</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-amber-300">65.5%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black border border-rose-500/30">RED</span>
-              <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">SMALL</span>
-              <span class="text-slate-300 font-black">#0</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">73%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+2 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
-                Fly Brain
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #17
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Gradient Boosted Trees</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+5.0% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">LightGBM-Style Histogram Split</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-amber-300">65.5%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black border border-rose-500/30">RED</span>
-              <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">SMALL</span>
-              <span class="text-slate-300 font-black">#2</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">74%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+2 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-purple-500/20 text-purple-300 border-purple-500/30">
-                Neural / Deep
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #18
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Momentum Streak Rider</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+4.7% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Markovian Persistence Estimator</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-amber-300">65.2%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#7</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">75%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+4 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-sky-500/20 text-sky-300 border-sky-500/30">
-                Classical Math
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #19
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Octopaminergic High-Arousal</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+4.6% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Octopamine Urgency Gating Engine</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-amber-300">65.1%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black border border-rose-500/30">RED</span>
-              <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">SMALL</span>
-              <span class="text-slate-300 font-black">#4</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">74%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+1 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
-                Fly Brain
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #20
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Pattern Neural Recognizer</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+4.5% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Embedding Similarity Layer</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-amber-300">65.0%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#7</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">73%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+2 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-purple-500/20 text-purple-300 border-purple-500/30">
-                Neural / Deep
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #21
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Hebbian STDP Plasticity Net</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+4.3% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Spike-Timing-Dependent Plasticity</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">64.8%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#8</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">71%</b></span>
-              <span><span class="text-rose-400 font-black font-mono text-[8.5px]">-1 L</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
-                Fly Brain
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #22
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">2nd Order Markov Dynamics</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+4.3% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Tri-gram Transition Probability Tensor</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">64.8%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#7</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">74%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+3 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-sky-500/20 text-sky-300 border-sky-500/30">
-                Classical Math
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #23
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Classical Mathematical Consensus</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+4.3% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Weighted Borda Count</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">64.8%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#7</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">73%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+2 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-amber-500/20 text-amber-300 border-amber-500/30">
-                Meta Ensemble
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #24
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Random Forest Ensemble</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+4.0% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">100 Decision Trees with Bootstrap</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">64.5%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#7</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">72%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+1 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-purple-500/20 text-purple-300 border-purple-500/30">
-                Neural / Deep
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #25
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Suffix Tree Pattern Matcher</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+4.0% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Longest Matching Suffix Search</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">64.5%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#7</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">73%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+2 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-sky-500/20 text-sky-300 border-sky-500/30">
-                Classical Math
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #26
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Market Regime Classifier Net</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+3.7% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Categorical Cross-Entropy Regime Net</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">64.2%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black border border-rose-500/30">RED</span>
-              <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">SMALL</span>
-              <span class="text-slate-300 font-black">#3</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">71%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+1 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-purple-500/20 text-purple-300 border-purple-500/30">
-                Neural / Deep
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #27
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Exponential Decay Recency</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+3.7% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Half-Life Decay Weighting (alpha=0.15)</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">64.2%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#9</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">72%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+2 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-sky-500/20 text-sky-300 border-sky-500/30">
-                Classical Math
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #28
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Lateral Horn Fast-Escape</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+3.5% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Hardwired Instinctive Reflex Circuit</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">64.0%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black border border-rose-500/30">RED</span>
-              <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">SMALL</span>
-              <span class="text-slate-300 font-black">#2</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">72%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+2 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
-                Fly Brain
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #29
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Shannon Entropy Minimizer</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+3.5% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Information Entropy Metric</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">64.0%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#9</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">73%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+2 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-sky-500/20 text-sky-300 border-sky-500/30">
-                Classical Math
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #30
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Deep MLP Classifier</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+3.3% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Dense 128-64-32 LeakyReLU</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">63.8%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#5</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">70%</b></span>
-              <span><span class="text-rose-400 font-black font-mono text-[8.5px]">-1 L</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-purple-500/20 text-purple-300 border-purple-500/30">
-                Neural / Deep
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #31
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Prefix Trie Pattern Matcher</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+3.3% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Compressed Radix Trie Lookup</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">63.8%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black border border-rose-500/30">RED</span>
-              <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">SMALL</span>
-              <span class="text-slate-300 font-black">#1</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">70%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+1 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-sky-500/20 text-sky-300 border-sky-500/30">
-                Classical Math
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #32
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Statistical Baseline Ensemble</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+3.3% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Multi-Hypothesis Average</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">63.8%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#7</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">71%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+2 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-slate-500/20 text-slate-300 border-slate-500/30">
-                Statistical
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #33
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Conjugate Dirichlet Bayesian</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+3.1% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Dirichlet-Multinomial Conjugate Prior</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">63.6%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black border border-rose-500/30">RED</span>
-              <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">SMALL</span>
-              <span class="text-slate-300 font-black">#4</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">70%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+1 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-sky-500/20 text-sky-300 border-sky-500/30">
-                Classical Math
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #34
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Mean Reversion Neural Net</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+3.0% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Non-Linear Peak Detector</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">63.5%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black border border-rose-500/30">RED</span>
-              <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">SMALL</span>
-              <span class="text-slate-300 font-black">#2</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">69%</b></span>
-              <span><span class="text-rose-400 font-black font-mono text-[8.5px]">-1 L</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-purple-500/20 text-purple-300 border-purple-500/30">
-                Neural / Deep
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #35
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Bayesian Change-Point Detector</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+3.0% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">CUSUM / BOCPD Regime Shift</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">63.5%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black border border-rose-500/30">RED</span>
-              <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">SMALL</span>
-              <span class="text-slate-300 font-black">#4</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">71%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+2 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-sky-500/20 text-sky-300 border-sky-500/30">
-                Classical Math
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #36
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Hidden Markov Model (HMM)</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+3.0% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Baum-Welch 3-State Latent Model</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">63.5%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black border border-rose-500/30">RED</span>
-              <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">SMALL</span>
-              <span class="text-slate-300 font-black">#4</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">72%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+2 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-slate-500/20 text-slate-300 border-slate-500/30">
-                Statistical
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #37
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">1st Order Markov Chain</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+2.7% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Transition Matrix Dynamic MLE</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">63.2%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#7</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">71%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+2 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-sky-500/20 text-sky-300 border-sky-500/30">
-                Classical Math
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #38
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Poisson Run-Length Estimator</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+2.5% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Poisson Renewal Process</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">63.0%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#5</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">68%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+1 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-sky-500/20 text-sky-300 border-sky-500/30">
-                Classical Math
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #39
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Bayesian Online Model</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+2.5% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Sequential Bayesian Inference</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">63.0%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#9</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">70%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+1 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-slate-500/20 text-slate-300 border-slate-500/30">
-                Statistical
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #40
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Streak Breaker Reversion</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+2.3% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Geometric Distribution Cap</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">62.8%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black border border-rose-500/30">RED</span>
-              <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">SMALL</span>
-              <span class="text-slate-300 font-black">#3</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">69%</b></span>
-              <span><span class="text-rose-400 font-black font-mono text-[8.5px]">-1 L</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-sky-500/20 text-sky-300 border-sky-500/30">
-                Classical Math
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #41
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">3-Gram Markov Sequence</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+2.3% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Conditional N-Gram Distribution</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">62.8%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#7</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">69%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+2 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-slate-500/20 text-slate-300 border-slate-500/30">
-                Statistical
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #42
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Anomaly Isolation Net</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+2.0% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Isolation Density Estimator</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">62.5%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#5</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">67%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+1 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-purple-500/20 text-purple-300 border-purple-500/30">
-                Neural / Deep
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #43
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Cosine Sequence Similarity</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+2.0% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Vector Cosine Distance</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">62.5%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black border border-rose-500/30">RED</span>
-              <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">SMALL</span>
-              <span class="text-slate-300 font-black">#2</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">68%</b></span>
-              <span><span class="text-rose-400 font-black font-mono text-[8.5px]">-1 L</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-slate-500/20 text-slate-300 border-slate-500/30">
-                Statistical
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #44
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Kolmogorov-Smirnov Drift</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+1.9% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Two-Sample KS Test Drift Detector</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">62.4%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black border border-rose-500/30">RED</span>
-              <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">SMALL</span>
-              <span class="text-slate-300 font-black">#2</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">68%</b></span>
-              <span><span class="text-rose-400 font-black font-mono text-[8.5px]">-1 L</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-sky-500/20 text-sky-300 border-sky-500/30">
-                Classical Math
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #45
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Casino Trap & Noise Filter</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+1.7% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Kolmogorov Complexity Estimator</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">62.2%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#7</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">67%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+1 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-sky-500/20 text-sky-300 border-sky-500/30">
-                Classical Math
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #46
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Softmax Logistic Model</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+1.5% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Calibrated L2 Regularized Softmax</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">62.0%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black border border-rose-500/30">RED</span>
-              <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">SMALL</span>
-              <span class="text-slate-300 font-black">#1</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">68%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+1 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-purple-500/20 text-purple-300 border-purple-500/30">
-                Neural / Deep
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #47
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Mathematical Inversion Model</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+1.3% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Parity Phase Inverter</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">61.8%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black border border-rose-500/30">RED</span>
-              <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">SMALL</span>
-              <span class="text-slate-300 font-black">#0</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">66%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+1 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-sky-500/20 text-sky-300 border-sky-500/30">
-                Classical Math
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #48
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Empirical Frequency Model</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+1.0% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Windowed Frequency Distribution (N=100)</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">61.5%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black border border-rose-500/30">RED</span>
-              <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-black border border-amber-500/30">SMALL</span>
-              <span class="text-slate-300 font-black">#2</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">66%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+1 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-sky-500/20 text-sky-300 border-sky-500/30">
-                Classical Math
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/20 to-black/60 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #49
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Bootstrap Resampling Model</span>
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[7px] font-bold border border-emerald-500/30">+0.7% OG</span>
-                  
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Monte Carlo 1000x Resampling</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">61.2%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#5</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">66%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+1 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-slate-500/20 text-slate-300 border-slate-500/30">
-                Statistical
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="p-2.5 rounded-xl border border-white/10 bg-[#141416]/80 transition hover:border-white/25 space-y-1.5">
-          <div class="flex items-center justify-between gap-1">
-            <div class="flex items-center gap-1.5 min-w-0">
-              <span class="w-5 h-5 rounded-md flex items-center justify-center text-[8.5px] font-mono shrink-0 bg-white/10 text-slate-300 font-bold">
-                #50
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span class="text-[9.5px] font-black text-white truncate">Base Quant Predictor (OG Algorithm)</span>
-                  
-                  
-                  <span class="px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[7px] font-black border border-blue-500/30">OG BENCHMARK</span>
-                </div>
-                <div class="text-[7.5px] text-slate-400 truncate">Original Weighted Quant System</div>
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs font-black font-mono text-slate-200">60.5%</div>
-              <div class="text-[7px] text-slate-400">48 rounds</div>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-white/5 text-[8px] font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-slate-500 text-[7.5px]">Signal:</span>
-              <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30">GREEN</span>
-              <span class="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-black border border-indigo-500/30">BIG</span>
-              <span class="text-slate-300 font-black">#7</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="text-slate-400">Conf: <b class="text-sky-300">75%</b></span>
-              <span><span class="text-emerald-400 font-black font-mono text-[8.5px]">+2 W</span></span>
-              <span class="px-1 py-0.5 rounded text-[7px] font-mono border bg-slate-500/20 text-slate-300 border-slate-500/30">
-                Statistical
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-    </div><!-- end #rightPanelRankContent -->
+    </div><!-- end #rightPanelAdaptiveContent -->
 
     <!-- ── 3. EMBEDDED WEBSITE VIEW & REAL AUTO-BETTING (DhaniWin Mobile View) ── -->
     <div id="rightPanelWebContent" class="p-2 space-y-2.5 max-w-[410px] mx-auto" style="display:none;">
@@ -10176,24 +8244,22 @@ let arenaCategoryFilter = 'all';
 let cachedArenaModels = [];
 
 function switchRightPanelView(view) {
-  currentRightPanelView = (view === 'web') ? 'web' : (view === 'rank') ? 'rank' : 'app';
+  // Support 'adaptive' as primary, with backward compatibility for 'app' and 'rank'
+  currentRightPanelView = (view === 'web') ? 'web' : 'adaptive';
   const col3 = document.getElementById('col3Container');
-  const appContent = document.getElementById('rightPanelAppContent');
-  const rankContent = document.getElementById('rightPanelRankContent');
+  const adaptiveContent = document.getElementById('rightPanelAdaptiveContent');
   const webContent = document.getElementById('rightPanelWebContent');
-  const btnApp = document.getElementById('btnRightViewApp');
-  const btnRank = document.getElementById('btnRightViewRank');
+  const btnAdaptive = document.getElementById('btnRightViewAdaptive');
   const btnWeb = document.getElementById('btnRightViewWeb');
   const headerBtn = document.getElementById('headerWebToggleBtn');
   const headerBtnText = document.getElementById('headerWebToggleText');
 
-  // ── 1. Always force Column 3 visible and reset scroll to top ──
   if (col3) {
     col3.style.display = 'flex';
     col3.style.visibility = 'visible';
     col3.style.opacity = '1';
     col3.style.minWidth = '240px';
-    col3.scrollTop = 0; // Essential: prevents scrolling into dark/empty space
+    col3.scrollTop = 0;
   }
   if (typeof windowLayoutState !== 'undefined' && windowLayoutState.col3) {
     windowLayoutState.col3.visible = true;
@@ -10201,76 +8267,66 @@ function switchRightPanelView(view) {
     if (typeof applyDesktopLayout === 'function') applyDesktopLayout();
   }
 
-  // ── 2. Hide ALL panels first using explicit inline styles ──
-  if (appContent) { appContent.style.display = 'none'; }
-  if (rankContent) { rankContent.style.display = 'none'; }
-  if (webContent)  { webContent.style.display = 'none'; }
+  const inactiveBtn = 'flex-1 py-1.5 px-3 rounded-lg text-[9.5px] font-bold uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 text-zinc-400 hover:text-white hover:bg-white/5';
+  const activeBtn = 'flex-1 py-1.5 px-3 rounded-lg text-[9.5px] font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 bg-zinc-800 text-white shadow border border-white/10';
 
-  const inactiveBtnClass = 'flex-1 py-1.5 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 text-slate-300 hover:text-white hover:bg-white/5';
-  const activeGoldClass = 'flex-1 py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-[0_0_12px_rgba(245,158,11,0.4)]';
-  const activeSkyClass = 'flex-1 py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-1.5 bg-gradient-to-r from-sky-500 to-indigo-600 text-white shadow-[0_0_12px_rgba(56,189,248,0.4)]';
-
-  if (currentRightPanelView === 'rank') {
-    // ── RANK VIEW ──
-    if (rankContent) {
-      rankContent.style.display = 'block';
-      rankContent.style.visibility = 'visible';
-      rankContent.style.opacity = '1';
-    }
-    if (btnApp) btnApp.className = inactiveBtnClass;
-    if (btnRank) btnRank.className = activeGoldClass;
-    if (btnWeb) btnWeb.className = inactiveBtnClass;
-    if (headerBtnText) headerBtnText.textContent = 'Rank View';
-    try {
-      updateArenaLeaderboardUI();
-      loadPredictionArenaLeaderboard();
-    } catch(e) {
-      console.warn('Rank leaderboard load error:', e);
-    }
-
-  } else if (currentRightPanelView === 'web') {
-    // ── WEB VIEW ──
+  if (currentRightPanelView === 'web') {
+    if (adaptiveContent) adaptiveContent.style.display = 'none';
     if (webContent) {
       webContent.style.display = 'block';
       webContent.style.visibility = 'visible';
       webContent.style.opacity = '1';
     }
-    if (btnApp) btnApp.className = inactiveBtnClass;
-    if (btnRank) btnRank.className = inactiveBtnClass;
-    if (btnWeb) btnWeb.className = activeSkyClass;
-    if (headerBtn) {
-      headerBtn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-sky-500/20 border border-sky-400/60 text-sky-300 hover:text-white font-black text-xs transition active:scale-95 shadow-[0_0_12px_rgba(56,189,248,0.25)]';
-    }
-    if (headerBtnText) headerBtnText.textContent = 'App View';
+    if (btnAdaptive) btnAdaptive.className = inactiveBtn;
+    if (btnWeb) btnWeb.className = activeBtn;
+    if (headerBtnText) headerBtnText.textContent = 'Adaptive AI';
     const input = document.getElementById('embeddedWebUrlInput');
     const targetUrl = (input && input.value) ? input.value : 'https://dhaniwin99.com';
     loadEmbeddedWebUrl(targetUrl);
-
   } else {
-    // ── APP VIEW ──
-    if (appContent) {
-      appContent.style.display = 'block';
-      appContent.style.visibility = 'visible';
-      appContent.style.opacity = '1';
+    // Adaptive AI View
+    if (webContent) webContent.style.display = 'none';
+    if (adaptiveContent) {
+      adaptiveContent.style.display = 'block';
+      adaptiveContent.style.visibility = 'visible';
+      adaptiveContent.style.opacity = '1';
     }
-    if (btnApp) btnApp.className = activeGoldClass;
-    if (btnRank) btnRank.className = inactiveBtnClass;
-    if (btnWeb) btnWeb.className = inactiveBtnClass;
-    if (headerBtn) {
-      headerBtn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 hover:text-white font-black text-xs transition active:scale-95 shadow';
-    }
+    if (btnAdaptive) btnAdaptive.className = activeBtn;
+    if (btnWeb) btnWeb.className = inactiveBtn;
     if (headerBtnText) headerBtnText.textContent = 'Web View';
+    try {
+      updateArenaLeaderboardUI();
+      loadPredictionArenaLeaderboard();
+    } catch(e) {}
   }
 
-  try {
-    localStorage.setItem('wingo_right_panel_view', currentRightPanelView);
-  } catch (e) {}
+  try { localStorage.setItem('wingo_right_panel_view', currentRightPanelView); } catch (e) {}
 }
 
-function toggleRightPanelView() {
-  if (currentRightPanelView === 'app') switchRightPanelView('rank');
-  else if (currentRightPanelView === 'rank') switchRightPanelView('web');
-  else switchRightPanelView('app');
+let currentAdaptiveSubView = 'roster';
+function switchAdaptiveSubView(sub) {
+  currentAdaptiveSubView = sub;
+  const viewRoster = document.getElementById('adaptiveSubView_roster');
+  const viewAudit = document.getElementById('adaptiveSubView_audit');
+  const viewSim = document.getElementById('adaptiveSubView_sim');
+  const btnRoster = document.getElementById('btnAdaptiveSub_roster');
+  const btnAudit = document.getElementById('btnAdaptiveSub_audit');
+  const btnSim = document.getElementById('btnAdaptiveSub_sim');
+
+  const activeSub = 'flex-1 py-1 px-2 rounded-lg bg-zinc-800 text-white font-bold transition shadow-sm';
+  const inactiveSub = 'flex-1 py-1 px-2 rounded-lg text-zinc-400 hover:text-white transition';
+
+  if (viewRoster) viewRoster.style.display = sub === 'roster' ? 'block' : 'none';
+  if (viewAudit) viewAudit.style.display = sub === 'audit' ? 'block' : 'none';
+  if (viewSim) viewSim.style.display = sub === 'sim' ? 'block' : 'none';
+
+  if (btnRoster) btnRoster.className = sub === 'roster' ? activeSub : inactiveSub;
+  if (btnAudit) btnAudit.className = sub === 'audit' ? activeSub : inactiveSub;
+  if (btnSim) btnSim.className = sub === 'sim' ? activeSub : inactiveSub;
+
+  if (sub === 'roster') {
+    updateArenaLeaderboardUI();
+  }
 }
 
 function setWebProxyMode(isProxy) {
@@ -10485,165 +8541,89 @@ function syncArenaInChargeWithSignal() {
   const activeInCharge = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
   if (!activeInCharge) return;
 
-  const targetColor = activeInCharge.predColor || 'GREEN';
-  const targetNum = activeInCharge.num || (targetColor === 'GREEN' ? 7 : 8);
+  const predType = activeInCharge.predType || (activeInCharge.predColor ? 'COLOR' : 'SIZE');
+  const predTarget = activeInCharge.predTarget || (predType === 'COLOR' ? activeInCharge.predColor : activeInCharge.predSize) || 'GREEN';
+  const targetNum = activeInCharge.num || (predTarget === 'GREEN' ? 7 : (predTarget === 'RED' ? 8 : (predTarget === 'BIG' ? 8 : 2)));
 
-  // Set global S.aiSignal strictly to this single COLOR prediction
+  // Synchronize global S.aiSignal with the single prediction chosen by in-charge model
   if (typeof S !== 'undefined') {
-    const isTest = S.aiTestMode || false;
     S.aiSignal = {
       decision: 'BET',
-      target: targetColor,
-      type: 'COLOR',
-      colorTarget: targetColor,
-      sizeTarget: null,
+      target: predTarget,
+      type: predType,
+      colorTarget: predType === 'COLOR' ? predTarget : (activeInCharge.predColor || 'GREEN'),
+      sizeTarget: predType === 'SIZE' ? predTarget : (activeInCharge.predSize || 'BIG'),
       num: targetNum,
       prob: activeInCharge.conf || 0.75,
       reason: `👑 ${activeInCharge.name} (IN CHARGE — ${activeInCharge.winRatePct || '0.0%'} Win Rate)`,
       engines: [activeInCharge.name],
       stake: S.aiSignal?.stake || 1,
-      isTest
+      isTest: S.aiTestMode || false
     };
-
-    if (S.currentPeriod) {
-      const pStr = String(S.currentPeriod);
-      if (!S.aiPredictionMap) S.aiPredictionMap = {};
-      S.aiPredictionMap[pStr] = S.aiSignal;
-      S.aiPredictionMap[pStr.slice(-5)] = S.aiSignal;
+    if (typeof S.aiPredictionMap === 'object' && S.currentPeriod) {
+      S.aiPredictionMap[String(S.currentPeriod)] = S.aiSignal;
     }
   }
 
-  // Update inChargeSignalEl in Prediction Rank hero card (Single Color Display)
+  // Update inChargeSignalEl in Hero Card
   const inChargeSignalEl = document.getElementById('arenaInChargeSignal');
-  if (inChargeSignalEl && targetColor) {
-    const colorClass = targetColor === 'GREEN' ? 'text-emerald-400' : 'text-rose-400';
-    const icon = targetColor === 'GREEN' ? '🟢' : '🔴';
-    inChargeSignalEl.className = `font-black text-[11px] ${colorClass}`;
-    inChargeSignalEl.textContent = `${icon} ${targetColor} (#${targetNum})`;
+  if (inChargeSignalEl && predTarget) {
+    if (predType === 'COLOR') {
+      const colorClass = predTarget === 'GREEN' ? 'text-emerald-400' : 'text-rose-400';
+      const icon = predTarget === 'GREEN' ? '🟢' : '🔴';
+      inChargeSignalEl.className = `font-black text-[11px] ${colorClass}`;
+      inChargeSignalEl.textContent = `${icon} ${predTarget} (#${targetNum})`;
+    } else {
+      const icon = predTarget === 'BIG' ? '🔼' : '🔽';
+      inChargeSignalEl.className = 'font-black text-[11px] text-zinc-200';
+      inChargeSignalEl.textContent = `${icon} ${predTarget} (#${targetNum})`;
+    }
+  }
+
+  // Update In-Charge Streak in Hero Card
+  const inChargeStreakEl = document.getElementById('arenaInChargeStreak');
+  if (inChargeStreakEl) {
+    const stVal = activeInCharge.streak || 0;
+    if (stVal >= 0) {
+      inChargeStreakEl.className = 'text-emerald-300 font-black text-[10.5px]';
+      inChargeStreakEl.textContent = `🔥 +${stVal}W (Best: ${activeInCharge.bestStreak || stVal}W)`;
+    } else {
+      inChargeStreakEl.className = 'text-rose-300 font-black text-[10.5px]';
+      inChargeStreakEl.textContent = `${stVal}L ${Math.abs(stVal) >= 3 ? '⚠️' : ''}`;
+    }
+  }
+
+  // Update In-Charge Neuro in Hero Card
+  const inChargeNeuroEl = document.getElementById('arenaInChargeNeuro');
+  if (inChargeNeuroEl) {
+    const dopVal = Math.round((activeInCharge.dopamine !== undefined ? activeInCharge.dopamine : 0.5) * 100);
+    const painVal = Math.round((activeInCharge.lossPain !== undefined ? activeInCharge.lossPain : 0.0) * 100);
+    if (painVal > 30) {
+      inChargeNeuroEl.className = 'text-rose-300 font-black text-[10.5px]';
+      inChargeNeuroEl.textContent = `🛡️ ${painVal}% Pain`;
+    } else {
+      inChargeNeuroEl.className = 'text-emerald-300 font-black text-[10.5px]';
+      inChargeNeuroEl.textContent = `⚡ ${dopVal}% Dopamine`;
+    }
   }
 
   // Update Web View Fallback Companion HUD
   const fallbackSig = document.getElementById('webFallbackSignal');
-  if (fallbackSig && targetColor) {
-    const icon = targetColor === 'GREEN' ? '🟢' : '🔴';
-    fallbackSig.textContent = `${icon} ${targetColor}`;
-    fallbackSig.className = targetColor === 'GREEN' ? 'text-emerald-400 font-black text-xs' : 'text-rose-400 font-black text-xs';
+  if (fallbackSig && predTarget) {
+    const icon = predTarget === 'GREEN' ? '🟢' : (predTarget === 'RED' ? '🔴' : (predTarget === 'BIG' ? '🔼' : '🔽'));
+    fallbackSig.textContent = `${icon} ${predTarget}`;
+    fallbackSig.className = predTarget === 'GREEN' ? 'text-emerald-400 font-black text-xs' : (predTarget === 'RED' ? 'text-rose-400 font-black text-xs' : 'text-zinc-200 font-black text-xs');
   }
 }
 
-function generateModelNextPrediction(model, history) {
-  const hist = Array.isArray(history) ? history.filter(r => !r.gap) : [];
-  const len = hist.length;
-  if (len === 0) return { predColor: model.predColor, predSize: model.predSize, num: model.num, conf: model.conf };
-
-  const last1 = hist[hist.length - 1];
-  const last2 = len >= 2 ? hist[hist.length - 2] : null;
-  const last3 = len >= 3 ? hist[hist.length - 3] : null;
-
-  let color = model.predColor;
-  let size = model.predSize;
-  let num = model.num;
-  let conf = model.conf;
-
-  // Fly Brain Drosophila models: Odor-attraction & Ring attractor phase oscillations
-  if (model.cat === 'fly') {
-    const greenCount = hist.slice(-12).filter(r => r.color === 'GREEN').length;
-    const bigCount = hist.slice(-12).filter(r => r.size === 'BIG').length;
-    if (model.id.includes('mushroom') || model.id.includes('antennal')) {
-      color = greenCount >= 7 ? 'GREEN' : 'RED';
-      size = bigCount >= 7 ? 'BIG' : 'SMALL';
-    } else if (model.id.includes('central-complex') || model.id.includes('navigation')) {
-      color = last1.color === 'GREEN' ? 'RED' : 'GREEN'; // Alternator ring
-      size = last1.size === 'BIG' ? 'SMALL' : 'BIG';
-    } else {
-      color = (last1.number % 2 === 1) ? 'GREEN' : 'RED';
-      size = last1.number >= 5 ? 'BIG' : 'SMALL';
-    }
-    num = color === 'GREEN' ? (size === 'BIG' ? 7 : 1) : (size === 'BIG' ? 8 : 2);
-    conf = Math.min(0.92, Math.max(0.68, 0.72 + (Math.abs(greenCount - 6) * 0.03)));
-  }
-  // Neural & Deep models: Sequence momentum & multi-step lag
-  else if (model.cat === 'neural') {
-    if (model.id === 'LSTM_RECURRENT' || model.id === 'GRU_RECURRENT') {
-      const isStreak = last2 && last1.color === last2.color;
-      color = isStreak ? last1.color : (last1.color === 'GREEN' ? 'RED' : 'GREEN');
-      size = last2 && last1.size === last2.size ? last1.size : (last1.size === 'BIG' ? 'SMALL' : 'BIG');
-    } else if (model.id.includes('INVERSION') || model.id.includes('REVERSION')) {
-      color = last1.color === 'GREEN' ? 'RED' : 'GREEN';
-      size = last1.size === 'BIG' ? 'SMALL' : 'BIG';
-    } else {
-      color = last1.color;
-      size = last1.size;
-    }
-    num = color === 'GREEN' ? (size === 'BIG' ? 9 : 3) : (size === 'BIG' ? 6 : 0);
-    conf = Math.min(0.90, Math.max(0.65, 0.74 + (len % 5) * 0.02));
-  }
-  // Classical models: Reversals, streaks, Markov transitions
-  else if (model.cat === 'classical') {
-    if (model.id.includes('STREAK_RIDER')) {
-      color = last1.color;
-      size = last1.size;
-    } else if (model.id.includes('STREAK_BREAKER') || model.id.includes('INVERSION')) {
-      color = last1.color === 'GREEN' ? 'RED' : 'GREEN';
-      size = last1.size === 'BIG' ? 'SMALL' : 'BIG';
-    } else {
-      const odd = hist.slice(-6).filter(r => r.number % 2 === 1).length;
-      color = odd >= 3 ? 'GREEN' : 'RED';
-      size = last1.number <= 4 ? 'BIG' : 'SMALL';
-    }
-    num = color === 'GREEN' ? (size === 'BIG' ? 5 : 1) : (size === 'BIG' ? 8 : 4);
-    conf = Math.min(0.88, Math.max(0.64, 0.70 + (len % 4) * 0.03));
-  }
-  // Statistical & Markov
-  else if (model.cat === 'statistical') {
-    if (model.id === 'BASE_PREDICTOR') {
-      const activeSig = (typeof S !== 'undefined' && S.aiSignal && S.aiSignal.target) ? S.aiSignal : null;
-      if (activeSig) {
-        if (['BIG', 'SMALL'].includes(activeSig.target)) {
-          size = activeSig.target;
-          color = activeSig.colorTarget || (activeSig.target === 'BIG' ? (last1 ? last1.color : 'GREEN') : (last1 ? last1.color : 'RED'));
-        } else if (['RED', 'GREEN', 'VIOLET'].includes(activeSig.target)) {
-          color = activeSig.target === 'VIOLET' ? 'RED' : activeSig.target;
-          size = activeSig.sizeTarget || (color === 'GREEN' ? 'BIG' : 'SMALL');
-        } else {
-          size = 'BIG';
-          color = 'GREEN';
-        }
-        conf = activeSig.prob || 0.75;
-      } else {
-        color = last1 ? (last1.color === 'GREEN' ? 'RED' : 'GREEN') : 'GREEN';
-        size = last1 ? (last1.size === 'BIG' ? 'SMALL' : 'BIG') : 'BIG';
-        conf = 0.70;
-      }
-      num = color === 'GREEN' ? (size === 'BIG' ? 7 : 1) : (size === 'BIG' ? 8 : 2);
-    } else {
-      color = (last1.number + (last2 ? last2.number : 0)) % 2 === 1 ? 'GREEN' : 'RED';
-      size = (last1.number >= 5) ? 'BIG' : 'SMALL';
-    }
-    num = color === 'GREEN' ? (size === 'BIG' ? 7 : 3) : (size === 'BIG' ? 6 : 2);
-    conf = Math.min(0.86, Math.max(0.62, 0.68 + (len % 3) * 0.04));
-  }
-  // Meta consensus
-  else {
-    color = last1.color;
-    size = last1.size === 'BIG' ? 'BIG' : 'SMALL';
-    num = color === 'GREEN' ? 7 : 8;
-    conf = 0.80;
-  }
-
-  return { predColor: color, predSize: size, num, conf: Number(conf.toFixed(2)) };
-}
-
-// Live evaluation on settled round for ALL 52 models
 function evaluateArenaModelsOnSettledRound(periodStr, number, size, color) {
   const stats = getArenaLiveStats();
   const hist = (typeof S !== 'undefined' && S.history) ? S.history : [];
 
-  // Ground truth resolved lottery color:
-  // In WinGo: 1, 3, 5, 7, 9 are GREEN (5 is Green+Violet)
-  // 0, 2, 4, 6, 8 are RED (0 is Red+Violet)
+  // Ground truth resolved lottery metrics:
   const numVal = parseInt(number, 10);
   const actualColor = [1, 3, 5, 7, 9].includes(numVal) ? 'GREEN' : 'RED';
+  const actualSize = size; // 'BIG' or 'SMALL'
 
   ARENA_CANONICAL_MODELS.forEach(m => {
     if (!stats[m.id]) {
@@ -10651,39 +8631,77 @@ function evaluateArenaModelsOnSettledRound(periodStr, number, size, color) {
         wins: 0,
         losses: 0,
         streak: 0,
+        bestStreak: 0,
         totalEvaluated: 0,
         winRate: 0,
+        dopamine: 0.50,
+        lossPain: 0.0,
+        historyPath: [],
+        predType: 'COLOR',
+        predTarget: m.predColor || 'GREEN',
         predColor: m.predColor || 'GREEN',
-        num: m.num || (m.predColor === 'GREEN' ? 7 : 8),
+        predSize: m.predSize || 'BIG',
+        num: m.num || 7,
         conf: m.conf || 0.75
       };
     }
 
     const st = stats[m.id];
+    if (st.bestStreak === undefined) st.bestStreak = Math.max(0, st.streak || 0);
+    if (st.dopamine === undefined) st.dopamine = 0.50;
+    if (st.lossPain === undefined) st.lossPain = 0.0;
+    if (!Array.isArray(st.historyPath)) st.historyPath = [];
 
-    // Single prediction evaluated strictly: ONLY the predicted Color!
-    // Models cannot predict color and size together!
-    const won = (st.predColor === actualColor);
+    // SINGLE PREDICTION EVALUATION: EITHER COLOR OR SIZE, NEVER BOTH!
+    let won = false;
+    const evaluatedType = st.predType || 'COLOR';
+    const evaluatedTarget = st.predTarget || st.predColor || 'GREEN';
+
+    if (evaluatedType === 'COLOR') {
+      won = (evaluatedTarget === actualColor);
+    } else {
+      won = (evaluatedTarget === actualSize);
+    }
 
     st.totalEvaluated++;
     if (won) {
       st.wins++;
       st.streak = st.streak >= 0 ? st.streak + 1 : 1;
+      if (st.streak > st.bestStreak) st.bestStreak = st.streak;
+
+      // Dopamine surge on win
+      st.dopamine = Math.min(1.0, Number((st.dopamine + 0.25).toFixed(2)));
+      st.lossPain = Math.max(0.0, Number((st.lossPain - 0.30).toFixed(2)));
     } else {
       st.losses++;
       st.streak = st.streak <= 0 ? st.streak - 1 : -1;
+
+      // Loss pain spike on loss
+      st.lossPain = Math.min(1.0, Number((st.lossPain + 0.30 * Math.abs(st.streak)).toFixed(2)));
+      st.dopamine = Math.max(0.0, Number((st.dopamine - 0.35).toFixed(2)));
     }
 
     // Exact mathematical win rate: wins / totalEvaluated
-    // e.g. 5W / 5L = 5/10 = 0.50 (50.0%)
-    // e.g. 2W / 8L = 2/10 = 0.20 (20.0%)
     st.winRate = st.totalEvaluated > 0 ? Number((st.wins / st.totalEvaluated).toFixed(3)) : 0;
 
-    // Generate next single color prediction for upcoming round
-    const nextP = generateModelNextPrediction(m, hist);
-    st.predColor = nextP.predColor || (actualColor === 'GREEN' ? 'RED' : 'GREEN');
-    st.num = nextP.num || (st.predColor === 'GREEN' ? 7 : 8);
-    st.conf = nextP.conf || 0.75;
+    // Record into isolated history path (last 10 rounds)
+    st.historyPath.unshift({
+      period: periodStr,
+      won,
+      predType: evaluatedType,
+      predTarget: evaluatedTarget,
+      actual: evaluatedType === 'COLOR' ? actualColor : actualSize
+    });
+    if (st.historyPath.length > 10) st.historyPath.length = 10;
+
+    // Generate next prediction (analyzing both sequences and picking single color or size)
+    const nextP = generateModelNextPrediction(m, hist, st);
+    st.predType = nextP.predType;
+    st.predTarget = nextP.predTarget;
+    st.predColor = nextP.predColor;
+    st.predSize = nextP.predSize;
+    st.num = nextP.num;
+    st.conf = nextP.conf;
   });
 
   saveArenaLiveStats(stats);
@@ -10699,46 +8717,53 @@ function updateArenaLeaderboardUI(liveRanking, liveChampion) {
   const mergedModels = ARENA_CANONICAL_MODELS.map((model) => {
     let winRate = 0;
     let streak = 0;
+    let bestStreak = 0;
     let evaluated = 0;
     let wins = 0;
     let losses = 0;
-    let predColor = model.predColor;
-    let predSize = model.predSize;
-    let num = model.num;
-    let conf = model.conf;
+    let dopamine = 0.50;
+    let lossPain = 0.0;
+    let historyPath = [];
+    let predType = model.predType || 'COLOR';
+    let predTarget = model.predTarget || model.predColor || 'GREEN';
+    let predColor = model.predColor || 'GREEN';
+    let predSize = model.predSize || 'BIG';
+    let num = model.num || 7;
+    let conf = model.conf || 0.75;
 
     if (localStats && localStats[model.id]) {
       const st = localStats[model.id];
       winRate = (st.winRate !== undefined) ? Number(st.winRate) : 0;
       streak = (st.streak !== undefined) ? Number(st.streak) : 0;
+      bestStreak = (st.bestStreak !== undefined) ? Number(st.bestStreak) : Math.max(0, streak);
       evaluated = (st.totalEvaluated !== undefined) ? Number(st.totalEvaluated) : 0;
       wins = (st.wins !== undefined) ? Number(st.wins) : 0;
       losses = (st.losses !== undefined) ? Number(st.losses) : 0;
+      dopamine = (st.dopamine !== undefined) ? Number(st.dopamine) : 0.50;
+      lossPain = (st.lossPain !== undefined) ? Number(st.lossPain) : 0.0;
+      historyPath = Array.isArray(st.historyPath) ? st.historyPath : [];
+      if (st.predType) predType = st.predType;
+      if (st.predTarget) predTarget = st.predTarget;
       if (st.predColor) predColor = st.predColor;
       if (st.predSize) predSize = st.predSize;
       if (st.num !== undefined) num = st.num;
       if (st.conf !== undefined) conf = st.conf;
     }
 
-    if (liveRanking && Array.isArray(liveRanking) && liveRanking.length > 0) {
-      const live = liveRanking.find(r => r.expertId === model.id || r.id === model.id);
-      if (live && (live.totalEvaluated || live.roundsEvaluated)) {
-        winRate = live.winRate !== undefined ? Number(live.winRate) : winRate;
-        streak = live.streak !== undefined ? Number(live.streak) : streak;
-        evaluated = live.totalEvaluated || live.roundsEvaluated || evaluated;
-        wins = live.wins !== undefined ? Number(live.wins) : wins;
-        losses = live.losses !== undefined ? Number(live.losses) : losses;
-      }
-    }
-
     return {
       ...model,
-      winRate: Number(winRate),
+      winRate,
       winRatePct: (winRate * 100).toFixed(1) + '%',
-      streak: streak,
-      evaluated: evaluated,
-      wins: wins,
-      losses: losses,
+      streak,
+      bestStreak,
+      evaluated,
+      wins,
+      losses,
+      dopamine,
+      lossPain,
+      historyPath,
+      predType,
+      predTarget,
       predColor,
       predSize,
       num,
@@ -10960,189 +8985,114 @@ function filterArenaRoster() {
 function renderArenaRoster() {
   const container = document.getElementById('arenaRosterContainer');
   if (!container) return;
-  if (!cachedArenaModels || !cachedArenaModels.length) {
-    if (typeof updateArenaLeaderboardUI === 'function') {
-      updateArenaLeaderboardUI();
+
+  const models = cachedArenaModels || [];
+  if (models.length === 0) {
+    container.innerHTML = '<div class="p-6 text-center text-zinc-500 font-mono text-[9px] bg-black/40 rounded-2xl border border-white/5">Initializing 52 Algorithms...</div>';
+    return;
+  }
+
+  const cardsHtml = models.map((m) => {
+    const isLead = m.isInCharge;
+    const cardBorder = isLead 
+      ? 'border border-emerald-500/50 bg-[#0c0d10] shadow-[0_0_15px_rgba(16,185,129,0.15)]' 
+      : 'border border-white/[0.07] bg-[#09090b] hover:border-zinc-700/60';
+
+    // Single Prediction Badge: either COLOR or SIZE
+    const predType = m.predType || (m.predColor ? 'COLOR' : 'SIZE');
+    const predTarget = m.predTarget || (predType === 'COLOR' ? m.predColor : m.predSize) || 'GREEN';
+
+    let predBadge = '';
+    if (predType === 'COLOR') {
+      predBadge = (predTarget === 'GREEN')
+        ? '<span class="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30 text-[8px] flex items-center gap-1">🟢 GREEN <span class="text-[6.5px] opacity-75 font-mono">COLOR</span></span>'
+        : '<span class="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 font-black border border-rose-500/30 text-[8px] flex items-center gap-1">🔴 RED <span class="text-[6.5px] opacity-75 font-mono">COLOR</span></span>';
+    } else {
+      predBadge = (predTarget === 'BIG')
+        ? '<span class="px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-200 font-black border border-white/10 text-[8px] flex items-center gap-1">🔼 BIG <span class="text-[6.5px] opacity-75 font-mono">SIZE</span></span>'
+        : '<span class="px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-200 font-black border border-white/10 text-[8px] flex items-center gap-1">🔽 SMALL <span class="text-[6.5px] opacity-75 font-mono">SIZE</span></span>';
     }
-    return;
-  }
 
-  const searchInput = document.getElementById('arenaSearchInput');
-  const sortSelect = document.getElementById('arenaSortSelect');
-  const searchVal = (searchInput ? searchInput.value.toLowerCase().trim() : '');
-  const sortBy = (sortSelect ? sortSelect.value : 'winrate');
-
-  let list = [...cachedArenaModels];
-
-  if (arenaCategoryFilter !== 'all') {
-    list = list.filter(m => m.cat === arenaCategoryFilter);
-  }
-
-  if (searchVal) {
-    list = list.filter(m => 
-      m.name.toLowerCase().includes(searchVal) || 
-      m.arch.toLowerCase().includes(searchVal) ||
-      m.desc.toLowerCase().includes(searchVal) ||
-      m.id.toLowerCase().includes(searchVal)
-    );
-  }
-
-  if (sortBy === 'winrate') {
-    list.sort((a, b) => {
-      if (b.winRate !== a.winRate) return b.winRate - a.winRate;
-      if (b.evaluated !== a.evaluated) return b.evaluated - a.evaluated;
-      return b.wins - a.wins;
-    });
-  } else if (sortBy === 'streak') {
-    list.sort((a, b) => b.streak - a.streak);
-  } else if (sortBy === 'rank') {
-    list.sort((a, b) => a.rank - b.rank);
-  } else if (sortBy === 'name') {
-    list.sort((a, b) => a.name.localeCompare(b.name));
-  }
-
-  if (list.length === 0) {
-    container.innerHTML = `
-      <div class="p-6 text-center text-slate-400 font-mono text-xs">
-        <i class="fa-solid fa-magnifying-glass text-slate-500 mb-2 text-base"></i>
-        <div>No matching prediction algorithms found.</div>
-      </div>
-    `;
-    return;
-  }
-
-  const categoryBadges = {
-    fly: { label: 'Fly Brain', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
-    neural: { label: 'Neural / Deep', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
-    classical: { label: 'Classical Math', color: 'bg-sky-500/20 text-sky-300 border-sky-500/30' },
-    statistical: { label: 'Statistical', color: 'bg-slate-500/20 text-slate-300 border-slate-500/30' },
-    meta: { label: 'Meta Ensemble', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' }
-  };
-
-  // Top 3 Podium Strip - Shown if at least 1 model has started evaluating
-  const top3 = cachedArenaModels.slice(0, 3);
-  let podiumHtml = '';
-  const anyEvaluated = cachedArenaModels.some(m => m.evaluated > 0);
-  if (top3.length >= 3 && !searchVal && arenaCategoryFilter === 'all' && anyEvaluated) {
-    podiumHtml = `
-      <div class="grid grid-cols-3 gap-1.5 p-2 rounded-2xl bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-sky-500/10 border border-white/10 text-center font-mono">
-        <div class="p-1.5 rounded-xl bg-black/40 border border-amber-400/40">
-          <div class="text-[7px] text-amber-400 font-bold uppercase tracking-wider">🥇 1st Place</div>
-          <div class="text-[9.5px] font-black text-white truncate">${top3[0].name.split(' ')[0]}</div>
-          <div class="text-xs font-black text-amber-400">${top3[0].winRatePct}</div>
-          <div class="text-[7px] text-slate-400">${top3[0].evaluated} rounds</div>
-        </div>
-        <div class="p-1.5 rounded-xl bg-black/40 border border-slate-300/30">
-          <div class="text-[7px] text-slate-300 font-bold uppercase tracking-wider">🥈 2nd Place</div>
-          <div class="text-[9.5px] font-black text-white truncate">${top3[1].name.split(' ')[0]}</div>
-          <div class="text-xs font-black text-slate-200">${top3[1].winRatePct}</div>
-          <div class="text-[7px] text-slate-400">${top3[1].evaluated} rounds</div>
-        </div>
-        <div class="p-1.5 rounded-xl bg-black/40 border border-amber-700/30">
-          <div class="text-[7px] text-amber-600 font-bold uppercase tracking-wider">🥉 3rd Place</div>
-          <div class="text-[9.5px] font-black text-white truncate">${top3[2].name.split(' ')[0]}</div>
-          <div class="text-xs font-black text-amber-600">${top3[2].winRatePct}</div>
-          <div class="text-[7px] text-slate-400">${top3[2].evaluated} rounds</div>
-        </div>
-      </div>
-    `;
-  } else if (!anyEvaluated && !searchVal && arenaCategoryFilter === 'all') {
-    podiumHtml = `
-      <div class="p-3 rounded-2xl bg-indigo-950/20 border border-indigo-500/20 text-center font-mono text-[8.5px] text-indigo-300 space-y-1">
-        <div class="font-bold flex items-center justify-center gap-1.5 text-white">
-          <i class="fa-solid fa-flag-checkered text-amber-400"></i>
-          <span>Fresh Tournament Standings (0.0% Clean Start)</span>
-        </div>
-        <div class="text-slate-400 text-[8px]">All 52 algorithms start at 0.0% win rate. When the next live round settles, accuracy scores will update in real time!</div>
-      </div>
-    `;
-  }
-
-  const cardsHtml = list.map(m => {
-    const catInfo = categoryBadges[m.cat] || { label: m.cat, color: 'bg-white/10 text-slate-300 border-white/20' };
-    const rankBadgeClass = m.rank === 1 ? 'bg-amber-400 text-slate-950 font-black shadow-[0_0_10px_rgba(245,158,11,0.6)]' :
-                           m.rank === 2 ? 'bg-slate-200 text-slate-950 font-black' :
-                           m.rank === 3 ? 'bg-amber-700 text-white font-black' :
-                           'bg-white/15 text-slate-200 font-bold border border-white/10';
-
-    const cardBorder = m.isInCharge 
-      ? 'border-2 border-amber-400 bg-gradient-to-br from-amber-950/60 via-[#1b1526] to-[#10121c] shadow-[0_0_24px_rgba(245,158,11,0.35)]' 
-      : m.isBeatingOg 
-      ? 'border border-emerald-500/70 bg-gradient-to-br from-emerald-950/40 via-[#131a18] to-[#10131c] shadow-[0_0_14px_rgba(16,185,129,0.22)]' 
-      : 'border border-white/[0.14] bg-gradient-to-r from-[#191a24] to-[#12131b] hover:border-amber-400/60 shadow-md';
-
-    const colorBadge = m.predColor === 'GREEN' 
-      ? '<span class="px-2 py-0.5 rounded-md bg-emerald-500/30 text-emerald-200 font-black border border-emerald-400/50 shadow-sm flex items-center gap-1">🟢 GREEN</span>'
-      : '<span class="px-2 py-0.5 rounded-md bg-rose-500/30 text-rose-200 font-black border border-rose-400/50 shadow-sm flex items-center gap-1">🔴 RED</span>';
-
-    const sizeBadge = m.predSize === 'BIG'
-      ? '<span class="px-2 py-0.5 rounded-md bg-indigo-500/30 text-indigo-200 font-black border border-indigo-400/50 shadow-sm">🟡 BIG</span>'
-      : '<span class="px-2 py-0.5 rounded-md bg-amber-500/30 text-amber-200 font-black border border-amber-400/50 shadow-sm">🔵 SMALL</span>';
-
+    // Win Streak & Best Streak
     const streakBadge = m.evaluated === 0
-      ? '<span class="px-1.5 py-0.5 rounded bg-white/5 text-slate-400 font-black font-mono text-[8px] border border-white/10">0 STREAK</span>'
+      ? '<span class="px-1.5 py-0.5 rounded bg-white/5 text-zinc-500 font-mono text-[7.5px] border border-white/5">0 STREAK</span>'
       : m.streak >= 0
-      ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-black font-mono text-[8px] border border-emerald-500/30">🔥 +${m.streak} W</span>`
-      : `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-black font-mono text-[8px] border border-rose-500/30">${m.streak} L</span>`;
+      ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 font-black font-mono text-[7.5px] border border-emerald-500/20">🔥 +${m.streak}W</span>`
+      : `<span class="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300 font-black font-mono text-[7.5px] border border-rose-500/20">${m.streak}L ${Math.abs(m.streak) >= 3 ? '⚠️' : ''}</span>`;
 
-    const inChargeTag = m.isInCharge 
-      ? '<span class="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[7.5px] font-black tracking-wider flex items-center gap-1 shadow animate-pulse"><i class="fa-solid fa-crown text-[8px]"></i> IN CHARGE</span>'
-      : '';
+    // History Trail (Dot Path of past 8 rounds)
+    const pathDots = [];
+    const historyPath = Array.isArray(m.historyPath) ? m.historyPath : [];
+    for (let i = 0; i < 8; i++) {
+      if (i < historyPath.length) {
+        const item = historyPath[i];
+        if (item.won) {
+          pathDots.push('<span class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)] shrink-0" title="Win (' + (item.predTarget || '') + ')"></span>');
+        } else {
+          pathDots.push('<span class="w-2 h-2 rounded-full bg-rose-500 shrink-0" title="Loss"></span>');
+        }
+      } else {
+        pathDots.push('<span class="w-2 h-2 rounded-full bg-zinc-800 shrink-0 opacity-40"></span>');
+      }
+    }
+    const historyTrailHtml = pathDots.join('');
 
-    const beatingOgTag = (!m.isInCharge && m.isBeatingOg)
-      ? `<span class="px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-200 text-[7.5px] font-black border border-emerald-400/40">+${m.ogDelta}% OG</span>`
-      : '';
+    // Neuro-State Pill (Dopamine vs Loss Pain)
+    const dopVal = Math.round((m.dopamine !== undefined ? m.dopamine : 0.5) * 100);
+    const painVal = Math.round((m.lossPain !== undefined ? m.lossPain : 0.0) * 100);
+    const neuroPill = painVal > 30 
+      ? `<span class="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 text-[7px] font-mono">🛡️ ${painVal}% Pain</span>`
+      : `<span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[7px] font-mono">⚡ ${dopVal}% Dopamine</span>`;
 
-    const ogTag = m.isBase 
-      ? '<span class="px-2 py-0.5 rounded-full bg-blue-500/30 text-blue-200 text-[7.5px] font-black border border-blue-400/50">OG BASELINE</span>'
-      : '';
-
-    const winPctNum = Math.min(100, Math.max(0, m.winRate * 100));
-
-    const inChargeBtn = m.isInCharge
-      ? `<button onclick="setArenaManualInCharge('${m.id}')" class="px-2 py-0.5 rounded bg-amber-400 text-slate-950 font-black text-[7.5px] shadow active:scale-95 transition" title="Click to toggle back to auto-adaptive mode">✓ Active</button>`
-      : `<button onclick="setArenaManualInCharge('${m.id}')" class="px-2 py-0.5 rounded bg-white/10 hover:bg-amber-400/20 text-slate-300 hover:text-amber-300 border border-white/10 font-bold text-[7.5px] active:scale-95 transition" title="Designate this model as live predictor">⚡ Set In-Charge</button>`;
+    const inChargeBtn = isLead
+      ? `<button onclick="setArenaManualInCharge('${m.id}')" class="px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black text-[7.5px] transition" title="Currently Live Champion">✓ In Charge</button>`
+      : `<button onclick="setArenaManualInCharge('${m.id}')" class="px-2 py-0.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white border border-white/10 font-bold text-[7.5px] transition active:scale-95" title="Set this model as in charge">Set In-Charge</button>`;
 
     return `
-      <div class="p-3 rounded-2xl border ${cardBorder} transition duration-150 hover:translate-y-[-1px] space-y-2">
+      <div class="p-3 rounded-2xl border ${cardBorder} transition duration-150 space-y-2">
         <div class="flex items-center justify-between gap-1">
           <div class="flex items-center gap-2 min-w-0">
-            <span class="w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-mono shrink-0 ${rankBadgeClass}">
+            <span class="w-6 h-6 rounded-lg flex items-center justify-center text-[8.5px] font-mono shrink-0 ${isLead ? 'bg-emerald-500 text-slate-950 font-black' : 'bg-zinc-800 text-zinc-300 font-bold'}">
               #${m.rank}
             </span>
             <div class="min-w-0">
               <div class="flex items-center gap-1.5 flex-wrap">
                 <span class="text-[10px] font-black text-white truncate">${m.name}</span>
-                ${inChargeTag}
-                ${beatingOgTag}
-                ${ogTag}
+                ${isLead ? '<span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[7px] font-black flex items-center gap-0.5">👑 LEADER</span>' : ''}
               </div>
-              <div class="text-[8px] text-slate-300 truncate font-mono">${m.arch}</div>
+              <div class="text-[7.5px] text-zinc-500 truncate font-mono">${m.arch || m.cat}</div>
             </div>
           </div>
           <div class="text-right shrink-0">
-            <div class="text-sm font-black font-mono tracking-tight ${m.winRate >= 0.65 ? 'text-amber-400' : 'text-slate-100'}">${m.winRatePct}</div>
-            <div class="text-[7.5px] text-slate-400 font-mono">${m.evaluated} rounds evaluated (${m.wins}W / ${m.losses}L)</div>
+            <div class="text-sm font-black font-mono tracking-tight text-white">${m.winRatePct || '0.0%'}</div>
+            <div class="text-[7.5px] text-zinc-500 font-mono">${m.evaluated} rounds (${m.wins}W / ${m.losses}L)</div>
           </div>
         </div>
 
-        <!-- Accuracy Visual Meter -->
-        <div class="w-full bg-black/60 rounded-full h-1.5 overflow-hidden border border-white/10">
-          <div class="h-full rounded-full ${m.winRate >= 0.65 ? 'bg-gradient-to-r from-amber-400 to-amber-500' : 'bg-gradient-to-r from-sky-400 to-indigo-500'}" style="width: ${winPctNum}%"></div>
-        </div>
-
-        <div class="flex items-center justify-between pt-1 border-t border-white/[0.08] text-[8.5px] font-mono">
-          <div class="flex items-center gap-1.5 flex-wrap">
-            <span class="text-slate-400 text-[8px] font-bold">Prediction:</span>
-            ${colorBadge}
-            <span class="px-1.5 py-0.5 rounded bg-white/10 text-white font-black">#${m.num}</span>
+        <!-- History Trail & Streak Path Row -->
+        <div class="flex items-center justify-between py-1 px-2 rounded-xl bg-black/40 border border-white/[0.05] text-[7.5px] font-mono">
+          <div class="flex items-center gap-1.5">
+            <span class="text-zinc-500">History Path:</span>
+            <div class="flex items-center gap-1">
+              ${historyTrailHtml}
+            </div>
           </div>
-          <div class="flex items-center gap-1.5 flex-wrap">
-            <span class="text-slate-300">Conf: <b class="text-sky-300 font-black">${(m.conf * 100).toFixed(0)}%</b></span>
+          <div class="flex items-center gap-2">
+            <span class="text-zinc-400">Best: <b class="text-zinc-200">${m.bestStreak || 0}W</b></span>
             ${streakBadge}
-            <span class="px-1.5 py-0.5 rounded text-[7.5px] font-mono border ${catInfo.color}">
-              ${catInfo.label}
-            </span>
+          </div>
+        </div>
+
+        <!-- Bottom Prediction & Controls Bar -->
+        <div class="flex items-center justify-between pt-1 border-t border-white/[0.06] text-[8.5px] font-mono">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-zinc-500 text-[8px] font-bold">Prediction:</span>
+            ${predBadge}
+            <span class="px-1.5 py-0.5 rounded bg-white/5 text-zinc-300 font-black">#${m.num}</span>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            ${neuroPill}
+            <span class="text-zinc-400">Conf: <b class="text-zinc-200 font-black">${(m.conf * 100).toFixed(0)}%</b></span>
             ${inChargeBtn}
           </div>
         </div>
@@ -11150,7 +9100,7 @@ function renderArenaRoster() {
     `;
   }).join('');
 
-  container.innerHTML = podiumHtml + cardsHtml;
+  container.innerHTML = cardsHtml;
 }
 
 // Immediately initialize tournament leaderboard state on script evaluation & DOMContentLoaded
