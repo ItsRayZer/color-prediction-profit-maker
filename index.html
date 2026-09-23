@@ -1408,7 +1408,7 @@
         </div>
 
         <!-- 2. AI Target Signal (SWAPPED TO MIDDLE) -->
-        <div id="smartTargetCardBox" class="p-1.5 bg-gradient-to-br from-white/[0.05] via-[#141416] to-black rounded-lg border border-white/[0.08] flex flex-col justify-center transition-all duration-500 overflow-hidden relative min-h-[58px] z-10">
+        <div id="smartTargetCardBox" class="p-1.5 bg-gradient-to-br from-zinc-900/60 via-[#141416] to-black rounded-lg border border-zinc-800/80 flex flex-col justify-center transition-all duration-500 overflow-hidden relative min-h-[58px] z-10">
           <!-- Normal AI Target Prediction View -->
           <div id="smartTargetNormalView" class="flex flex-col justify-center transition-all duration-300">
             <span class="text-[7.5px] text-amber-300 block font-sans uppercase font-bold tracking-wider">AI Target</span>
@@ -3393,27 +3393,24 @@ function resolveUpcomingPeriod() {
 function startRTEngine() {
   if (window._rtTimer) clearInterval(window._rtTimer);
   
-  // Continuous real-time live server synchronization (responsive 2s cadence)
+  // Continuous real-time live server synchronization (continuous responsive 450ms poll)
   if (window._livePollTimer) clearInterval(window._livePollTimer);
   window._livePollTimer = setInterval(() => {
-    const { secsLeft, dur } = computeRTState();
-    // Adaptive polling: during critical round rollover (last 3s or first 4s of new round), poll continuously
-    const isRolloverZone = secsLeft <= 3 || secsLeft >= (dur - 4);
-    if (!isRolloverZone) {
-      fetchLiveAPIResults(S.timeframe).catch(() => {});
-    }
-  }, 1000);
+    fetchLiveAPIResults(S.timeframe).catch(() => {});
+  }, 450);
 
-  // Dedicated high-frequency fast-polling thread during rollover zone (every 350ms)
+  // Dedicated ultra-fast polling thread during rollover zone (every 200ms)
   if (window._fastPollTimer) clearInterval(window._fastPollTimer);
   window._fastPollTimer = setInterval(() => {
     const { secsLeft, dur } = computeRTState();
-    const isRolloverZone = secsLeft <= 3 || secsLeft >= (dur - 4);
+    const lastFinished = (S.history && S.history.length > 0) ? S.history[S.history.length - 1].period : null;
+    const upcoming = resolveUpcomingPeriod();
+    const isAwaitingDraw = lastFinished && String(upcoming) > String(getNextPeriod(lastFinished));
+    const isRolloverZone = secsLeft <= 2 || secsLeft >= (dur - 2) || isAwaitingDraw;
     if (isRolloverZone) {
       fetchLiveAPIResults(S.timeframe).catch(() => {});
     }
-  }, 350);
-
+  }, 200);
   window._rtTimer = setInterval(() => {
     try {
       const { secsLeft, periodStr, clockStr, dur } = computeRTState();
@@ -3435,9 +3432,16 @@ function startRTEngine() {
         return;
       }
 
-      // 1. ALWAYS update clock, period, and timer UI immediately & unconditionally
+      // 1. Check if previous round has rolled over but new draw result hasn't arrived from server yet
+      const lastFinished = (S.history && S.history.length > 0) ? S.history[S.history.length - 1].period : null;
+      let effectiveSecs = secsLeft;
+      if (lastFinished && lastPeriod && String(upcomingPeriod) > String(getNextPeriod(lastFinished))) {
+        // Hold timer at 0 while waiting for draw so user does not see countdown jump ahead prematurely
+        effectiveSecs = 0;
+      }
+
       S.currentPeriod = upcomingPeriod;
-      S.secondsLeft = secsLeft;
+      S.secondsLeft = effectiveSecs;
       updateTimerUI();
 
       // 5-second bet block: lock down when 5 seconds or less remaining (5, 4, 3, 2, 1, 0)
@@ -4468,8 +4472,12 @@ function saveRealResult(period, numberInput, isLiveRound = false) {
   const smartPeriodDisplay = document.getElementById('smartPeriodDisplay');
   if (smartPeriodDisplay) smartPeriodDisplay.textContent = S.currentPeriod ? S.currentPeriod.slice(-5) : '—';
 
-  // Momentarily set timer to 0, then restart and snap to starting point (29 for 30s, 59 for 1m, etc.)
-  snapTimerToNewRound();
+  // Make timer 0 in real time the instant a new result arrives, then smoothly start new round!
+  S.secondsLeft = 0;
+  updateTimerUI();
+  setTimeout(() => {
+    snapTimerToNewRound();
+  }, 500);
 
   // AI test-mode accuracy tracking (no fake popups or balance deductions)
   if (S.aiTestMode && aiMainTarget) {
@@ -12767,7 +12775,7 @@ async function fetchLiveAPIResults(tfOverride) {
   if (!window._isFetching) window._isFetching = {};
   if (!window._lastFetchTime) window._lastFetchTime = {};
   const nowMs = Date.now();
-  if (window._isFetching[tf] && (nowMs - (window._lastFetchTime[tf] || 0)) < 700) return false;
+  if (window._isFetching[tf] && (nowMs - (window._lastFetchTime[tf] || 0)) < 200) return false;
   window._isFetching[tf] = true;
   window._lastFetchTime[tf] = nowMs;
 
@@ -12781,9 +12789,9 @@ async function fetchLiveAPIResults(tfOverride) {
 
     const r = Date.now();
     const urlsToTry = [
+      `${targetUrl}?r=${r}`,
       `${origin}${proxyPath}?r=${r}`,
-      `http://localhost:5173${proxyPath}?r=${r}`,
-      `${targetUrl}?r=${r}`
+      `http://localhost:5173${proxyPath}?r=${r}`
     ];
 
     async function fetchSingle(url) {
@@ -13276,8 +13284,8 @@ function spawnGlassCrackDamage(containerEl) {
       <path d="M 80 42 L 95 62 L 105 68" stroke="rgba(244, 63, 94, 0.7)" stroke-width="0.9" fill="none" />
       <path d="M 120 28 L 130 12 L 142 4" stroke="rgba(244, 63, 94, 0.75)" stroke-width="0.9" fill="none" />
       <path d="M 120 28 L 115 52 L 122 65" stroke="rgba(244, 63, 94, 0.75)" stroke-width="0.9" fill="none" />
-      <circle cx="80" cy="42" r="2.5" fill="rgba(255, 255, 255, 0.8)" filter="drop-shadow(0 0 3px #f43f5e)" />
-      <circle cx="120" cy="28" r="2" fill="rgba(255, 255, 255, 0.8)" filter="drop-shadow(0 0 3px #f43f5e)" />
+      <circle cx="80" cy="42" r="2.5" fill="rgba(244, 63, 94, 0.9)" filter="drop-shadow(0 0 3px #f43f5e)" />
+      <circle cx="120" cy="28" r="2" fill="rgba(244, 63, 94, 0.9)" filter="drop-shadow(0 0 3px #f43f5e)" />
     </svg>
   `;
   containerEl.appendChild(crackEl);
@@ -13336,7 +13344,7 @@ function triggerAITargetBoxAnimation(outcome, details = {}) {
   if (isWin) {
     // ── CELEBRATION WIN: Fluid In-Flow Expansion + Falling Dollar Notes ──
     // Does NOT pop out or overlap siblings: siblings smoothly compress in-flow
-    boxEl.className = 'p-1.5 bg-gradient-to-br from-emerald-500/25 via-[#0e241b] to-black rounded-lg border-2 border-emerald-400/90 shadow-[0_0_24px_rgba(16,185,129,0.5),inset_0_1px_1px_rgba(255,255,255,0.25)] flex flex-col justify-center items-center overflow-hidden relative min-h-[58px] z-10 smart-box-win-elastic';
+    boxEl.className = 'p-1.5 bg-gradient-to-br from-emerald-500/25 via-[#0e241b] to-black rounded-lg border-2 border-emerald-400 shadow-[0_0_24px_rgba(16,185,129,0.5)] flex flex-col justify-center items-center overflow-hidden relative min-h-[58px] z-10 smart-box-win-elastic';
     
     if (heroGrid) heroGrid.classList.add('hero-grid-fluid-win');
     if (col1Period) col1Period.classList.add('col-fluid-compress-win');
