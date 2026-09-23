@@ -2275,7 +2275,7 @@
           <div class="grid grid-cols-3 gap-1.5 pt-1.5 border-t border-white/10 text-center font-mono text-[8.5px] relative z-10">
             <div class="p-1.5 rounded-xl bg-black/50 border border-white/10 shadow-inner">
               <span class="text-[7px] text-slate-400 block uppercase">Next Signal</span>
-              <b id="arenaInChargeSignal" class="text-emerald-400 font-black text-[10.5px]">GREEN / BIG</b>
+              <b id="arenaInChargeSignal" class="text-emerald-400 font-black text-[11px]">🟢 GREEN</b>
             </div>
             <div class="p-1.5 rounded-xl bg-black/50 border border-white/10 shadow-inner">
               <span class="text-[7px] text-slate-400 block uppercase">Win Streak</span>
@@ -5770,14 +5770,16 @@ function runAI() {
   // Check if a challenger model is currently IN CHARGE in the arena
   const activeInCharge = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
   let outcome;
-  if (activeInCharge && activeInCharge.id !== 'BASE_PREDICTOR' && activeInCharge.predSize) {
+  if (activeInCharge && activeInCharge.id !== 'BASE_PREDICTOR') {
+    const targetCol = activeInCharge.predColor || 'GREEN';
     outcome = {
       ready: true,
       decision: 'BET',
-      target: activeInCharge.predSize,
-      type: 'SIZE',
-      sizeTarget: activeInCharge.predSize,
-      colorTarget: activeInCharge.predColor,
+      target: targetCol,
+      type: 'COLOR',
+      colorTarget: targetCol,
+      sizeTarget: null,
+      num: activeInCharge.num || (targetCol === 'GREEN' ? 7 : 8),
       prob: activeInCharge.conf || 0.78,
       entropy: 0.45,
       reason: `👑 ${activeInCharge.name} (IN CHARGE — ${activeInCharge.winRatePct || '0.0%'} Win Rate)`,
@@ -10483,43 +10485,20 @@ function syncArenaInChargeWithSignal() {
   const activeInCharge = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
   if (!activeInCharge) return;
 
-  if (activeInCharge.id === 'BASE_PREDICTOR' && typeof S !== 'undefined' && S.aiSignal && S.aiSignal.target) {
-    if (['BIG', 'SMALL'].includes(S.aiSignal.target)) {
-      activeInCharge.predSize = S.aiSignal.target;
-      activeInCharge.predColor = S.aiSignal.colorTarget || (S.aiSignal.target === 'BIG' ? 'GREEN' : 'RED');
-    } else if (['RED', 'GREEN', 'VIOLET'].includes(S.aiSignal.target)) {
-      activeInCharge.predColor = S.aiSignal.target === 'VIOLET' ? 'RED' : S.aiSignal.target;
-      activeInCharge.predSize = S.aiSignal.sizeTarget || (activeInCharge.predColor === 'GREEN' ? 'BIG' : 'SMALL');
-    }
-    activeInCharge.conf = S.aiSignal.prob || 0.75;
-    activeInCharge.num = activeInCharge.predColor === 'GREEN'
-      ? (activeInCharge.predSize === 'BIG' ? 7 : 1)
-      : (activeInCharge.predSize === 'BIG' ? 8 : 2);
+  const targetColor = activeInCharge.predColor || 'GREEN';
+  const targetNum = activeInCharge.num || (targetColor === 'GREEN' ? 7 : 8);
 
-    // Save to live stats for BASE_PREDICTOR
-    try {
-      const stats = getArenaLiveStats();
-      if (!stats['BASE_PREDICTOR']) {
-        stats['BASE_PREDICTOR'] = { wins: 0, losses: 0, streak: 0, totalEvaluated: 0, winRate: 0 };
-      }
-      stats['BASE_PREDICTOR'].predColor = activeInCharge.predColor;
-      stats['BASE_PREDICTOR'].predSize = activeInCharge.predSize;
-      stats['BASE_PREDICTOR'].num = activeInCharge.num;
-      stats['BASE_PREDICTOR'].conf = activeInCharge.conf;
-      saveArenaLiveStats(stats);
-    } catch(e) {}
-  } else if (activeInCharge.id !== 'BASE_PREDICTOR' && typeof S !== 'undefined') {
-    // Challenger is in charge: adapt S.aiSignal so entire app follows champion
-    const targetChoice = activeInCharge.predSize || (activeInCharge.predColor === 'GREEN' ? 'BIG' : 'SMALL');
+  // Set global S.aiSignal strictly to this single COLOR prediction
+  if (typeof S !== 'undefined') {
     const isTest = S.aiTestMode || false;
-
     S.aiSignal = {
       decision: 'BET',
-      target: targetChoice,
-      type: 'SIZE',
-      sizeTarget: activeInCharge.predSize || 'BIG',
-      colorTarget: activeInCharge.predColor || 'GREEN',
-      prob: activeInCharge.conf || 0.78,
+      target: targetColor,
+      type: 'COLOR',
+      colorTarget: targetColor,
+      sizeTarget: null,
+      num: targetNum,
+      prob: activeInCharge.conf || 0.75,
       reason: `👑 ${activeInCharge.name} (IN CHARGE — ${activeInCharge.winRatePct || '0.0%'} Win Rate)`,
       engines: [activeInCharge.name],
       stake: S.aiSignal?.stake || 1,
@@ -10534,19 +10513,21 @@ function syncArenaInChargeWithSignal() {
     }
   }
 
-  // Update inChargeSignalEl in Prediction Rank hero card
+  // Update inChargeSignalEl in Prediction Rank hero card (Single Color Display)
   const inChargeSignalEl = document.getElementById('arenaInChargeSignal');
-  if (inChargeSignalEl && activeInCharge.predColor && activeInCharge.predSize) {
-    const colorClass = activeInCharge.predColor === 'GREEN' ? 'text-emerald-400' : 'text-rose-400';
-    inChargeSignalEl.className = `font-black text-[10.5px] ${colorClass}`;
-    inChargeSignalEl.textContent = `${activeInCharge.predColor} / ${activeInCharge.predSize} (#${activeInCharge.num})`;
+  if (inChargeSignalEl && targetColor) {
+    const colorClass = targetColor === 'GREEN' ? 'text-emerald-400' : 'text-rose-400';
+    const icon = targetColor === 'GREEN' ? '🟢' : '🔴';
+    inChargeSignalEl.className = `font-black text-[11px] ${colorClass}`;
+    inChargeSignalEl.textContent = `${icon} ${targetColor} (#${targetNum})`;
   }
 
   // Update Web View Fallback Companion HUD
   const fallbackSig = document.getElementById('webFallbackSignal');
-  if (fallbackSig && activeInCharge.predColor && activeInCharge.predSize) {
-    fallbackSig.textContent = `${activeInCharge.predColor} / ${activeInCharge.predSize} (#${activeInCharge.num})`;
-    fallbackSig.className = activeInCharge.predColor === 'GREEN' ? 'text-emerald-400 font-black text-xs' : 'text-rose-400 font-black text-xs';
+  if (fallbackSig && targetColor) {
+    const icon = targetColor === 'GREEN' ? '🟢' : '🔴';
+    fallbackSig.textContent = `${icon} ${targetColor}`;
+    fallbackSig.className = targetColor === 'GREEN' ? 'text-emerald-400 font-black text-xs' : 'text-rose-400 font-black text-xs';
   }
 }
 
@@ -10658,6 +10639,12 @@ function evaluateArenaModelsOnSettledRound(periodStr, number, size, color) {
   const stats = getArenaLiveStats();
   const hist = (typeof S !== 'undefined' && S.history) ? S.history : [];
 
+  // Ground truth resolved lottery color:
+  // In WinGo: 1, 3, 5, 7, 9 are GREEN (5 is Green+Violet)
+  // 0, 2, 4, 6, 8 are RED (0 is Red+Violet)
+  const numVal = parseInt(number, 10);
+  const actualColor = [1, 3, 5, 7, 9].includes(numVal) ? 'GREEN' : 'RED';
+
   ARENA_CANONICAL_MODELS.forEach(m => {
     if (!stats[m.id]) {
       stats[m.id] = {
@@ -10666,17 +10653,17 @@ function evaluateArenaModelsOnSettledRound(periodStr, number, size, color) {
         streak: 0,
         totalEvaluated: 0,
         winRate: 0,
-        predColor: m.predColor,
-        predSize: m.predSize,
-        num: m.num,
-        conf: m.conf
+        predColor: m.predColor || 'GREEN',
+        num: m.num || (m.predColor === 'GREEN' ? 7 : 8),
+        conf: m.conf || 0.75
       };
     }
 
     const st = stats[m.id];
-    const isColorWin = (color === 'GREEN' && [1,3,7,9,5].includes(number)) ? (st.predColor === 'GREEN') : (st.predColor === 'RED');
-    const isSizeWin = (st.predSize === size);
-    const won = isColorWin || isSizeWin;
+
+    // Single prediction evaluated strictly: ONLY the predicted Color!
+    // Models cannot predict color and size together!
+    const won = (st.predColor === actualColor);
 
     st.totalEvaluated++;
     if (won) {
@@ -10686,14 +10673,17 @@ function evaluateArenaModelsOnSettledRound(periodStr, number, size, color) {
       st.losses++;
       st.streak = st.streak <= 0 ? st.streak - 1 : -1;
     }
+
+    // Exact mathematical win rate: wins / totalEvaluated
+    // e.g. 5W / 5L = 5/10 = 0.50 (50.0%)
+    // e.g. 2W / 8L = 2/10 = 0.20 (20.0%)
     st.winRate = st.totalEvaluated > 0 ? Number((st.wins / st.totalEvaluated).toFixed(3)) : 0;
 
-    // Generate next prediction under zero-peeking isolation for the upcoming round
+    // Generate next single color prediction for upcoming round
     const nextP = generateModelNextPrediction(m, hist);
-    st.predColor = nextP.predColor;
-    st.predSize = nextP.predSize;
-    st.num = nextP.num;
-    st.conf = nextP.conf;
+    st.predColor = nextP.predColor || (actualColor === 'GREEN' ? 'RED' : 'GREEN');
+    st.num = nextP.num || (st.predColor === 'GREEN' ? 7 : 8);
+    st.conf = nextP.conf || 0.75;
   });
 
   saveArenaLiveStats(stats);
@@ -11143,9 +11133,8 @@ function renderArenaRoster() {
 
         <div class="flex items-center justify-between pt-1 border-t border-white/[0.08] text-[8.5px] font-mono">
           <div class="flex items-center gap-1.5 flex-wrap">
-            <span class="text-slate-400 text-[8px] font-bold">Signal:</span>
+            <span class="text-slate-400 text-[8px] font-bold">Prediction:</span>
             ${colorBadge}
-            ${sizeBadge}
             <span class="px-1.5 py-0.5 rounded bg-white/10 text-white font-black">#${m.num}</span>
           </div>
           <div class="flex items-center gap-1.5 flex-wrap">
@@ -12361,15 +12350,13 @@ function renderSmartView() {
   }
 
   const activeChamp = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
-  let target = currentPred?.target;
-  // If active in-charge model is defined and has predSize, prioritize matching it
-  if (activeChamp && activeChamp.predSize) {
-    if (!target || (activeChamp.id !== 'BASE_PREDICTOR' && target !== activeChamp.predSize)) {
-      target = activeChamp.predSize;
-    }
+  // Single color prediction: strictly GREEN or RED
+  let target = activeChamp?.predColor || currentPred?.colorTarget || currentPred?.target || 'GREEN';
+  if (!['GREEN', 'RED', 'VIOLET'].includes(target)) {
+    target = activeChamp?.predColor || 'GREEN';
   }
   const confVal = currentPred?.prob ? Math.round(currentPred.prob * 100) : (activeChamp?.conf ? Math.round(activeChamp.conf * 100) : 65);
-  const decisionType = currentPred?.isTest ? 'TEST' : (currentPred?.decision || (['RED', 'GREEN', 'VIOLET'].includes(target) ? 'COLOR' : 'SIZE') || 'BET');
+  const decisionType = 'COLOR';
 
   let targetColor = 'text-amber-400';
   let icon = '🟡';
@@ -12428,9 +12415,8 @@ function renderSmartView() {
 
   if (typeEl) {
     if (target) {
-      const champLabel = activeChamp ? (activeChamp.id === 'BASE_PREDICTOR' ? 'OG Quant' : '👑 ' + activeChamp.name.split(' ')[0]) : decisionType;
-      const colorLabel = activeChamp?.predColor ? ` • ${activeChamp.predColor}` : '';
-      typeEl.textContent = `${champLabel}${colorLabel}`;
+      const champLabel = activeChamp ? (activeChamp.id === 'BASE_PREDICTOR' ? 'OG Quant' : '👑 ' + activeChamp.name.split(' ')[0]) : 'Quant';
+      typeEl.textContent = `${champLabel} • COLOR`;
       typeEl.className = (activeChamp?.predColor === 'GREEN') ? 'text-emerald-300 font-bold' : (activeChamp?.predColor === 'RED') ? 'text-rose-300 font-bold' : 'text-purple-300 font-bold';
     } else {
       typeEl.textContent = '—';
