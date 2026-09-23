@@ -2079,6 +2079,7 @@ function getSizeForNum(n) { return n >= 5 ? 'BIG' : 'SMALL'; }
 // ═══════════════════════════════════════════════════════════════
 let lastPeriod = null;
 let _savedTimerOffset = 0;
+window._serverClockDriftSec = 0; // Dynamic server-to-client clock offset
 try {
   const currentTf = (typeof S !== 'undefined' && S.timeframe) ? S.timeframe : '30s';
   const v = localStorage.getItem('wingo_timer_offset_sec_' + currentTf);
@@ -2189,8 +2190,10 @@ function snapTimerToNewRound() {
 }
 
 function updateTimerOffsetBadge() {
-  const val = window._timerOffsetSec || 0;
-  const txt = (val >= 0 ? '+' : '') + val + 's';
+  const manual = window._timerOffsetSec || 0;
+  const drift = window._serverClockDriftSec || 0;
+  const total = manual + drift;
+  const txt = (total >= 0 ? '+' : '') + total + 's' + (drift !== 0 ? ` (auto ${drift >= 0 ? '+' : ''}${drift}s)` : '');
   const b1 = document.getElementById('timerOffsetBadge');
   if (b1) b1.textContent = txt;
   const b2 = document.getElementById('ticketTimerOffsetBadge');
@@ -2215,7 +2218,8 @@ function computeRTState() {
 
   const sys = getActiveSystem();
   const nowUtc = new Date();
-  const state = sys ? sys.computeRealTimeState(nowUtc, window._timerOffsetSec || 0) : {
+  const totalOffset = (window._serverClockDriftSec || 0) + (window._timerOffsetSec || 0);
+  const state = sys ? sys.computeRealTimeState(nowUtc, totalOffset) : {
     secsLeft: Math.max(0, (dur - 1) - (nowUtc.getUTCSeconds() % dur)),
     periodStr: ''
   };
@@ -2223,7 +2227,7 @@ function computeRTState() {
   const maxStartSec = dur - 1;
   const clampedSecs = Math.min(maxStartSec, Math.max(0, state.secsLeft));
 
-  const istMs  = nowUtc.getTime() + (window._timerOffsetSec || 0) * 1000 + (5.5 * 3600 * 1000);
+  const istMs  = nowUtc.getTime() + totalOffset * 1000 + (5.5 * 3600 * 1000);
   const ist    = new Date(istMs);
   const hh     = String(ist.getUTCHours()).padStart(2, '0');
   const mm     = String(ist.getUTCMinutes()).padStart(2, '0');
@@ -6296,6 +6300,22 @@ async function fetchLiveAPIResults(tfOverride) {
         const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: controller.signal });
         clearTimeout(timer);
         if (!res.ok) throw new Error('HTTP ' + res.status);
+
+        // Auto-calibrate server clock drift from HTTP response Date header
+        try {
+          const sDate = res.headers.get('date');
+          if (sDate) {
+            const serverMs = Date.parse(sDate);
+            if (!isNaN(serverMs)) {
+              const drift = Math.round((serverMs - Date.now()) / 1000);
+              if (window._serverClockDriftSec !== drift) {
+                window._serverClockDriftSec = drift;
+                updateTimerOffsetBadge();
+              }
+            }
+          }
+        } catch(e) {}
+
         const data = await res.json();
 
         let list = [];
