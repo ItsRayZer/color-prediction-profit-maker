@@ -3839,15 +3839,16 @@ function runAI() {
   const activeInCharge = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
   let outcome;
   if (activeInCharge && activeInCharge.id !== 'BASE_PREDICTOR') {
-    const targetCol = activeInCharge.predColor || 'GREEN';
+    const pType = activeInCharge.predType || (activeInCharge.predColor ? 'COLOR' : 'SIZE');
+    const pTarget = activeInCharge.predTarget || (pType === 'COLOR' ? activeInCharge.predColor : activeInCharge.predSize) || 'GREEN';
     outcome = {
       ready: true,
       decision: 'BET',
-      target: targetCol,
-      type: 'COLOR',
-      colorTarget: targetCol,
-      sizeTarget: null,
-      num: activeInCharge.num || (targetCol === 'GREEN' ? 7 : 8),
+      target: pTarget,
+      type: pType,
+      colorTarget: pType === 'COLOR' ? pTarget : (activeInCharge.predColor || 'GREEN'),
+      sizeTarget: pType === 'SIZE' ? pTarget : (activeInCharge.predSize || 'BIG'),
+      num: activeInCharge.num || (pTarget === 'GREEN' ? 7 : (pTarget === 'RED' ? 8 : (pTarget === 'BIG' ? 8 : 2))),
       prob: activeInCharge.conf || 0.78,
       entropy: 0.45,
       reason: `👑 ${activeInCharge.name} (IN CHARGE — ${activeInCharge.winRatePct || '0.0%'} Win Rate)`,
@@ -8412,67 +8413,995 @@ function toggleFallbackOverlay() {
 // ═══════════════════════════════════════════════════════════════
 
 const ARENA_CANONICAL_MODELS = [
-  // Fly Brain Drosophila Models (12)
-  { id: 'fly-mushroom-body-spiking', name: 'Mushroom Body Spiking Net', cat: 'fly', arch: 'Associative Kenyon Cells + Plasticity', desc: 'Drosophila olfactory associative memory reservoir', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.82 },
-  { id: 'fly-antennal-lobe', name: 'Antennal Lobe Odor glomeruli', cat: 'fly', arch: 'Lateral Inhibition Glomerular Net', desc: 'Frequency contrast enhancement via local interneurons', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.79 },
-  { id: 'fly-central-complex-navigation', name: 'Central Complex Ring Neurons', cat: 'fly', arch: 'Azimuth Ring Attractor Oscillator', desc: 'Phase-tracking direction vector for pattern sequences', baseWinRate: 0, streak: 0, predColor: 'RED', predSize: 'SMALL', num: 2, conf: 0.76 },
-  { id: 'fly-neuromodulated-dopamine', name: 'Neuromodulated DAN Plasticity', cat: 'fly', arch: 'Dopamine Reward-Prediction-Error', desc: 'Continuous online synaptic weight adaptation', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 9, conf: 0.81 },
-  { id: 'fly-octopamine-arousal', name: 'Octopaminergic High-Arousal', cat: 'fly', arch: 'Octopamine Urgency Gating Engine', desc: 'High-gain volatility response during transitions', baseWinRate: 0, streak: 0, predColor: 'RED', predSize: 'SMALL', num: 4, conf: 0.74 },
-  { id: 'fly-liquid-state-reservoir', name: 'Liquid State Machine (LSM)', cat: 'fly', arch: '3D Recurrent Microcircuit Reservoir', desc: 'High-dimensional fading memory spiking reservoir', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 5, conf: 0.77 },
-  { id: 'fly-lateral-horn-instinct', name: 'Lateral Horn Fast-Escape', cat: 'fly', arch: 'Hardwired Instinctive Reflex Circuit', desc: 'Rapid reflex suppression of high-risk entropy traps', baseWinRate: 0, streak: 0, predColor: 'RED', predSize: 'SMALL', num: 2, conf: 0.72 },
-  { id: 'fly-echo-state-spectral', name: 'Spectral Echo State Reservoir', cat: 'fly', arch: 'Echo State Net with Spectral Radius 0.95', desc: 'Harmonic resonance tracking across 30s sequences', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.75 },
-  { id: 'fly-delay-spiking-temporal', name: 'Delay-Coupled Spiking Net', cat: 'fly', arch: 'Axonal Conduction Delay Lines', desc: 'Temporal coincidence detection across historical intervals', baseWinRate: 0, streak: 0, predColor: 'RED', predSize: 'SMALL', num: 0, conf: 0.73 },
-  { id: 'fly-hebbian-synaptic', name: 'Hebbian STDP Plasticity Net', cat: 'fly', arch: 'Spike-Timing-Dependent Plasticity', desc: 'Local unsupervised reward-modulated reinforcement', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 8, conf: 0.71 },
-  { id: 'fly-attractor-energy', name: 'Continuous Attractor Energy Net', cat: 'fly', arch: 'Hopfield-Inspired Energy Minimization', desc: 'Attractor basin stability mapping of game trends', baseWinRate: 0, streak: 0, predColor: 'RED', predSize: 'SMALL', num: 3, conf: 0.74 },
-  { id: 'fly-metaplastic-calcium', name: 'Calcium Adaptation Metaplastic', cat: 'fly', arch: 'Spike-Frequency Calcium Dynamics', desc: 'Self-adjusting threshold prevents overfitting runs', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 5, conf: 0.76 },
-  { id: 'fly-optic-lobe-motion', name: 'Optic Lobe Motion Correlator', cat: 'fly', arch: 'Hassenstein-Reichardt Detector', desc: 'Spatio-temporal direction selectivity on draw sequences', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.73 },
-  { id: 'fly-connectome-global', name: 'Whole-Brain Connectome Net', cat: 'fly', arch: '139,255 Neuron Synaptic Graph Net', desc: 'Holistic multi-neuropil recurrent consensus integration', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 9, conf: 0.83 },
-
-  // Neural / Deep Learning Models (12)
-  { id: 'LSTM_RECURRENT', name: 'LSTM Recurrent Sequence Net', cat: 'neural', arch: 'Long Short-Term Memory (64 hidden)', desc: 'Multi-step temporal state tracking across past 50 rounds', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.78 },
-  { id: 'GRU_RECURRENT', name: 'Gated Recurrent Unit (GRU)', cat: 'neural', arch: 'Bi-Directional GRU Layer', desc: 'Fast gradient convergence for sequence classification', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 9, conf: 0.76 },
-  { id: 'TCN_TEMPORAL', name: 'Temporal Convolutional Net (TCN)', cat: 'neural', arch: 'Dilated Causal 1D Convolutions', desc: 'Exponential receptive field over historical numbers', baseWinRate: 0, streak: 0, predColor: 'RED', predSize: 'SMALL', num: 4, conf: 0.75 },
-  { id: 'MLP_DEEP', name: 'Deep MLP Classifier', cat: 'neural', arch: 'Dense 128-64-32 LeakyReLU', desc: 'Non-linear feature extraction on lagged probability vectors', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 5, conf: 0.70 },
-  { id: 'GRADIENT_BOOSTER', name: 'Gradient Boosted Trees', cat: 'neural', arch: 'LightGBM-Style Histogram Split', desc: 'High accuracy decision boundary over feature interactions', baseWinRate: 0, streak: 0, predColor: 'RED', predSize: 'SMALL', num: 2, conf: 0.74 },
-  { id: 'RANDOM_FOREST', name: 'Random Forest Ensemble', cat: 'neural', arch: '100 Decision Trees with Bootstrap', desc: 'Variance reduction across volatile win/loss transitions', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.72 },
-  { id: 'LOGISTIC_REGRESSION', name: 'Softmax Logistic Model', cat: 'neural', arch: 'Calibrated L2 Regularized Softmax', desc: 'Probabilistic baseline for class boundary verification', baseWinRate: 0, streak: 0, predColor: 'RED', predSize: 'SMALL', num: 1, conf: 0.68 },
-  { id: 'PATTERN_NEURAL', name: 'Pattern Neural Recognizer', cat: 'neural', arch: 'Embedding Similarity Layer', desc: 'Learned pattern distance to historical winning streaks', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.73 },
-  { id: 'REGIME_NEURAL', name: 'Market Regime Classifier Net', cat: 'neural', arch: 'Categorical Cross-Entropy Regime Net', desc: 'Classifies current sequence into Trend, PingPong, or Chop', baseWinRate: 0, streak: 0, predColor: 'RED', predSize: 'SMALL', num: 3, conf: 0.71 },
-  { id: 'STREAK_NEURAL', name: 'Streak Dynamics Neural Net', cat: 'neural', arch: 'Recurrent Streak Predictor', desc: 'Calculates continuation probability of active color streaks', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 9, conf: 0.76 },
-  { id: 'INVERSION_NEURAL', name: 'Mean Reversion Neural Net', cat: 'neural', arch: 'Non-Linear Peak Detector', desc: 'Detects extreme imbalance and predicts sudden reversal', baseWinRate: 0, streak: 0, predColor: 'RED', predSize: 'SMALL', num: 2, conf: 0.69 },
-  { id: 'ANOMALY_DETECTOR', name: 'Anomaly Isolation Net', cat: 'neural', arch: 'Isolation Density Estimator', desc: 'Flags abnormal lottery clusters and reduces position risk', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 5, conf: 0.67 },
-
-  // Classical Mathematical Models (15)
-  { id: 'MARKOV_TRANSITION', name: '1st Order Markov Chain', cat: 'classical', arch: 'Transition Matrix Dynamic MLE', desc: 'Calculates conditional probability P(Next | Previous)', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.71 },
-  { id: 'SECOND_ORDER_MARKOV', name: '2nd Order Markov Dynamics', cat: 'classical', arch: 'Tri-gram Transition Probability Tensor', desc: 'Conditioned on past two results P(Next | Prev, Prev2)', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.74 },
-  { id: 'BAYESIAN_TRANSITION', name: 'Conjugate Dirichlet Bayesian', cat: 'classical', arch: 'Dirichlet-Multinomial Conjugate Prior', desc: 'Smoothed probability updating robust to small sample sizes', baseWinRate: 0, streak: 0, predColor: 'RED', predSize: 'SMALL', num: 4, conf: 0.70 },
-  { id: 'RECENCY_WEIGHTED', name: 'Exponential Decay Recency', cat: 'classical', arch: 'Half-Life Decay Weighting (alpha=0.15)', desc: 'Gives highest statistical priority to immediate recent outcomes', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 9, conf: 0.72 },
-  { id: 'FREQUENCY_MODEL', name: 'Empirical Frequency Model', cat: 'classical', arch: 'Windowed Frequency Distribution (N=100)', desc: 'Standard deviation outlier tracking on color/size counts', baseWinRate: 0, streak: 0, predColor: 'RED', predSize: 'SMALL', num: 2, conf: 0.66 },
-  { id: 'STREAK_RIDER', name: 'Momentum Streak Rider', cat: 'classical', arch: 'Markovian Persistence Estimator', desc: 'Aggressively follows active streaks until statistically capped', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.75 },
-  { id: 'STREAK_BREAKER', name: 'Streak Breaker Reversion', cat: 'classical', arch: 'Geometric Distribution Cap', desc: 'Predicts color reversal when streak length exceeds 5 rounds', baseWinRate: 0, streak: 0, predColor: 'RED', predSize: 'SMALL', num: 3, conf: 0.69 },
-  { id: 'RUN_LENGTH_MODEL', name: 'Poisson Run-Length Estimator', cat: 'classical', arch: 'Poisson Renewal Process', desc: 'Models duration between consecutive color repetitions', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 5, conf: 0.68 },
-  { id: 'SUFFIX_PATTERNS', name: 'Suffix Tree Pattern Matcher', cat: 'classical', arch: 'Longest Matching Suffix Search', desc: 'Finds identical past sequences and replicates historical outcome', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.73 },
-  { id: 'PATTERN_TRIE', name: 'Prefix Trie Pattern Matcher', cat: 'classical', arch: 'Compressed Radix Trie Lookup', desc: 'Hierarchical sequence frequency matching', baseWinRate: 0, streak: 0, predColor: 'RED', predSize: 'SMALL', num: 1, conf: 0.70 },
-  { id: 'TRAP_DETECTOR', name: 'Casino Trap & Noise Filter', cat: 'classical', arch: 'Kolmogorov Complexity Estimator', desc: 'Identifies non-random server traps and shifts safely to consensus', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.67 },
-  { id: 'CHANGE_POINT_MODEL', name: 'Bayesian Change-Point Detector', cat: 'classical', arch: 'CUSUM / BOCPD Regime Shift', desc: 'Detects exact round when distribution mechanics shift', baseWinRate: 0, streak: 0, predColor: 'RED', predSize: 'SMALL', num: 4, conf: 0.71 },
-  { id: 'ENTROPY_MODEL', name: 'Shannon Entropy Minimizer', cat: 'classical', arch: 'Information Entropy Metric', desc: 'Bets only when round entropy falls below 0.65 bits', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 9, conf: 0.73 },
-  { id: 'DISTRIBUTION_DRIFT', name: 'Kolmogorov-Smirnov Drift', cat: 'classical', arch: 'Two-Sample KS Test Drift Detector', desc: 'Monitors distribution shifts between 30s and 1m windows', baseWinRate: 0, streak: 0, predColor: 'RED', predSize: 'SMALL', num: 2, conf: 0.68 },
-  { id: 'INVERSION_MODEL', name: 'Mathematical Inversion Model', cat: 'classical', arch: 'Parity Phase Inverter', desc: 'Calculates counter-trend odds during heavy one-sided runs', baseWinRate: 0, streak: 0, predColor: 'RED', predSize: 'SMALL', num: 0, conf: 0.66 },
-
-  // Statistical Models (7) - Includes BASE_PREDICTOR (OG Algorithm)
-  { id: 'BASE_PREDICTOR', name: 'Base Quant Predictor (OG Algorithm)', cat: 'statistical', arch: 'Original Weighted Quant System', desc: 'The original primary algorithm with momentum and pattern weighting', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.75, isBase: true },
-  { id: 'NGRAM_MODEL', name: '3-Gram Markov Sequence', cat: 'statistical', arch: 'Conditional N-Gram Distribution', desc: 'Statistical frequency lookup over 3-token outcome histories', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.69 },
-  { id: 'HIDDEN_MARKOV', name: 'Hidden Markov Model (HMM)', cat: 'statistical', arch: 'Baum-Welch 3-State Latent Model', desc: 'Infers unobserved hidden market states (Bull/Bear/Chop)', baseWinRate: 0, streak: 0, predColor: 'RED', predSize: 'SMALL', num: 4, conf: 0.72 },
-  { id: 'BAYESIAN_ONLINE', name: 'Bayesian Online Model', cat: 'statistical', arch: 'Sequential Bayesian Inference', desc: 'Real-time posterior updating after every resolved round', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 9, conf: 0.70 },
-  { id: 'SIMILARITY_MODEL', name: 'Cosine Sequence Similarity', cat: 'statistical', arch: 'Vector Cosine Distance', desc: 'Matches current window vector with highest similarity past windows', baseWinRate: 0, streak: 0, predColor: 'RED', predSize: 'SMALL', num: 2, conf: 0.68 },
-  { id: 'BOOTSTRAP_MODEL', name: 'Bootstrap Resampling Model', cat: 'statistical', arch: 'Monte Carlo 1000x Resampling', desc: 'Calculates non-parametric confidence intervals for next color', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 5, conf: 0.66 },
-  { id: 'STATISTICAL_ENSEMBLE', name: 'Statistical Baseline Ensemble', cat: 'statistical', arch: 'Multi-Hypothesis Average', desc: 'Blends classical frequency, N-Gram, and Bayesian posteriors', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.71 },
-
-  // Meta / Consensus Models (4)
-  { id: 'NEURAL_CONSENSUS', name: 'Neural Consensus Engine', cat: 'meta', arch: 'Cross-Neural Majority Voting', desc: 'Synthesizes predictions across all 12 deep and reservoir networks', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.79 },
-  { id: 'CLASSICAL_CONSENSUS', name: 'Classical Mathematical Consensus', cat: 'meta', arch: 'Weighted Borda Count', desc: 'Democratic consensus across 15 classical mathematical models', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.73 },
-  { id: 'MULTI_TIMEFRAME', name: 'Multi-Timeframe Voting Net', cat: 'meta', arch: '30s / 1m / 3m Cross-Validation', desc: 'Aligns micro 30s signals with macro 1m and 3m trend directions', baseWinRate: 0, streak: 0, predColor: 'RED', predSize: 'SMALL', num: 2, conf: 0.76 },
-  { id: 'ADAPTIVE_ENSEMBLE', name: 'Adaptive Win-Rate Weighted', cat: 'meta', arch: 'Dynamic Brier-Calibrated Ensemble', desc: 'Weights every model proportionally to its last-20 round win rate', baseWinRate: 0, streak: 0, predColor: 'GREEN', predSize: 'BIG', num: 7, conf: 0.80 }
+  {
+    "id": "fly-mushroom-body-spiking",
+    "name": "Mushroom Body Spiking Net",
+    "cat": "fly",
+    "arch": "Associative Kenyon Cells + Plasticity",
+    "desc": "Drosophila olfactory associative memory reservoir",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "GREEN",
+    "predSize": "BIG",
+    "num": 7,
+    "conf": 0.82,
+    "predType": "COLOR",
+    "predTarget": "GREEN",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "fly-antennal-lobe",
+    "name": "Antennal Lobe Odor glomeruli",
+    "cat": "fly",
+    "arch": "Lateral Inhibition Glomerular Net",
+    "desc": "Frequency contrast enhancement via local interneurons",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.79,
+    "predType": "SIZE",
+    "predTarget": "BIG",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "fly-central-complex-navigation",
+    "name": "Central Complex Ring Neurons",
+    "cat": "fly",
+    "arch": "Azimuth Ring Attractor Oscillator",
+    "desc": "Phase-tracking direction vector for pattern sequences",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.76,
+    "predType": "COLOR",
+    "predTarget": "RED",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "fly-neuromodulated-dopamine",
+    "name": "Neuromodulated DAN Plasticity",
+    "cat": "fly",
+    "arch": "Dopamine Reward-Prediction-Error",
+    "desc": "Continuous online synaptic weight adaptation",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "SMALL",
+    "num": 2,
+    "conf": 0.81,
+    "predType": "SIZE",
+    "predTarget": "SMALL",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "fly-octopamine-arousal",
+    "name": "Octopaminergic High-Arousal",
+    "cat": "fly",
+    "arch": "Octopamine Urgency Gating Engine",
+    "desc": "High-gain volatility response during transitions",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "GREEN",
+    "predSize": "BIG",
+    "num": 7,
+    "conf": 0.74,
+    "predType": "COLOR",
+    "predTarget": "GREEN",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "fly-liquid-state-reservoir",
+    "name": "Liquid State Machine (LSM)",
+    "cat": "fly",
+    "arch": "3D Recurrent Microcircuit Reservoir",
+    "desc": "High-dimensional fading memory spiking reservoir",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.77,
+    "predType": "SIZE",
+    "predTarget": "BIG",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "fly-lateral-horn-instinct",
+    "name": "Lateral Horn Fast-Escape",
+    "cat": "fly",
+    "arch": "Hardwired Instinctive Reflex Circuit",
+    "desc": "Rapid reflex suppression of high-risk entropy traps",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.72,
+    "predType": "COLOR",
+    "predTarget": "RED",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "fly-echo-state-spectral",
+    "name": "Spectral Echo State Reservoir",
+    "cat": "fly",
+    "arch": "Echo State Net with Spectral Radius 0.95",
+    "desc": "Harmonic resonance tracking across 30s sequences",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "SMALL",
+    "num": 2,
+    "conf": 0.75,
+    "predType": "SIZE",
+    "predTarget": "SMALL",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "fly-delay-spiking-temporal",
+    "name": "Delay-Coupled Spiking Net",
+    "cat": "fly",
+    "arch": "Axonal Conduction Delay Lines",
+    "desc": "Temporal coincidence detection across historical intervals",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "GREEN",
+    "predSize": "BIG",
+    "num": 7,
+    "conf": 0.73,
+    "predType": "COLOR",
+    "predTarget": "GREEN",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "fly-hebbian-synaptic",
+    "name": "Hebbian STDP Plasticity Net",
+    "cat": "fly",
+    "arch": "Spike-Timing-Dependent Plasticity",
+    "desc": "Local unsupervised reward-modulated reinforcement",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.71,
+    "predType": "SIZE",
+    "predTarget": "BIG",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "fly-attractor-energy",
+    "name": "Continuous Attractor Energy Net",
+    "cat": "fly",
+    "arch": "Hopfield-Inspired Energy Minimization",
+    "desc": "Attractor basin stability mapping of game trends",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.74,
+    "predType": "COLOR",
+    "predTarget": "RED",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "fly-metaplastic-calcium",
+    "name": "Calcium Adaptation Metaplastic",
+    "cat": "fly",
+    "arch": "Spike-Frequency Calcium Dynamics",
+    "desc": "Self-adjusting threshold prevents overfitting runs",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "SMALL",
+    "num": 2,
+    "conf": 0.76,
+    "predType": "SIZE",
+    "predTarget": "SMALL",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "fly-optic-lobe-motion",
+    "name": "Optic Lobe Motion Correlator",
+    "cat": "fly",
+    "arch": "Hassenstein-Reichardt Detector",
+    "desc": "Spatio-temporal direction selectivity on draw sequences",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "GREEN",
+    "predSize": "BIG",
+    "num": 7,
+    "conf": 0.73,
+    "predType": "COLOR",
+    "predTarget": "GREEN",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "fly-connectome-global",
+    "name": "Whole-Brain Connectome Net",
+    "cat": "fly",
+    "arch": "139,255 Neuron Synaptic Graph Net",
+    "desc": "Holistic multi-neuropil recurrent consensus integration",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.83,
+    "predType": "SIZE",
+    "predTarget": "BIG",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "LSTM_RECURRENT",
+    "name": "LSTM Recurrent Sequence Net",
+    "cat": "neural",
+    "arch": "Long Short-Term Memory (64 hidden)",
+    "desc": "Multi-step temporal state tracking across past 50 rounds",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.78,
+    "predType": "COLOR",
+    "predTarget": "RED",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "GRU_RECURRENT",
+    "name": "Gated Recurrent Unit (GRU)",
+    "cat": "neural",
+    "arch": "Bi-Directional GRU Layer",
+    "desc": "Fast gradient convergence for sequence classification",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "SMALL",
+    "num": 2,
+    "conf": 0.76,
+    "predType": "SIZE",
+    "predTarget": "SMALL",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "TCN_TEMPORAL",
+    "name": "Temporal Convolutional Net (TCN)",
+    "cat": "neural",
+    "arch": "Dilated Causal 1D Convolutions",
+    "desc": "Exponential receptive field over historical numbers",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "GREEN",
+    "predSize": "BIG",
+    "num": 7,
+    "conf": 0.75,
+    "predType": "COLOR",
+    "predTarget": "GREEN",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "MLP_DEEP",
+    "name": "Deep MLP Classifier",
+    "cat": "neural",
+    "arch": "Dense 128-64-32 LeakyReLU",
+    "desc": "Non-linear feature extraction on lagged probability vectors",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.7,
+    "predType": "SIZE",
+    "predTarget": "BIG",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "GRADIENT_BOOSTER",
+    "name": "Gradient Boosted Trees",
+    "cat": "neural",
+    "arch": "LightGBM-Style Histogram Split",
+    "desc": "High accuracy decision boundary over feature interactions",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.74,
+    "predType": "COLOR",
+    "predTarget": "RED",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "RANDOM_FOREST",
+    "name": "Random Forest Ensemble",
+    "cat": "neural",
+    "arch": "100 Decision Trees with Bootstrap",
+    "desc": "Variance reduction across volatile win/loss transitions",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "SMALL",
+    "num": 2,
+    "conf": 0.72,
+    "predType": "SIZE",
+    "predTarget": "SMALL",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "LOGISTIC_REGRESSION",
+    "name": "Softmax Logistic Model",
+    "cat": "neural",
+    "arch": "Calibrated L2 Regularized Softmax",
+    "desc": "Probabilistic baseline for class boundary verification",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "GREEN",
+    "predSize": "BIG",
+    "num": 7,
+    "conf": 0.68,
+    "predType": "COLOR",
+    "predTarget": "GREEN",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "PATTERN_NEURAL",
+    "name": "Pattern Neural Recognizer",
+    "cat": "neural",
+    "arch": "Embedding Similarity Layer",
+    "desc": "Learned pattern distance to historical winning streaks",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.73,
+    "predType": "SIZE",
+    "predTarget": "BIG",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "REGIME_NEURAL",
+    "name": "Market Regime Classifier Net",
+    "cat": "neural",
+    "arch": "Categorical Cross-Entropy Regime Net",
+    "desc": "Classifies current sequence into Trend, PingPong, or Chop",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.71,
+    "predType": "COLOR",
+    "predTarget": "RED",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "STREAK_NEURAL",
+    "name": "Streak Dynamics Neural Net",
+    "cat": "neural",
+    "arch": "Recurrent Streak Predictor",
+    "desc": "Calculates continuation probability of active color streaks",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "SMALL",
+    "num": 2,
+    "conf": 0.76,
+    "predType": "SIZE",
+    "predTarget": "SMALL",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "INVERSION_NEURAL",
+    "name": "Mean Reversion Neural Net",
+    "cat": "neural",
+    "arch": "Non-Linear Peak Detector",
+    "desc": "Detects extreme imbalance and predicts sudden reversal",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "GREEN",
+    "predSize": "BIG",
+    "num": 7,
+    "conf": 0.69,
+    "predType": "COLOR",
+    "predTarget": "GREEN",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "ANOMALY_DETECTOR",
+    "name": "Anomaly Isolation Net",
+    "cat": "neural",
+    "arch": "Isolation Density Estimator",
+    "desc": "Flags abnormal lottery clusters and reduces position risk",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.67,
+    "predType": "SIZE",
+    "predTarget": "BIG",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "MARKOV_TRANSITION",
+    "name": "1st Order Markov Chain",
+    "cat": "classical",
+    "arch": "Transition Matrix Dynamic MLE",
+    "desc": "Calculates conditional probability P(Next | Previous)",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.71,
+    "predType": "COLOR",
+    "predTarget": "RED",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "SECOND_ORDER_MARKOV",
+    "name": "2nd Order Markov Dynamics",
+    "cat": "classical",
+    "arch": "Tri-gram Transition Probability Tensor",
+    "desc": "Conditioned on past two results P(Next | Prev, Prev2)",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "SMALL",
+    "num": 2,
+    "conf": 0.74,
+    "predType": "SIZE",
+    "predTarget": "SMALL",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "BAYESIAN_TRANSITION",
+    "name": "Conjugate Dirichlet Bayesian",
+    "cat": "classical",
+    "arch": "Dirichlet-Multinomial Conjugate Prior",
+    "desc": "Smoothed probability updating robust to small sample sizes",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "GREEN",
+    "predSize": "BIG",
+    "num": 7,
+    "conf": 0.7,
+    "predType": "COLOR",
+    "predTarget": "GREEN",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "RECENCY_WEIGHTED",
+    "name": "Exponential Decay Recency",
+    "cat": "classical",
+    "arch": "Half-Life Decay Weighting (alpha=0.15)",
+    "desc": "Gives highest statistical priority to immediate recent outcomes",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.72,
+    "predType": "SIZE",
+    "predTarget": "BIG",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "FREQUENCY_MODEL",
+    "name": "Empirical Frequency Model",
+    "cat": "classical",
+    "arch": "Windowed Frequency Distribution (N=100)",
+    "desc": "Standard deviation outlier tracking on color/size counts",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.66,
+    "predType": "COLOR",
+    "predTarget": "RED",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "STREAK_RIDER",
+    "name": "Momentum Streak Rider",
+    "cat": "classical",
+    "arch": "Markovian Persistence Estimator",
+    "desc": "Aggressively follows active streaks until statistically capped",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "SMALL",
+    "num": 2,
+    "conf": 0.75,
+    "predType": "SIZE",
+    "predTarget": "SMALL",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "STREAK_BREAKER",
+    "name": "Streak Breaker Reversion",
+    "cat": "classical",
+    "arch": "Geometric Distribution Cap",
+    "desc": "Predicts color reversal when streak length exceeds 5 rounds",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "GREEN",
+    "predSize": "BIG",
+    "num": 7,
+    "conf": 0.69,
+    "predType": "COLOR",
+    "predTarget": "GREEN",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "RUN_LENGTH_MODEL",
+    "name": "Poisson Run-Length Estimator",
+    "cat": "classical",
+    "arch": "Poisson Renewal Process",
+    "desc": "Models duration between consecutive color repetitions",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.68,
+    "predType": "SIZE",
+    "predTarget": "BIG",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "SUFFIX_PATTERNS",
+    "name": "Suffix Tree Pattern Matcher",
+    "cat": "classical",
+    "arch": "Longest Matching Suffix Search",
+    "desc": "Finds identical past sequences and replicates historical outcome",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.73,
+    "predType": "COLOR",
+    "predTarget": "RED",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "PATTERN_TRIE",
+    "name": "Prefix Trie Pattern Matcher",
+    "cat": "classical",
+    "arch": "Compressed Radix Trie Lookup",
+    "desc": "Hierarchical sequence frequency matching",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "SMALL",
+    "num": 2,
+    "conf": 0.7,
+    "predType": "SIZE",
+    "predTarget": "SMALL",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "TRAP_DETECTOR",
+    "name": "Casino Trap & Noise Filter",
+    "cat": "classical",
+    "arch": "Kolmogorov Complexity Estimator",
+    "desc": "Identifies non-random server traps and shifts safely to consensus",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "GREEN",
+    "predSize": "BIG",
+    "num": 7,
+    "conf": 0.67,
+    "predType": "COLOR",
+    "predTarget": "GREEN",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "CHANGE_POINT_MODEL",
+    "name": "Bayesian Change-Point Detector",
+    "cat": "classical",
+    "arch": "CUSUM / BOCPD Regime Shift",
+    "desc": "Detects exact round when distribution mechanics shift",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.71,
+    "predType": "SIZE",
+    "predTarget": "BIG",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "ENTROPY_MODEL",
+    "name": "Shannon Entropy Minimizer",
+    "cat": "classical",
+    "arch": "Information Entropy Metric",
+    "desc": "Bets only when round entropy falls below 0.65 bits",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.73,
+    "predType": "COLOR",
+    "predTarget": "RED",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "DISTRIBUTION_DRIFT",
+    "name": "Kolmogorov-Smirnov Drift",
+    "cat": "classical",
+    "arch": "Two-Sample KS Test Drift Detector",
+    "desc": "Monitors distribution shifts between 30s and 1m windows",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "SMALL",
+    "num": 2,
+    "conf": 0.68,
+    "predType": "SIZE",
+    "predTarget": "SMALL",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "INVERSION_MODEL",
+    "name": "Mathematical Inversion Model",
+    "cat": "classical",
+    "arch": "Parity Phase Inverter",
+    "desc": "Calculates counter-trend odds during heavy one-sided runs",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "GREEN",
+    "predSize": "BIG",
+    "num": 7,
+    "conf": 0.66,
+    "predType": "COLOR",
+    "predTarget": "GREEN",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "BASE_PREDICTOR",
+    "name": "Base Quant Predictor (OG Algorithm)",
+    "cat": "statistical",
+    "arch": "Original Weighted Quant System",
+    "desc": "The original primary algorithm with momentum and pattern weighting",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.75,
+    "isBase": true,
+    "predType": "SIZE",
+    "predTarget": "BIG",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "NGRAM_MODEL",
+    "name": "3-Gram Markov Sequence",
+    "cat": "statistical",
+    "arch": "Conditional N-Gram Distribution",
+    "desc": "Statistical frequency lookup over 3-token outcome histories",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.69,
+    "predType": "COLOR",
+    "predTarget": "RED",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "HIDDEN_MARKOV",
+    "name": "Hidden Markov Model (HMM)",
+    "cat": "statistical",
+    "arch": "Baum-Welch 3-State Latent Model",
+    "desc": "Infers unobserved hidden market states (Bull/Bear/Chop)",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "SMALL",
+    "num": 2,
+    "conf": 0.72,
+    "predType": "SIZE",
+    "predTarget": "SMALL",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "BAYESIAN_ONLINE",
+    "name": "Bayesian Online Model",
+    "cat": "statistical",
+    "arch": "Sequential Bayesian Inference",
+    "desc": "Real-time posterior updating after every resolved round",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "GREEN",
+    "predSize": "BIG",
+    "num": 7,
+    "conf": 0.7,
+    "predType": "COLOR",
+    "predTarget": "GREEN",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "SIMILARITY_MODEL",
+    "name": "Cosine Sequence Similarity",
+    "cat": "statistical",
+    "arch": "Vector Cosine Distance",
+    "desc": "Matches current window vector with highest similarity past windows",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.68,
+    "predType": "SIZE",
+    "predTarget": "BIG",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "BOOTSTRAP_MODEL",
+    "name": "Bootstrap Resampling Model",
+    "cat": "statistical",
+    "arch": "Monte Carlo 1000x Resampling",
+    "desc": "Calculates non-parametric confidence intervals for next color",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.66,
+    "predType": "COLOR",
+    "predTarget": "RED",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "STATISTICAL_ENSEMBLE",
+    "name": "Statistical Baseline Ensemble",
+    "cat": "statistical",
+    "arch": "Multi-Hypothesis Average",
+    "desc": "Blends classical frequency, N-Gram, and Bayesian posteriors",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "SMALL",
+    "num": 2,
+    "conf": 0.71,
+    "predType": "SIZE",
+    "predTarget": "SMALL",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "NEURAL_CONSENSUS",
+    "name": "Neural Consensus Engine",
+    "cat": "meta",
+    "arch": "Cross-Neural Majority Voting",
+    "desc": "Synthesizes predictions across all 12 deep and reservoir networks",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "GREEN",
+    "predSize": "BIG",
+    "num": 7,
+    "conf": 0.79,
+    "predType": "COLOR",
+    "predTarget": "GREEN",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "CLASSICAL_CONSENSUS",
+    "name": "Classical Mathematical Consensus",
+    "cat": "meta",
+    "arch": "Weighted Borda Count",
+    "desc": "Democratic consensus across 15 classical mathematical models",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.73,
+    "predType": "SIZE",
+    "predTarget": "BIG",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "MULTI_TIMEFRAME",
+    "name": "Multi-Timeframe Voting Net",
+    "cat": "meta",
+    "arch": "30s / 1m / 3m Cross-Validation",
+    "desc": "Aligns micro 30s signals with macro 1m and 3m trend directions",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "BIG",
+    "num": 8,
+    "conf": 0.76,
+    "predType": "COLOR",
+    "predTarget": "RED",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  },
+  {
+    "id": "ADAPTIVE_ENSEMBLE",
+    "name": "Adaptive Win-Rate Weighted",
+    "cat": "meta",
+    "arch": "Dynamic Brier-Calibrated Ensemble",
+    "desc": "Weights every model proportionally to its last-20 round win rate",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "RED",
+    "predSize": "SMALL",
+    "num": 2,
+    "conf": 0.8,
+    "predType": "SIZE",
+    "predTarget": "SMALL",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
+  }
 ];
 
 let lastLiveArenaRanking = null;
@@ -8614,6 +9543,169 @@ function syncArenaInChargeWithSignal() {
     fallbackSig.textContent = `${icon} ${predTarget}`;
     fallbackSig.className = predTarget === 'GREEN' ? 'text-emerald-400 font-black text-xs' : (predTarget === 'RED' ? 'text-rose-400 font-black text-xs' : 'text-zinc-200 font-black text-xs');
   }
+}
+
+function generateModelNextPrediction(model, history, modelStats) {
+  const hist = Array.isArray(history) ? history.filter(r => !r.gap) : [];
+  const len = hist.length;
+  const last1 = len >= 1 ? hist[len - 1] : null;
+  const last2 = len >= 2 ? hist[len - 2] : null;
+  const last3 = len >= 3 ? hist[len - 3] : null;
+
+  const currentStreak = (modelStats && modelStats.streak !== undefined) ? modelStats.streak : (model.streak || 0);
+  const dopamine = (modelStats && modelStats.dopamine !== undefined) ? modelStats.dopamine : 0.50;
+  const lossPain = (modelStats && modelStats.lossPain !== undefined) ? modelStats.lossPain : 0.0;
+
+  // ── A. ANALYZE COLOR SEQUENCE & STREAKS ──
+  const greenPast10 = hist.slice(-10).filter(r => r.color === 'GREEN').length;
+  const redPast10 = 10 - greenPast10;
+  let colorStreak = 1;
+  if (last1 && last2 && last1.color === last2.color) {
+    colorStreak = (last3 && last2.color === last3.color) ? 3 : 2;
+  }
+  let colorDecision = (last1 && last1.color === 'GREEN') ? 'RED' : 'GREEN';
+  let colorProb = 0.60 + Math.abs(greenPast10 - 5) * 0.04;
+
+  // ── B. ANALYZE SIZE SEQUENCE & STREAKS ──
+  const bigPast10 = hist.slice(-10).filter(r => r.size === 'BIG').length;
+  const smallPast10 = 10 - bigPast10;
+  let sizeStreak = 1;
+  if (last1 && last2 && last1.size === last2.size) {
+    sizeStreak = (last3 && last2.size === last3.size) ? 3 : 2;
+  }
+  let sizeDecision = (last1 && last1.size === 'BIG') ? 'SMALL' : 'BIG';
+  let sizeProb = 0.60 + Math.abs(bigPast10 - 5) * 0.04;
+
+  // ── C. MODEL-SPECIFIC HEURISTICS ──
+  const id = model.id || '';
+  const cat = model.cat || '';
+
+  if (id.includes('streak') || id.includes('rider')) {
+    // Streak riders follow whichever sequence is on a hotter streak
+    if (sizeStreak > colorStreak) {
+      sizeDecision = last1 ? last1.size : 'BIG';
+      sizeProb += 0.12 + (sizeStreak * 0.04);
+    } else {
+      colorDecision = last1 ? last1.color : 'GREEN';
+      colorProb += 0.12 + (colorStreak * 0.04);
+    }
+  } else if (id.includes('breaker') || id.includes('inversion') || id.includes('reversion')) {
+    // Mean reversion attacks the longer streak
+    if (sizeStreak >= 2) {
+      sizeDecision = last1.size === 'BIG' ? 'SMALL' : 'BIG';
+      sizeProb += 0.14 + (sizeStreak * 0.05);
+    }
+    if (colorStreak >= 2) {
+      colorDecision = last1.color === 'GREEN' ? 'RED' : 'GREEN';
+      colorProb += 0.14 + (colorStreak * 0.05);
+    }
+  } else if (cat === 'fly') {
+    // Fly brain olfactory & ring attractor models
+    if (id.includes('mushroom')) {
+      // Mushroom body associates with prevailing frequency
+      if (Math.abs(bigPast10 - 5) > Math.abs(greenPast10 - 5)) {
+        sizeDecision = bigPast10 >= 5 ? 'BIG' : 'SMALL';
+        sizeProb += 0.10;
+      } else {
+        colorDecision = greenPast10 >= 5 ? 'GREEN' : 'RED';
+        colorProb += 0.10;
+      }
+    } else if (id.includes('central-complex')) {
+      // Heading oscillator alternates size & color
+      sizeDecision = (last1 && last1.size === 'BIG') ? 'SMALL' : 'BIG';
+      sizeProb += 0.08;
+      colorDecision = (last1 && last1.color === 'GREEN') ? 'RED' : 'GREEN';
+      colorProb += 0.08;
+    }
+  } else if (cat === 'neural') {
+    // Neural models evaluate multi-step momentum
+    const recentSizes = hist.slice(-6).map((r, i) => (r.size === 'BIG' ? 1 : -1) * (i + 1)).reduce((a, b) => a + b, 0);
+    const recentColors = hist.slice(-6).map((r, i) => (r.color === 'GREEN' ? 1 : -1) * (i + 1)).reduce((a, b) => a + b, 0);
+    if (Math.abs(recentSizes) > Math.abs(recentColors)) {
+      sizeDecision = recentSizes >= 0 ? 'BIG' : 'SMALL';
+      sizeProb += 0.11;
+    } else {
+      colorDecision = recentColors >= 0 ? 'GREEN' : 'RED';
+      colorProb += 0.11;
+    }
+  } else if (cat === 'statistical') {
+    // Parity sum and Markov transition
+    const parity = (last1 ? last1.number : 0) + (last2 ? last2.number : 0);
+    if (parity % 2 === 0) {
+      sizeDecision = (last1 && last1.number >= 5) ? 'SMALL' : 'BIG';
+      sizeProb += 0.09;
+    } else {
+      colorDecision = (last1 && last1.number % 2 === 1) ? 'RED' : 'GREEN';
+      colorProb += 0.09;
+    }
+  }
+
+  // Natural model specialization affinity:
+  if (model.predType === 'SIZE' || id.includes('size') || id.includes('volatility') || id.includes('poisson') || id.includes('fibonacci')) {
+    sizeProb += 0.05;
+  } else {
+    colorProb += 0.05;
+  }
+
+  // ── D. MAXIMUM 4-STREAK LOSS DEFENSE (Circuit Breaker) ──
+  // "try the best not to get wrong more than 4 in streak"
+  if (currentStreak <= -2) {
+    if (lossPain > 0.3) {
+      // Invert decision of failing dimension or pivot to other dimension
+      if (model.predType === 'SIZE') {
+        colorProb += 0.15; // Pivot to Color
+      } else {
+        sizeProb += 0.15;  // Pivot to Size
+      }
+    }
+  }
+  if (currentStreak <= -3) {
+    // Maximum anti-4th-loss shield: force pivot to the dimension with clearest counter-trend
+    if (sizeStreak >= 2) {
+      sizeDecision = last1.size === 'BIG' ? 'SMALL' : 'BIG';
+      sizeProb += 0.25;
+    } else {
+      colorDecision = last1.color === 'GREEN' ? 'RED' : 'GREEN';
+      colorProb += 0.25;
+    }
+  }
+
+  // Dopamine momentum boost on winning streaks
+  if (currentStreak >= 2) {
+    const boost = dopamine * 0.06;
+    colorProb += boost;
+    sizeProb += boost;
+  }
+
+  // ── E. DECIDE: COLOR OR SIZE (ONE AT A TIME, NEVER BOTH!) ──
+  // Whichever has more chance, show it only!
+  let predType = 'COLOR';
+  let predTarget = colorDecision;
+  let finalConf = colorProb;
+
+  if (sizeProb > colorProb) {
+    predType = 'SIZE';
+    predTarget = sizeDecision;
+    finalConf = sizeProb;
+  } else {
+    predType = 'COLOR';
+    predTarget = colorDecision;
+    finalConf = colorProb;
+  }
+
+  finalConf = Math.min(0.95, Math.max(0.62, Number(finalConf.toFixed(2))));
+  const num = (colorDecision === 'GREEN') 
+    ? (sizeDecision === 'BIG' ? 7 : 1) 
+    : (sizeDecision === 'BIG' ? 8 : 2);
+
+  return {
+    predType,             // 'COLOR' or 'SIZE'
+    predTarget,           // 'GREEN', 'RED', 'BIG', or 'SMALL'
+    predColor: colorDecision,
+    predSize: sizeDecision,
+    num,
+    conf: finalConf
+  };
 }
 
 function evaluateArenaModelsOnSettledRound(periodStr, number, size, color) {
@@ -8853,10 +9945,19 @@ function updateArenaLeaderboardUI(liveRanking, liveChampion) {
     }
   }
 
-  if (inChargeSignalEl) {
-    const colorClass = inChargeModel.predColor === 'GREEN' ? 'text-emerald-400' : 'text-rose-400';
-    inChargeSignalEl.className = `font-black text-[10.5px] ${colorClass}`;
-    inChargeSignalEl.textContent = `${inChargeModel.predColor} / ${inChargeModel.predSize} (#${inChargeModel.num})`;
+  if (inChargeSignalEl && inChargeModel) {
+    const pType = inChargeModel.predType || (inChargeModel.predColor ? 'COLOR' : 'SIZE');
+    const pTarget = inChargeModel.predTarget || (pType === 'COLOR' ? inChargeModel.predColor : inChargeModel.predSize) || 'GREEN';
+    if (pType === 'COLOR') {
+      const colorClass = pTarget === 'GREEN' ? 'text-emerald-400' : 'text-rose-400';
+      const icon = pTarget === 'GREEN' ? '🟢' : '🔴';
+      inChargeSignalEl.className = `font-black text-[11px] ${colorClass}`;
+      inChargeSignalEl.textContent = `${icon} ${pTarget} (#${inChargeModel.num || 7})`;
+    } else {
+      const icon = pTarget === 'BIG' ? '🔼' : '🔽';
+      inChargeSignalEl.className = 'font-black text-[11px] text-zinc-200';
+      inChargeSignalEl.textContent = `${icon} ${pTarget} (#${inChargeModel.num || 8})`;
+    }
   }
 
   // Synchronize In-Charge Model with live S.aiSignal and update Smart View immediately
@@ -9155,8 +10256,12 @@ function toggleAutoBetCardCollapse() {
     const saved = localStorage.getItem('wingo_right_panel_view');
     if (saved === 'web') {
       setTimeout(() => switchRightPanelView('web'), 200);
-    } else if (saved === 'rank') {
-      setTimeout(() => switchRightPanelView('rank'), 200);
+    } else {
+      setTimeout(() => {
+        switchRightPanelView('adaptive');
+        switchAdaptiveSubView('roster');
+        updateArenaLeaderboardUI();
+      }, 150);
     }
     let savedUrl = localStorage.getItem('wingo_embedded_url');
     if (savedUrl && savedUrl.includes('dhaniwin.99.com')) {
@@ -9169,18 +10274,7 @@ function toggleAutoBetCardCollapse() {
       if (input) input.value = savedUrl;
       if (iframe) iframe.src = savedUrl;
     }
-    const savedH = localStorage.getItem('wingo_mobile_frame_height');
-    if (savedH) {
-      setMobileFrameHeight(savedH);
-    }
-    const savedCollapse = localStorage.getItem('wingo_autobet_card_collapsed');
-    if (savedCollapse === 'true') {
-      const body = document.getElementById('realAutoBetCardBody');
-      const icon = document.getElementById('iconToggleAutoBetCard');
-      if (body) body.classList.add('hidden');
-      if (icon) icon.className = 'fa-solid fa-chevron-down text-[9px]';
-    }
-  } catch (e) {}
+  } catch(e) {}
 })();
 
 // ═══════════════════════════════════════════════════════════════
@@ -10300,13 +11394,10 @@ function renderSmartView() {
   }
 
   const activeChamp = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
-  // Single color prediction: strictly GREEN or RED
-  let target = activeChamp?.predColor || currentPred?.colorTarget || currentPred?.target || 'GREEN';
-  if (!['GREEN', 'RED', 'VIOLET'].includes(target)) {
-    target = activeChamp?.predColor || 'GREEN';
-  }
-  const confVal = currentPred?.prob ? Math.round(currentPred.prob * 100) : (activeChamp?.conf ? Math.round(activeChamp.conf * 100) : 65);
-  const decisionType = 'COLOR';
+  // Intelligent single prediction from active champion or signal (either COLOR or SIZE)
+  let target = activeChamp?.predTarget || currentPred?.target || activeChamp?.predColor || 'GREEN';
+  const decisionType = (activeChamp?.predType || (['BIG', 'SMALL'].includes(target) ? 'SIZE' : 'COLOR'));
+  const confVal = currentPred?.prob ? Math.round(currentPred.prob * 100) : (activeChamp?.conf ? Math.round(activeChamp.conf * 100) : 75);
 
   let targetColor = 'text-amber-400';
   let icon = '🟡';
@@ -10366,7 +11457,7 @@ function renderSmartView() {
   if (typeEl) {
     if (target) {
       const champLabel = activeChamp ? (activeChamp.id === 'BASE_PREDICTOR' ? 'OG Quant' : '👑 ' + activeChamp.name.split(' ')[0]) : 'Quant';
-      typeEl.textContent = `${champLabel} • COLOR`;
+      typeEl.textContent = `${champLabel} • ${decisionType}`;
       typeEl.className = (activeChamp?.predColor === 'GREEN') ? 'text-emerald-300 font-bold' : (activeChamp?.predColor === 'RED') ? 'text-rose-300 font-bold' : 'text-purple-300 font-bold';
     } else {
       typeEl.textContent = '—';
