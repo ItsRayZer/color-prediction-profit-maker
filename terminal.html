@@ -2217,25 +2217,33 @@ function computeRTState() {
   const dur = tf === '30s' ? 30 : (tf === '1m' ? 60 : (tf === '3m' ? 180 : 300));
   S.durationSeconds = dur;
 
-  const sys = getActiveSystem();
-  const nowUtc = new Date();
-  const totalOffset = (window._serverClockDriftSec || 0) + (window._timerOffsetSec || 0);
-  const state = sys ? sys.computeRealTimeState(nowUtc, totalOffset) : {
-    secsLeft: Math.max(0, (dur - 1) - (nowUtc.getUTCSeconds() % dur)),
-    periodStr: ''
-  };
+  const manualOffsetSec = Number(window._timerOffsetSec) || 0;
+  const serverDriftMs = (window._serverClockDriftMs !== undefined)
+    ? Number(window._serverClockDriftMs)
+    : ((Number(window._serverClockDriftSec) || 0) * 1000);
+  const totalOffsetMs = serverDriftMs + (manualOffsetSec * 1000);
+  const nowMs = Date.now() + totalOffsetMs;
+  const serverNow = new Date(nowMs);
 
-  const maxStartSec = dur - 1;
-  const clampedSecs = Math.min(maxStartSec, Math.max(0, state.secsLeft));
+  const utcSec = serverNow.getUTCHours() * 3600 + serverNow.getUTCMinutes() * 60 + serverNow.getUTCSeconds();
+  const elapsed = utcSec % dur;
+  const secsLeft = Math.max(0, (dur - 1) - elapsed);
+  const periodIdx = Math.floor(utcSec / dur) + 1;
 
-  const istMs  = nowUtc.getTime() + totalOffset * 1000 + (5.5 * 3600 * 1000);
-  const ist    = new Date(istMs);
-  const hh     = String(ist.getUTCHours()).padStart(2, '0');
-  const mm     = String(ist.getUTCMinutes()).padStart(2, '0');
-  const ss     = String(ist.getUTCSeconds()).padStart(2, '0');
+  const y = serverNow.getUTCFullYear();
+  const mo = String(serverNow.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(serverNow.getUTCDate()).padStart(2, '0');
+  const periodCode = (tf === '30s' ? '10005' : (tf === '1m' ? '10001' : (tf === '3m' ? '10003' : '10002')));
+  const periodStr = `${y}${mo}${d}${periodCode}${String(periodIdx).padStart(4, '0')}`;
+
+  const istMs = nowMs + (5.5 * 3600 * 1000);
+  const ist = new Date(istMs);
+  const hh = String(ist.getUTCHours()).padStart(2, '0');
+  const mm = String(ist.getUTCMinutes()).padStart(2, '0');
+  const ss = String(ist.getUTCSeconds()).padStart(2, '0');
   const clockStr = `${hh}:${mm}:${ss} IST`;
 
-  return { secsLeft: clampedSecs, periodStr: state.periodStr, clockStr, dur };
+  return { secsLeft, periodStr, periodIdx, clockStr, dur };
 }
 
 function getNextPeriod(periodStr) {
@@ -3021,8 +3029,10 @@ function openBetSheet(choice, type) {
 }
 
 function closeBetSheet(force=false) {
-  document.getElementById('confirmSheetBackdrop').classList.add('hidden');
-  document.getElementById('confirmSheet').classList.add('hidden');
+  const backdrop = document.getElementById('confirmSheetBackdrop');
+  if (backdrop) backdrop.classList.add('hidden');
+  const sheet = document.getElementById('confirmSheet');
+  if (sheet) sheet.classList.add('hidden');
 }
 
 function setAmount(v) {
@@ -6308,11 +6318,10 @@ async function fetchLiveAPIResults(tfOverride) {
           if (sDate) {
             const serverMs = Date.parse(sDate);
             if (!isNaN(serverMs)) {
-              const drift = Math.round((serverMs - Date.now()) / 1000);
-              if (window._serverClockDriftSec !== drift) {
-                window._serverClockDriftSec = drift;
-                updateTimerOffsetBadge();
-              }
+              const driftMs = serverMs - Date.now();
+              window._serverClockDriftMs = driftMs;
+              window._serverClockDriftSec = Math.round(driftMs / 1000);
+              updateTimerOffsetBadge();
             }
           }
         } catch(e) {}
@@ -6347,6 +6356,23 @@ async function fetchLiveAPIResults(tfOverride) {
       }
 
       if (parsedList.length > 0) {
+        // Zero-Lag Auto Sync: ensure active round is never behind latest drawn round
+        const newest = parsedList[parsedList.length - 1];
+        if (newest && newest.period) {
+          const pIdx = parseInt(String(newest.period).slice(-4), 10);
+          if (!isNaN(pIdx)) {
+            const curState = computeRTState();
+            const minExpectedPeriodIdx = pIdx + 1;
+            if (curState.periodIdx < minExpectedPeriodIdx) {
+              const dur = curState.dur;
+              const missingSec = (minExpectedPeriodIdx - curState.periodIdx) * dur;
+              window._serverClockDriftMs = (window._serverClockDriftMs || 0) + (missingSec * 1000);
+              window._serverClockDriftSec = Math.round(window._serverClockDriftMs / 1000);
+              updateTimerOffsetBadge();
+            }
+          }
+        }
+
         if (!S.historyByTimeframe) S.historyByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
 
         if (tf === S.timeframe) {

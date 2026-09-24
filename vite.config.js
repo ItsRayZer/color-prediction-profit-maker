@@ -35,7 +35,11 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api-wingo/, ''),
         secure: false,
         headers: {
-          'Access-Control-Allow-Origin': '*'
+          'Access-Control-Allow-Origin': '*',
+          'Referer': 'https://dhaniwin0.com/',
+          'Origin': 'https://dhaniwin0.com',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36',
+          'Accept': 'application/json, text/plain, */*'
         }
       }
     }

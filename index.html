@@ -1402,7 +1402,7 @@
       <!-- Compact Core Row: Active Period | AI Prediction Target (MIDDLE) | Countdown Time -->
       <div id="smartHeroRowGrid" class="grid grid-cols-3 gap-1.5 text-center font-mono items-center transition-all duration-500 rounded-xl p-0.5">
         <!-- 1. Active Period -->
-        <div id="smartHeroCol1Period" class="p-1.5 bg-[#141416] rounded-lg border border-white/[0.08] flex flex-col justify-center transition-all duration-500 min-h-[58px]">
+        <div id="smartHeroCol1Period" class="p-1.5 bg-[#141416] rounded-lg border border-zinc-800/80 flex flex-col justify-center transition-all duration-500 min-h-[58px]">
           <span class="text-[7.5px] text-slate-400 block font-sans uppercase font-bold tracking-wider">Active Period</span>
           <b id="smartPeriodDisplay" class="text-amber-400 text-sm font-mono font-black tracking-tight mt-0.5">—</b>
         </div>
@@ -1443,21 +1443,21 @@
             <span id="timerOffsetBadge" class="px-1 py-0 bg-amber-400/20 text-amber-300 rounded font-black text-[7.5px] border border-amber-400/30">+0s</span>
           </div>
           <div class="flex items-center justify-center gap-1.5 my-0.5">
-            <button onclick="adjustTimerOffset(-1)" class="w-4 h-4 flex items-center justify-center bg-white/10 hover:bg-white/20 text-slate-300 rounded border border-white/[0.08] text-[9px] font-bold" title="-1s">-</button>
+            <button onclick="adjustTimerOffset(-1)" class="w-4 h-4 flex items-center justify-center bg-zinc-800/80 hover:bg-zinc-700 text-slate-300 rounded border border-zinc-700/60 text-[9px] font-bold" title="-1s">-</button>
             <div id="smartTimerDisplay" class="text-lg font-black text-amber-300 font-mono tracking-widest leading-none">00:00</div>
-            <button onclick="adjustTimerOffset(1)" class="w-4 h-4 flex items-center justify-center bg-white/10 hover:bg-white/20 text-slate-300 rounded border border-white/[0.08] text-[9px] font-bold" title="+1s">+</button>
+            <button onclick="adjustTimerOffset(1)" class="w-4 h-4 flex items-center justify-center bg-zinc-800/80 hover:bg-zinc-700 text-slate-300 rounded border border-zinc-700/60 text-[9px] font-bold" title="+1s">+</button>
           </div>
           <div class="flex items-center justify-center gap-1 font-mono text-[7.5px]">
-            <button onclick="adjustTimerOffset(-2)" class="px-1 bg-white/10 hover:bg-white/20 text-slate-300 rounded">-2s</button>
-            <button onclick="adjustTimerOffset(-0.5)" class="px-1 bg-white/10 hover:bg-white/20 text-slate-300 rounded">-0.5s</button>
-            <button onclick="adjustTimerOffset(0.5)" class="px-1 bg-white/10 hover:bg-white/20 text-slate-300 rounded">+0.5s</button>
-            <button onclick="adjustTimerOffset(2)" class="px-1 bg-white/10 hover:bg-white/20 text-slate-300 rounded">+2s</button>
+            <button onclick="adjustTimerOffset(-2)" class="px-1 bg-zinc-800/80 hover:bg-zinc-700 text-slate-300 rounded border border-zinc-700/60">-2s</button>
+            <button onclick="adjustTimerOffset(-0.5)" class="px-1 bg-zinc-800/80 hover:bg-zinc-700 text-slate-300 rounded border border-zinc-700/60">-0.5s</button>
+            <button onclick="adjustTimerOffset(0.5)" class="px-1 bg-zinc-800/80 hover:bg-zinc-700 text-slate-300 rounded border border-zinc-700/60">+0.5s</button>
+            <button onclick="adjustTimerOffset(2)" class="px-1 bg-zinc-800/80 hover:bg-zinc-700 text-slate-300 rounded border border-zinc-700/60">+2s</button>
           </div>
         </div>
       </div>
 
       <!-- Mini Trend Ribbon (Compact single strip) -->
-      <div class="bg-[#111113] rounded-lg px-2 py-1 border border-white/[0.08] flex items-center justify-between gap-2 text-[8px]">
+      <div class="bg-[#111113] rounded-lg px-2 py-1 border border-zinc-800/80 flex items-center justify-between gap-2 text-[8px]">
         <div class="flex items-center gap-1 text-slate-400 font-bold shrink-0">
           <i class="fa-solid fa-chart-line text-amber-400 text-[8.5px]"></i>
           <span class="hidden sm:inline">Recent:</span>
@@ -3335,25 +3335,33 @@ function computeRTState() {
   const dur = tf === '30s' ? 30 : (tf === '1m' ? 60 : (tf === '3m' ? 180 : 300));
   S.durationSeconds = dur;
 
-  const sys = getActiveSystem();
-  const nowUtc = new Date();
-  const totalOffset = (window._serverClockDriftSec || 0) + (window._timerOffsetSec || 0);
-  const state = sys ? sys.computeRealTimeState(nowUtc, totalOffset) : {
-    secsLeft: Math.max(0, (dur - 1) - (nowUtc.getUTCSeconds() % dur)),
-    periodStr: ''
-  };
+  const manualOffsetSec = Number(window._timerOffsetSec) || 0;
+  const serverDriftMs = (window._serverClockDriftMs !== undefined)
+    ? Number(window._serverClockDriftMs)
+    : ((Number(window._serverClockDriftSec) || 0) * 1000);
+  const totalOffsetMs = serverDriftMs + (manualOffsetSec * 1000);
+  const nowMs = Date.now() + totalOffsetMs;
+  const serverNow = new Date(nowMs);
 
-  const maxStartSec = dur - 1;
-  const clampedSecs = Math.min(maxStartSec, Math.max(0, state.secsLeft));
+  const utcSec = serverNow.getUTCHours() * 3600 + serverNow.getUTCMinutes() * 60 + serverNow.getUTCSeconds();
+  const elapsed = utcSec % dur;
+  const secsLeft = Math.max(0, (dur - 1) - elapsed);
+  const periodIdx = Math.floor(utcSec / dur) + 1;
 
-  const istMs  = nowUtc.getTime() + totalOffset * 1000 + (5.5 * 3600 * 1000);
-  const ist    = new Date(istMs);
-  const hh     = String(ist.getUTCHours()).padStart(2, '0');
-  const mm     = String(ist.getUTCMinutes()).padStart(2, '0');
-  const ss     = String(ist.getUTCSeconds()).padStart(2, '0');
+  const y = serverNow.getUTCFullYear();
+  const mo = String(serverNow.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(serverNow.getUTCDate()).padStart(2, '0');
+  const periodCode = (tf === '30s' ? '10005' : (tf === '1m' ? '10001' : (tf === '3m' ? '10003' : '10002')));
+  const periodStr = `${y}${mo}${d}${periodCode}${String(periodIdx).padStart(4, '0')}`;
+
+  const istMs = nowMs + (5.5 * 3600 * 1000);
+  const ist = new Date(istMs);
+  const hh = String(ist.getUTCHours()).padStart(2, '0');
+  const mm = String(ist.getUTCMinutes()).padStart(2, '0');
+  const ss = String(ist.getUTCSeconds()).padStart(2, '0');
   const clockStr = `${hh}:${mm}:${ss} IST`;
 
-  return { secsLeft: clampedSecs, periodStr: state.periodStr, clockStr, dur };
+  return { secsLeft, periodStr, periodIdx, clockStr, dur };
 }
 
 function getNextPeriod(periodStr) {
@@ -3432,16 +3440,9 @@ function startRTEngine() {
         return;
       }
 
-      // 1. Check if previous round has rolled over but new draw result hasn't arrived from server yet
-      const lastFinished = (S.history && S.history.length > 0) ? S.history[S.history.length - 1].period : null;
-      let effectiveSecs = secsLeft;
-      if (lastFinished && lastPeriod && String(upcomingPeriod) > String(getNextPeriod(lastFinished))) {
-        // Hold timer at 0 while waiting for draw so user does not see countdown jump ahead prematurely
-        effectiveSecs = 0;
-      }
-
+      // Smooth, uninterrupted live countdown directly from server-synchronized time
       S.currentPeriod = upcomingPeriod;
-      S.secondsLeft = effectiveSecs;
+      S.secondsLeft = secsLeft;
       updateTimerUI();
 
       // 5-second bet block: lock down when 5 seconds or less remaining (5, 4, 3, 2, 1, 0)
@@ -4184,8 +4185,10 @@ function openBetSheet(choice, type) {
 }
 
 function closeBetSheet(force=false) {
-  document.getElementById('confirmSheetBackdrop').classList.add('hidden');
-  document.getElementById('confirmSheet').classList.add('hidden');
+  const backdrop = document.getElementById('confirmSheetBackdrop');
+  if (backdrop) backdrop.classList.add('hidden');
+  const sheet = document.getElementById('confirmSheet');
+  if (sheet) sheet.classList.add('hidden');
 }
 
 function setAmount(v) {
@@ -4463,21 +4466,20 @@ function saveRealResult(period, numberInput, isLiveRound = false) {
     S.aiPredictionMap[pLast5] = existingPred;
   }
 
-  // Advance to UPCOMING active round immediately
+  // Ensure active round is accurately aligned to server time
+  const curRT = computeRTState();
   const nextPeriod = getNextPeriod(pStr);
-  S.currentPeriod = nextPeriod;
-  lastPeriod = nextPeriod;
+  const activePeriod = (curRT.periodStr && String(curRT.periodStr) > String(pStr)) ? curRT.periodStr : nextPeriod;
+  S.currentPeriod = activePeriod;
+  lastPeriod = activePeriod;
   const currentPeriodDisplay = document.getElementById('currentPeriodDisplay');
   if (currentPeriodDisplay) currentPeriodDisplay.textContent = S.currentPeriod;
   const smartPeriodDisplay = document.getElementById('smartPeriodDisplay');
   if (smartPeriodDisplay) smartPeriodDisplay.textContent = S.currentPeriod ? S.currentPeriod.slice(-5) : '—';
 
-  // Make timer 0 in real time the instant a new result arrives, then smoothly start new round!
-  S.secondsLeft = 0;
+  // Keep live countdown smooth and continuous
+  S.secondsLeft = curRT.secsLeft;
   updateTimerUI();
-  setTimeout(() => {
-    snapTimerToNewRound();
-  }, 500);
 
   // AI test-mode accuracy tracking (no fake popups or balance deductions)
   if (S.aiTestMode && aiMainTarget) {
@@ -12789,14 +12791,14 @@ async function fetchLiveAPIResults(tfOverride) {
 
     const r = Date.now();
     const urlsToTry = [
-      `${targetUrl}?r=${r}`,
       `${origin}${proxyPath}?r=${r}`,
-      `http://localhost:5173${proxyPath}?r=${r}`
+      `http://localhost:5173${proxyPath}?r=${r}`,
+      `${targetUrl}?r=${r}`
     ];
 
     async function fetchSingle(url) {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 2000);
+      const timer = setTimeout(() => controller.abort(), 2500);
       try {
         const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: controller.signal });
         clearTimeout(timer);
@@ -12808,11 +12810,10 @@ async function fetchLiveAPIResults(tfOverride) {
           if (sDate) {
             const serverMs = Date.parse(sDate);
             if (!isNaN(serverMs)) {
-              const drift = Math.round((serverMs - Date.now()) / 1000);
-              if (window._serverClockDriftSec !== drift) {
-                window._serverClockDriftSec = drift;
-                updateTimerOffsetBadge();
-              }
+              const driftMs = serverMs - Date.now();
+              window._serverClockDriftMs = driftMs;
+              window._serverClockDriftSec = Math.round(driftMs / 1000);
+              updateTimerOffsetBadge();
             }
           }
         } catch(e) {}
@@ -12847,19 +12848,18 @@ async function fetchLiveAPIResults(tfOverride) {
       }
 
       if (parsedList.length > 0) {
-        // Zero-Lag Auto Sync: ensure local timer never lags behind drawn results
+        // Zero-Lag Auto Sync: ensure active round is never behind latest drawn round
         const newest = parsedList[parsedList.length - 1];
         if (newest && newest.period) {
-          const nextTargetPeriod = getNextPeriod(newest.period);
-          const curState = computeRTState();
-          if (curState.periodStr && String(curState.periodStr) < String(nextTargetPeriod)) {
-            const pIdx = parseInt(String(newest.period).slice(-4), 10);
-            if (!isNaN(pIdx)) {
-              const dur = tf === '30s' ? 30 : (tf === '1m' ? 60 : (tf === '3m' ? 180 : 300));
-              const now = new Date();
-              const curUtcSec = now.getUTCHours() * 3600 + now.getUTCMinutes() * 60 + now.getUTCSeconds();
-              const expectedSec = (pIdx * dur) + 2;
-              window._serverClockDriftSec = expectedSec - curUtcSec;
+          const pIdx = parseInt(String(newest.period).slice(-4), 10);
+          if (!isNaN(pIdx)) {
+            const curState = computeRTState();
+            const minExpectedPeriodIdx = pIdx + 1;
+            if (curState.periodIdx < minExpectedPeriodIdx) {
+              const dur = curState.dur;
+              const missingSec = (minExpectedPeriodIdx - curState.periodIdx) * dur;
+              window._serverClockDriftMs = (window._serverClockDriftMs || 0) + (missingSec * 1000);
+              window._serverClockDriftSec = Math.round(window._serverClockDriftMs / 1000);
               updateTimerOffsetBadge();
             }
           }
@@ -13228,15 +13228,13 @@ window._aiTargetBoxResultAnimation = { active: false, outcome: null };
 window._aiTargetBoxAnimTimeout = null;
 
 function setLogoAuraGlow(state) {
-  // Color glow on win/loss completely removed per user request:
-  // Logo keeps neutral clean luxury drop-shadow and stays perfectly centered.
   const glowEl = document.getElementById('navbarLogoAuraGlow');
   const imgEl = document.getElementById('navbarLogoImg');
   if (glowEl) {
-    glowEl.className = 'logo-aura-glow bg-white/[0.04] opacity-40';
+    glowEl.className = 'logo-aura-glow bg-amber-500/[0.03] opacity-25';
   }
   if (imgEl) {
-    imgEl.style.filter = 'drop-shadow(0 2px 14px rgba(255,255,255,0.22))';
+    imgEl.style.filter = 'drop-shadow(0 2px 10px rgba(0,0,0,0.5))';
   }
 }
 
