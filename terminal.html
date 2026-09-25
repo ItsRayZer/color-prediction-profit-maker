@@ -598,6 +598,18 @@
       <div id="gameHistoryRows" class="hidden"></div>
       <div class="flex items-center justify-between p-2 bg-app-surface border-t border-purple-900/40 text-[9px] text-purple-300 font-mono">
         <span id="rowCountBadge" class="font-bold text-slate-400">0 records</span>
+
+        <!-- History 50-Item Pagination (< >) -->
+        <div class="flex items-center gap-1.5 bg-[#141416] px-2 py-0.5 rounded-lg border border-purple-900/40 select-none shadow-sm">
+          <button id="histPrevBtn" onclick="changeHistoryPage(-1)" class="w-6 h-5 flex items-center justify-center rounded bg-white/5 hover:bg-amber-400 hover:text-slate-950 text-amber-300 transition active:scale-90 font-black text-[11px] disabled:opacity-20 disabled:pointer-events-none" title="Newer 50 Records (Page -)">
+            &lt;
+          </button>
+          <span id="histPageIndicator" class="text-[9px] font-mono text-amber-300 font-bold px-1 min-w-[55px] text-center">1 / 1</span>
+          <button id="histNextBtn" onclick="changeHistoryPage(1)" class="w-6 h-5 flex items-center justify-center rounded bg-white/5 hover:bg-amber-400 hover:text-slate-950 text-amber-300 transition active:scale-90 font-black text-[11px] disabled:opacity-20 disabled:pointer-events-none" title="Older 50 Records (Page +)">
+            &gt;
+          </button>
+        </div>
+
         <button onclick="downloadCSVReport()" class="text-amber-400 hover:text-amber-300 font-bold text-[9.5px] flex items-center gap-1 active:scale-95 transition">
           <i class="fa-solid fa-download"></i> Export CSV
         </button>
@@ -2223,21 +2235,35 @@ function computeRTState() {
     : ((Number(window._serverClockDriftSec) || 0) * 1000);
   const totalOffsetMs = serverDriftMs + (manualOffsetSec * 1000);
   const nowMs = Date.now() + totalOffsetMs;
-  const serverNow = new Date(nowMs);
 
-  const utcSec = serverNow.getUTCHours() * 3600 + serverNow.getUTCMinutes() * 60 + serverNow.getUTCSeconds();
-  const elapsed = utcSec % dur;
-  const secsLeft = Math.max(0, (dur - 1) - elapsed);
-  const periodIdx = Math.floor(utcSec / dur) + 1;
+  // Indian Standard Time (IST) is UTC + 5:30 (+19,800,000 ms)
+  const istMs = nowMs + (5.5 * 3600 * 1000);
+  const ist = new Date(istMs);
 
-  const y = serverNow.getUTCFullYear();
-  const mo = String(serverNow.getUTCMonth() + 1).padStart(2, '0');
-  const d = String(serverNow.getUTCDate()).padStart(2, '0');
+  const y = ist.getUTCFullYear();
+  const mo = String(ist.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(ist.getUTCDate()).padStart(2, '0');
+
+  const istSec = ist.getUTCHours() * 3600 + ist.getUTCMinutes() * 60 + ist.getUTCSeconds();
+  const elapsed = istSec % dur;
+  
+  // Exact Indian Standard Time Game Countdown Logic:
+  // :00 -> 00s remaining
+  // :01 -> 29s (in 30s) / 59s (in 1m) / 179s (in 3m) / 299s (in 5m)
+  // :02 -> 28s remaining ... counting down to 01s, 00s
+  const secsLeft = (dur - elapsed) % dur;
+  
+  let periodIdx;
+  if (elapsed === 0) {
+    periodIdx = Math.floor(istSec / dur);
+    if (periodIdx <= 0) periodIdx = Math.floor(86400 / dur);
+  } else {
+    periodIdx = Math.floor(istSec / dur) + 1;
+  }
+
   const periodCode = (tf === '30s' ? '10005' : (tf === '1m' ? '10001' : (tf === '3m' ? '10003' : '10002')));
   const periodStr = `${y}${mo}${d}${periodCode}${String(periodIdx).padStart(4, '0')}`;
 
-  const istMs = nowMs + (5.5 * 3600 * 1000);
-  const ist = new Date(istMs);
   const hh = String(ist.getUTCHours()).padStart(2, '0');
   const mm = String(ist.getUTCMinutes()).padStart(2, '0');
   const ss = String(ist.getUTCSeconds()).padStart(2, '0');
@@ -5670,20 +5696,58 @@ function renderSmartView() {
     ratioEl.textContent = `BIG: ${bigPct}% | SMALL: ${smallPct}% (${total} rounds)`;
   }
 
+let currentHistoryPage = 1;
+const HISTORY_PAGE_SIZE = 50;
+
+function changeHistoryPage(delta) {
+  const realHistAsc = (S.history || []).filter(r => !r.gap);
+  const totalPages = Math.max(1, Math.ceil(realHistAsc.length / HISTORY_PAGE_SIZE));
+  const newPage = currentHistoryPage + delta;
+  if (newPage >= 1 && newPage <= totalPages) {
+    currentHistoryPage = newPage;
+    renderSmartView();
+    const container = document.getElementById('smartHistoryRows');
+    if (container) container.scrollTop = 0;
+  }
+}
+window.changeHistoryPage = changeHistoryPage;
+
   const container = document.getElementById('smartHistoryRows');
   if (!container) return;
 
   const realHistDesc = realHistAsc.slice().reverse();
-  const rowCountBadge = document.getElementById('rowCountBadge');
-  if (rowCountBadge) rowCountBadge.textContent = `${realHistAsc.length} real records`;
+  const totalPages = Math.max(1, Math.ceil(realHistDesc.length / HISTORY_PAGE_SIZE));
+  if (currentHistoryPage > totalPages) currentHistoryPage = totalPages;
+  if (currentHistoryPage < 1) currentHistoryPage = 1;
 
-  if (!realHistDesc.length) {
+  const startIndex = (currentHistoryPage - 1) * HISTORY_PAGE_SIZE;
+  const pagedRows = realHistDesc.slice(startIndex, startIndex + HISTORY_PAGE_SIZE);
+
+  const prevBtn = document.getElementById('histPrevBtn');
+  const nextBtn = document.getElementById('histNextBtn');
+  const pageInd = document.getElementById('histPageIndicator');
+  if (prevBtn) prevBtn.disabled = (currentHistoryPage <= 1);
+  if (nextBtn) nextBtn.disabled = (currentHistoryPage >= totalPages);
+  if (pageInd) pageInd.textContent = `${currentHistoryPage} / ${totalPages}`;
+
+  const rowCountBadge = document.getElementById('rowCountBadge');
+  if (rowCountBadge) {
+    if (realHistDesc.length === 0) {
+      rowCountBadge.textContent = '0 records';
+    } else {
+      const startNum = startIndex + 1;
+      const endNum = Math.min(realHistDesc.length, startIndex + pagedRows.length);
+      rowCountBadge.textContent = `${startNum}-${endNum} of ${realHistDesc.length}`;
+    }
+  }
+
+  if (!pagedRows.length) {
     container.innerHTML = '<div class="text-center py-6 text-slate-500 text-xs italic">No game rounds recorded yet...</div>';
     renderNumberRoad();
     return;
   }
 
-  container.innerHTML = realHistDesc.map(row => {
+  container.innerHTML = pagedRows.map(row => {
     const periodShort = String(row.period).slice(-5);
     const n = row.number;
     const size = row.size;
