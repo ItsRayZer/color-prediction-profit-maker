@@ -9474,9 +9474,34 @@ function syncArenaInChargeWithSignal() {
   const activeInCharge = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
   if (!activeInCharge) return;
 
-  const predType = activeInCharge.predType || (activeInCharge.predColor ? 'COLOR' : 'SIZE');
-  const predTarget = activeInCharge.predTarget || (predType === 'COLOR' ? activeInCharge.predColor : activeInCharge.predSize) || 'GREEN';
-  const targetNum = activeInCharge.num || (predTarget === 'GREEN' ? 7 : (predTarget === 'RED' ? 8 : (predTarget === 'BIG' ? 8 : 2)));
+  const hist = (typeof S !== 'undefined' && S.history) ? S.history : [];
+  let predType = activeInCharge.predType || (activeInCharge.predColor ? 'COLOR' : 'SIZE');
+  let predTarget = activeInCharge.predTarget || (predType === 'COLOR' ? activeInCharge.predColor : activeInCharge.predSize) || 'GREEN';
+  let targetNum = activeInCharge.num || (predTarget === 'GREEN' ? 7 : (predTarget === 'RED' ? 8 : (predTarget === 'BIG' ? 8 : 2)));
+  let conf = activeInCharge.conf || 0.75;
+
+  // Dynamically compute fresh prediction from latest history so prediction never gets stuck
+  if (hist.length >= 2) {
+    try {
+      const stats = getArenaLiveStats();
+      const st = stats[activeInCharge.id] || {};
+      const freshP = generateModelNextPrediction(activeInCharge, hist, st);
+      if (freshP && freshP.predTarget) {
+        predType = freshP.predType;
+        predTarget = freshP.predTarget;
+        targetNum = freshP.num;
+        conf = freshP.conf;
+        activeInCharge.predType = predType;
+        activeInCharge.predTarget = predTarget;
+        activeInCharge.num = targetNum;
+        activeInCharge.conf = conf;
+        st.predType = predType;
+        st.predTarget = predTarget;
+        st.num = targetNum;
+        st.conf = conf;
+      }
+    } catch(e) {}
+  }
 
   // Synchronize global S.aiSignal with the single prediction chosen by in-charge model
   if (typeof S !== 'undefined') {
@@ -9487,7 +9512,7 @@ function syncArenaInChargeWithSignal() {
       colorTarget: predType === 'COLOR' ? predTarget : (activeInCharge.predColor || 'GREEN'),
       sizeTarget: predType === 'SIZE' ? predTarget : (activeInCharge.predSize || 'BIG'),
       num: targetNum,
-      prob: activeInCharge.conf || 0.75,
+      prob: conf,
       reason: `👑 ${activeInCharge.name} (IN CHARGE — ${activeInCharge.winRatePct || '0.0%'} Win Rate)`,
       engines: [activeInCharge.name],
       stake: S.aiSignal?.stake || 1,
@@ -10437,6 +10462,29 @@ function updateArenaLeaderboardUI(liveRanking, liveChampion) {
       if (st.predSize) predSize = st.predSize;
       if (st.num !== undefined) num = st.num;
       if (st.conf !== undefined) conf = st.conf;
+    }
+
+    // Dynamic generation if prediction is missing or needs initial evaluation
+    if ((!predTarget || predTarget === 'WAITING...') && hist.length >= 2) {
+      try {
+        const dynP = generateModelNextPrediction(model, hist, st || {});
+        if (dynP && dynP.predTarget) {
+          predType = dynP.predType;
+          predTarget = dynP.predTarget;
+          predColor = dynP.predColor;
+          predSize = dynP.predSize;
+          num = dynP.num;
+          conf = dynP.conf;
+          if (st) {
+            st.predType = predType;
+            st.predTarget = predTarget;
+            st.predColor = predColor;
+            st.predSize = predSize;
+            st.num = num;
+            st.conf = conf;
+          }
+        }
+      } catch(e) {}
     }
 
     return {
