@@ -599,6 +599,7 @@
       transform: scale(1) translateY(0) rotate(0deg) !important;
       opacity: 1 !important;
       filter: none !important;
+      border-color: rgba(245, 158, 11, 0.35) !important;
     }
 
   </style>
@@ -1381,7 +1382,7 @@
             <i class="fa-solid fa-trophy mr-1 text-[8.5px]"></i> <span id="smartTfBadge">WinGo 30sec</span>
           </span>
           <!-- Pro Timeframe Switcher Tabs (30s, 1m, 3m, 5m) -->
-          <div class="flex items-center bg-black/60 p-0.5 rounded-lg border border-white/[0.08] gap-0.5">
+          <div class="flex items-center bg-black/60 p-0.5 rounded-lg border border-zinc-800/80 gap-0.5">
             <button onclick="setTimeframe('30s')" id="proTf-30s" class="px-2 py-0.5 rounded font-black text-[8.5px] transition active:scale-95 bg-amber-400 text-slate-950 shadow">30s</button>
             <button onclick="setTimeframe('1m')" id="proTf-1m" class="px-2 py-0.5 rounded font-bold text-[8.5px] transition active:scale-95 text-slate-400 hover:text-white">1m</button>
             <button onclick="setTimeframe('3m')" id="proTf-3m" class="px-2 py-0.5 rounded font-bold text-[8.5px] transition active:scale-95 text-slate-400 hover:text-white">3m</button>
@@ -3378,10 +3379,12 @@ function getNextPeriod(periodStr) {
 }
 
 function getLatestFinishedPeriod(hist) {
-  const list = (hist || S.history || []).filter(r => !r.gap && r.number !== undefined);
-  if (!list.length) return null;
-  const sorted = [...list].sort((a,b) => String(a.period).localeCompare(String(b.period)));
-  return sorted[sorted.length - 1].period;
+  const list = hist || (typeof S !== 'undefined' && S.history);
+  if (!list || !list.length) return null;
+  for (let i = list.length - 1; i >= 0; i--) {
+    if (!list[i].gap && list[i].number !== undefined) return list[i].period;
+  }
+  return null;
 }
 
 function resolveUpcomingPeriod() {
@@ -3400,25 +3403,27 @@ function resolveUpcomingPeriod() {
 
 function startRTEngine() {
   if (window._rtTimer) clearInterval(window._rtTimer);
-  
-  // Continuous real-time live server synchronization (continuous responsive 450ms poll)
   if (window._livePollTimer) clearInterval(window._livePollTimer);
+  if (window._fastPollTimer) {
+    clearInterval(window._fastPollTimer);
+    window._fastPollTimer = null;
+  }
+  
+  // Intelligent adaptive polling: 500ms in rollover or awaiting draw, throttled to 1500ms during countdown
   window._livePollTimer = setInterval(() => {
-    fetchLiveAPIResults(S.timeframe).catch(() => {});
-  }, 450);
-
-  // Dedicated ultra-fast polling thread during rollover zone (every 200ms)
-  if (window._fastPollTimer) clearInterval(window._fastPollTimer);
-  window._fastPollTimer = setInterval(() => {
     const { secsLeft, dur } = computeRTState();
-    const lastFinished = (S.history && S.history.length > 0) ? S.history[S.history.length - 1].period : null;
+    const lastFinished = getLatestFinishedPeriod();
     const upcoming = resolveUpcomingPeriod();
     const isAwaitingDraw = lastFinished && String(upcoming) > String(getNextPeriod(lastFinished));
-    const isRolloverZone = secsLeft <= 2 || secsLeft >= (dur - 2) || isAwaitingDraw;
-    if (isRolloverZone) {
-      fetchLiveAPIResults(S.timeframe).catch(() => {});
+    const isRolloverZone = secsLeft <= 3 || secsLeft >= (dur - 2) || isAwaitingDraw;
+
+    const now = Date.now();
+    if (!isRolloverZone && (now - (window._lastNormalPollTime || 0)) < 1500) {
+      return;
     }
-  }, 200);
+    window._lastNormalPollTime = now;
+    fetchLiveAPIResults(S.timeframe).catch(() => {});
+  }, 500);
   window._rtTimer = setInterval(() => {
     try {
       const { secsLeft, periodStr, clockStr, dur } = computeRTState();
@@ -4338,7 +4343,7 @@ function selectRealNum(n) {
   if (lbl) lbl.textContent = 'Tap Confirm ✔ to save';
 }
 
-function saveRealResult(period, numberInput, isLiveRound = false) {
+function saveRealResult(period, numberInput, isLiveRound = false, skipUIRender = false) {
   const n = parseInt(numberInput, 10);
   if (isNaN(n) || n < 0 || n > 9) return;
 
@@ -4642,33 +4647,35 @@ function saveRealResult(period, numberInput, isLiveRound = false) {
 
   S.history.sort((a,b) => String(a.period).localeCompare(String(b.period)));
 
-  // 1. Run AI first to generate fresh prediction for upcoming round with new history
-  try {
-    runAI();
-  } catch (e) {
-    console.warn('runAI notice:', e);
-  }
-
-  renderHistoryTable();
-  renderMiniBalls();
-  renderMyBets();
-  renderTrendChart();
-  renderHeatmap();
-  renderBSPattern();
-  renderSmartView();
-  renderPatternAnalytics();
-  if (typeof renderGameHistoryAnalysisTab === 'function') renderGameHistoryAnalysisTab(S.timeframe);
-  updateMartingaleUI();
-  updateBalanceDisplay();
-
-  // 3. Immediately refresh Prediction Arena Leaderboard
-  try {
-    if (typeof updateArenaLeaderboardUI === 'function') {
-      updateArenaLeaderboardUI();
+  if (!skipUIRender) {
+    // 1. Run AI first to generate fresh prediction for upcoming round with new history
+    try {
+      runAI();
+    } catch (e) {
+      console.warn('runAI notice:', e);
     }
-  } catch (e) {}
 
-  saveToLocalStorage();
+    renderHistoryTable();
+    renderMiniBalls();
+    renderMyBets();
+    renderTrendChart();
+    renderHeatmap();
+    renderBSPattern();
+    renderSmartView();
+    renderPatternAnalytics();
+    if (typeof renderGameHistoryAnalysisTab === 'function') renderGameHistoryAnalysisTab(S.timeframe);
+    updateMartingaleUI();
+    updateBalanceDisplay();
+
+    // 3. Immediately refresh Prediction Arena Leaderboard
+    try {
+      if (typeof updateArenaLeaderboardUI === 'function') {
+        updateArenaLeaderboardUI();
+      }
+    } catch (e) {}
+
+    saveToLocalStorage();
+  }
 }
 
 function submitRealResult() {
@@ -9597,7 +9604,7 @@ function generateModelNextPrediction(model, history, modelStats) {
   switch (modelId) {
     // ── 1. FLY BRAIN NEUROMORPHIC (14 Models) ──
     case 'fly-mushroom-body-spiking': {
-      // Sparse Kenyon cell projection: counts sparse coinicidences in past 10
+      // Sparse Kenyon cell projection
       const win10 = hist.slice(-10);
       const kenyonColor = win10.filter((r, i) => (r.color === 'GREEN' && (i % 2 === 0))).length;
       const kenyonSize = win10.filter((r, i) => (r.size === 'BIG' && (i % 2 === 1))).length;
@@ -9608,202 +9615,230 @@ function generateModelNextPrediction(model, history, modelStats) {
       break;
     }
     case 'fly-antennal-lobe': {
-      // Lateral inhibition across 0-4 (SMALL) vs 5-9 (BIG) glomerular clusters
+      // Lateral inhibition across glomerular clusters
       const win8 = nums.slice(-8);
       const lowAct = win8.filter(n => n < 5).reduce((a, b) => a + (5 - b), 0);
       const highAct = win8.filter(n => n >= 5).reduce((a, b) => a + (b - 4), 0);
       sDec = highAct >= lowAct ? 'BIG' : 'SMALL';
       sProb = 0.68 + Math.min(0.20, Math.abs(highAct - lowAct) * 0.02);
-      cDec = (win8[win8.length - 1] % 2 === 1) ? 'RED' : 'GREEN';
-      cProb = 0.63;
+      const oddAct = win8.filter(n => n % 2 === 1).length;
+      cDec = oddAct >= 4 ? 'GREEN' : 'RED';
+      cProb = 0.64 + Math.abs(oddAct - 4) * 0.03;
       break;
     }
     case 'fly-central-complex-navigation': {
-      // Azimuth Ring Attractor Oscillator: 8-column circular phase angle
-      let angle = 0;
+      // Azimuth Ring Attractor Oscillator
+      let ringAngle = 0, ringColorAngle = 0;
       hist.slice(-8).forEach((r, idx) => {
         const rad = (idx * Math.PI) / 4;
-        angle += (r.color === 'GREEN' ? 1 : -1) * Math.sin(rad);
+        ringAngle += (r.size === 'BIG' ? 1 : -1) * Math.cos(rad);
+        ringColorAngle += (r.color === 'GREEN' ? 1 : -1) * Math.sin(rad);
       });
-      cDec = angle >= 0 ? 'GREEN' : 'RED';
-      cProb = 0.66 + Math.min(0.22, Math.abs(angle) * 0.06);
-      sDec = (angle >= 0.5 || angle <= -0.5) ? 'BIG' : 'SMALL';
-      sProb = 0.64;
+      sDec = ringAngle >= 0 ? 'BIG' : 'SMALL';
+      sProb = 0.66 + Math.min(0.20, Math.abs(ringAngle) * 0.05);
+      cDec = ringColorAngle >= 0 ? 'GREEN' : 'RED';
+      cProb = 0.66 + Math.min(0.20, Math.abs(ringColorAngle) * 0.05);
       break;
     }
     case 'fly-neuromodulated-dopamine': {
-      // Dopaminergic RPE: heavily conditioned on self dopamine and loss pain
-      const dop = stats.dopamine || 0.5;
-      const pain = stats.lossPain || 0.0;
+      // DAN Reward-Prediction-Error Plasticity
+      const dop = stats.dopamine !== undefined ? stats.dopamine : 0.5;
+      const pain = stats.lossPain !== undefined ? stats.lossPain : 0.0;
       if (dop > 0.6) {
         cDec = last1.color;
         cProb = 0.70 + dop * 0.15;
+        sDec = last1.size;
+        sProb = 0.69 + dop * 0.14;
       } else {
         cDec = last1.color === 'GREEN' ? 'RED' : 'GREEN';
         cProb = 0.65 + pain * 0.15;
+        sDec = last1.size === 'BIG' ? 'SMALL' : 'BIG';
+        sProb = 0.65 + pain * 0.15;
       }
-      sDec = (last1.number >= 5 && dop > 0.5) ? 'BIG' : 'SMALL';
-      sProb = 0.66;
       break;
     }
     case 'fly-octopamine-arousal': {
-      // Arousal urgency gating: detects rapid alternating flips
-      let flips = 0;
+      // Octopamine Volatility Urgency
+      let velSum = 0;
       for (let i = Math.max(0, len - 6); i < len - 1; i++) {
-        if (hist[i].color !== hist[i + 1].color) flips++;
+        velSum += Math.abs(nums[i + 1] - nums[i]);
       }
-      if (flips >= 3) {
-        cDec = last1.color; // Arousal breakout prediction
-        cProb = 0.74;
+      const avgVel = velSum / Math.max(1, Math.min(5, len - 1));
+      if (avgVel > 3.4) {
+        sDec = last1.size;
+        sProb = 0.73;
+        cDec = last1.color;
+        cProb = 0.71;
       } else {
+        sDec = last1.size === 'BIG' ? 'SMALL' : 'BIG';
+        sProb = 0.68;
         cDec = last1.color === 'GREEN' ? 'RED' : 'GREEN';
-        cProb = 0.68;
+        cProb = 0.67;
       }
-      sDec = flips >= 3 ? 'BIG' : 'SMALL';
-      sProb = 0.65;
       break;
     }
     case 'fly-liquid-state-reservoir': {
-      // 3D Recurrent Microcircuit Fading Memory: exponential leaky integrator
-      let liquidState = 0;
+      // 3D Recurrent Microcircuit Fading Memory
+      let lsmState = 0, lsmColorState = 0;
       nums.slice(-10).forEach(n => {
-        liquidState = liquidState * 0.65 + (n - 4.5);
+        lsmState = lsmState * 0.68 + (n - 4.5);
       });
-      sDec = liquidState >= 0 ? 'BIG' : 'SMALL';
-      sProb = 0.67 + Math.min(0.20, Math.abs(liquidState) * 0.04);
-      cDec = Math.sin(liquidState) >= 0 ? 'GREEN' : 'RED';
-      cProb = 0.63;
+      colors.slice(-10).forEach(c => {
+        lsmColorState = lsmColorState * 0.68 + (c === 'GREEN' ? 1 : -1);
+      });
+      sDec = lsmState >= 0 ? 'BIG' : 'SMALL';
+      sProb = 0.67 + Math.min(0.20, Math.abs(lsmState) * 0.04);
+      cDec = lsmColorState >= 0 ? 'GREEN' : 'RED';
+      cProb = 0.67 + Math.min(0.20, Math.abs(lsmColorState) * 0.04);
       break;
     }
     case 'fly-lateral-horn-instinct': {
-      // Hardwired fast-escape reflex: detects streak hazard traps
+      // Hardwired Instinctive Escape Circuit
       const win5 = colors.slice(-5);
-      const isRedTrap = win5.filter(c => c === 'RED').length >= 4;
-      const isGreenTrap = win5.filter(c => c === 'GREEN').length >= 4;
-      if (isRedTrap) { cDec = 'GREEN'; cProb = 0.78; }
-      else if (isGreenTrap) { cDec = 'RED'; cProb = 0.78; }
-      else { cDec = (last1.number % 2 === 1) ? 'GREEN' : 'RED'; cProb = 0.64; }
-      sDec = last1.size === 'BIG' ? 'SMALL' : 'BIG';
-      sProb = 0.65;
+      const win5Sizes = sizes.slice(-5);
+      const greenTraps = win5.filter(c => c === 'GREEN').length;
+      const bigTraps = win5Sizes.filter(s => s === 'BIG').length;
+      cDec = greenTraps >= 4 ? 'RED' : (greenTraps <= 1 ? 'GREEN' : (last1.color === 'GREEN' ? 'RED' : 'GREEN'));
+      cProb = 0.72 + (greenTraps >= 4 || greenTraps <= 1 ? 0.10 : 0);
+      sDec = bigTraps >= 4 ? 'SMALL' : (bigTraps <= 1 ? 'BIG' : (last1.size === 'BIG' ? 'SMALL' : 'BIG'));
+      sProb = 0.72 + (bigTraps >= 4 || bigTraps <= 1 ? 0.10 : 0);
       break;
     }
     case 'fly-echo-state-spectral': {
-      // Spectral radius 0.95 harmonic resonance over past 12 rounds
-      let spec = 0;
+      // Spectral Radius Harmonic Resonance
+      let specSize = 0, specColor = 0;
       nums.slice(-12).forEach((n, i) => {
-        spec += (n - 4.5) * Math.cos((i * Math.PI) / 3);
+        specSize += (n - 4.5) * Math.cos((i * Math.PI) / 3);
       });
-      sDec = spec >= 0 ? 'BIG' : 'SMALL';
-      sProb = 0.69 + Math.min(0.20, Math.abs(spec) * 0.02);
-      cDec = spec >= 0 ? 'GREEN' : 'RED';
-      cProb = 0.63;
+      colors.slice(-12).forEach((c, i) => {
+        specColor += (c === 'GREEN' ? 1 : -1) * Math.sin((i * Math.PI) / 3);
+      });
+      sDec = specSize >= 0 ? 'BIG' : 'SMALL';
+      sProb = 0.69 + Math.min(0.20, Math.abs(specSize) * 0.02);
+      cDec = specColor >= 0 ? 'GREEN' : 'RED';
+      cProb = 0.69 + Math.min(0.20, Math.abs(specColor) * 0.02);
       break;
     }
     case 'fly-delay-spiking-temporal': {
-      // Coincidence delay lines at tau = [1, 2, 4, 7]
-      const tauMatch = ((hist[len - 1] && hist[len - 2] && hist[len - 1].color === hist[len - 2].color) ? 1 : 0) +
-                       ((hist[len - 1] && hist[len - 4] && hist[len - 1].color === hist[len - 4].color) ? 1 : 0);
-      cDec = tauMatch >= 1 ? last1.color : (last1.color === 'GREEN' ? 'RED' : 'GREEN');
-      cProb = 0.68 + tauMatch * 0.05;
-      sDec = last1.size;
-      sProb = 0.64;
+      // Axonal Conduction Delay Lines
+      const colorMatch = ((hist[len - 1] && hist[len - 2] && hist[len - 1].color === hist[len - 2].color) ? 1 : 0) +
+                         ((hist[len - 1] && hist[len - 4] && hist[len - 1].color === hist[len - 4].color) ? 1 : 0);
+      const sizeMatch  = ((hist[len - 1] && hist[len - 2] && hist[len - 1].size === hist[len - 2].size) ? 1 : 0) +
+                         ((hist[len - 1] && hist[len - 4] && hist[len - 1].size === hist[len - 4].size) ? 1 : 0);
+      cDec = colorMatch >= 1 ? last1.color : (last1.color === 'GREEN' ? 'RED' : 'GREEN');
+      cProb = 0.68 + colorMatch * 0.05;
+      sDec = sizeMatch >= 1 ? last1.size : (last1.size === 'BIG' ? 'SMALL' : 'BIG');
+      sProb = 0.68 + sizeMatch * 0.05;
       break;
     }
     case 'fly-hebbian-synaptic': {
-      // STDP plastic reinforcement on big-small transition matrix
-      let bigAfterBig = 0, bigAfterSmall = 0, totalB = 0, totalS = 0;
+      // Hebbian STDP Plastic Transition Reinforcement
+      let bAfterB = 0, sAfterB = 0, bAfterS = 0, sAfterS = 0;
+      let gAfterG = 0, rAfterG = 0, gAfterR = 0, rAfterR = 0;
       for (let i = 0; i < len - 1; i++) {
         if (hist[i].size === 'BIG') {
-          totalB++;
-          if (hist[i + 1].size === 'BIG') bigAfterBig++;
+          if (hist[i + 1].size === 'BIG') bAfterB++; else sAfterB++;
         } else {
-          totalS++;
-          if (hist[i + 1].size === 'BIG') bigAfterSmall++;
+          if (hist[i + 1].size === 'BIG') bAfterS++; else sAfterS++;
+        }
+        if (hist[i].color === 'GREEN') {
+          if (hist[i + 1].color === 'GREEN') gAfterG++; else rAfterG++;
+        } else {
+          if (hist[i + 1].color === 'GREEN') gAfterR++; else rAfterR++;
         }
       }
-      const pB = totalB > 0 ? bigAfterBig / totalB : 0.5;
-      const pS = totalS > 0 ? bigAfterSmall / totalS : 0.5;
-      sDec = (last1.size === 'BIG' ? pB : pS) >= 0.5 ? 'BIG' : 'SMALL';
-      sProb = 0.67 + Math.abs((last1.size === 'BIG' ? pB : pS) - 0.5) * 0.3;
-      cDec = (last1.color === 'GREEN') ? 'RED' : 'GREEN';
-      cProb = 0.63;
+      const pBigGivenLast = last1.size === 'BIG' ? (bAfterB + 1) / (bAfterB + sAfterB + 2) : (bAfterS + 1) / (bAfterS + sAfterS + 2);
+      const pGreenGivenLast = last1.color === 'GREEN' ? (gAfterG + 1) / (gAfterG + rAfterG + 2) : (gAfterR + 1) / (gAfterR + rAfterR + 2);
+      sDec = pBigGivenLast >= 0.5 ? 'BIG' : 'SMALL';
+      sProb = 0.65 + Math.abs(pBigGivenLast - 0.5) * 0.35;
+      cDec = pGreenGivenLast >= 0.5 ? 'GREEN' : 'RED';
+      cProb = 0.65 + Math.abs(pGreenGivenLast - 0.5) * 0.35;
       break;
     }
     case 'fly-attractor-energy': {
-      // Continuous Attractor Hopfield energy minimization
+      // Continuous Attractor Hopfield Energy Minimization
       const sum8 = nums.slice(-8).reduce((a, b) => a + b, 0);
       const mean = sum8 / 8;
-      sDec = mean < 4.5 ? 'BIG' : 'SMALL'; // Energy potential pull toward 4.5
+      sDec = mean < 4.5 ? 'BIG' : 'SMALL';
       sProb = 0.69 + Math.min(0.20, Math.abs(mean - 4.5) * 0.08);
-      cDec = (Math.round(mean) % 2 === 1) ? 'GREEN' : 'RED';
-      cProb = 0.64;
+      const g8 = colors.slice(-8).filter(c => c === 'GREEN').length;
+      cDec = g8 < 4 ? 'GREEN' : 'RED';
+      cProb = 0.68 + Math.abs(g8 - 4) * 0.04;
       break;
     }
     case 'fly-metaplastic-calcium': {
-      // Calcium dynamics threshold adaptation
-      let ca = 0;
-      sizes.slice(-7).forEach(s => { ca = ca * 0.7 + (s === 'BIG' ? 1 : 0); });
-      sDec = ca > 1.4 ? 'SMALL' : 'BIG'; // Calcium threshold exhaustion adaptation
+      // Calcium Dynamics Threshold Adaptation
+      let caSize = 0, caColor = 0;
+      sizes.slice(-7).forEach(s => { caSize = caSize * 0.7 + (s === 'BIG' ? 1 : 0); });
+      colors.slice(-7).forEach(c => { caColor = caColor * 0.7 + (c === 'GREEN' ? 1 : 0); });
+      sDec = caSize > 1.4 ? 'SMALL' : (caSize < 0.6 ? 'BIG' : (last1.size === 'BIG' ? 'SMALL' : 'BIG'));
       sProb = 0.71;
-      cDec = last1.color;
-      cProb = 0.64;
+      cDec = caColor > 1.4 ? 'RED' : (caColor < 0.6 ? 'GREEN' : (last1.color === 'GREEN' ? 'RED' : 'GREEN'));
+      cProb = 0.70;
       break;
     }
     case 'fly-optic-lobe-motion': {
-      // Hassenstein-Reichardt motion correlator: velocity and acceleration
+      // Hassenstein-Reichardt Motion Correlator
       const v1 = (last1.number || 0) - (last2.number || 0);
       const v2 = (last2.number || 0) - (last3.number || 0);
       const acc = v1 - v2;
       sDec = acc >= 0 ? 'BIG' : 'SMALL';
       sProb = 0.68 + Math.min(0.18, Math.abs(acc) * 0.03);
       cDec = v1 > 0 ? 'GREEN' : 'RED';
-      cProb = 0.64;
+      cProb = 0.67 + Math.min(0.18, Math.abs(v1) * 0.03);
       break;
     }
     case 'fly-connectome-global': {
-      // Whole-Brain Connectome 5-Neuropil Graph Integration
+      // Whole-Brain Connectome 5-Neuropil Integration
       const alVote = nums.slice(-4).reduce((a, b) => a + b, 0) / 4 >= 4.5 ? 1 : -1;
       const mbVote = colors.slice(-5).filter(c => c === 'GREEN').length >= 3 ? 1 : -1;
       const cxVote = (last1.number % 2 === 1) ? 1 : -1;
-      const totalScore = alVote * 0.35 + mbVote * 0.35 + cxVote * 0.30;
-      cDec = totalScore >= 0 ? 'GREEN' : 'RED';
-      cProb = 0.72 + Math.abs(totalScore) * 0.12;
       sDec = alVote >= 0 ? 'BIG' : 'SMALL';
-      sProb = 0.70;
+      sProb = 0.72;
+      const colorScore = mbVote * 0.6 + cxVote * 0.4;
+      cDec = colorScore >= 0 ? 'GREEN' : 'RED';
+      cProb = 0.72 + Math.abs(colorScore) * 0.10;
       break;
     }
 
     // ── 2. DEEP LEARNING & NEURAL MODELS (12 Models) ──
     case 'LSTM_RECURRENT': {
-      // LSTM 16-step hidden state gate simulation
-      let h = 0, c = 0;
+      let hSize = 0, cSize = 0, hCol = 0, cCol = 0;
       nums.slice(-16).forEach(x => {
-        const f = 1 / (1 + Math.exp(-c * 0.5));
+        const f = 1 / (1 + Math.exp(-cSize * 0.5));
         const i = 1 / (1 + Math.exp(-x + 4.5));
-        c = f * c + i * Math.tanh(x - 4.5);
-        h = Math.tanh(c);
+        cSize = f * cSize + i * Math.tanh(x - 4.5);
+        hSize = Math.tanh(cSize);
       });
-      sDec = h >= 0 ? 'BIG' : 'SMALL';
-      sProb = 0.70 + Math.min(0.20, Math.abs(h) * 0.20);
-      cDec = c >= 0 ? 'GREEN' : 'RED';
-      cProb = 0.65;
+      colors.slice(-16).forEach(cl => {
+        const val = cl === 'GREEN' ? 1 : -1;
+        cCol = 0.7 * cCol + 0.3 * val;
+        hCol = Math.tanh(cCol);
+      });
+      sDec = hSize >= 0 ? 'BIG' : 'SMALL';
+      sProb = 0.70 + Math.min(0.20, Math.abs(hSize) * 0.20);
+      cDec = hCol >= 0 ? 'GREEN' : 'RED';
+      cProb = 0.70 + Math.min(0.20, Math.abs(hCol) * 0.20);
       break;
     }
     case 'GRU_RECURRENT': {
-      // GRU reset and update gates over past 12 rounds
-      let h = 0;
+      let hSize = 0, hCol = 0;
       nums.slice(-12).forEach(x => {
         const z = 1 / (1 + Math.exp(-(x - 4.5) * 0.4));
-        h = (1 - z) * h + z * Math.tanh(x - 4.5);
+        hSize = (1 - z) * hSize + z * Math.tanh(x - 4.5);
       });
-      cDec = h >= 0 ? 'GREEN' : 'RED';
-      cProb = 0.71 + Math.min(0.18, Math.abs(h) * 0.18);
-      sDec = h >= 0 ? 'BIG' : 'SMALL';
-      sProb = 0.66;
+      colors.slice(-12).forEach(cl => {
+        const val = cl === 'GREEN' ? 1 : -1;
+        const z = 1 / (1 + Math.exp(-val * 0.5));
+        hCol = (1 - z) * hCol + z * Math.tanh(val);
+      });
+      sDec = hSize >= 0 ? 'BIG' : 'SMALL';
+      sProb = 0.68 + Math.min(0.18, Math.abs(hSize) * 0.18);
+      cDec = hCol >= 0 ? 'GREEN' : 'RED';
+      cProb = 0.69 + Math.min(0.18, Math.abs(hCol) * 0.18);
       break;
     }
     case 'TCN_TEMPORAL': {
-      // Dilated Causal 1D Convolutions with d = [1, 2, 4, 8]
       const d1 = len >= 2 ? (nums[len - 1] - nums[len - 2]) : 0;
       const d2 = len >= 3 ? (nums[len - 1] - nums[len - 3]) : 0;
       const d4 = len >= 5 ? (nums[len - 1] - nums[len - 5]) : 0;
@@ -9811,35 +9846,37 @@ function generateModelNextPrediction(model, history, modelStats) {
       const tcnSignal = d1 * 0.4 + d2 * 0.3 + d4 * 0.2 + d8 * 0.1;
       sDec = tcnSignal >= 0 ? 'BIG' : 'SMALL';
       sProb = 0.69 + Math.min(0.20, Math.abs(tcnSignal) * 0.04);
-      cDec = (last1.number % 2 === 1) ? 'GREEN' : 'RED';
-      cProb = 0.64;
+      const c1 = len >= 2 ? (colors[len-1] === colors[len-2] ? 1 : -1) : 0;
+      const c2 = len >= 3 ? (colors[len-1] === colors[len-3] ? 1 : -1) : 0;
+      const cSignal = c1 * 0.6 + c2 * 0.4;
+      cDec = cSignal >= 0 ? last1.color : (last1.color === 'GREEN' ? 'RED' : 'GREEN');
+      cProb = 0.67 + Math.abs(cSignal) * 0.06;
       break;
     }
     case 'MLP_DEEP': {
-      // Dense 128-64-32 LeakyReLU feature extraction
       const mean5 = nums.slice(-5).reduce((a, b) => a + b, 0) / 5;
       const mean15 = nums.slice(-15).reduce((a, b) => a + b, 0) / Math.min(15, len);
       const diff = mean5 - mean15;
       sDec = diff >= 0 ? 'BIG' : 'SMALL';
       sProb = 0.68 + Math.min(0.20, Math.abs(diff) * 0.08);
-      cDec = last1.color === 'GREEN' ? 'RED' : 'GREEN';
-      cProb = 0.65;
+      const g5 = colors.slice(-5).filter(c => c === 'GREEN').length;
+      cDec = g5 >= 3 ? 'GREEN' : 'RED';
+      cProb = 0.66 + Math.abs(g5 - 2.5) * 0.04;
       break;
     }
     case 'GRADIENT_BOOSTER': {
-      // 5 Gradient-Boosted decision stumps on split features
-      let stumpScore = 0;
-      if (last1.number >= 5) stumpScore += 0.3; else stumpScore -= 0.3;
-      if (last2.number < 3) stumpScore += 0.25;
-      if (last1.color === 'GREEN') stumpScore += 0.2; else stumpScore -= 0.2;
-      cDec = stumpScore >= 0 ? 'GREEN' : 'RED';
-      cProb = 0.70 + Math.min(0.20, Math.abs(stumpScore) * 0.2);
-      sDec = stumpScore >= 0 ? 'BIG' : 'SMALL';
-      sProb = 0.67;
+      let sizeStump = 0, colorStump = 0;
+      if (last1.number >= 5) sizeStump += 0.35; else sizeStump -= 0.35;
+      if (last2.number < 4) sizeStump += 0.25; else sizeStump -= 0.25;
+      if (last1.color === 'GREEN') colorStump += 0.3; else colorStump -= 0.3;
+      if (last2.color === 'RED') colorStump += 0.25; else colorStump -= 0.25;
+      sDec = sizeStump >= 0 ? 'BIG' : 'SMALL';
+      sProb = 0.70 + Math.min(0.20, Math.abs(sizeStump) * 0.2);
+      cDec = colorStump >= 0 ? 'GREEN' : 'RED';
+      cProb = 0.70 + Math.min(0.20, Math.abs(colorStump) * 0.2);
       break;
     }
     case 'RANDOM_FOREST': {
-      // 7 decision trees voting on sub-sampled windows
       let greenVotes = 0, bigVotes = 0;
       for (let t = 1; t <= 7; t++) {
         const item = hist[len - t] || last1;
@@ -9853,19 +9890,20 @@ function generateModelNextPrediction(model, history, modelStats) {
       break;
     }
     case 'LOGISTIC_REGRESSION': {
-      // Softmax calibrated z-score logistic sigmoid
       const last10 = nums.slice(-10);
       const m = last10.reduce((a, b) => a + b, 0) / 10;
-      const z = (m - 4.5) / 1.5;
-      const p = 1 / (1 + Math.exp(-z));
-      sDec = p >= 0.5 ? 'BIG' : 'SMALL';
-      sProb = 0.62 + Math.abs(p - 0.5) * 0.45;
-      cDec = (last1.number % 2 === 1) ? 'GREEN' : 'RED';
-      cProb = 0.63;
+      const zSize = (m - 4.5) / 1.5;
+      const pSize = 1 / (1 + Math.exp(-zSize));
+      sDec = pSize >= 0.5 ? 'BIG' : 'SMALL';
+      sProb = 0.63 + Math.abs(pSize - 0.5) * 0.40;
+      const g10 = colors.slice(-10).filter(c => c === 'GREEN').length;
+      const zCol = (g10 - 5) / 1.5;
+      const pCol = 1 / (1 + Math.exp(-zCol));
+      cDec = pCol >= 0.5 ? 'GREEN' : 'RED';
+      cProb = 0.63 + Math.abs(pCol - 0.5) * 0.40;
       break;
     }
     case 'PATTERN_NEURAL': {
-      // Latent embedding distance matching to historical streak triggers
       const targetVec = nums.slice(-3);
       let bestMatchIdx = -1, bestDist = 999;
       for (let i = 0; i < len - 4; i++) {
@@ -9876,254 +9914,268 @@ function generateModelNextPrediction(model, history, modelStats) {
         cDec = hist[bestMatchIdx].color;
         sDec = hist[bestMatchIdx].size;
         cProb = 0.72 - Math.min(0.10, bestDist * 0.02);
-        sProb = 0.70;
+        sProb = 0.70 - Math.min(0.10, bestDist * 0.02);
       } else {
         cDec = 'RED'; cProb = 0.65; sDec = 'BIG'; sProb = 0.65;
       }
       break;
     }
     case 'REGIME_NEURAL': {
-      // Market regime classifier: Trend vs PingPong vs Chop
-      let pingPong = 0;
+      let pingPongCol = 0, pingPongSize = 0;
       for (let i = Math.max(0, len - 6); i < len - 1; i++) {
-        if (colors[i] !== colors[i+1]) pingPong++;
+        if (colors[i] !== colors[i+1]) pingPongCol++;
+        if (sizes[i] !== sizes[i+1]) pingPongSize++;
       }
-      if (pingPong >= 4) {
-        cDec = last1.color === 'GREEN' ? 'RED' : 'GREEN'; // Reversal in Ping-Pong
-        cProb = 0.75;
-      } else {
-        cDec = last1.color; // Momentum in Trend
-        cProb = 0.68;
-      }
-      sDec = last1.size;
-      sProb = 0.64;
+      cDec = pingPongCol >= 4 ? (last1.color === 'GREEN' ? 'RED' : 'GREEN') : last1.color;
+      cProb = 0.72;
+      sDec = pingPongSize >= 4 ? (last1.size === 'BIG' ? 'SMALL' : 'BIG') : last1.size;
+      sProb = 0.72;
       break;
     }
     case 'STREAK_NEURAL': {
-      // Recurrent Streak Persistence Estimator
-      let streakLen = 1;
+      let streakCol = 1, streakSize = 1;
       for (let i = len - 1; i > 0; i--) {
-        if (colors[i] === colors[i - 1]) streakLen++; else break;
+        if (colors[i] === colors[i - 1]) streakCol++; else break;
       }
-      // Sigmoid decay over streak length
-      const contP = 1 / (1 + Math.exp((streakLen - 3.5) * 0.8));
-      cDec = contP >= 0.5 ? last1.color : (last1.color === 'GREEN' ? 'RED' : 'GREEN');
-      cProb = 0.64 + Math.abs(contP - 0.5) * 0.35;
-      sDec = last1.size;
-      sProb = 0.64;
+      for (let i = len - 1; i > 0; i--) {
+        if (sizes[i] === sizes[i - 1]) streakSize++; else break;
+      }
+      const contPCol = 1 / (1 + Math.exp((streakCol - 3.5) * 0.8));
+      cDec = contPCol >= 0.5 ? last1.color : (last1.color === 'GREEN' ? 'RED' : 'GREEN');
+      cProb = 0.64 + Math.abs(contPCol - 0.5) * 0.35;
+      const contPSize = 1 / (1 + Math.exp((streakSize - 3.5) * 0.8));
+      sDec = contPSize >= 0.5 ? last1.size : (last1.size === 'BIG' ? 'SMALL' : 'BIG');
+      sProb = 0.64 + Math.abs(contPSize - 0.5) * 0.35;
       break;
     }
     case 'INVERSION_NEURAL': {
-      // Bollinger-band style neural envelope over-extension
       const rollingSum = nums.slice(-6).reduce((a, b) => a + b, 0);
-      if (rollingSum >= 36) { sDec = 'SMALL'; sProb = 0.76; }
-      else if (rollingSum <= 18) { sDec = 'BIG'; sProb = 0.76; }
-      else { sDec = (last1.number >= 5) ? 'SMALL' : 'BIG'; sProb = 0.66; }
-      cDec = last1.color === 'GREEN' ? 'RED' : 'GREEN';
-      cProb = 0.65;
+      sDec = rollingSum >= 35 ? 'SMALL' : (rollingSum <= 19 ? 'BIG' : (last1.size === 'BIG' ? 'SMALL' : 'BIG'));
+      sProb = 0.74;
+      const g6 = colors.slice(-6).filter(c => c === 'GREEN').length;
+      cDec = g6 >= 4 ? 'RED' : (g6 <= 2 ? 'GREEN' : (last1.color === 'GREEN' ? 'RED' : 'GREEN'));
+      cProb = 0.73;
       break;
     }
     case 'ANOMALY_DETECTOR': {
-      // Isolation density anomaly scorer: filters high-risk randomness
       const var10 = nums.slice(-10).reduce((acc, v) => acc + Math.pow(v - 4.5, 2), 0) / 10;
-      if (var10 > 9.5) {
-        // High variance anomaly: retreat to safe size dimension
-        sDec = 'BIG'; sProb = 0.74;
-        cDec = 'RED'; cProb = 0.62;
-      } else {
-        sDec = 'SMALL'; sProb = 0.69;
-        cDec = 'GREEN'; cProb = 0.66;
+      sDec = var10 > 9.0 ? 'BIG' : 'SMALL';
+      sProb = 0.72;
+      let colSwitches = 0;
+      for (let i = Math.max(0, len - 8); i < len - 1; i++) {
+        if (colors[i] !== colors[i+1]) colSwitches++;
       }
+      cDec = colSwitches >= 5 ? 'RED' : 'GREEN';
+      cProb = 0.68;
       break;
     }
 
     // ── 3. CLASSICAL STATISTICAL & PROBABILITY (15 Models) ──
     case 'MARKOV_TRANSITION': {
-      // 1st-Order empirical transition matrix with Laplace smoothing
       let gAfterG = 1, gAfterR = 1, rAfterG = 1, rAfterR = 1;
+      let bAfterB = 1, bAfterS = 1, sAfterB = 1, sAfterS = 1;
       for (let i = 0; i < len - 1; i++) {
         if (colors[i] === 'GREEN') {
           if (colors[i+1] === 'GREEN') gAfterG++; else rAfterG++;
         } else {
           if (colors[i+1] === 'GREEN') gAfterR++; else rAfterR++;
         }
+        if (sizes[i] === 'BIG') {
+          if (sizes[i+1] === 'BIG') bAfterB++; else sAfterB++;
+        } else {
+          if (sizes[i+1] === 'BIG') bAfterS++; else sAfterS++;
+        }
       }
       const pGreen = last1.color === 'GREEN' ? (gAfterG / (gAfterG + rAfterG)) : (gAfterR / (gAfterR + rAfterR));
+      const pBig = last1.size === 'BIG' ? (bAfterB / (bAfterB + sAfterB)) : (bAfterS / (bAfterS + sAfterS));
       cDec = pGreen >= 0.5 ? 'GREEN' : 'RED';
-      cProb = 0.62 + Math.abs(pGreen - 0.5) * 0.40;
-      sDec = last1.size; sProb = 0.64;
+      cProb = 0.63 + Math.abs(pGreen - 0.5) * 0.40;
+      sDec = pBig >= 0.5 ? 'BIG' : 'SMALL';
+      sProb = 0.63 + Math.abs(pBig - 0.5) * 0.40;
       break;
     }
     case 'SECOND_ORDER_MARKOV': {
-      // 2nd-Order Markov Tensor P(Next | Last1, Last2)
-      let matchCount = 0, nextIsBig = 0;
+      let sizeMatch = 0, nextIsBig = 0;
+      let colMatch = 0, nextIsGreen = 0;
       for (let i = 0; i < len - 2; i++) {
         if (sizes[i] === last2.size && sizes[i+1] === last1.size) {
-          matchCount++;
+          sizeMatch++;
           if (sizes[i+2] === 'BIG') nextIsBig++;
         }
+        if (colors[i] === last2.color && colors[i+1] === last1.color) {
+          colMatch++;
+          if (colors[i+2] === 'GREEN') nextIsGreen++;
+        }
       }
-      const pBig = matchCount > 0 ? (nextIsBig / matchCount) : 0.5;
+      const pBig = sizeMatch > 0 ? (nextIsBig / sizeMatch) : 0.5;
+      const pGreen = colMatch > 0 ? (nextIsGreen / colMatch) : 0.5;
       sDec = pBig >= 0.5 ? 'BIG' : 'SMALL';
-      sProb = 0.65 + Math.abs(pBig - 0.5) * 0.35;
-      cDec = (last1.color === 'GREEN') ? 'RED' : 'GREEN'; cProb = 0.63;
+      sProb = 0.66 + Math.abs(pBig - 0.5) * 0.35;
+      cDec = pGreen >= 0.5 ? 'GREEN' : 'RED';
+      cProb = 0.66 + Math.abs(pGreen - 0.5) * 0.35;
       break;
     }
     case 'BAYESIAN_TRANSITION': {
-      // Dirichlet-Multinomial Conjugate prior (alpha = 2, 2)
       const greenCount = colors.slice(-20).filter(c => c === 'GREEN').length;
+      const bigCount = sizes.slice(-20).filter(s => s === 'BIG').length;
       const postGreen = (2 + greenCount) / (4 + 20);
+      const postBig = (2 + bigCount) / (4 + 20);
       cDec = postGreen >= 0.5 ? 'GREEN' : 'RED';
-      cProb = 0.63 + Math.abs(postGreen - 0.5) * 0.45;
-      sDec = last1.size === 'BIG' ? 'SMALL' : 'BIG'; sProb = 0.64;
+      cProb = 0.64 + Math.abs(postGreen - 0.5) * 0.45;
+      sDec = postBig >= 0.5 ? 'BIG' : 'SMALL';
+      sProb = 0.64 + Math.abs(postBig - 0.5) * 0.45;
       break;
     }
     case 'RECENCY_WEIGHTED': {
-      // Exponential decay recency (half-life = 4 rounds)
-      let weightedSize = 0, weightSum = 0;
+      let weightedSize = 0, weightedColor = 0, weightSum = 0;
       hist.slice(-12).forEach((r, i) => {
         const w = Math.pow(0.82, 11 - i);
         weightedSize += (r.size === 'BIG' ? 1 : 0) * w;
+        weightedColor += (r.color === 'GREEN' ? 1 : 0) * w;
         weightSum += w;
       });
       const pB = weightedSize / weightSum;
+      const pG = weightedColor / weightSum;
       sDec = pB >= 0.5 ? 'BIG' : 'SMALL';
       sProb = 0.65 + Math.abs(pB - 0.5) * 0.40;
-      cDec = last1.color; cProb = 0.64;
+      cDec = pG >= 0.5 ? 'GREEN' : 'RED';
+      cProb = 0.65 + Math.abs(pG - 0.5) * 0.40;
       break;
     }
     case 'FREQUENCY_MODEL': {
-      // Standard deviation outlier tracking on 20-round window
       const countBig = sizes.slice(-20).filter(s => s === 'BIG').length;
-      const z = (countBig - 10) / Math.sqrt(5);
-      // Mean reversion when z is high
-      sDec = z >= 1.2 ? 'SMALL' : (z <= -1.2 ? 'BIG' : last1.size);
-      sProb = 0.66 + Math.min(0.20, Math.abs(z) * 0.08);
-      cDec = last1.color; cProb = 0.63;
+      const zSize = (countBig - 10) / Math.sqrt(5);
+      sDec = zSize >= 1.2 ? 'SMALL' : (zSize <= -1.2 ? 'BIG' : (last1.size === 'BIG' ? 'SMALL' : 'BIG'));
+      sProb = 0.66 + Math.min(0.20, Math.abs(zSize) * 0.08);
+      const countGreen = colors.slice(-20).filter(c => c === 'GREEN').length;
+      const zCol = (countGreen - 10) / Math.sqrt(5);
+      cDec = zCol >= 1.2 ? 'RED' : (zCol <= -1.2 ? 'GREEN' : (last1.color === 'GREEN' ? 'RED' : 'GREEN'));
+      cProb = 0.66 + Math.min(0.20, Math.abs(zCol) * 0.08);
       break;
     }
     case 'STREAK_RIDER': {
-      // Aggressively rides current active streak
       let sL = 1, cL = 1;
       for (let i = len - 1; i > 0; i--) { if (sizes[i] === sizes[i-1]) sL++; else break; }
       for (let i = len - 1; i > 0; i--) { if (colors[i] === colors[i-1]) cL++; else break; }
-      if (sL >= cL) {
-        sDec = last1.size; sProb = 0.72 + Math.min(0.16, sL * 0.04);
-        cDec = last1.color; cProb = 0.65;
-      } else {
-        cDec = last1.color; cProb = 0.72 + Math.min(0.16, cL * 0.04);
-        sDec = last1.size; sProb = 0.65;
-      }
+      sDec = last1.size;
+      sProb = 0.70 + Math.min(0.18, sL * 0.04);
+      cDec = last1.color;
+      cProb = 0.70 + Math.min(0.18, cL * 0.04);
       break;
     }
     case 'STREAK_BREAKER': {
-      // Geometric distribution cap: breaks streaks >= 2
       let sL = 1, cL = 1;
       for (let i = len - 1; i > 0; i--) { if (sizes[i] === sizes[i-1]) sL++; else break; }
       for (let i = len - 1; i > 0; i--) { if (colors[i] === colors[i-1]) cL++; else break; }
       sDec = last1.size === 'BIG' ? 'SMALL' : 'BIG';
-      sProb = 0.62 + Math.min(0.22, sL * 0.06);
+      sProb = 0.63 + Math.min(0.22, sL * 0.06);
       cDec = last1.color === 'GREEN' ? 'RED' : 'GREEN';
-      cProb = 0.62 + Math.min(0.22, cL * 0.06);
+      cProb = 0.63 + Math.min(0.22, cL * 0.06);
       break;
     }
     case 'RUN_LENGTH_MODEL': {
-      // Poisson renewal process inter-switch estimator
-      let switches = 0;
+      let colSwitches = 0, sizeSwitches = 0;
       for (let i = Math.max(0, len - 15); i < len - 1; i++) {
-        if (colors[i] !== colors[i+1]) switches++;
+        if (colors[i] !== colors[i+1]) colSwitches++;
+        if (sizes[i] !== sizes[i+1]) sizeSwitches++;
       }
-      const lambda = switches / 15;
-      cDec = lambda > 0.5 ? (last1.color === 'GREEN' ? 'RED' : 'GREEN') : last1.color;
-      cProb = 0.66 + Math.abs(lambda - 0.5) * 0.3;
-      sDec = last1.size; sProb = 0.64;
+      const lambdaCol = colSwitches / 15;
+      const lambdaSize = sizeSwitches / 15;
+      cDec = lambdaCol > 0.5 ? (last1.color === 'GREEN' ? 'RED' : 'GREEN') : last1.color;
+      cProb = 0.66 + Math.abs(lambdaCol - 0.5) * 0.3;
+      sDec = lambdaSize > 0.5 ? (last1.size === 'BIG' ? 'SMALL' : 'BIG') : last1.size;
+      sProb = 0.66 + Math.abs(lambdaSize - 0.5) * 0.3;
       break;
     }
     case 'SUFFIX_PATTERNS': {
-      // Longest matching suffix search
-      const pat = colors.slice(-2).join('-');
-      let nextColor = null;
+      const patCol = colors.slice(-2).join('-');
+      const patSize = sizes.slice(-2).join('-');
+      let nextCol = null, nextSize = null;
       for (let i = 0; i < len - 3; i++) {
-        if (colors[i] + '-' + colors[i+1] === pat) {
-          nextColor = colors[i+2];
-          break;
-        }
+        if (!nextCol && colors[i] + '-' + colors[i+1] === patCol) nextCol = colors[i+2];
+        if (!nextSize && sizes[i] + '-' + sizes[i+1] === patSize) nextSize = sizes[i+2];
       }
-      cDec = nextColor || (last1.color === 'GREEN' ? 'RED' : 'GREEN');
-      cProb = nextColor ? 0.74 : 0.64;
-      sDec = last1.size; sProb = 0.65;
+      cDec = nextCol || (last1.color === 'GREEN' ? 'RED' : 'GREEN');
+      cProb = nextCol ? 0.74 : 0.65;
+      sDec = nextSize || (last1.size === 'BIG' ? 'SMALL' : 'BIG');
+      sProb = nextSize ? 0.74 : 0.65;
       break;
     }
     case 'PATTERN_TRIE': {
-      // Radix trie 3-gram lookup on size sequences
-      const trieKey = sizes.slice(-2).join('|');
-      let bCount = 0, sCount = 0;
+      const trieKeySize = sizes.slice(-2).join('|');
+      const trieKeyCol = colors.slice(-2).join('|');
+      let bCount = 0, sCount = 0, gCount = 0, rCount = 0;
       for (let i = 0; i < len - 2; i++) {
-        if (sizes[i] + '|' + sizes[i+1] === trieKey) {
+        if (sizes[i] + '|' + sizes[i+1] === trieKeySize) {
           if (sizes[i+2] === 'BIG') bCount++; else sCount++;
+        }
+        if (colors[i] + '|' + colors[i+1] === trieKeyCol) {
+          if (colors[i+2] === 'GREEN') gCount++; else rCount++;
         }
       }
       sDec = bCount >= sCount ? 'BIG' : 'SMALL';
-      sProb = 0.65 + (Math.abs(bCount - sCount) / Math.max(1, bCount + sCount)) * 0.18;
-      cDec = last1.color; cProb = 0.64;
+      sProb = 0.66 + (Math.abs(bCount - sCount) / Math.max(1, bCount + sCount)) * 0.18;
+      cDec = gCount >= rCount ? 'GREEN' : 'RED';
+      cProb = 0.66 + (Math.abs(gCount - rCount) / Math.max(1, gCount + rCount)) * 0.18;
       break;
     }
     case 'TRAP_DETECTOR': {
-      // Wald-Wolfowitz runs test for non-random casino clusters
-      let runs = 1;
+      let runsCol = 1, runsSize = 1;
       for (let i = Math.max(0, len - 16); i < len - 1; i++) {
-        if (colors[i] !== colors[i+1]) runs++;
+        if (colors[i] !== colors[i+1]) runsCol++;
+        if (sizes[i] !== sizes[i+1]) runsSize++;
       }
-      // Low runs = cluster trap -> bet continuation; High runs = chop trap -> bet break
-      cDec = runs <= 6 ? last1.color : (last1.color === 'GREEN' ? 'RED' : 'GREEN');
+      cDec = runsCol <= 6 ? last1.color : (last1.color === 'GREEN' ? 'RED' : 'GREEN');
       cProb = 0.72;
-      sDec = last1.size; sProb = 0.65;
+      sDec = runsSize <= 6 ? last1.size : (last1.size === 'BIG' ? 'SMALL' : 'BIG');
+      sProb = 0.72;
       break;
     }
     case 'CHANGE_POINT_MODEL': {
-      // Page-Hinkley cumulative sum mean shift detector
-      let cusum = 0;
-      nums.slice(-10).forEach(n => { cusum += (n - 4.5); });
-      sDec = cusum > 5 ? 'SMALL' : (cusum < -5 ? 'BIG' : (last1.number >= 5 ? 'BIG' : 'SMALL'));
-      sProb = 0.70 + Math.min(0.18, Math.abs(cusum) * 0.02);
-      cDec = (last1.number % 2 === 1) ? 'GREEN' : 'RED'; cProb = 0.64;
+      let cusumSize = 0, cusumCol = 0;
+      nums.slice(-10).forEach(n => { cusumSize += (n - 4.5); });
+      colors.slice(-10).forEach(c => { cusumCol += (c === 'GREEN' ? 1 : -1); });
+      sDec = cusumSize > 4 ? 'SMALL' : (cusumSize < -4 ? 'BIG' : (last1.size === 'BIG' ? 'SMALL' : 'BIG'));
+      sProb = 0.70 + Math.min(0.18, Math.abs(cusumSize) * 0.02);
+      cDec = cusumCol > 3 ? 'RED' : (cusumCol < -3 ? 'GREEN' : (last1.color === 'GREEN' ? 'RED' : 'GREEN'));
+      cProb = 0.70 + Math.min(0.18, Math.abs(cusumCol) * 0.02);
       break;
     }
     case 'ENTROPY_MODEL': {
-      // Shannon Entropy over past 10 draws
       const g = colors.slice(-10).filter(c => c === 'GREEN').length / 10;
-      const r = 1 - g;
-      const entropy = (g > 0 && r > 0) ? -(g * Math.log2(g) + r * Math.log2(r)) : 0;
-      // High order (low entropy) -> high confidence trend
+      const b = sizes.slice(-10).filter(s => s === 'BIG').length / 10;
+      const entCol = (g > 0 && g < 1) ? -(g * Math.log2(g) + (1-g) * Math.log2(1-g)) : 0;
+      const entSize = (b > 0 && b < 1) ? -(b * Math.log2(b) + (1-b) * Math.log2(1-b)) : 0;
       cDec = g >= 0.5 ? 'GREEN' : 'RED';
-      cProb = 0.63 + (1 - entropy) * 0.25;
-      sDec = last1.size; sProb = 0.64;
+      cProb = 0.64 + (1 - entCol) * 0.25;
+      sDec = b >= 0.5 ? 'BIG' : 'SMALL';
+      sProb = 0.64 + (1 - entSize) * 0.25;
       break;
     }
     case 'DISTRIBUTION_DRIFT': {
-      // Kolmogorov-Smirnov 2-sample distribution drift detector
-      const recent = nums.slice(-6);
-      const past = nums.slice(-18, -6);
-      const rM = recent.reduce((a, b) => a + b, 0) / 6;
-      const pM = past.length > 0 ? past.reduce((a, b) => a + b, 0) / past.length : 4.5;
-      sDec = rM > pM ? 'SMALL' : 'BIG'; // Reversion of drifted distribution
+      const recNums = nums.slice(-6);
+      const pastNums = nums.slice(-18, -6);
+      const rM = recNums.reduce((a, b) => a + b, 0) / 6;
+      const pM = pastNums.length > 0 ? pastNums.reduce((a, b) => a + b, 0) / pastNums.length : 4.5;
+      sDec = rM > pM ? 'SMALL' : 'BIG';
       sProb = 0.68 + Math.min(0.20, Math.abs(rM - pM) * 0.08);
-      cDec = last1.color; cProb = 0.63;
+      const recG = colors.slice(-6).filter(c => c === 'GREEN').length;
+      const pastG = colors.slice(-18, -6).filter(c => c === 'GREEN').length;
+      cDec = recG > (pastG / 2) ? 'RED' : 'GREEN';
+      cProb = 0.67;
       break;
     }
     case 'INVERSION_MODEL': {
-      // Parity phase inverter: tracks alternating odd-even cycle
       const sum2 = (last1.number || 0) + (last2.number || 0);
       cDec = sum2 % 2 === 0 ? 'GREEN' : 'RED';
-      cProb = 0.69;
+      cProb = 0.70;
       sDec = sum2 >= 10 ? 'SMALL' : 'BIG';
-      sProb = 0.67;
+      sProb = 0.68;
       break;
     }
 
     // ── 4. SPECIALIZED & HYBRID STATISTICAL (11 Models) ──
     case 'BASE_PREDICTOR': {
-      // OG Quantitative algorithm: multi-factor blend of trend, momentum & DNA
       const sum3 = nums.slice(-3).reduce((a, b) => a + b, 0);
       const isOdd = sum3 % 2 === 1;
       sDec = sum3 >= 14 ? 'BIG' : 'SMALL';
@@ -10133,43 +10185,49 @@ function generateModelNextPrediction(model, history, modelStats) {
       break;
     }
     case 'NGRAM_MODEL': {
-      // 3-Gram Conditional Markov distribution
-      const gram = nums.slice(-2).map(n => n >= 5 ? 'B' : 'S').join('');
-      let bFollow = 0, sFollow = 0;
+      const gramSize = nums.slice(-2).map(n => n >= 5 ? 'B' : 'S').join('');
+      const gramCol = colors.slice(-2).map(c => c === 'GREEN' ? 'G' : 'R').join('');
+      let bFollow = 0, sFollow = 0, gFollow = 0, rFollow = 0;
       for (let i = 0; i < len - 2; i++) {
-        const pastGram = (nums[i] >= 5 ? 'B' : 'S') + (nums[i+1] >= 5 ? 'B' : 'S');
-        if (pastGram === gram) {
+        const pastGS = (nums[i] >= 5 ? 'B' : 'S') + (nums[i+1] >= 5 ? 'B' : 'S');
+        if (pastGS === gramSize) {
           if (nums[i+2] >= 5) bFollow++; else sFollow++;
+        }
+        const pastGC = (colors[i] === 'GREEN' ? 'G' : 'R') + (colors[i+1] === 'GREEN' ? 'G' : 'R');
+        if (pastGC === gramCol) {
+          if (colors[i+2] === 'GREEN') gFollow++; else rFollow++;
         }
       }
       sDec = bFollow >= sFollow ? 'BIG' : 'SMALL';
       sProb = 0.67 + (Math.abs(bFollow - sFollow) / Math.max(1, bFollow + sFollow)) * 0.20;
-      cDec = (last1.color === 'GREEN') ? 'RED' : 'GREEN'; cProb = 0.64;
+      cDec = gFollow >= rFollow ? 'GREEN' : 'RED';
+      cProb = 0.67 + (Math.abs(gFollow - rFollow) / Math.max(1, gFollow + rFollow)) * 0.20;
       break;
     }
     case 'HIDDEN_MARKOV': {
-      // 3-State Latent HMM: State 1=Red dominant, State 2=Green dominant, State 3=Chop
       const g6 = colors.slice(-6).filter(c => c === 'GREEN').length;
-      if (g6 >= 4) { cDec = 'GREEN'; cProb = 0.76; }
-      else if (g6 <= 2) { cDec = 'RED'; cProb = 0.76; }
-      else { cDec = last1.color === 'GREEN' ? 'RED' : 'GREEN'; cProb = 0.68; }
-      sDec = last1.size; sProb = 0.65;
+      cDec = g6 >= 4 ? 'GREEN' : (g6 <= 2 ? 'RED' : (last1.color === 'GREEN' ? 'RED' : 'GREEN'));
+      cProb = 0.74;
+      const b6 = sizes.slice(-6).filter(s => s === 'BIG').length;
+      sDec = b6 >= 4 ? 'BIG' : (b6 <= 2 ? 'SMALL' : (last1.size === 'BIG' ? 'SMALL' : 'BIG'));
+      sProb = 0.73;
       break;
     }
     case 'BAYESIAN_ONLINE': {
-      // Sequential recursive Kalman / Bayesian belief update
-      let belief = 0.5;
+      let beliefCol = 0.5, beliefSize = 0.5;
       colors.slice(-12).forEach(c => {
-        const obs = c === 'GREEN' ? 1 : 0;
-        belief = 0.85 * belief + 0.15 * obs;
+        beliefCol = 0.82 * beliefCol + 0.18 * (c === 'GREEN' ? 1 : 0);
       });
-      cDec = belief >= 0.5 ? 'GREEN' : 'RED';
-      cProb = 0.64 + Math.abs(belief - 0.5) * 0.45;
-      sDec = last1.size; sProb = 0.64;
+      sizes.slice(-12).forEach(s => {
+        beliefSize = 0.82 * beliefSize + 0.18 * (s === 'BIG' ? 1 : 0);
+      });
+      cDec = beliefCol >= 0.5 ? 'GREEN' : 'RED';
+      cProb = 0.65 + Math.abs(beliefCol - 0.5) * 0.45;
+      sDec = beliefSize >= 0.5 ? 'BIG' : 'SMALL';
+      sProb = 0.65 + Math.abs(beliefSize - 0.5) * 0.45;
       break;
     }
     case 'SIMILARITY_MODEL': {
-      // Cosine vector distance over 5-round window
       const cur = nums.slice(-5);
       let bestSim = -1, nextNum = 5;
       for (let i = 0; i < len - 6; i++) {
@@ -10184,74 +10242,81 @@ function generateModelNextPrediction(model, history, modelStats) {
       }
       sDec = nextNum >= 5 ? 'BIG' : 'SMALL';
       sProb = 0.68 + Math.min(0.20, bestSim * 0.15);
-      cDec = (nextNum % 2 === 1) ? 'GREEN' : 'RED';
-      cProb = 0.65;
+      cDec = [1, 3, 5, 7, 9].includes(nextNum) ? 'GREEN' : 'RED';
+      cProb = 0.67 + Math.min(0.20, bestSim * 0.15);
       break;
     }
     case 'BOOTSTRAP_MODEL': {
-      // Monte Carlo 200x resampling confidence interval
-      const sample = nums.slice(-15);
-      let bigCount = 0;
+      const sample = hist.slice(-15);
+      let bigCount = 0, greenCount = 0;
       for (let b = 0; b < 200; b++) {
-        const rand = sample[Math.floor(Math.random() * sample.length)];
-        if (rand >= 5) bigCount++;
+        const rand = sample[Math.floor(Math.random() * sample.length)] || last1;
+        if (rand.size === 'BIG') bigCount++;
+        if (rand.color === 'GREEN') greenCount++;
       }
-      const pBig = bigCount / 200;
-      sDec = pBig >= 0.5 ? 'BIG' : 'SMALL';
-      sProb = 0.64 + Math.abs(pBig - 0.5) * 0.40;
-      cDec = last1.color; cProb = 0.63;
+      sDec = bigCount >= 100 ? 'BIG' : 'SMALL';
+      sProb = 0.64 + Math.abs(bigCount / 200 - 0.5) * 0.40;
+      cDec = greenCount >= 100 ? 'GREEN' : 'RED';
+      cProb = 0.64 + Math.abs(greenCount / 200 - 0.5) * 0.40;
       break;
     }
     case 'STATISTICAL_ENSEMBLE': {
-      // Internal blend of mean, median and mode across past 9 rounds
       const sub = [...nums.slice(-9)].sort((a, b) => a - b);
       const median = sub[Math.floor(sub.length / 2)];
       sDec = median >= 5 ? 'BIG' : 'SMALL';
       sProb = 0.72;
-      cDec = (median % 2 === 1) ? 'GREEN' : 'RED';
-      cProb = 0.68;
+      const gCount = colors.slice(-9).filter(c => c === 'GREEN').length;
+      cDec = gCount >= 5 ? 'GREEN' : 'RED';
+      cProb = 0.71;
       break;
     }
     case 'NEURAL_CONSENSUS': {
-      // Internal 3-Layer lag voter: Lag-1, Lag-3, Lag-7
-      const v1 = (last1.color === 'GREEN') ? 1 : -1;
-      const v3 = (hist[len - 3] && hist[len - 3].color === 'GREEN') ? 1 : -1;
-      const v7 = (hist[len - 7] && hist[len - 7].color === 'GREEN') ? 1 : -1;
-      const vScore = v1 * 0.5 + v3 * 0.3 + v7 * 0.2;
-      cDec = vScore >= 0 ? 'GREEN' : 'RED';
-      cProb = 0.70 + Math.abs(vScore) * 0.15;
-      sDec = last1.size; sProb = 0.66;
+      const v1Col = (last1.color === 'GREEN') ? 1 : -1;
+      const v3Col = (hist[len - 3] && hist[len - 3].color === 'GREEN') ? 1 : -1;
+      const v7Col = (hist[len - 7] && hist[len - 7].color === 'GREEN') ? 1 : -1;
+      const colScore = v1Col * 0.5 + v3Col * 0.3 + v7Col * 0.2;
+      cDec = colScore >= 0 ? 'GREEN' : 'RED';
+      cProb = 0.70 + Math.abs(colScore) * 0.15;
+      const v1Size = (last1.size === 'BIG') ? 1 : -1;
+      const v3Size = (hist[len - 3] && hist[len - 3].size === 'BIG') ? 1 : -1;
+      const v7Size = (hist[len - 7] && hist[len - 7].size === 'BIG') ? 1 : -1;
+      const sizeScore = v1Size * 0.5 + v3Size * 0.3 + v7Size * 0.2;
+      sDec = sizeScore >= 0 ? 'BIG' : 'SMALL';
+      sProb = 0.70 + Math.abs(sizeScore) * 0.15;
       break;
     }
     case 'CLASSICAL_CONSENSUS': {
-      // Discrete Fourier Transform harmonic periodicity
-      let fourier = 0;
+      let fourierSize = 0, fourierCol = 0;
       nums.slice(-16).forEach((x, idx) => {
-        fourier += (x - 4.5) * Math.sin((idx * Math.PI) / 4);
+        fourierSize += (x - 4.5) * Math.sin((idx * Math.PI) / 4);
       });
-      sDec = fourier >= 0 ? 'BIG' : 'SMALL';
-      sProb = 0.71 + Math.min(0.18, Math.abs(fourier) * 0.03);
-      cDec = (last1.number % 2 === 1) ? 'GREEN' : 'RED';
-      cProb = 0.65;
+      colors.slice(-16).forEach((cl, idx) => {
+        fourierCol += (cl === 'GREEN' ? 1 : -1) * Math.cos((idx * Math.PI) / 4);
+      });
+      sDec = fourierSize >= 0 ? 'BIG' : 'SMALL';
+      sProb = 0.71 + Math.min(0.18, Math.abs(fourierSize) * 0.03);
+      cDec = fourierCol >= 0 ? 'GREEN' : 'RED';
+      cProb = 0.70 + Math.min(0.18, Math.abs(fourierCol) * 0.03);
       break;
     }
     case 'MULTI_TIMEFRAME': {
-      // Multi-window temporal resampling (2-step and 6-step moving blocks)
       const block2 = nums.slice(-2).reduce((a, b) => a + b, 0) / 2;
       const block6 = nums.slice(-6).reduce((a, b) => a + b, 0) / 6;
       sDec = block2 >= block6 ? 'BIG' : 'SMALL';
       sProb = 0.73;
-      cDec = (Math.round(block2) % 2 === 1) ? 'GREEN' : 'RED';
-      cProb = 0.67;
+      const g2 = colors.slice(-2).filter(c => c === 'GREEN').length / 2;
+      const g6 = colors.slice(-6).filter(c => c === 'GREEN').length / 6;
+      cDec = g2 >= g6 ? 'GREEN' : 'RED';
+      cProb = 0.72;
       break;
     }
     case 'ADAPTIVE_ENSEMBLE': {
-      // Kernel Density Estimator with Silverman's bandwidth
       const mean = nums.slice(-10).reduce((a, b) => a + b, 0) / 10;
       sDec = mean >= 4.5 ? 'BIG' : 'SMALL';
       sProb = 0.74 + Math.min(0.15, Math.abs(mean - 4.5) * 0.05);
-      cDec = (Math.round(mean) % 2 === 1) ? 'GREEN' : 'RED';
-      cProb = 0.68;
+      const gRate = colors.slice(-10).filter(c => c === 'GREEN').length / 10;
+      cDec = gRate >= 0.5 ? 'GREEN' : 'RED';
+      cProb = 0.73 + Math.abs(gRate - 0.5) * 0.20;
       break;
     }
     default: {
@@ -10422,7 +10487,46 @@ function evaluateArenaModelsOnSettledRound(periodStr, number, size, color) {
   updateArenaLeaderboardUI();
 }
 
+function ensureArenaInitialPredictions() {
+  const stats = getArenaLiveStats();
+  const hist = (typeof S !== 'undefined' && S.history) ? S.history : [];
+  if (hist.length < 2) return;
+  let changed = false;
+  ARENA_CANONICAL_MODELS.forEach(m => {
+    if (!stats[m.id]) {
+      stats[m.id] = {
+        wins: 0, losses: 0, streak: 0, bestStreak: 0, totalEvaluated: 0, winRate: 0,
+        dopamine: 0.50, lossPain: 0.0, historyPath: []
+      };
+    }
+    const st = stats[m.id];
+    if (!st.predTarget || st.predTarget === 'WAITING...') {
+      try {
+        const p = generateModelNextPrediction(m, hist, st);
+        st.predType = p.predType;
+        st.predTarget = p.predTarget;
+        st.predColor = p.predColor;
+        st.predSize = p.predSize;
+        st.num = p.num;
+        st.conf = p.conf;
+        changed = true;
+      } catch(e) {}
+    }
+  });
+  if (changed) saveArenaLiveStats(stats);
+}
+
+let _arenaUIRenderPending = false;
 function updateArenaLeaderboardUI(liveRanking, liveChampion) {
+  if (_arenaUIRenderPending) return;
+  _arenaUIRenderPending = true;
+  requestAnimationFrame(() => {
+    _arenaUIRenderPending = false;
+    _doUpdateArenaLeaderboardUI(liveRanking, liveChampion);
+  });
+}
+
+function _doUpdateArenaLeaderboardUI(liveRanking, liveChampion) {
   const rosterContainer = document.getElementById('arenaRosterContainer');
   if (!rosterContainer) return;
 
@@ -10462,29 +10566,6 @@ function updateArenaLeaderboardUI(liveRanking, liveChampion) {
       if (st.predSize) predSize = st.predSize;
       if (st.num !== undefined) num = st.num;
       if (st.conf !== undefined) conf = st.conf;
-    }
-
-    // Dynamic generation if prediction is missing or needs initial evaluation
-    if ((!predTarget || predTarget === 'WAITING...') && hist.length >= 2) {
-      try {
-        const dynP = generateModelNextPrediction(model, hist, st || {});
-        if (dynP && dynP.predTarget) {
-          predType = dynP.predType;
-          predTarget = dynP.predTarget;
-          predColor = dynP.predColor;
-          predSize = dynP.predSize;
-          num = dynP.num;
-          conf = dynP.conf;
-          if (st) {
-            st.predType = predType;
-            st.predTarget = predTarget;
-            st.predColor = predColor;
-            st.predSize = predSize;
-            st.num = num;
-            st.conf = conf;
-          }
-        }
-      } catch(e) {}
     }
 
     return {
@@ -10731,10 +10812,13 @@ function filterArenaRoster() {
 function renderArenaRoster() {
   const container = document.getElementById('arenaRosterContainer');
   if (!container) return;
+  const isRosterVisible = (typeof currentRightPanelView !== 'undefined' ? currentRightPanelView === 'adaptive' : true) &&
+                          (typeof currentAdaptiveSubView !== 'undefined' ? currentAdaptiveSubView === 'roster' : true);
+  if (!isRosterVisible) return;
 
   const models = cachedArenaModels || [];
   if (models.length === 0) {
-    container.innerHTML = '<div class="p-6 text-center text-zinc-500 font-mono text-[9px] bg-black/40 rounded-2xl border border-white/5">Initializing 52 Algorithms...</div>';
+    container.innerHTML = '<div class="p-6 text-center text-zinc-500 font-mono text-[9px] bg-black/40 rounded-2xl border border-zinc-800/60">Initializing 52 Algorithms...</div>';
     return;
   }
 
@@ -10742,7 +10826,7 @@ function renderArenaRoster() {
     const isLead = m.isInCharge;
     const cardBorder = isLead 
       ? 'border border-emerald-500/50 bg-[#0c0d10] shadow-[0_0_15px_rgba(16,185,129,0.15)]' 
-      : 'border border-white/[0.07] bg-[#09090b] hover:border-zinc-700/60';
+      : 'border border-zinc-800/80 bg-[#09090b] hover:border-zinc-700/60';
 
     // Single Prediction Badge: either COLOR or SIZE
     const predType = m.predType || (m.predColor ? 'COLOR' : 'SIZE');
@@ -10755,13 +10839,13 @@ function renderArenaRoster() {
         : '<span class="px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 font-black border border-rose-500/30 text-[8px] flex items-center gap-1">🔴 RED <span class="text-[6.5px] opacity-75 font-mono">COLOR</span></span>';
     } else {
       predBadge = (predTarget === 'BIG')
-        ? '<span class="px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-200 font-black border border-white/10 text-[8px] flex items-center gap-1">🔼 BIG <span class="text-[6.5px] opacity-75 font-mono">SIZE</span></span>'
-        : '<span class="px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-200 font-black border border-white/10 text-[8px] flex items-center gap-1">🔽 SMALL <span class="text-[6.5px] opacity-75 font-mono">SIZE</span></span>';
+        ? '<span class="px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-200 font-black border border-zinc-700/60 text-[8px] flex items-center gap-1">🔼 BIG <span class="text-[6.5px] opacity-75 font-mono">SIZE</span></span>'
+        : '<span class="px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-200 font-black border border-zinc-700/60 text-[8px] flex items-center gap-1">🔽 SMALL <span class="text-[6.5px] opacity-75 font-mono">SIZE</span></span>';
     }
 
     // Win Streak & Best Streak
     const streakBadge = m.evaluated === 0
-      ? '<span class="px-1.5 py-0.5 rounded bg-white/5 text-zinc-500 font-mono text-[7.5px] border border-white/5">0 STREAK</span>'
+      ? '<span class="px-1.5 py-0.5 rounded bg-zinc-800/60 text-zinc-500 font-mono text-[7.5px] border border-zinc-800/60">0 STREAK</span>'
       : m.streak >= 0
       ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 font-black font-mono text-[7.5px] border border-emerald-500/20">🔥 +${m.streak}W</span>`
       : `<span class="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300 font-black font-mono text-[7.5px] border border-rose-500/20">${m.streak}L ${Math.abs(m.streak) >= 3 ? '⚠️' : ''}</span>`;
@@ -10792,7 +10876,7 @@ function renderArenaRoster() {
 
     const inChargeBtn = isLead
       ? `<button onclick="setArenaManualInCharge('${m.id}')" class="px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black text-[7.5px] transition" title="Currently Live Champion">✓ In Charge</button>`
-      : `<button onclick="setArenaManualInCharge('${m.id}')" class="px-2 py-0.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white border border-white/10 font-bold text-[7.5px] transition active:scale-95" title="Set this model as in charge">Set In-Charge</button>`;
+      : `<button onclick="setArenaManualInCharge('${m.id}')" class="px-2 py-0.5 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-white border border-zinc-700/60 font-bold text-[7.5px] transition active:scale-95" title="Set this model as in charge">Set In-Charge</button>`;
 
     return `
       <div class="p-3 rounded-2xl border ${cardBorder} transition duration-150 space-y-2">
@@ -10816,7 +10900,7 @@ function renderArenaRoster() {
         </div>
 
         <!-- History Trail & Streak Path Row -->
-        <div class="flex items-center justify-between py-1 px-2 rounded-xl bg-black/40 border border-white/[0.05] text-[7.5px] font-mono">
+        <div class="flex items-center justify-between py-1 px-2 rounded-xl bg-black/40 border border-zinc-800/60 text-[7.5px] font-mono">
           <div class="flex items-center gap-1.5">
             <span class="text-zinc-500">History Path:</span>
             <div class="flex items-center gap-1">
@@ -10830,11 +10914,11 @@ function renderArenaRoster() {
         </div>
 
         <!-- Bottom Prediction & Controls Bar -->
-        <div class="flex items-center justify-between pt-1 border-t border-white/[0.06] text-[8.5px] font-mono">
+        <div class="flex items-center justify-between pt-1 border-t border-zinc-800/60 text-[8.5px] font-mono">
           <div class="flex items-center gap-1.5 flex-wrap">
             <span class="text-zinc-500 text-[8px] font-bold">Prediction:</span>
             ${predBadge}
-            <span class="px-1.5 py-0.5 rounded bg-white/5 text-zinc-300 font-black">#${m.num}</span>
+            <span class="px-1.5 py-0.5 rounded bg-zinc-800/60 text-zinc-300 font-black">#${m.num}</span>
           </div>
           <div class="flex items-center gap-1.5 flex-wrap">
             ${neuroPill}
@@ -10850,10 +10934,10 @@ function renderArenaRoster() {
 }
 
 // Immediately initialize tournament leaderboard state on script evaluation & DOMContentLoaded
-try { updateArenaLeaderboardUI(); } catch (e) {}
+try { ensureArenaInitialPredictions(); updateArenaLeaderboardUI(); } catch (e) {}
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    try { updateArenaLeaderboardUI(); } catch (e) {}
+    try { ensureArenaInitialPredictions(); updateArenaLeaderboardUI(); } catch (e) {}
   });
 }
 
@@ -12825,7 +12909,7 @@ async function fetchLiveAPIResults(tfOverride) {
   if (!window._isFetching) window._isFetching = {};
   if (!window._lastFetchTime) window._lastFetchTime = {};
   const nowMs = Date.now();
-  if (window._isFetching[tf] && (nowMs - (window._lastFetchTime[tf] || 0)) < 200) return false;
+  if (window._isFetching[tf] && (nowMs - (window._lastFetchTime[tf] || 0)) < 300) return false;
   window._isFetching[tf] = true;
   window._lastFetchTime[tf] = nowMs;
 
@@ -12838,11 +12922,6 @@ async function fetchLiveAPIResults(tfOverride) {
       ? window.location.origin : 'http://localhost:5173';
 
     const r = Date.now();
-    const urlsToTry = [
-      `${origin}${proxyPath}?r=${r}`,
-      `http://localhost:5173${proxyPath}?r=${r}`,
-      `${targetUrl}?r=${r}`
-    ];
 
     async function fetchSingle(url) {
       const controller = new AbortController();
@@ -12881,7 +12960,17 @@ async function fetchLiveAPIResults(tfOverride) {
       }
     }
 
-    const list = await Promise.any(urlsToTry.map(u => fetchSingle(u)));
+    let list = null;
+    try {
+      list = await fetchSingle(`${origin}${proxyPath}?r=${r}`);
+    } catch(err) {
+      try {
+        list = await fetchSingle(`${targetUrl}?r=${r}`);
+      } catch(e2) {
+        throw err;
+      }
+    }
+
     if (Array.isArray(list) && list.length > 0) {
       let parsedList = list.slice(0, 50).reverse().map(row => {
         const period = String(row.issueNumber || row.issue || row.period || row.expect || '');
@@ -12932,6 +13021,7 @@ async function fetchLiveAPIResults(tfOverride) {
             syncHistoryToGameAnalysis(tf);
 
             // 2. Re-run AI predictions BEFORE rendering view!
+            ensureArenaInitialPredictions();
             runAI();
 
             // 3. Render all UI components with updated prediction
@@ -12954,14 +13044,24 @@ async function fetchLiveAPIResults(tfOverride) {
 
           // Check for new draws or pending bets to resolve
           let hasNew = false;
+          const itemsToSave = [];
           for (const item of parsedList) {
             const pLast5 = String(item.period).slice(-5);
             const existingIdx = S.history.findIndex(r => String(r.period) === String(item.period) || String(r.period).slice(-5) === pLast5);
             const hasPendingBet = S.myBets.some(b => (String(b.period) === String(item.period) || String(b.period).slice(-5) === pLast5) && b.status === 'PENDING');
             if (existingIdx === -1 || S.history[existingIdx].number !== item.number || hasPendingBet) {
-              saveRealResult(item.period, item.number, true);
-              hasNew = true;
+              itemsToSave.push(item);
             }
+          }
+
+          if (itemsToSave.length > 0) {
+            itemsToSave.sort((a, b) => String(a.period).localeCompare(String(b.period)));
+            for (let i = 0; i < itemsToSave.length; i++) {
+              const item = itemsToSave[i];
+              const isLast = (i === itemsToSave.length - 1);
+              saveRealResult(item.period, item.number, true, !isLast);
+            }
+            hasNew = true;
           }
 
           S.historyByTimeframe[tf] = [...S.history];
