@@ -2091,14 +2091,13 @@ function getSizeForNum(n) { return n >= 5 ? 'BIG' : 'SMALL'; }
 // REAL-WORLD CLOCK (IST = UTC+5:30) & SERVER TIME CALIBRATION
 // ═══════════════════════════════════════════════════════════════
 let lastPeriod = null;
-let _savedTimerOffset = 0;
-window._serverClockDriftSec = 0; // Dynamic server-to-client clock offset
+window._serverClockDriftSec = 0;
+window._serverClockDriftMs = 0;
+window._timerOffsetSec = 0;
 try {
   const currentTf = (typeof S !== 'undefined' && S.timeframe) ? S.timeframe : '30s';
-  const v = localStorage.getItem('wingo_timer_offset_sec_' + currentTf);
-  if (v !== null) _savedTimerOffset = parseInt(v, 10) || 0;
+  localStorage.removeItem('wingo_timer_offset_sec_' + currentTf);
 } catch (e) {}
-window._timerOffsetSec = _savedTimerOffset;
 
 function adjustTimerOffset(deltaSec) {
   const tf = S.timeframe || '30s';
@@ -2116,8 +2115,10 @@ function adjustTimerOffset(deltaSec) {
 function resetTimerOffset() {
   const tf = S.timeframe || '30s';
   window._timerOffsetSec = 0;
+  window._serverClockDriftMs = 0;
+  window._serverClockDriftSec = 0;
   window._timerPaused = false;
-  try { localStorage.setItem('wingo_timer_offset_sec_' + tf, '0'); } catch (e) {}
+  try { localStorage.removeItem('wingo_timer_offset_sec_' + tf); } catch (e) {}
   updateTimerOffsetBadge();
   const pauseBtn = document.getElementById('timerPauseBtn');
   if (pauseBtn) {
@@ -2130,7 +2131,7 @@ function resetTimerOffset() {
   S.currentPeriod = upcomingPeriod;
   S.secondsLeft = secsLeft;
   updateTimerUI();
-  showToast('⏱️ Timer offset reset to 0s', 'info');
+  showToast('⏱️ Timer offset reset to Real Indian Time (0s)', 'info');
 }
 
 function toggleTimerPause() {
@@ -2170,43 +2171,15 @@ function toggleTimerPause() {
  * Instantly sets timer to 0 when a new result arrives, then restarts to starting point (29 for 30s, 59 for 1m, 179 for 3m, 299 for 5m).
  */
 function snapTimerToNewRound() {
-  const tf = S.timeframe || '30s';
-  const dur = tf === '30s' ? 30 : (tf === '1m' ? 60 : (tf === '3m' ? 180 : 300));
-  const startSec = dur - 1; // 29 for 30s, 59 for 1m, 179 for 3m, 299 for 5m
-
-  // 1. When new result comes, make timer 0 first
-  window._snappingTimer = true;
-  S.secondsLeft = 0;
+  const { secsLeft } = computeRTState();
+  S.secondsLeft = secsLeft;
   updateTimerUI();
-
-  // 2. Restart and snap to starting point
-  setTimeout(() => {
-    const nowUtc = new Date();
-    const totalSecUtc = nowUtc.getUTCHours() * 3600 + nowUtc.getUTCMinutes() * 60 + nowUtc.getUTCSeconds();
-    const curElapsed = totalSecUtc % dur;
-    window._timerOffsetSec = -curElapsed;
-    window._timerPaused = false;
-    try { localStorage.setItem('wingo_timer_offset_sec_' + tf, String(window._timerOffsetSec)); } catch (e) {}
-
-    const pauseBtn = document.getElementById('timerPauseBtn');
-    if (pauseBtn) {
-      pauseBtn.innerHTML = '⏸';
-      pauseBtn.classList.remove('bg-amber-500/40', 'text-amber-300', 'border-amber-400');
-      pauseBtn.classList.add('bg-purple-900/60', 'text-slate-300', 'border-purple-700/40');
-    }
-
-    updateTimerOffsetBadge();
-    S.secondsLeft = startSec;
-    updateTimerUI();
-    window._snappingTimer = false;
-  }, 300);
+  updateTimerOffsetBadge();
 }
 
 function updateTimerOffsetBadge() {
   const manual = window._timerOffsetSec || 0;
-  const drift = window._serverClockDriftSec || 0;
-  const total = manual + drift;
-  const txt = (total >= 0 ? '+' : '') + total + 's' + (drift !== 0 ? ` (auto ${drift >= 0 ? '+' : ''}${drift}s)` : '');
+  const txt = (manual >= 0 ? '+' : '') + manual + 's';
   const b1 = document.getElementById('timerOffsetBadge');
   if (b1) b1.textContent = txt;
   const b2 = document.getElementById('ticketTimerOffsetBadge');
@@ -2229,12 +2202,9 @@ function computeRTState() {
   const dur = tf === '30s' ? 30 : (tf === '1m' ? 60 : (tf === '3m' ? 180 : 300));
   S.durationSeconds = dur;
 
+  // Pure Indian Standard Time (IST): Date.now() + optional user manual offset
   const manualOffsetSec = Number(window._timerOffsetSec) || 0;
-  const serverDriftMs = (window._serverClockDriftMs !== undefined)
-    ? Number(window._serverClockDriftMs)
-    : ((Number(window._serverClockDriftSec) || 0) * 1000);
-  const totalOffsetMs = serverDriftMs + (manualOffsetSec * 1000);
-  const nowMs = Date.now() + totalOffsetMs;
+  const nowMs = Date.now() + (manualOffsetSec * 1000);
 
   // Indian Standard Time (IST) is UTC + 5:30 (+19,800,000 ms)
   const istMs = nowMs + (5.5 * 3600 * 1000);
@@ -4073,12 +4043,9 @@ function setTimeframe(tf, force = false) {
   }
 
   // 5. Recompute real-time clock and period for this timeframe
-  try {
-    const saved = localStorage.getItem('wingo_timer_offset_sec_' + tf);
-    window._timerOffsetSec = saved !== null ? (parseInt(saved, 10) || 0) : 0;
-  } catch(e) {
-    window._timerOffsetSec = 0;
-  }
+  window._timerOffsetSec = 0;
+  window._serverClockDriftMs = 0;
+  window._serverClockDriftSec = 0;
   updateTimerOffsetBadge();
 
   const { secsLeft } = computeRTState();
@@ -6377,19 +6344,6 @@ async function fetchLiveAPIResults(tfOverride) {
         if (!res.ok) throw new Error('HTTP ' + res.status);
 
         // Auto-calibrate server clock drift from HTTP response Date header
-        try {
-          const sDate = res.headers.get('date');
-          if (sDate) {
-            const serverMs = Date.parse(sDate);
-            if (!isNaN(serverMs)) {
-              const driftMs = serverMs - Date.now();
-              window._serverClockDriftMs = driftMs;
-              window._serverClockDriftSec = Math.round(driftMs / 1000);
-              updateTimerOffsetBadge();
-            }
-          }
-        } catch(e) {}
-
         const data = await res.json();
 
         let list = [];
@@ -6420,23 +6374,6 @@ async function fetchLiveAPIResults(tfOverride) {
       }
 
       if (parsedList.length > 0) {
-        // Zero-Lag Auto Sync: ensure active round is never behind latest drawn round
-        const newest = parsedList[parsedList.length - 1];
-        if (newest && newest.period) {
-          const pIdx = parseInt(String(newest.period).slice(-4), 10);
-          if (!isNaN(pIdx)) {
-            const curState = computeRTState();
-            const minExpectedPeriodIdx = pIdx + 1;
-            if (curState.periodIdx < minExpectedPeriodIdx) {
-              const dur = curState.dur;
-              const missingSec = (minExpectedPeriodIdx - curState.periodIdx) * dur;
-              window._serverClockDriftMs = (window._serverClockDriftMs || 0) + (missingSec * 1000);
-              window._serverClockDriftSec = Math.round(window._serverClockDriftMs / 1000);
-              updateTimerOffsetBadge();
-            }
-          }
-        }
-
         if (!S.historyByTimeframe) S.historyByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
 
         if (tf === S.timeframe) {
