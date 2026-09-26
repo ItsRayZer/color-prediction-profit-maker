@@ -11876,7 +11876,7 @@ function _doUpdateArenaLeaderboardUI(liveRanking, liveChampion) {
       }
     }
 
-
+    if (inChargeSignalEl) {
       const pTarget = inChargeModel.predTarget || (inChargeModel.predType === 'COLOR' ? inChargeModel.predColor : inChargeModel.predSize) || inChargeModel.predColor || 'GREEN';
       const pType = inChargeModel.predType || (['BIG', 'SMALL'].includes(pTarget) ? 'SIZE' : 'COLOR');
       if (pType === 'COLOR') {
@@ -13697,8 +13697,6 @@ function renderSmartView() {
     }
 
     // Bet placed (supports both manual bets and simulation test bot bets)
-    const pStr = String(row.period);
-    const pLast5 = pStr.slice(-5);
     const bet = (S.myBets || []).find(b => String(b.period) === pStr || String(b.period).slice(-5) === pLast5);
     let outcomeHtml = '<span class="text-slate-600 text-[9px]">—</span>';
 
