@@ -1,27 +1,72 @@
+import dgram from 'node:dgram'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
 let _serverClockSkewMs = 0;
-async function calibrateServerClock() {
-  try {
-    const resp = await fetch('https://cloudflare.com/cdn-cgi/trace');
-    if (resp.ok) {
-      const text = await resp.text();
-      const line = text.split('\n').find(l => l.startsWith('ts='));
-      if (line) {
-        const atomicUtc = parseFloat(line.split('=')[1]) * 1000;
-        _serverClockSkewMs = Math.round(atomicUtc - Date.now());
-        return;
+
+function queryNtp(server = 'time.google.com') {
+  return new Promise((resolve, reject) => {
+    const socket = dgram.createSocket('udp4');
+    let done = false;
+    const req = Buffer.alloc(48);
+    req[0] = 0x1B;
+    const t0 = Date.now();
+
+    const timer = setTimeout(() => {
+      if (!done) {
+        done = true;
+        try { socket.close(); } catch(e) {}
+        reject(new Error('NTP timeout'));
       }
-    }
-  } catch (e) {}
+    }, 2000);
+
+    socket.on('message', (msg) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      const t1 = Date.now();
+      const sec = msg.readUInt32BE(40) - 2208988800;
+      const frac = msg.readUInt32BE(44);
+      const serverMs = sec * 1000 + (frac * 1000) / 0x100000000;
+      const rtt = t1 - t0;
+      const midpoint = t0 + rtt / 2;
+      const skew = Math.round(serverMs - midpoint);
+      try { socket.close(); } catch(e) {}
+      resolve(skew);
+    });
+
+    socket.on('error', (err) => {
+      if (!done) {
+        done = true;
+        clearTimeout(timer);
+        try { socket.close(); } catch(e) {}
+        reject(err);
+      }
+    });
+
+    socket.send(req, 0, req.length, 123, server);
+  });
+}
+
+async function calibrateServerClock() {
+  for (const ntpHost of ['time.google.com', 'time.cloudflare.com', 'pool.ntp.org']) {
+    try {
+      const skew = await queryNtp(ntpHost);
+      _serverClockSkewMs = skew;
+      return;
+    } catch (e) {}
+  }
 
   try {
-    const headResp = await fetch('https://draw.ar-lottery01.com', { method: 'HEAD' });
+    const t0 = Date.now();
+    const headResp = await fetch('https://draw.ar-lottery01.com', { method: 'HEAD', cache: 'no-store' });
+    const t1 = Date.now();
     const dateHdr = headResp.headers.get('date');
     if (dateHdr) {
       const serverEpoch = new Date(dateHdr).getTime();
-      _serverClockSkewMs = Math.round(serverEpoch - Date.now());
+      const rtt = t1 - t0;
+      const trueNow = serverEpoch + 500;
+      _serverClockSkewMs = Math.round(trueNow - (t0 + rtt / 2));
       return;
     }
   } catch (e) {}
