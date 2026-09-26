@@ -13,6 +13,14 @@ export function createArenaMiddleware() {
 
   return async function arenaMiddleware(req: any, res: any, next: any) {
     const url = req.url || '';
+    if (url === '/api/time' || url.startsWith('/api/time?') || url.startsWith('/api/time/')) {
+      res.statusCode = 200;
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      return res.end(JSON.stringify({ serverTimeMs: Date.now() }));
+    }
+
     if (!url.startsWith('/api/prediction') && !url.startsWith('/api/web-proxy')) {
       return next();
     }

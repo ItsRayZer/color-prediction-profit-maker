@@ -8,6 +8,15 @@ function arenaApiPlugin() {
       server.middlewares.use(async (req, res, next) => {
         if (!req.url) return next();
 
+        // Lightweight Server Time Endpoint for Clock Synchronization
+        if (req.url === '/api/time' || req.url.startsWith('/api/time?') || req.url.startsWith('/api/time/')) {
+          res.statusCode = 200;
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+          return res.end(JSON.stringify({ serverTimeMs: Date.now() }));
+        }
+
         // Native High-Speed Proxy for WinGo Lottery API (bypasses node-http-proxy ECONNRESET)
         if (req.url.startsWith('/api-wingo')) {
           const upstreamPath = req.url.replace(/^\/api-wingo/, '');

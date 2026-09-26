@@ -3350,8 +3350,129 @@ function getActiveSystem() {
   return window.WinGo30sSystem;
 }
 
-function getRemainingSeconds(periodSeconds, now = Date.now()) {
-  const elapsed = Math.floor(now / 1000) % periodSeconds;
+// ═══════════════════════════════════════════════════════════════
+// REAL-TIME SERVER CLOCK SYNCHRONIZATION ENGINE (IST & UTC)
+// ═══════════════════════════════════════════════════════════════
+let _serverMinusPerfOffsetMs = null;
+let _isTimeSyncing = false;
+let _timeSyncStatus = 'uninitialized'; // 'synced' | 'syncing' | 'unavailable'
+let _lastTimeSyncTimestamp = null;
+let _minRoundTripMs = Infinity;
+let _detectedDriftMs = 0;
+let _consecutiveTimeSyncFailures = 0;
+
+function getDevicePerfOffsetMs() {
+  return Date.now() - (typeof performance !== 'undefined' ? performance.now() : 0);
+}
+
+function getSyncedNowMs() {
+  if (typeof performance === 'undefined') {
+    return Date.now();
+  }
+  if (_serverMinusPerfOffsetMs !== null) {
+    return performance.now() + _serverMinusPerfOffsetMs;
+  }
+  return performance.now() + getDevicePerfOffsetMs();
+}
+
+async function sampleServerTime(endpoint = '/api/time') {
+  const start = performance.now();
+  const resp = await fetch(endpoint, {
+    cache: 'no-store',
+    headers: { 'Accept': 'application/json' }
+  });
+  if (!resp.ok) {
+    throw new Error(`Time server responded with HTTP ${resp.status}`);
+  }
+  const data = await resp.json();
+  const end = performance.now();
+
+  const serverTimeMs = Number(data.serverTimeMs);
+  if (!Number.isFinite(serverTimeMs)) {
+    throw new Error('Invalid serverTimeMs returned from /api/time');
+  }
+
+  const rtt = end - start;
+  const midpoint = (start + end) / 2;
+  const offset = serverTimeMs - midpoint;
+
+  return { rtt, offset, serverTimeMs };
+}
+
+async function syncServerTime(endpoint = '/api/time', sampleCount = 4) {
+  if (_isTimeSyncing) return _serverMinusPerfOffsetMs;
+  _isTimeSyncing = true;
+  _timeSyncStatus = _serverMinusPerfOffsetMs !== null ? 'syncing' : 'uninitialized';
+
+  try {
+    const samples = [];
+    for (let i = 0; i < sampleCount; i++) {
+      try {
+        const s = await sampleServerTime(endpoint);
+        samples.push(s);
+      } catch (e) {}
+    }
+
+    if (samples.length === 0) {
+      throw new Error('All time sync samples failed');
+    }
+
+    samples.sort((a, b) => a.rtt - b.rtt);
+    const best = samples[0];
+
+    if (_serverMinusPerfOffsetMs !== null) {
+      _detectedDriftMs = Math.abs(best.offset - _serverMinusPerfOffsetMs);
+    } else {
+      _detectedDriftMs = 0;
+    }
+
+    _serverMinusPerfOffsetMs = best.offset;
+    _minRoundTripMs = best.rtt;
+    _lastTimeSyncTimestamp = Date.now();
+    _timeSyncStatus = 'synced';
+    _consecutiveTimeSyncFailures = 0;
+
+    return _serverMinusPerfOffsetMs;
+  } catch (err) {
+    _consecutiveTimeSyncFailures++;
+    _timeSyncStatus = 'unavailable';
+    if (_serverMinusPerfOffsetMs === null) {
+      _serverMinusPerfOffsetMs = getDevicePerfOffsetMs();
+    }
+    return _serverMinusPerfOffsetMs;
+  } finally {
+    _isTimeSyncing = false;
+  }
+}
+
+function getTimeSyncDiagnostics() {
+  return {
+    status: _timeSyncStatus,
+    estimatedOffsetMs: _serverMinusPerfOffsetMs,
+    lastSyncTimestamp: _lastTimeSyncTimestamp,
+    roundTripLatencyMs: _minRoundTripMs === Infinity ? 0 : _minRoundTripMs,
+    detectedDriftMs: _detectedDriftMs,
+    consecutiveFailures: _consecutiveTimeSyncFailures,
+    isAuthoritative: _timeSyncStatus === 'synced'
+  };
+}
+
+const istDateTimeFormatter = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Kolkata',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false
+});
+
+function formatISTClock(timestamp = getSyncedNowMs()) {
+  const ts = typeof timestamp === 'number' ? timestamp : (timestamp instanceof Date ? timestamp.getTime() : getSyncedNowMs());
+  return `${istDateTimeFormatter.format(new Date(ts))} IST`;
+}
+
+function getRemainingSeconds(periodSeconds, now = getSyncedNowMs()) {
+  const ts = typeof now === 'number' ? now : (now instanceof Date ? now.getTime() : getSyncedNowMs());
+  const elapsed = Math.floor(ts / 1000) % periodSeconds;
   return elapsed === 0 ? 0 : periodSeconds - elapsed;
 }
 
@@ -3364,6 +3485,10 @@ function formatTimerDisplay(periodSeconds, remainingSeconds) {
   return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
+window.getSyncedNowMs = getSyncedNowMs;
+window.syncServerTime = syncServerTime;
+window.getTimeSyncDiagnostics = getTimeSyncDiagnostics;
+window.formatISTClock = formatISTClock;
 window.getRemainingSeconds = getRemainingSeconds;
 window.formatTimerDisplay = formatTimerDisplay;
 
@@ -3372,9 +3497,8 @@ function computeRTState() {
   const dur = tf === '30s' ? 30 : (tf === '1m' ? 60 : (tf === '3m' ? 180 : 300));
   S.durationSeconds = dur;
 
-  // Real world clock + manual offset
-  const manualOffsetSec = Number(window._timerOffsetSec) || 0;
-  const nowMs = Date.now() + (manualOffsetSec * 1000);
+  // Synced real world clock derived from authoritative server time
+  const nowMs = getSyncedNowMs();
   const nowUtc = new Date(nowMs);
 
   // The lottery issue number resets daily at 00:00:00 UTC (05:30 AM IST)
@@ -3399,12 +3523,8 @@ function computeRTState() {
   const periodCode = (tf === '30s' ? '10005' : (tf === '1m' ? '10001' : (tf === '3m' ? '10003' : '10002')));
   const periodStr = `${y}${mo}${d}${periodCode}${String(periodIdx).padStart(4, '0')}`;
 
-  // Formatted Indian Standard Time (IST) clock for user header
-  const ist = new Date(nowMs + (5.5 * 3600 * 1000));
-  const hh = String(ist.getUTCHours()).padStart(2, '0');
-  const mm = String(ist.getUTCMinutes()).padStart(2, '0');
-  const ss = String(ist.getUTCSeconds()).padStart(2, '0');
-  const clockStr = `${hh}:${mm}:${ss} IST`;
+  // Formatted Indian Standard Time (IST) clock for user header via Intl.DateTimeFormat (Asia/Kolkata)
+  const clockStr = formatISTClock(nowMs);
 
   return { secsLeft, periodStr, periodIdx, clockStr, dur };
 }
@@ -3563,11 +3683,20 @@ function startRTEngine() {
     }
   }, 150);
 
-  // Immediately re-sync wall clock on tab resume / focus
+  // 0. Perform initial server time synchronization and set up periodic re-sync
+  syncServerTime().catch(() => {});
+  if (!window._timeSyncInterval) {
+    window._timeSyncInterval = setInterval(() => {
+      syncServerTime().catch(() => {});
+    }, 60000);
+  }
+
+  // Immediately re-sync wall clock on tab resume / focus / reconnect
   if (!window._timerVisibilityListenersAdded) {
     window._timerVisibilityListenersAdded = true;
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) {
+        syncServerTime().catch(() => {});
         const { secsLeft } = computeRTState();
         S.secondsLeft = secsLeft;
         updateTimerUI();
@@ -3575,10 +3704,14 @@ function startRTEngine() {
       }
     });
     window.addEventListener('focus', () => {
+      syncServerTime().catch(() => {});
       const { secsLeft } = computeRTState();
       S.secondsLeft = secsLeft;
       updateTimerUI();
       renderSmartView();
+    });
+    window.addEventListener('online', () => {
+      syncServerTime().catch(() => {});
     });
   }
 }
