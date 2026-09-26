@@ -1516,78 +1516,19 @@
         </div>
 
         <!-- Integrated Toolbar occupying top space -->
-        <div class="flex items-center gap-1 shrink-0 flex-nowrap">
-          <!-- Mode Pill: Big/Small vs Win/Loss -->
-          <div class="flex items-center bg-white/[0.05] p-0.5 rounded-lg border border-white/[0.08]">
-            <button id="chartModeBtn-size" onclick="setChartDisplayMode('size')" class="px-2 py-0.5 rounded text-[8.5px] font-black uppercase transition bg-amber-400 text-slate-950 shadow" title="Size Mode (Big/Small)">
-              B/S
-            </button>
-            <button id="chartModeBtn-winloss" onclick="setChartDisplayMode('winloss')" class="px-2 py-0.5 rounded text-[8.5px] font-bold uppercase transition text-slate-400 hover:text-white" title="AI Performance Mode (Win/Loss)">
-              W/L
-            </button>
-          </div>
+          <div class="flex items-center gap-1 shrink-0 flex-nowrap">
 
-          <!-- Dynamic vs Fixed Scale Mode -->
-          <button id="chartScaleModeBtn" onclick="toggleTradingChartScaleMode()" class="px-1.5 py-0.5 rounded bg-white/[0.05] hover:bg-white/[0.12] text-white/60 text-[8px] font-mono border border-white/[0.08] flex items-center gap-1 active:scale-95" title="Scale: Ball Dynamic (1x-5x) vs Fixed (±1)">
-            <i class="fa-solid fa-weight-scale text-amber-400 text-[7.5px]"></i>
-            <span id="chartScaleModeLabel">Dyn</span>
-          </button>
-
-          <!-- Chart Type Selector -->
-          <select id="tradingChartTypeSelect" onchange="switchTradingChartType(this.value)" class="bg-black text-white/70 border border-white/[0.08] text-[8px] rounded px-1 py-0.5 outline-none cursor-pointer">
-            <option value="candlestick">Candles</option>
-            <option value="hollow">Hollow</option>
-            <option value="line">Line</option>
-            <option value="area">Area</option>
-            <option value="bar">Bars</option>
-          </select>
-
-          <!-- Indicators (SMA, EMA, BB) -->
-          <button id="btnToggleSMA" onclick="toggleTradingIndicator('sma')" class="px-1.5 py-0.5 rounded bg-blue-600/30 text-blue-300 border border-blue-500/40 text-[8px] font-bold" title="Toggle SMA (14)">SMA</button>
-          <button id="btnToggleEMA" onclick="toggleTradingIndicator('ema')" class="px-1.5 py-0.5 rounded bg-amber-600/30 text-amber-300 border border-amber-500/40 text-[8px] font-bold" title="Toggle EMA (9)">EMA</button>
-          <button id="btnToggleBB" onclick="toggleTradingIndicator('bb')" class="px-1.5 py-0.5 rounded bg-white/[0.06] text-white/50 border border-white/[0.08] text-[8px] font-bold" title="Toggle Bollinger Bands">BB</button>
-
-          <!-- 4-Way Panning Cluster (Left, Right, Up, Down) -->
+          <!-- 4-Way Panning Cluster (Left, Right, Up, Down) — only controls kept -->
           <div class="flex items-center bg-white/[0.04] p-0.5 rounded border border-white/[0.08] gap-0.5">
-            <button onclick="panChartHorizontal(-1, 10)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[8px] active:scale-95" title="Pan Left (Back in History / Load Older 50)"><i class="fa-solid fa-arrow-left"></i></button>
-            <button onclick="panChartHorizontal(1, 10)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[8px] active:scale-95" title="Pan Right (Recent / Future Candles)"><i class="fa-solid fa-arrow-right"></i></button>
-            <button onclick="panChartVertical(1)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[8px] active:scale-95" title="Pan Up (Higher Prices)"><i class="fa-solid fa-arrow-up"></i></button>
-            <button onclick="panChartVertical(-1)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[8px] active:scale-95" title="Pan Down (Lower Prices)"><i class="fa-solid fa-arrow-down"></i></button>
+            <button onclick="panChartHorizontal(-1, 10)" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[9px] active:scale-95" title="Pan Left"><i class="fa-solid fa-arrow-left"></i></button>
+            <button onclick="panChartHorizontal(1, 10)" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[9px] active:scale-95" title="Pan Right"><i class="fa-solid fa-arrow-right"></i></button>
+            <button onclick="panChartVertical(1)" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[9px] active:scale-95" title="Pan Up"><i class="fa-solid fa-arrow-up"></i></button>
+            <button onclick="panChartVertical(-1)" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[9px] active:scale-95" title="Pan Down"><i class="fa-solid fa-arrow-down"></i></button>
           </div>
 
-          <!-- Candle 50-Window & Lazy Load Button -->
-          <button id="btnLoadOlderCandles" onclick="loadOlderCandles(50)" class="px-1.5 py-0.5 rounded bg-amber-400/10 hover:bg-amber-400/20 text-amber-300 border border-amber-400/30 text-[8px] font-mono font-bold flex items-center gap-1 active:scale-95 transition" title="Click or pan left to load older 50 candles">
-            <i class="fa-solid fa-backward text-[7px]"></i>
-            <span id="chartLoadedCandlesBadge">50 Candles</span>
-          </button>
+          <!-- ⊕ Fit / Auto-center toggle -->
+          <button id="btnTradingFit" onclick="tradingChartReset()" class="px-1.5 py-0.5 rounded bg-white/[0.08] hover:bg-white/[0.18] text-amber-300 border border-white/10 text-[8px] font-mono font-black active:scale-95 transition" title="Re-center: fit last 10 candles">⊕ Fit</button>
 
-          <!-- Unbounded Zoom Cluster -->
-          <div class="flex items-center bg-white/[0.04] p-0.5 rounded border border-white/[0.08] gap-0.5">
-            <button onclick="tradingChartZoom(1, 4)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-white text-[8.5px] active:scale-95" title="Zoom In (+)"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
-            <button onclick="tradingChartZoom(-1, 4)" class="w-5 h-5 flex items-center justify-center rounded hover:bg-white/15 text-white text-[8.5px] active:scale-95" title="Zoom Out (-)"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
-            <button onclick="tradingChartLongZoom(1)" class="px-1 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[7px] font-mono font-black" title="Deep Zoom In">Z+</button>
-            <button onclick="tradingChartLongZoom(-1)" class="px-1 py-0.5 rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 text-[7px] font-mono font-black" title="Super Zoom Out">Z-</button>
-            <!-- Auto-Center / Recenter Fit Button -->
-            <button id="btnTradingFit" onclick="tradingChartReset()" class="px-1.5 py-0.5 rounded bg-white/[0.08] hover:bg-white/[0.18] text-amber-300 border border-white/10 text-[8px] font-mono font-black active:scale-95 transition" title="Center Newest Candle in Middle & Fit">⊕ Fit</button>
-          </div>
-
-          <!-- Height (+ / -) -->
-          <div class="flex items-center bg-black/60 p-0.5 rounded border border-white/10 text-[8px] font-mono">
-            <button onclick="adjustChartHeight(-60)" class="w-4 h-4 flex items-center justify-center rounded hover:bg-white/10 text-slate-300 hover:text-white transition active:scale-95"><i class="fa-solid fa-minus text-[6.5px]"></i></button>
-            <span id="chartHeightLabel" class="px-1 text-white/40 select-none font-bold text-[7.5px]">480px</span>
-            <button onclick="adjustChartHeight(80)" class="w-4 h-4 flex items-center justify-center rounded hover:bg-white/10 text-slate-300 hover:text-white transition active:scale-95"><i class="fa-solid fa-plus text-[6.5px]"></i></button>
-          </div>
-
-          <!-- Window Controls -->
-          <button onclick="toggleFullscreen('card-col2-chart')" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-sky-300 text-[8.5px] transition active:scale-95" title="Fullscreen">
-            <i class="fa-solid fa-expand"></i>
-          </button>
-          <button onclick="openTradingChartNewTab()" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-white/20 text-emerald-300 text-[8.5px] transition active:scale-95" title="New Tab">
-            <i class="fa-solid fa-arrow-up-right-from-square"></i>
-          </button>
-          <button onclick="closeCardElement('col2-chart')" class="w-5 h-5 flex items-center justify-center rounded bg-white/10 hover:bg-rose-500/30 text-rose-300 text-[8.5px] transition font-bold" title="Close Window">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
         </div>
       </div>
 
@@ -6840,8 +6781,8 @@ function resetPriceScaleShift() {
   });
 }
 
-// ── Candle 50-Window & Lazy-Loading Engine ──
-window._chartLoadedCandlesCount = 50;
+// ── Candle 10-Window (default: last 10 results only) ──
+window._chartLoadedCandlesCount = 10;
 
 function updateChartLoadedCandlesBadge() {
   const el = document.getElementById('chartLoadedCandlesBadge');
@@ -6896,33 +6837,21 @@ function loadOlderCandles(amount = 50) {
 }
 window.loadOlderCandles = loadOlderCandles;
 
-// ── Auto-Middling: Places Newest Candle Exactly in the Middle of Viewport ──
+// ── Auto-Fit: Shows All Loaded Candles (default 10) Fully With Margin ──
 function rearrangeTradingViewToMiddleRight(force = false) {
   if (!tradingChartInstance) return;
-  // If user interacted or auto-centering is off, strictly never snap back!
   if (!force && !window.tradingChartAutoCenter) return;
 
   const timeScale = tradingChartInstance.timeScale();
   const hist = (S.history || []).filter(r => !r.gap && r.size);
-  const countToLoad = Math.min(hist.length, window._chartLoadedCandlesCount || 50);
-  const N = countToLoad;
+  const N = Math.min(hist.length, window._chartLoadedCandlesCount || 10);
   if (!N) return;
 
-  const container = document.getElementById('tradingCandleChartContainer');
-  const width = container ? container.clientWidth : 400;
-  const currentRange = timeScale.getVisibleLogicalRange();
-
-  let visibleSpan = 24;
-  if (currentRange && (currentRange.to - currentRange.from) > 4) {
-    visibleSpan = currentRange.to - currentRange.from;
-  } else {
-    visibleSpan = Math.max(16, Math.round(width / 14));
-  }
-
-  // Exact Middle: half of the bars to the left, half to the right of newest candle (N - 1)
-  const halfSpan = Math.floor(visibleSpan / 2);
-  const from = (N - 1) - halfSpan;
-  const to   = (N - 1) + halfSpan;
+  // Show from index 0 to N-1 (all loaded candles) with 1.5-candle margin on each side
+  // so the first and last candle bodies are never clipped by the chart edge
+  const margin = 1.5;
+  const from = -margin;
+  const to   = (N - 1) + margin;
 
   try {
     window._isProgrammaticRangeChange = true;
@@ -7004,31 +6933,18 @@ function tradingChartLongZoom(dir) {
 function tradingChartReset() {
   if (!tradingChartInstance) return;
   window._savedUserLogicalRange = null;
+  window._chartLoadedCandlesCount = 10; // reset back to 10 on fit
   setTradingChartAutoCenter(true);
   resetPriceScaleShift();
 
-  const timeScale = tradingChartInstance.timeScale();
-  // Reset to Normal Fit: standard 14px candle width with clean separation (never squeeze all 500 candles)
-  timeScale.applyOptions({ barSpacing: 14 });
-  window._currentChartBarSpacing = 14;
-
-  const N = (window.candlestickDataSeries || []).length;
-  if (N > 0) {
-    const visibleCount = 28; // Comfortable readable window
-    try {
-      window._isProgrammaticRangeChange = true;
-      timeScale.setVisibleLogicalRange({
-        from: Math.max(0, N - visibleCount),
-        to: N + 4
-      });
-    } catch(e) {}
-    finally {
-      setTimeout(() => { window._isProgrammaticRangeChange = false; }, 80);
-    }
+  // Re-render with 10 candles then auto-fit viewport
+  if (typeof _renderTradingCandleChartCore === 'function') {
+    _renderTradingCandleChartCore(true);
   }
+  rearrangeTradingViewToMiddleRight(true);
 
   if (typeof showToast === 'function') {
-    showToast('⊕ Normal Mode: Clean Spacing (28 Candles)', 'info');
+    showToast('⊕ Fit: Last 10 Candles', 'info');
   }
 }
 
@@ -7382,8 +7298,8 @@ function _renderTradingCandleChartCore(force = false) {
   }
   if (!realHist.length) return;
 
-  if (!window._chartLoadedCandlesCount || window._chartLoadedCandlesCount < 50) {
-    window._chartLoadedCandlesCount = 50;
+  if (!window._chartLoadedCandlesCount || window._chartLoadedCandlesCount < 1) {
+    window._chartLoadedCandlesCount = 10;
   }
   const countToLoad = Math.min(realHist.length, window._chartLoadedCandlesCount);
   const activeCandleHist = realHist.slice(-countToLoad);
