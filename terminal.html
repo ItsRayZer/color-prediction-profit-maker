@@ -2202,38 +2202,35 @@ function computeRTState() {
   const dur = tf === '30s' ? 30 : (tf === '1m' ? 60 : (tf === '3m' ? 180 : 300));
   S.durationSeconds = dur;
 
-  // Pure Indian Standard Time (IST): Date.now() + optional user manual offset
+  // Real world clock + manual offset
   const manualOffsetSec = Number(window._timerOffsetSec) || 0;
   const nowMs = Date.now() + (manualOffsetSec * 1000);
+  const nowUtc = new Date(nowMs);
 
-  // Indian Standard Time (IST) is UTC + 5:30 (+19,800,000 ms)
-  const istMs = nowMs + (5.5 * 3600 * 1000);
-  const ist = new Date(istMs);
+  // The lottery issue number resets daily at 00:00:00 UTC (05:30 AM IST)
+  const y = nowUtc.getUTCFullYear();
+  const mo = String(nowUtc.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(nowUtc.getUTCDate()).padStart(2, '0');
 
-  const y = ist.getUTCFullYear();
-  const mo = String(ist.getUTCMonth() + 1).padStart(2, '0');
-  const d = String(ist.getUTCDate()).padStart(2, '0');
-
-  const istSec = ist.getUTCHours() * 3600 + ist.getUTCMinutes() * 60 + ist.getUTCSeconds();
-  const elapsed = istSec % dur;
+  const totalSecUtc = nowUtc.getUTCHours() * 3600 + nowUtc.getUTCMinutes() * 60 + nowUtc.getUTCSeconds();
+  const elapsed = totalSecUtc % dur;
   
-  // Exact Indian Standard Time Game Countdown Logic:
-  // :00 -> 00s remaining
-  // :01 -> 29s (in 30s) / 59s (in 1m) / 179s (in 3m) / 299s (in 5m)
-  // :02 -> 28s remaining ... counting down to 01s, 00s
+  // Exact Real Time Countdown: :00 -> 00s remaining, :01 -> 29s (in 30s)
   const secsLeft = (dur - elapsed) % dur;
   
   let periodIdx;
   if (elapsed === 0) {
-    periodIdx = Math.floor(istSec / dur);
+    periodIdx = Math.floor(totalSecUtc / dur);
     if (periodIdx <= 0) periodIdx = Math.floor(86400 / dur);
   } else {
-    periodIdx = Math.floor(istSec / dur) + 1;
+    periodIdx = Math.floor(totalSecUtc / dur) + 1;
   }
 
   const periodCode = (tf === '30s' ? '10005' : (tf === '1m' ? '10001' : (tf === '3m' ? '10003' : '10002')));
   const periodStr = `${y}${mo}${d}${periodCode}${String(periodIdx).padStart(4, '0')}`;
 
+  // Formatted Indian Standard Time (IST) clock for user header
+  const ist = new Date(nowMs + (5.5 * 3600 * 1000));
   const hh = String(ist.getUTCHours()).padStart(2, '0');
   const mm = String(ist.getUTCMinutes()).padStart(2, '0');
   const ss = String(ist.getUTCSeconds()).padStart(2, '0');
@@ -3674,8 +3671,8 @@ function renderHistoryTable() {
           ? ([1,3,7,9,5].includes(row.number) ? aiPred.target === 'GREEN' : aiPred.target === 'RED')
           : aiPred.target === row.size);
 
-      const targetLabel = aiPred.target === 'GREEN' ? '🟢 GREEN' : (aiPred.target === 'RED' ? '🔴 RED' : aiPred.target);
-      aiText = `<span class="px-1.5 py-0.5 rounded font-black text-[9px] ${isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">${targetLabel} ${isCorrect ? '✓' : '✗'}</span>`;
+      const targetLabel = aiPred.target === 'GREEN' ? '🟢' : (aiPred.target === 'RED' ? '🔴' : (aiPred.target === 'BIG' ? 'B' : (aiPred.target === 'SMALL' ? 'S' : aiPred.target)));
+      aiText = `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-black text-[9px] ${isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">${targetLabel} ${isCorrect ? '✓' : '✗'}</span>`;
     }
 
     // Bet & Result details
@@ -3691,13 +3688,18 @@ function renderHistoryTable() {
       }
     }
 
-    return `<div onclick="editHistoryRow('${row.period}')" class="grid grid-cols-12 py-2.5 px-3 items-center cursor-pointer hover:bg-indigo-900/40 active:bg-indigo-900/60 transition group border-b border-purple-900/20 text-[10px]">
+    const isRowBig = row.size === 'BIG';
+    const sizeBadge = `<span class="w-4 h-4 inline-flex items-center justify-center rounded text-[9px] font-black ${isRowBig ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-sky-500/20 text-sky-300 border border-sky-500/30'}">${isRowBig ? 'B' : 'S'}</span>`;
+
+    return `<div onclick="editHistoryRow('${row.period}')" class="grid grid-cols-12 py-2 px-3 items-center cursor-pointer hover:bg-indigo-900/40 active:bg-indigo-900/60 transition group border-b border-purple-900/20 text-[10px]">
       <div class="col-span-3 text-slate-300 font-mono truncate flex items-center gap-1">
         <span>${String(row.period).slice(-6)}</span>
         <span class="opacity-0 group-hover:opacity-100 text-amber-400 transition">✏️</span>
       </div>
-      <div class="col-span-3 text-center font-black ${numClass}">
-        ${row.number} <span class="text-[9px] font-semibold text-slate-300">(${row.size})</span> ${colorBadge}
+      <div class="col-span-3 text-center font-black ${numClass} flex items-center justify-center gap-1.5">
+        <span class="text-xs">${colorBadge}</span>
+        <b class="${numClass} text-xs font-black">${row.number}</b>
+        ${sizeBadge}
       </div>
       <div class="col-span-3 text-center">${aiText}</div>
       <div class="col-span-3 text-right">${betText}</div>
@@ -5533,9 +5535,23 @@ function applyProModeUI() {
   if (isPro) {
     switchSubTab('smart');
   } else {
-    switchSubTab('history');
+}
+
+let currentHistoryPage = 1;
+const HISTORY_PAGE_SIZE = 50;
+
+function changeHistoryPage(delta) {
+  const realHistAsc = (S.history || []).filter(r => !r.gap);
+  const totalPages = Math.max(1, Math.ceil(realHistAsc.length / HISTORY_PAGE_SIZE));
+  const newPage = currentHistoryPage + delta;
+  if (newPage >= 1 && newPage <= totalPages) {
+    currentHistoryPage = newPage;
+    renderSmartView();
+    const container = document.getElementById('smartHistoryRows');
+    if (container) container.scrollTop = 0;
   }
 }
+window.changeHistoryPage = changeHistoryPage;
 
 // ═══════════════════════════════════════════════════════════════
 // SMART UNIFIED VIEW (HISTORY + TREND + BETS + AI COMBINED)
@@ -5663,22 +5679,6 @@ function renderSmartView() {
     ratioEl.textContent = `BIG: ${bigPct}% | SMALL: ${smallPct}% (${total} rounds)`;
   }
 
-let currentHistoryPage = 1;
-const HISTORY_PAGE_SIZE = 50;
-
-function changeHistoryPage(delta) {
-  const realHistAsc = (S.history || []).filter(r => !r.gap);
-  const totalPages = Math.max(1, Math.ceil(realHistAsc.length / HISTORY_PAGE_SIZE));
-  const newPage = currentHistoryPage + delta;
-  if (newPage >= 1 && newPage <= totalPages) {
-    currentHistoryPage = newPage;
-    renderSmartView();
-    const container = document.getElementById('smartHistoryRows');
-    if (container) container.scrollTop = 0;
-  }
-}
-window.changeHistoryPage = changeHistoryPage;
-
   const container = document.getElementById('smartHistoryRows');
   if (!container) return;
 
@@ -5717,7 +5717,7 @@ window.changeHistoryPage = changeHistoryPage;
   container.innerHTML = pagedRows.map(row => {
     const periodShort = String(row.period).slice(-5);
     const n = row.number;
-    const size = row.size;
+    const isBig = row.size === 'BIG';
     const color = row.color;
     const colorDot = color === 'RED' ? '🔴' : color === 'GREEN' ? '🟢' : '🟣';
     const numColor = (n===0||n===5) ? 'text-purple-400' : (n%2===1 ? 'text-emerald-400' : 'text-rose-400');
@@ -5725,15 +5725,16 @@ window.changeHistoryPage = changeHistoryPage;
     // AI Prediction (immutable & dual size/color aware)
     const aiPred = getAIPredictionForPeriod(row.period);
     let aiHtml = '<span class="text-slate-600 text-[9px]">—</span>';
+    let isCorrect = null;
     if (aiPred && aiPred.target) {
-      const isCorrect = (row.aiCorrect !== undefined && row.aiCorrect !== null)
+      isCorrect = (row.aiCorrect !== undefined && row.aiCorrect !== null)
         ? row.aiCorrect
         : ((aiPred.type === 'COLOR')
           ? ([1,3,7,9,5].includes(row.number) ? aiPred.target === 'GREEN' : aiPred.target === 'RED')
           : aiPred.target === row.size);
 
-      const targetLabel = aiPred.target === 'GREEN' ? '🟢 GREEN' : (aiPred.target === 'RED' ? '🔴 RED' : aiPred.target);
-      aiHtml = `<span class="px-2 py-0.5 rounded-full font-black text-[9px] ${isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">${targetLabel} ${isCorrect ? '✓' : '✗'}</span>`;
+      const targetLabel = aiPred.target === 'GREEN' ? '🟢' : (aiPred.target === 'RED' ? '🔴' : (aiPred.target === 'BIG' ? 'B' : (aiPred.target === 'SMALL' ? 'S' : aiPred.target)));
+      aiHtml = `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-black text-[9px] ${isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">${targetLabel} ${isCorrect ? '✓' : '✗'}</span>`;
     }
 
     // Bet placed (supports both manual bets and simulation test bot bets)
@@ -5747,18 +5748,23 @@ window.changeHistoryPage = changeHistoryPage;
       const isLost = bet.status === 'LOST' || bet.result === 'LOSS';
       const stake = bet.stake || bet.amount || 0;
       const profit = bet.profit !== undefined ? bet.profit : (isWon ? ((bet.payout || stake * 1.96) - stake) : -stake);
-      const simBadge = bet.sim ? '<span class="text-[7.5px] px-1 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-mono font-bold mr-1">SIM</span>' : '';
+      const betChoiceShort = bet.choice === 'BIG' ? 'B' : (bet.choice === 'SMALL' ? 'S' : (bet.choice === 'GREEN' ? '🟢' : (bet.choice === 'RED' ? '🔴' : bet.choice)));
+      const simBadge = bet.sim ? '<span class="text-[7.5px] px-1 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-mono font-bold mr-0.5">SIM</span>' : '';
 
       if (isWon) {
-        outcomeHtml = `${simBadge}<span class="text-emerald-400 font-black">₹${stake.toFixed(0)} ${bet.choice} +₹${profit.toFixed(1)} W</span>`;
+        outcomeHtml = `${simBadge}<span class="text-emerald-400 font-bold">+₹${profit.toFixed(0)} W</span>`;
       } else if (isLost) {
-        outcomeHtml = `${simBadge}<span class="text-rose-400 font-black">₹${stake.toFixed(0)} ${bet.choice} -₹${stake.toFixed(0)} L</span>`;
+        outcomeHtml = `${simBadge}<span class="text-rose-400 font-bold">-₹${stake.toFixed(0)} L</span>`;
       } else {
-        outcomeHtml = `${simBadge}<span class="text-amber-400 font-bold animate-pulse">₹${stake.toFixed(0)} ${bet.choice} ?</span>`;
+        outcomeHtml = `${simBadge}<span class="text-amber-400 font-bold animate-pulse">?</span>`;
       }
+    } else if (isCorrect !== null) {
+      outcomeHtml = `<span class="font-black text-[9px] px-1.5 py-0.5 rounded ${isCorrect ? 'text-emerald-400 bg-emerald-500/10' : 'text-rose-400 bg-rose-500/10'}">${isCorrect ? 'WIN' : 'LOSS'}</span>`;
     }
 
-    return `<div onclick="editHistoryRow('${row.period}')" class="grid grid-cols-12 py-2 px-3 items-center hover:bg-white/5 cursor-pointer transition" title="Period ${row.period} (Click to edit)">
+    const sizeBadge = `<span class="w-4 h-4 inline-flex items-center justify-center rounded text-[9px] font-black ${isBig ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-sky-500/20 text-sky-300 border border-sky-500/30'}">${isBig ? 'B' : 'S'}</span>`;
+
+    return `<div onclick="editHistoryRow('${row.period}')" class="grid grid-cols-12 py-1.5 px-3 items-center hover:bg-white/5 cursor-pointer transition border-b border-white/[0.03]" title="Period ${row.period} (Click to edit)">
       <div class="col-span-3 text-slate-400 font-mono font-bold flex items-center gap-1">
         <span>${periodShort}</span>
         <span class="opacity-0 hover:opacity-100 text-amber-400 text-[8px]">✏️</span>
@@ -5766,7 +5772,7 @@ window.changeHistoryPage = changeHistoryPage;
       <div class="col-span-3 text-center flex items-center justify-center gap-1.5">
         <span class="text-xs">${colorDot}</span>
         <b class="${numColor} text-sm font-black">${n}</b>
-        <span class="text-[9px] px-1.5 py-0.2 rounded font-black ${size==='BIG' ? 'bg-amber-500/20 text-amber-300' : 'bg-sky-500/20 text-sky-300'}">${size}</span>
+        ${sizeBadge}
       </div>
       <div class="col-span-3 text-center">${aiHtml}</div>
       <div class="col-span-3 text-right pr-1 text-[9px]">${outcomeHtml}</div>
