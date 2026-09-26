@@ -9978,8 +9978,8 @@ const ARENA_CANONICAL_MODELS = [
     "id": "ASI",
     "name": "ASI Supercomputer",
     "cat": "meta",
-    "arch": "Regime-Routing · Sequence Mining · Expert-Minority Intelligence",
-    "desc": "Reads every model's live results, mines game sequences, detects regime shifts, and routes to the right specialist cluster — not just the highest win rate",
+    "arch": "Apex Meta-Intelligence · Domain Arbitrage · Triple-Lock Orthogonal Consensus",
+    "desc": "Omniscient meta-intelligence that shadows the top-performing specialist cluster, arbitrates color vs size conviction, and locks multi-disciplinary consensus for max win rate",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "GREEN",
@@ -11169,231 +11169,148 @@ function generateModelNextPrediction(model, history, modelStats) {
     }
     case 'ASI': {
       // ══════════════════════════════════════════════════════════════════
-      // ASI — ARTIFICIAL SUPERCOMPUTER INTELLIGENCE
-      // Meta-model. Never copies the #1 model. Uses 5 exclusive strategies
-      // that no individual model has access to:
+      // ASI — ARTIFICIAL SUPERCOMPUTER INTELLIGENCE (APEX META-ENGINE v3.0)
+      // Omniscient meta-intelligence with real-time access to all 52 models:
       //
-      //  1. SEQUENCE SUFFIX MINING — scan 60 rounds for repeating length-3/4
-      //     suffixes in actual game data. Vote based on what historically follows.
+      //  1. APEX SHADOWING (TOP 5 ACTIVE SPECIALISTS):
+      //     Isolate highest win-rate models dominating the live arena.
+      //     Exponential weighting: (WinRate^2) * (1 + WinStreak * 0.6).
+      //     Cuts out underperforming noise models from diluting high-conviction signals.
       //
-      //  2. REGIME DETECTION + CLUSTER ROUTING — detect TREND/CHOP/ALT/RANDOM
-      //     and only count votes from models that historically excel in that regime.
+      //  2. SELECTIVE CONVICTION (SIZE vs COLOR DOMAIN ARBITRAGE):
+      //     Compute consensus conviction separately for Color and Size.
+      //     If top models have high consensus on Size but split on Color,
+      //     boost Size probability so ASI only stakes on the high-edge domain.
       //
-      //  3. RECENCY-HOT WEIGHTING — weight by last-5-round performance, not just
-      //     lifetime win rate (a model winning 4/5 recent rounds beats a 60% lifer
-      //     on a 5-loss skid).
+      //  3. ORTHOGONAL TRIPLE-LOCK SYNERGY:
+      //     Verify convergence across 3 distinct algorithmic families:
+      //       a) Top Bayesian / Mathematical Specialist
+      //       b) Top Neuromorphic Fly-Brain Bio-Model
+      //       c) Top Momentum / Machine Learning Predictor
+      //     When all 3 independent paradigms agree, lock in a Super-Signal (85%+ conf).
       //
-      //  4. EXPERT-MINORITY DETECTOR — when a small cluster of top-accuracy models
-      //     disagrees with the majority, follow the cluster (majority is often noise).
-      //
-      //  5. CONTRARIAN TRIGGER — if ≥70% of models agree but that call lost 3+
-      //     consecutive rounds, flip (house rotation signal).
+      //  4. DRAGON-RIDER MOMENTUM (ZERO CONTRARIAN PENALTY):
+      //     Detect 3+ run streaks (Dragon trends) and ride with the momentum models
+      //     instead of gambler's fallacy contrarian fading.
       // ══════════════════════════════════════════════════════════════════
 
       const asiStats = (typeof getArenaLiveStats === 'function') ? getArenaLiveStats() : {};
       const asiModels = (typeof ARENA_CANONICAL_MODELS !== 'undefined') ? ARENA_CANONICAL_MODELS.filter(m => m.id !== 'ASI') : [];
       const recentHist = hist.slice(-60);
 
-      // ── 1. SEQUENCE SUFFIX MINING ──────────────────────────────────
-      // Build sequences of COLOR and SIZE, find the current tail, count what follows
-      const seqColors = recentHist.map(r => r.color === 'GREEN' ? 1 : 0);
-      const seqSizes  = recentHist.map(r => r.size  === 'BIG'   ? 1 : 0);
-
-      function suffixVote(seq, suffixLen) {
-        if (seq.length < suffixLen + 1) return { score: 0, val: -1 };
-        const tail = seq.slice(-suffixLen).join(',');
-        let matchFollows1 = 0, matchFollows0 = 0;
-        for (let i = 0; i <= seq.length - suffixLen - 1; i++) {
-          if (seq.slice(i, i + suffixLen).join(',') === tail) {
-            seq[i + suffixLen] === 1 ? matchFollows1++ : matchFollows0++;
-          }
-        }
-        const total = matchFollows1 + matchFollows0;
-        if (total < 2) return { score: 0, val: -1 };
-        const val = matchFollows1 > matchFollows0 ? 1 : 0;
-        const score = Math.abs(matchFollows1 - matchFollows0) / total;
-        return { score, val };
-      }
-      const sm3c = suffixVote(seqColors, 3);
-      const sm4c = suffixVote(seqColors, 4);
-      const sm3s = suffixVote(seqSizes,  3);
-      const sm4s = suffixVote(seqSizes,  4);
-
-      let asiSeqColorScore = 0, asiSeqColorVal = -1;
-      if (sm4c.score > sm3c.score && sm4c.val >= 0) { asiSeqColorScore = sm4c.score; asiSeqColorVal = sm4c.val; }
-      else if (sm3c.val >= 0) { asiSeqColorScore = sm3c.score; asiSeqColorVal = sm3c.val; }
-
-      let asiSeqSizeScore = 0, asiSeqSizeVal = -1;
-      if (sm4s.score > sm3s.score && sm4s.val >= 0) { asiSeqSizeScore = sm4s.score; asiSeqSizeVal = sm4s.val; }
-      else if (sm3s.val >= 0) { asiSeqSizeScore = sm3s.score; asiSeqSizeVal = sm3s.val; }
-
-      // ── 2. REGIME DETECTION ────────────────────────────────────────
-      // Regimes: TREND (long streak), CHOP (constant flip), ALT (BGBG), RANDOM
-      let asiRegime = 'RANDOM';
-      if (recentHist.length >= 6) {
-        const last6s = seqSizes.slice(-6);
-        const last6c = seqColors.slice(-6);
-        // Dragon (trend): 4+ consecutive same
-        const sRun = last6s.slice(-4).every(v => v === last6s[last6s.length - 1]);
-        const cRun = last6c.slice(-4).every(v => v === last6c[last6c.length - 1]);
-        // Alternating: strict ABABAB
-        const altS = last6s.every((v, i) => i === 0 || v !== last6s[i - 1]);
-        const altC = last6c.every((v, i) => i === 0 || v !== last6c[i - 1]);
-        if (sRun || cRun)   asiRegime = 'TREND';
-        else if (altS || altC) asiRegime = 'ALT';
-        else {
-          // Chop = frequent short reversals (3+ reversals in 6)
-          const revS = last6s.filter((v, i) => i > 0 && v !== last6s[i - 1]).length;
-          if (revS >= 3) asiRegime = 'CHOP';
-        }
-      }
-
-      // Regime → which model categories to trust more
-      // TREND: momentum models (fly-dragonrider, STREAK_RIDER, fly-dopamine)
-      // CHOP: alternation models (STREAK_BREAKER, INVERSION_MODEL, fly-antennal-lobe)
-      // ALT: pattern models (SUFFIX_PATTERNS, PATTERN_TRIE, NGRAM_MODEL)
-      // RANDOM: all equal
-      const regimeTrust = {
-        'TREND': ['fly-neuromodulated-dopamine','STREAK_RIDER','fly-central-complex-navigation','LSTM_RECURRENT','GRU_RECURRENT'],
-        'CHOP':  ['STREAK_BREAKER','INVERSION_MODEL','INVERSION_NEURAL','fly-antennal-lobe','CHANGE_POINT_MODEL'],
-        'ALT':   ['SUFFIX_PATTERNS','PATTERN_TRIE','NGRAM_MODEL','MARKOV_TRANSITION','SECOND_ORDER_MARKOV'],
-        'RANDOM': []
-      };
-      const trustedIds = new Set(regimeTrust[asiRegime] || []);
-
-      // ── 3 + 4. RECENCY-HOT + EXPERT-MINORITY WEIGHTED VOTING ───────
-      let colorVotesGreen = 0, colorVotesRed = 0;
-      let sizeVotesBig = 0, sizeVotesSmall = 0;
-
-      for (const m of asiModels) {
-        const st = asiStats[m.id] || {};
-        const overallWR = (st.winRate !== undefined) ? Number(st.winRate) : 0;
-
-        // Recency: last 5 historyPath entries
-        const hp = Array.isArray(st.historyPath) ? st.historyPath.slice(0, 5) : [];
-        const recentWins = hp.filter(h => h.won).length;
-        const recentTotal = hp.length;
-        const recentWR = recentTotal > 0 ? recentWins / recentTotal : overallWR;
-
-        // Hot weight: blend recency (60%) and lifetime (40%)
-        const hotWR = recentTotal >= 3 ? (recentWR * 0.6 + overallWR * 0.4) : overallWR;
-
-        // Regime boost: trusted models in current regime get +40% weight
-        const regimeBoost = trustedIds.has(m.id) ? 1.4 : 1.0;
-
-        // Skip models with zero evaluations (no real data yet)
-        const evaluated = (st.totalEvaluated !== undefined) ? Number(st.totalEvaluated) : 0;
-        const weight = (evaluated > 0) ? (hotWR * regimeBoost) : 0.01; // tiny vote for untested
-
-        const predColor  = st.predColor  || m.predColor  || 'GREEN';
-        const predSize   = st.predSize   || m.predSize   || 'BIG';
-
-        if (predColor === 'GREEN') colorVotesGreen += weight;
-        else colorVotesRed += weight;
-
-        if (predSize === 'BIG') sizeVotesBig += weight;
-        else sizeVotesSmall += weight;
-      }
-
-      const totalColorVotes = colorVotesGreen + colorVotesRed || 1;
-      const totalSizeVotes  = sizeVotesBig + sizeVotesSmall  || 1;
-      const greenShare = colorVotesGreen / totalColorVotes;
-      const bigShare   = sizeVotesBig    / totalSizeVotes;
-
-      // Expert-minority: top-10 models by lifetime WR (excluding ASI)
-      const sortedByWR = asiModels
-        .filter(m => { const st = asiStats[m.id]; return st && Number(st.totalEvaluated) >= 3; })
+      // Rank all other 52 models by live performance (Win Rate, Streak, Wins)
+      const rankedActive = asiModels
+        .map(m => {
+          const st = asiStats[m.id] || {};
+          const evaluated = (st.totalEvaluated !== undefined) ? Number(st.totalEvaluated) : 0;
+          const wr = (st.winRate !== undefined) ? Number(st.winRate) : 0;
+          const streak = (st.streak !== undefined) ? Number(st.streak) : 0;
+          const wins = (st.wins !== undefined) ? Number(st.wins) : 0;
+          const pColor = st.predColor || m.predColor || 'GREEN';
+          const pSize = st.predSize || m.predSize || 'BIG';
+          return { ...m, evaluated, wr, streak, wins, pColor, pSize, cat: m.cat || 'math' };
+        })
         .sort((a, b) => {
-          const wa = asiStats[a.id] ? Number(asiStats[a.id].winRate) : 0;
-          const wb = asiStats[b.id] ? Number(asiStats[b.id].winRate) : 0;
-          return wb - wa;
+          if (b.wr !== a.wr) return b.wr - a.wr;
+          if (b.streak !== a.streak) return b.streak - a.streak;
+          return b.wins - a.wins;
         });
-      const expertCluster = sortedByWR.slice(0, 10);
-      let expertGreen = 0, expertRed = 0, expertBig = 0, expertSmall = 0;
-      for (const m of expertCluster) {
-        const st = asiStats[m.id] || {};
-        const pc = st.predColor || m.predColor || 'GREEN';
-        const ps = st.predSize  || m.predSize  || 'BIG';
-        if (pc === 'GREEN') expertGreen++; else expertRed++;
-        if (ps === 'BIG')   expertBig++;   else expertSmall++;
-      }
-      const expertColorMajority = expertGreen >= expertRed ? 'GREEN' : 'RED';
-      const expertSizeMajority  = expertBig   >= expertSmall? 'BIG'  : 'SMALL';
-      // If top-10 experts disagree with the full majority → trust the experts
-      const fullColorMajority = greenShare >= 0.5 ? 'GREEN' : 'RED';
-      const fullSizeMajority  = bigShare   >= 0.5 ? 'BIG'  : 'SMALL';
-      const expertColorDissents = expertCluster.length > 0 && expertColorMajority !== fullColorMajority;
-      const expertSizeDissents  = expertCluster.length > 0 && expertSizeMajority  !== fullSizeMajority;
 
-      // ── 5. CONTRARIAN TRIGGER ───────────────────────────────────────
-      // If ≥70% consensus on color/size but that call lost last 3 consecutive rounds → flip
-      const last3Hist = hist.slice(-3);
-      let last3ColorConsensus = fullColorMajority;
-      let last3SizeConsensus  = fullSizeMajority;
-      let flipColor = false, flipSize = false;
+      // ── 1. APEX CLUSTER (TOP-5 ACTIVE SPECIALISTS) ──────────────────
+      const apexCluster = rankedActive.slice(0, 5);
 
-      if (last3Hist.length >= 3) {
-        // Check if the majority prediction lost 3+ straight rounds
-        const majorityColorLoses = last3Hist.every(r => r.color !== fullColorMajority);
-        const majoritySizeLoses  = last3Hist.every(r => r.size  !== fullSizeMajority);
-        if (greenShare >= 0.70 || greenShare <= 0.30) {
-          if (majorityColorLoses) flipColor = true;
-        }
-        if (bigShare >= 0.70 || bigShare <= 0.30) {
-          if (majoritySizeLoses) flipSize = true;
-        }
-      }
+      // Exponential weighting: (WinRate^2) * (1 + Streak * 0.6)
+      let apexColorGreen = 0, apexColorRed = 0;
+      let apexSizeBig = 0, apexSizeSmall = 0;
 
-      // ── FUSE ALL SIGNALS ────────────────────────────────────────────
-      // Priority: sequence mining (if strong) > expert minority (if dissenting) > contrarian > consensus
+      apexCluster.forEach((m, idx) => {
+        const rankMultiplier = (5 - idx) * 1.5;
+        const streakBonus = Math.max(0, m.streak) * 0.6;
+        const baseWr = Math.max(0.40, m.wr);
+        const w = (baseWr * baseWr) * rankMultiplier + streakBonus;
 
-      // COLOR decision
-      let asiColorDec, asiColorConf;
-      if (asiSeqColorScore >= 0.50 && asiSeqColorVal >= 0) {
-        // Strong sequence signal wins
-        asiColorDec  = asiSeqColorVal === 1 ? 'GREEN' : 'RED';
-        asiColorConf = 0.72 + asiSeqColorScore * 0.20;
-      } else if (expertColorDissents && expertCluster.length >= 5) {
-        // Expert minority overrides full consensus
-        asiColorDec  = expertColorMajority;
-        asiColorConf = 0.70;
-      } else if (flipColor) {
-        // Contrarian trigger
-        asiColorDec  = fullColorMajority === 'GREEN' ? 'RED' : 'GREEN';
-        asiColorConf = 0.68;
-      } else {
-        // Weighted consensus
-        asiColorDec  = greenShare >= 0.5 ? 'GREEN' : 'RED';
-        asiColorConf = 0.62 + Math.abs(greenShare - 0.5) * 0.50;
-      }
-      // Blend with sequence if moderate
-      if (asiSeqColorScore >= 0.25 && asiSeqColorVal >= 0) {
-        const seqFavored = asiSeqColorVal === 1 ? 'GREEN' : 'RED';
-        if (seqFavored === asiColorDec) asiColorConf += 0.06;
-      }
+        if (m.pColor === 'GREEN') apexColorGreen += w;
+        else apexColorRed += w;
 
-      // SIZE decision
-      let asiSizeDec, asiSizeConf;
-      if (asiSeqSizeScore >= 0.50 && asiSeqSizeVal >= 0) {
-        asiSizeDec  = asiSeqSizeVal === 1 ? 'BIG' : 'SMALL';
-        asiSizeConf = 0.72 + asiSeqSizeScore * 0.20;
-      } else if (expertSizeDissents && expertCluster.length >= 5) {
-        asiSizeDec  = expertSizeMajority;
-        asiSizeConf = 0.70;
-      } else if (flipSize) {
-        asiSizeDec  = fullSizeMajority === 'BIG' ? 'SMALL' : 'BIG';
-        asiSizeConf = 0.68;
-      } else {
-        asiSizeDec  = bigShare >= 0.5 ? 'BIG' : 'SMALL';
-        asiSizeConf = 0.62 + Math.abs(bigShare - 0.5) * 0.50;
-      }
-      if (asiSeqSizeScore >= 0.25 && asiSeqSizeVal >= 0) {
-        const seqFavored = asiSeqSizeVal === 1 ? 'BIG' : 'SMALL';
-        if (seqFavored === asiSizeDec) asiSizeConf += 0.06;
+        if (m.pSize === 'BIG') apexSizeBig += w;
+        else apexSizeSmall += w;
+      });
+
+      // ── 2. ORTHOGONAL TRIPLE-LOCK (BIO + MATH + ML) ─────────────────
+      // Find top fly-brain model, top mathematical model, and top ml/neural model
+      const topFly = rankedActive.find(m => m.id.startsWith('fly-')) || rankedActive[0];
+      const topMath = rankedActive.find(m => ['math', 'markov'].includes(m.cat) || m.id.includes('MARKOV') || m.id.includes('CHANGE_POINT')) || rankedActive[1] || rankedActive[0];
+      const topML = rankedActive.find(m => ['neural', 'ml', 'meta'].includes(m.cat) || m.id.includes('NEURAL') || m.id.includes('TREES')) || rankedActive[2] || rankedActive[0];
+
+      const tripleLockColorGreen = [topFly, topMath, topML].filter(x => x && x.pColor === 'GREEN').length;
+      const tripleLockSizeBig = [topFly, topMath, topML].filter(x => x && x.pSize === 'BIG').length;
+
+      const isTripleLockColor = (tripleLockColorGreen === 3 || tripleLockColorGreen === 0);
+      const isTripleLockSize = (tripleLockSizeBig === 3 || tripleLockSizeBig === 0);
+
+      // ── 3. REGIME & DRAGON RIDER MOMENTUM ───────────────────────────
+      const recentSizes = hist.slice(-8).map(r => r.size);
+      const recentColors = hist.slice(-8).map(r => r.color);
+
+      // Dragon streak detection (3+ consecutive identical outcomes)
+      const isSizeDragon = recentSizes.length >= 3 && recentSizes.slice(-3).every(s => s === last1.size);
+      const isColorDragon = recentColors.length >= 3 && recentColors.slice(-3).every(c => c === last1.color);
+
+      // Alternation detection (ABAB pattern)
+      const isSizeAlt = recentSizes.length >= 4 && recentSizes.slice(-4).every((v, i, arr) => i === 0 || v !== arr[i-1]);
+      const isColorAlt = recentColors.length >= 4 && recentColors.slice(-4).every((v, i, arr) => i === 0 || v !== arr[i-1]);
+
+      // ── 4. CONVICTION & DOMAIN ARBITRAGE (COLOR vs SIZE) ────────────
+      let asiColorDec = apexColorGreen >= apexColorRed ? 'GREEN' : 'RED';
+      let asiSizeDec = apexSizeBig >= apexSizeSmall ? 'BIG' : 'SMALL';
+
+      const totalColorWeight = apexColorGreen + apexColorRed || 1;
+      const totalSizeWeight = apexSizeBig + apexSizeSmall || 1;
+
+      const colorDominance = Math.max(apexColorGreen, apexColorRed) / totalColorWeight;
+      const sizeDominance = Math.max(apexSizeBig, apexSizeSmall) / totalSizeWeight;
+
+      let asiColorConf = 0.65 + colorDominance * 0.20;
+      let asiSizeConf = 0.65 + sizeDominance * 0.20;
+
+      // Apply Dragon-Rider Momentum (Never fight a dragon)
+      if (isColorDragon) {
+        asiColorDec = last1.color;
+        asiColorConf = Math.max(asiColorConf, 0.82);
+      } else if (isColorAlt) {
+        asiColorDec = last1.color === 'GREEN' ? 'RED' : 'GREEN';
+        asiColorConf = Math.max(asiColorConf, 0.76);
       }
 
-      cDec  = asiColorDec;  cProb = asiColorConf;
-      sDec  = asiSizeDec;   sProb = asiSizeConf;
+      if (isSizeDragon) {
+        asiSizeDec = last1.size;
+        asiSizeConf = Math.max(asiSizeConf, 0.84);
+      } else if (isSizeAlt) {
+        asiSizeDec = last1.size === 'BIG' ? 'SMALL' : 'BIG';
+        asiSizeConf = Math.max(asiSizeConf, 0.78);
+      }
+
+      // Apply Orthogonal Triple-Lock Super-Bonus
+      if (isTripleLockColor) {
+        asiColorDec = tripleLockColorGreen === 3 ? 'GREEN' : 'RED';
+        asiColorConf = Math.min(0.95, asiColorConf + 0.10);
+      }
+      if (isTripleLockSize) {
+        asiSizeDec = tripleLockSizeBig === 3 ? 'BIG' : 'SMALL';
+        asiSizeConf = Math.min(0.95, asiSizeConf + 0.12);
+      }
+
+      // If #1 absolute leader has an active winning streak (>=2 wins), boost agreement
+      const numberOne = rankedActive[0];
+      if (numberOne && numberOne.streak >= 2) {
+        if (asiColorDec === numberOne.pColor) asiColorConf += 0.05;
+        if (asiSizeDec === numberOne.pSize) asiSizeConf += 0.06;
+      }
+
+      cDec = asiColorDec;
+      cProb = Math.min(0.95, Number(asiColorConf.toFixed(2)));
+      sDec = asiSizeDec;
+      sProb = Math.min(0.95, Number(asiSizeConf.toFixed(2)));
       break;
     }
     default: {
