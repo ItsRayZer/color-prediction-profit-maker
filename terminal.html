@@ -5777,6 +5777,25 @@ window.changeHistoryPage = changeHistoryPage;
   renderNumberRoad();
 }
 
+function autoResetLiveAuditOnRefresh(tfOverride) {
+  const tf = tfOverride || S.timeframe || '30s';
+  const hist = (S.historyByTimeframe && S.historyByTimeframe[tf] && S.historyByTimeframe[tf].length > 0)
+    ? S.historyByTimeframe[tf]
+    : (S.history || []);
+  const realHist = hist.filter(r => !r.gap).sort((a, b) => String(a.period).localeCompare(String(b.period)));
+  const cutoff = realHist.length > 0 ? realHist[realHist.length - 1].period : 'RESET_NOW';
+
+  if (!S.auditResetPeriod) S.auditResetPeriod = {};
+  S.auditResetPeriod[tf] = cutoff;
+  try {
+    localStorage.removeItem('wingo_audit_reset_' + tf);
+  } catch(e) {}
+
+  if (window.TimeframeManager && typeof window.TimeframeManager.resetAudit === 'function') {
+    window.TimeframeManager.resetAudit(tf, cutoff);
+  }
+}
+
 function resetLiveAudit() {
   const tf = S.timeframe || '30s';
   const realHist = (S.history || []).filter(r => !r.gap).sort((a, b) => String(a.period).localeCompare(String(b.period)));
@@ -5804,10 +5823,7 @@ function renderPatternAnalytics() {
 
   if (!S.auditResetPeriod) S.auditResetPeriod = {};
   if (!S.auditResetPeriod[tf]) {
-    try {
-      const saved = localStorage.getItem('wingo_audit_reset_' + tf);
-      if (saved) S.auditResetPeriod[tf] = saved;
-    } catch(e) {}
+    autoResetLiveAuditOnRefresh(tf);
   }
   const resetCutoff = S.auditResetPeriod[tf] || null;
 
@@ -6381,6 +6397,9 @@ async function fetchLiveAPIResults(tfOverride) {
             S.history = parsedList;
             S.historyByTimeframe[tf] = [...parsedList];
             S.isInitialized = true;
+
+            // Automatically reset Live Prediction Audit fresh on refresh
+            autoResetLiveAuditOnRefresh(tf);
 
             // 1. Sync TimeframeManager and generate timeframe-isolated prediction
             if (window.TimeframeManager && typeof window.TimeframeManager.setHistory === 'function') {
@@ -7309,7 +7328,7 @@ function loadFromLocalStorage() {
       S.historyByTimeframe        = data.historyByTimeframe || { '30s': [], '1m': [], '3m': [], '5m': [] };
       S.aiPredictionMapByTimeframe = data.aiPredictionMapByTimeframe || { '30s': {}, '1m': {}, '3m': {}, '5m': {} };
       S.myBetsByTimeframe         = data.myBetsByTimeframe || { '30s': [], '1m': [], '3m': [], '5m': [] };
-      S.auditResetPeriod          = data.auditResetPeriod || {};
+      S.auditResetPeriod          = {}; // Live prediction audit restarts fresh on each refresh
 
       S.balance           = data.balance ?? 100;
       S.initialBalance    = data.initialBalance ?? 100;
@@ -7357,6 +7376,11 @@ function loadFromLocalStorage() {
 // BOOTSTRAP
 // ═══════════════════════════════════════════════════════════════
 window.onload = () => {
+  // Clear stale persisted audit resets from old sessions
+  try {
+    ['30s', '1m', '3m', '5m'].forEach(k => localStorage.removeItem('wingo_audit_reset_' + k));
+  } catch(e) {}
+
   // ── 0. Guarantee that loading overlay is completely dismissed on initial load / refresh ──
   showTimeframeLoading(null, false);
 
@@ -7375,6 +7399,9 @@ window.onload = () => {
     setTimeframe(S.timeframe || '30s', true);
 
     if (loaded && S.history && S.history.length >= MIN_DATA_TO_PREDICT) {
+      // ALWAYS start fresh live audit per refresh session
+      autoResetLiveAuditOnRefresh(S.timeframe);
+
       // ALWAYS use saved history
       renderHistoryTable();
       renderMiniBalls();

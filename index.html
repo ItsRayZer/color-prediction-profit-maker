@@ -1077,6 +1077,9 @@
           <button onclick="resetLiveAudit()" title="Reset session metrics without modifying draw history" class="px-1.5 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-mono text-[8px] font-bold border border-rose-500/30 active:scale-95 transition flex items-center gap-1">
             <i class="fa-solid fa-rotate-left text-[7.5px]"></i> Reset
           </button>
+          <button onclick="restartLiveTestingMode()" title="Re-test all 52 models live for 10-20 rounds" class="px-1.5 py-0.5 rounded bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 font-mono text-[8px] font-bold border border-cyan-500/30 active:scale-95 transition flex items-center gap-1">
+            <i class="fa-solid fa-flask text-[7.5px]"></i> Re-Test
+          </button>
           <button onclick="adjustElementHeight('card-col1-audit', -40)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition font-bold" title="Decrease Height">-</button>
           <button onclick="adjustElementHeight('card-col1-audit', 40)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition font-bold" title="Increase Height">+</button>
           <button onclick="toggleCardCollapse('card-col1-audit-body', this)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-slate-400 hover:text-white flex items-center justify-center text-[9px] transition" title="Minimize / Expand">
@@ -1760,6 +1763,9 @@
             <span id="arenaInChargeBadge" class="text-[7.5px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black tracking-wider">👑 LEADER</span>
           </div>
           <div class="flex items-center gap-1.5">
+            <button onclick="restartLiveTestingMode()" class="px-2 py-0.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[8px] font-mono font-bold transition active:scale-95 flex items-center gap-1" title="Restart Live Testing of All 52 Models">
+              <i class="fa-solid fa-flask text-[7.5px]"></i> Test 52
+            </button>
             <button onclick="resetArenaLiveStats()" class="px-2 py-0.5 rounded-lg bg-white/5 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-300 border border-white/10 text-[8px] font-mono font-bold transition active:scale-95" title="Reset all 52 model win rates to 0.0%">
               <i class="fa-solid fa-rotate-left text-[7.5px]"></i> Reset 0%
             </button>
@@ -4095,7 +4101,16 @@ function renderAIPanel() {
   const vEl = document.getElementById('signalVerdict');
   const targetColor = sig.target === 'BIG' ? 'text-amber-400' : sig.target === 'SMALL' ? 'text-sky-400' : sig.target === 'GREEN' ? 'text-emerald-400' : 'text-rose-400';
 
-  if (!S.aiReady && S.history.length < MIN_DATA_TO_PREDICT) {
+  const isTesting = !!(window.LIVE_TESTING && window.LIVE_TESTING.active);
+  const testedCount = (window.LIVE_TESTING && window.LIVE_TESTING.roundsTested) || 0;
+  const targetRounds = testedCount >= 10 ? 20 : 10;
+
+  if (isTesting) {
+    if (vEl) {
+      vEl.textContent = `🧪 TESTING (${testedCount}/${targetRounds} ROUNDS)`;
+      vEl.className = 'text-xl font-black text-cyan-400 mt-0.5 animate-pulse';
+    }
+  } else if (!S.aiReady && S.history.length < MIN_DATA_TO_PREDICT) {
     vEl.textContent  = 'GATHERING DATA...';
     vEl.className    = 'text-xl font-black text-slate-400 mt-0.5';
   } else if (S.cooloffRounds > 0) {
@@ -4117,7 +4132,12 @@ function renderAIPanel() {
 
   // Size / Target pill
   const sp = document.getElementById('aiSizePill');
-  if (sig.target) {
+  if (isTesting) {
+    if (sp) {
+      sp.className = 'ai-signal-pill bg-cyan-500/20 text-cyan-300 border border-cyan-500/40';
+      sp.innerHTML = `<i class="fa-solid fa-flask-vial text-[10px]"></i> TESTING`;
+    }
+  } else if (sig.target) {
     let pillClass = 'ai-signal-pill ';
     if (sig.target === 'BIG') pillClass += 'ai-big';
     else if (sig.target === 'SMALL') pillClass += 'ai-small';
@@ -4132,7 +4152,12 @@ function renderAIPanel() {
 
   // Confidence pill
   const cp = document.getElementById('aiConfPill');
-  if (sig.prob) {
+  if (isTesting) {
+    if (cp) {
+      cp.className = 'ai-signal-pill bg-cyan-500/20 text-cyan-300 border border-cyan-500/40';
+      cp.innerHTML = `<i class="fa-solid fa-list-check text-[10px]"></i> ${testedCount}/${targetRounds}`;
+    }
+  } else if (sig.prob) {
     cp.className = `ai-signal-pill ${sig.prob >= 0.58 ? 'ai-big' : 'ai-wait'}`;
     cp.innerHTML = `<i class="fa-solid fa-percent text-[10px]"></i> ${(sig.prob*100).toFixed(1)}%`;
   } else {
@@ -9517,6 +9542,79 @@ let lastLiveArenaRanking = null;
 let lastLiveArenaChampion = null;
 let manualArenaInChargeId = null;
 
+// ═══════════════════════════════════════════════════════════════
+// 52-MODEL LIVE TESTING MODE & IN-CHARGE PROMOTION ENGINE
+// ═══════════════════════════════════════════════════════════════
+window.LIVE_TESTING = {
+  active: true,
+  roundsTested: 0,
+  minRounds: 10,
+  maxRounds: 20,
+  inChargeModel: null,
+  inChargeWinRate: 0,
+  testedPeriods: new Set()
+};
+
+function initLiveTestingOnRefresh() {
+  window.LIVE_TESTING = {
+    active: true,
+    roundsTested: 0,
+    minRounds: 10,
+    maxRounds: 20,
+    inChargeModel: null,
+    inChargeWinRate: 0,
+    testedPeriods: new Set()
+  };
+  manualArenaInChargeId = null;
+  try { localStorage.removeItem('wingo_arena_manual_champ'); } catch(e) {}
+  try { localStorage.removeItem('wingo_arena_live_stats'); } catch(e) {}
+
+  if (typeof ARENA_CANONICAL_MODELS !== 'undefined' && Array.isArray(ARENA_CANONICAL_MODELS)) {
+    const stats = {};
+    const hist = (typeof S !== 'undefined' && S.history) ? S.history : [];
+    ARENA_CANONICAL_MODELS.forEach(m => {
+      stats[m.id] = {
+        wins: 0,
+        losses: 0,
+        streak: 0,
+        bestStreak: 0,
+        totalEvaluated: 0,
+        winRate: 0,
+        dopamine: 0.50,
+        lossPain: 0.0,
+        historyPath: [],
+        predType: m.predType || 'COLOR',
+        predTarget: m.predColor || 'GREEN',
+        predColor: m.predColor || 'GREEN',
+        predSize: m.predSize || 'BIG',
+        num: m.num || 7,
+        conf: m.conf || 0.75
+      };
+      if (hist.length >= 2 && typeof generateModelNextPrediction === 'function') {
+        try {
+          const p = generateModelNextPrediction(m, hist, stats[m.id]);
+          stats[m.id].predType = p.predType;
+          stats[m.id].predTarget = p.predTarget;
+          stats[m.id].predColor = p.predColor;
+          stats[m.id].predSize = p.predSize;
+          stats[m.id].num = p.num;
+          stats[m.id].conf = p.conf;
+        } catch(e) {}
+      }
+    });
+    saveArenaLiveStats(stats);
+  }
+}
+
+function restartLiveTestingMode() {
+  initLiveTestingOnRefresh();
+  resetLiveAudit();
+  updateArenaLeaderboardUI();
+  if (typeof renderSmartView === 'function') renderSmartView();
+  if (typeof renderAIPanel === 'function') renderAIPanel();
+  showToast('🧪 Live Testing Mode Active: Testing 52 models for 10–20 live rounds...', 'info');
+}
+
 // Load persisted live arena metrics from localStorage
 function getArenaLiveStats() {
   try {
@@ -9560,13 +9658,16 @@ function setArenaManualInCharge(modelId) {
 
 // Retrieve active in-charge algorithm
 function getArenaActiveInChargeModel() {
-  if (typeof cachedArenaModels !== 'undefined' && Array.isArray(cachedArenaModels) && cachedArenaModels.length > 0) {
-    const inCharge = cachedArenaModels.find(m => m.isInCharge);
-    if (inCharge) return inCharge;
+  if (window.LIVE_TESTING && window.LIVE_TESTING.inChargeModel) {
+    return window.LIVE_TESTING.inChargeModel;
   }
   if (typeof manualArenaInChargeId !== 'undefined' && manualArenaInChargeId && typeof ARENA_CANONICAL_MODELS !== 'undefined') {
     const m = ARENA_CANONICAL_MODELS.find(x => x.id === manualArenaInChargeId);
     if (m) return m;
+  }
+  if (typeof cachedArenaModels !== 'undefined' && Array.isArray(cachedArenaModels) && cachedArenaModels.length > 0) {
+    const inCharge = cachedArenaModels.find(m => m.isInCharge);
+    if (inCharge) return inCharge;
   }
   if (typeof ARENA_CANONICAL_MODELS !== 'undefined' && ARENA_CANONICAL_MODELS.length > 0) {
     return ARENA_CANONICAL_MODELS.find(x => x.id === 'BASE_PREDICTOR') || ARENA_CANONICAL_MODELS[0];
@@ -9576,6 +9677,7 @@ function getArenaActiveInChargeModel() {
 
 // Synchronize in-charge model prediction with global S.aiSignal and vice versa
 function syncArenaInChargeWithSignal() {
+  const isTesting = !!(window.LIVE_TESTING && window.LIVE_TESTING.active);
   const activeInCharge = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
   if (!activeInCharge) return;
 
@@ -9610,49 +9712,82 @@ function syncArenaInChargeWithSignal() {
 
   // Synchronize global S.aiSignal with the single prediction chosen by in-charge model
   if (typeof S !== 'undefined') {
-    S.aiSignal = {
-      decision: 'BET',
-      target: predTarget,
-      type: predType,
-      colorTarget: predType === 'COLOR' ? predTarget : (activeInCharge.predColor || 'GREEN'),
-      sizeTarget: predType === 'SIZE' ? predTarget : (activeInCharge.predSize || 'BIG'),
-      num: targetNum,
-      prob: conf,
-      reason: `👑 ${activeInCharge.name} (IN CHARGE — ${activeInCharge.winRatePct || '0.0%'} Win Rate)`,
-      engines: [activeInCharge.name],
-      stake: S.aiSignal?.stake || 1,
-      isTest: S.aiTestMode || false
-    };
-    if (typeof S.aiPredictionMap === 'object' && S.currentPeriod) {
-      S.aiPredictionMap[String(S.currentPeriod)] = S.aiSignal;
+    if (isTesting) {
+      const tested = window.LIVE_TESTING.roundsTested || 0;
+      const targetLimit = tested >= 10 ? 20 : 10;
+      S.aiSignal = {
+        decision: 'TESTING',
+        target: 'TESTING',
+        type: 'TESTING',
+        colorTarget: null,
+        sizeTarget: null,
+        num: null,
+        prob: tested / targetLimit,
+        reason: `🧪 Testing 52 Models Live (${tested}/${targetLimit} Rounds - Need >50% WR)`,
+        engines: ['52 Arena Models Test'],
+        stake: 0,
+        isTest: true,
+        isLiveTesting: true
+      };
+    } else {
+      S.aiSignal = {
+        decision: 'BET',
+        target: predTarget,
+        type: predType,
+        colorTarget: predType === 'COLOR' ? predTarget : (activeInCharge.predColor || 'GREEN'),
+        sizeTarget: predType === 'SIZE' ? predTarget : (activeInCharge.predSize || 'BIG'),
+        num: targetNum,
+        prob: conf,
+        reason: `👑 ${activeInCharge.name} (IN CHARGE — ${activeInCharge.winRatePct || '0.0%'} Win Rate)`,
+        engines: [activeInCharge.name],
+        stake: S.aiSignal?.stake || 1,
+        isTest: S.aiTestMode || false,
+        isLiveTesting: false
+      };
+      if (typeof S.aiPredictionMap === 'object' && S.currentPeriod) {
+        S.aiPredictionMap[String(S.currentPeriod)] = S.aiSignal;
+      }
     }
   }
 
   // Update inChargeSignalEl in Hero Card
   const inChargeSignalEl = document.getElementById('arenaInChargeSignal');
-  if (inChargeSignalEl && predTarget) {
-    if (predType === 'COLOR') {
-      const colorClass = predTarget === 'GREEN' ? 'text-emerald-400' : 'text-rose-400';
-      const icon = predTarget === 'GREEN' ? '🟢' : '🔴';
-      inChargeSignalEl.className = `font-black text-[11px] ${colorClass}`;
-      inChargeSignalEl.textContent = `${icon} ${predTarget} (#${targetNum})`;
-    } else {
-      const icon = predTarget === 'BIG' ? '🔼' : '🔽';
-      inChargeSignalEl.className = 'font-black text-[11px] text-zinc-200';
-      inChargeSignalEl.textContent = `${icon} ${predTarget} (#${targetNum})`;
+  if (inChargeSignalEl) {
+    if (isTesting) {
+      const tested = window.LIVE_TESTING.roundsTested || 0;
+      const targetLimit = tested >= 10 ? 20 : 10;
+      inChargeSignalEl.className = 'font-black text-[11px] text-cyan-400';
+      inChargeSignalEl.textContent = `🧪 TESTING (${tested}/${targetLimit})`;
+    } else if (predTarget) {
+      if (predType === 'COLOR') {
+        const colorClass = predTarget === 'GREEN' ? 'text-emerald-400' : 'text-rose-400';
+        const icon = predTarget === 'GREEN' ? '🟢' : '🔴';
+        inChargeSignalEl.className = `font-black text-[11px] ${colorClass}`;
+        inChargeSignalEl.textContent = `${icon} ${predTarget} (#${targetNum})`;
+      } else {
+        const icon = predTarget === 'BIG' ? '🔼' : '🔽';
+        inChargeSignalEl.className = 'font-black text-[11px] text-zinc-200';
+        inChargeSignalEl.textContent = `${icon} ${predTarget} (#${targetNum})`;
+      }
     }
   }
 
   // Update In-Charge Streak in Hero Card
   const inChargeStreakEl = document.getElementById('arenaInChargeStreak');
   if (inChargeStreakEl) {
-    const stVal = activeInCharge.streak || 0;
-    if (stVal >= 0) {
-      inChargeStreakEl.className = 'text-emerald-300 font-black text-[10.5px]';
-      inChargeStreakEl.textContent = `🔥 +${stVal}W (Best: ${activeInCharge.bestStreak || stVal}W)`;
+    if (isTesting) {
+      const tested = window.LIVE_TESTING.roundsTested || 0;
+      inChargeStreakEl.className = 'text-cyan-300 font-black text-[10.5px]';
+      inChargeStreakEl.textContent = `🧪 ${tested} live rounds evaluated`;
     } else {
-      inChargeStreakEl.className = 'text-rose-300 font-black text-[10.5px]';
-      inChargeStreakEl.textContent = `${stVal}L ${Math.abs(stVal) >= 3 ? '⚠️' : ''}`;
+      const stVal = activeInCharge.streak || 0;
+      if (stVal >= 0) {
+        inChargeStreakEl.className = 'text-emerald-300 font-black text-[10.5px]';
+        inChargeStreakEl.textContent = `🔥 +${stVal}W (Best: ${activeInCharge.bestStreak || stVal}W)`;
+      } else {
+        inChargeStreakEl.className = 'text-rose-300 font-black text-[10.5px]';
+        inChargeStreakEl.textContent = `${stVal}L ${Math.abs(stVal) >= 3 ? '⚠️' : ''}`;
+      }
     }
   }
 
@@ -10502,6 +10637,18 @@ function evaluateArenaModelsOnSettledRound(periodStr, number, size, color) {
   const actualColor = [1, 3, 5, 7, 9].includes(numVal) ? 'GREEN' : 'RED';
   const actualSize = size; // 'BIG' or 'SMALL'
 
+  // Testing mode session tracking
+  if (!window.LIVE_TESTING) {
+    window.LIVE_TESTING = { active: true, roundsTested: 0, minRounds: 10, maxRounds: 20, inChargeModel: null, inChargeWinRate: 0, testedPeriods: new Set() };
+  }
+  if (!window.LIVE_TESTING.testedPeriods) window.LIVE_TESTING.testedPeriods = new Set();
+  const pStr = String(periodStr);
+  const isNewTestingRound = !window.LIVE_TESTING.testedPeriods.has(pStr);
+  if (isNewTestingRound) {
+    window.LIVE_TESTING.testedPeriods.add(pStr);
+    window.LIVE_TESTING.roundsTested = window.LIVE_TESTING.testedPeriods.size;
+  }
+
   ARENA_CANONICAL_MODELS.forEach(m => {
     if (!stats[m.id]) {
       stats[m.id] = {
@@ -10582,6 +10729,42 @@ function evaluateArenaModelsOnSettledRound(periodStr, number, size, color) {
   });
 
   saveArenaLiveStats(stats);
+
+  // ── Testing Mode & Model In-Charge Promotion Check ──
+  if (window.LIVE_TESTING && window.LIVE_TESTING.active) {
+    const testedCount = window.LIVE_TESTING.roundsTested;
+    const rankedCandidates = ARENA_CANONICAL_MODELS.map(m => {
+      const st = stats[m.id] || {};
+      const wr = (st.winRate !== undefined) ? Number(st.winRate) : 0;
+      const wins = st.wins || 0;
+      const evaluated = st.totalEvaluated || 0;
+      return { ...m, winRate: wr, wins, evaluated };
+    }).sort((a, b) => {
+      if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      return b.evaluated - a.evaluated;
+    });
+
+    const bestModel = rankedCandidates[0];
+    const bestWinRate = bestModel ? bestModel.winRate : 0;
+
+    // Condition 1: 10 to 19 rounds tested AND best model win rate > 50%
+    if (testedCount >= 10 && bestWinRate > 0.50) {
+      window.LIVE_TESTING.active = false;
+      window.LIVE_TESTING.inChargeModel = bestModel;
+      window.LIVE_TESTING.inChargeWinRate = bestWinRate;
+      setArenaManualInCharge(bestModel.id);
+      showToast(`🏆 TESTING COMPLETE! ${bestModel.name} Promoted as MODEL IN-CHARGE (${(bestWinRate * 100).toFixed(1)}% WR over ${testedCount} live rounds)!`, 'success');
+    } else if (testedCount >= 20) {
+      // Condition 2: Max 20 rounds evaluated reached - promote the highest win rate model
+      window.LIVE_TESTING.active = false;
+      window.LIVE_TESTING.inChargeModel = bestModel;
+      window.LIVE_TESTING.inChargeWinRate = bestWinRate;
+      setArenaManualInCharge(bestModel.id);
+      showToast(`🏆 TESTING COMPLETE (20/20 Rounds)! ${bestModel.name} Appointed as MODEL IN-CHARGE (${(bestWinRate * 100).toFixed(1)}% WR)!`, 'success');
+    }
+  }
+
   updateArenaLeaderboardUI();
 }
 
@@ -10737,50 +10920,78 @@ function _doUpdateArenaLeaderboardUI(liveRanking, liveChampion) {
   const ogWinRateEl = document.getElementById('arenaOgWinRate');
   const ogStatusEl = document.getElementById('arenaOgStatus');
 
-  if (inChargeNameEl) inChargeNameEl.textContent = inChargeModel.name;
-  if (inChargeDescEl) inChargeDescEl.textContent = inChargeModel.desc;
-  if (inChargeWinRateEl) inChargeWinRateEl.textContent = inChargeModel.winRatePct;
-  if (ogWinRateEl) ogWinRateEl.textContent = `${ogPredictor.winRatePct} Win Rate`;
+  const isTesting = !!(window.LIVE_TESTING && window.LIVE_TESTING.active);
+  const testedCount = (window.LIVE_TESTING && window.LIVE_TESTING.roundsTested) || 0;
+  const targetRounds = testedCount >= 10 ? 20 : 10;
 
-  const delta = (inChargeModel.winRate - ogWinRate) * 100;
-  if (inChargeAdvantageEl) {
-    if (inChargeModel.evaluated === 0 && ogPredictor.evaluated === 0) {
-      inChargeAdvantageEl.textContent = 'Awaiting 1st Live Result (0.0% Starting)';
-      inChargeAdvantageEl.className = 'text-[8.5px] font-bold text-slate-400 font-mono bg-white/5 px-2 py-0.5 rounded-md border border-white/10';
-    } else if (inChargeModel.id === 'BASE_PREDICTOR') {
-      inChargeAdvantageEl.textContent = 'OG Benchmark Baseline (Standard)';
-      inChargeAdvantageEl.className = 'text-[8.5px] font-bold text-sky-300 font-mono bg-sky-950/60 px-2 py-0.5 rounded-md border border-sky-500/30';
-    } else {
-      inChargeAdvantageEl.textContent = `+${delta.toFixed(1)}% Above OG Baseline (PROMOTED)`;
-      inChargeAdvantageEl.className = 'text-[8.5px] font-bold text-emerald-300 font-mono bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-500/30 shadow-sm';
+  if (isTesting) {
+    if (inChargeNameEl) inChargeNameEl.textContent = '🧪 52-ALGORITHM LIVE TEST BENCHMARK';
+    if (inChargeDescEl) inChargeDescEl.textContent = `Benchmarking future outputs of all 52 models. Model with >50% win rate after 10-20 rounds will be promoted to Model In-Charge.`;
+    if (inChargeWinRateEl) {
+      inChargeWinRateEl.textContent = `${testedCount}/${targetRounds}`;
+      inChargeWinRateEl.className = 'text-lg font-black text-cyan-400 font-mono tracking-tight';
     }
-  }
-
-  if (inChargeBadgeEl) {
-    if (manualArenaInChargeId) {
-      inChargeBadgeEl.textContent = '⚡ MANUAL IN CHARGE';
-      inChargeBadgeEl.className = 'text-[8px] px-2 py-0.5 rounded-full bg-purple-500 text-white font-black tracking-wider shadow';
-    } else if (inChargeModel.id === 'BASE_PREDICTOR') {
-      inChargeBadgeEl.textContent = 'OG IN CHARGE';
-      inChargeBadgeEl.className = 'text-[8px] px-2 py-0.5 rounded-full bg-blue-500 text-white font-black tracking-wider shadow';
-    } else {
-      inChargeBadgeEl.textContent = '👑 CHALLENGER IN CHARGE';
-      inChargeBadgeEl.className = 'text-[8px] px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black tracking-wider shadow animate-pulse';
+    if (inChargeAdvantageEl) {
+      inChargeAdvantageEl.textContent = `Testing Live (${testedCount}/${targetRounds} Rounds) • Need >50% Win Rate`;
+      inChargeAdvantageEl.className = 'text-[8.5px] font-bold text-cyan-300 font-mono bg-cyan-950/60 px-2 py-0.5 rounded-md border border-cyan-500/30';
     }
-  }
+    if (inChargeBadgeEl) {
+      inChargeBadgeEl.textContent = '🧪 TESTING MODE';
+      inChargeBadgeEl.className = 'text-[7.5px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-black tracking-wider animate-pulse';
+    }
+    if (inChargeSignalEl) {
+      inChargeSignalEl.className = 'font-black text-[11px] text-cyan-400';
+      inChargeSignalEl.textContent = `🧪 TESTING (${testedCount}/${targetRounds})`;
+    }
+  } else {
+    if (inChargeNameEl) inChargeNameEl.textContent = inChargeModel.name;
+    if (inChargeDescEl) inChargeDescEl.textContent = inChargeModel.desc;
+    if (inChargeWinRateEl) {
+      inChargeWinRateEl.textContent = inChargeModel.winRatePct;
+      inChargeWinRateEl.className = 'text-lg font-black text-emerald-400 font-mono tracking-tight';
+    }
+    if (ogWinRateEl) ogWinRateEl.textContent = `${ogPredictor.winRatePct} Win Rate`;
 
-  if (inChargeSignalEl && inChargeModel) {
-    const pType = inChargeModel.predType || (inChargeModel.predColor ? 'COLOR' : 'SIZE');
-    const pTarget = inChargeModel.predTarget || (pType === 'COLOR' ? inChargeModel.predColor : inChargeModel.predSize) || 'GREEN';
-    if (pType === 'COLOR') {
-      const colorClass = pTarget === 'GREEN' ? 'text-emerald-400' : 'text-rose-400';
-      const icon = pTarget === 'GREEN' ? '🟢' : '🔴';
-      inChargeSignalEl.className = `font-black text-[11px] ${colorClass}`;
-      inChargeSignalEl.textContent = `${icon} ${pTarget} (#${inChargeModel.num || 7})`;
-    } else {
-      const icon = pTarget === 'BIG' ? '🔼' : '🔽';
-      inChargeSignalEl.className = 'font-black text-[11px] text-zinc-200';
-      inChargeSignalEl.textContent = `${icon} ${pTarget} (#${inChargeModel.num || 8})`;
+    const delta = (inChargeModel.winRate - ogWinRate) * 100;
+    if (inChargeAdvantageEl) {
+      if (inChargeModel.evaluated === 0 && ogPredictor.evaluated === 0) {
+        inChargeAdvantageEl.textContent = 'Awaiting 1st Live Result (0.0% Starting)';
+        inChargeAdvantageEl.className = 'text-[8.5px] font-bold text-slate-400 font-mono bg-white/5 px-2 py-0.5 rounded-md border border-white/10';
+      } else if (inChargeModel.id === 'BASE_PREDICTOR') {
+        inChargeAdvantageEl.textContent = 'OG Benchmark Baseline (Standard)';
+        inChargeAdvantageEl.className = 'text-[8.5px] font-bold text-sky-300 font-mono bg-sky-950/60 px-2 py-0.5 rounded-md border border-sky-500/30';
+      } else {
+        inChargeAdvantageEl.textContent = `+${delta.toFixed(1)}% Above OG Baseline (PROMOTED)`;
+        inChargeAdvantageEl.className = 'text-[8.5px] font-bold text-emerald-300 font-mono bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-500/30 shadow-sm';
+      }
+    }
+
+    if (inChargeBadgeEl) {
+      if (manualArenaInChargeId) {
+        inChargeBadgeEl.textContent = '👑 MODEL IN CHARGE';
+        inChargeBadgeEl.className = 'text-[8px] px-2 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-black tracking-wider shadow';
+      } else if (inChargeModel.id === 'BASE_PREDICTOR') {
+        inChargeBadgeEl.textContent = 'OG IN CHARGE';
+        inChargeBadgeEl.className = 'text-[8px] px-2 py-0.5 rounded-full bg-blue-500 text-white font-black tracking-wider shadow';
+      } else {
+        inChargeBadgeEl.textContent = '👑 MODEL IN CHARGE';
+        inChargeBadgeEl.className = 'text-[8px] px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black tracking-wider shadow animate-pulse';
+      }
+    }
+
+    if (inChargeSignalEl && inChargeModel) {
+      const pType = inChargeModel.predType || (inChargeModel.predColor ? 'COLOR' : 'SIZE');
+      const pTarget = inChargeModel.predTarget || (pType === 'COLOR' ? inChargeModel.predColor : inChargeModel.predSize) || 'GREEN';
+      if (pType === 'COLOR') {
+        const colorClass = pTarget === 'GREEN' ? 'text-emerald-400' : 'text-rose-400';
+        const icon = pTarget === 'GREEN' ? '🟢' : '🔴';
+        inChargeSignalEl.className = `font-black text-[11px] ${colorClass}`;
+        inChargeSignalEl.textContent = `${icon} ${pTarget} (#${inChargeModel.num || 7})`;
+      } else {
+        const icon = pTarget === 'BIG' ? '🔼' : '🔽';
+        inChargeSignalEl.className = 'font-black text-[11px] text-zinc-200';
+        inChargeSignalEl.textContent = `${icon} ${pTarget} (#${inChargeModel.num || 8})`;
+      }
     }
   }
 
@@ -12226,10 +12437,18 @@ function renderSmartView() {
   const decisionType = (activeChamp?.predType || (['BIG', 'SMALL'].includes(target) ? 'SIZE' : 'COLOR'));
   const confVal = currentPred?.prob ? Math.round(currentPred.prob * 100) : (activeChamp?.conf ? Math.round(activeChamp.conf * 100) : 75);
 
+  const isTesting = !!(window.LIVE_TESTING && window.LIVE_TESTING.active);
+  const testedCount = (window.LIVE_TESTING && window.LIVE_TESTING.roundsTested) || 0;
+  const targetRounds = testedCount >= 10 ? 20 : 10;
+
   let targetColor = 'text-amber-400';
   let icon = '🟡';
   let boxBgClass = 'p-1.5 bg-gradient-to-br from-amber-500/15 via-amber-950/40 to-black/80 rounded-lg border border-amber-400/40 shadow-[0_0_15px_rgba(245,158,11,0.15)] flex flex-col justify-center transition-all duration-300';
-  if (target === 'BIG') {
+  if (isTesting) {
+    targetColor = 'text-cyan-300';
+    icon = '🧪';
+    boxBgClass = 'p-1.5 bg-gradient-to-br from-cyan-950/40 via-blue-950/40 to-black/85 rounded-lg border border-cyan-500/40 shadow-[0_0_15px_rgba(6,182,212,0.15)] flex flex-col justify-center transition-all duration-300';
+  } else if (target === 'BIG') {
     targetColor = 'text-amber-400';
     icon = '🟡';
     boxBgClass = 'p-1.5 bg-gradient-to-br from-amber-500/20 via-amber-950/50 to-black/85 rounded-lg border border-amber-400/50 shadow-[0_0_18px_rgba(245,158,11,0.22)] flex flex-col justify-center transition-all duration-300';
@@ -12257,7 +12476,10 @@ function renderSmartView() {
   }
 
   if (targetEl) {
-    if (target) {
+    if (isTesting) {
+      targetEl.className = 'text-cyan-300 text-sm font-mono font-black tracking-tight mt-0.5 animate-pulse';
+      targetEl.textContent = `🧪 TESTING (${testedCount}/${targetRounds})`;
+    } else if (target) {
       targetEl.className = `${targetColor} text-sm font-mono font-black tracking-tight mt-0.5`;
       targetEl.textContent = `${target} ${icon}`;
     } else {
@@ -12272,7 +12494,10 @@ function renderSmartView() {
   }
 
   if (confEl) {
-    if (target) {
+    if (isTesting) {
+      confEl.textContent = `${testedCount}/${targetRounds}`;
+      confEl.className = 'text-cyan-400 font-bold';
+    } else if (target) {
       confEl.textContent = `${confVal}%`;
       confEl.className = confVal >= 60 ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold';
     } else {
@@ -12282,7 +12507,10 @@ function renderSmartView() {
   }
 
   if (typeEl) {
-    if (target) {
+    if (isTesting) {
+      typeEl.textContent = 'Testing 52 Models';
+      typeEl.className = 'text-cyan-300 font-bold';
+    } else if (target) {
       const champLabel = activeChamp ? (activeChamp.id === 'BASE_PREDICTOR' ? 'OG Quant' : '👑 ' + activeChamp.name.split(' ')[0]) : 'Quant';
       typeEl.textContent = `${champLabel} • ${decisionType}`;
       typeEl.className = (activeChamp?.predColor === 'GREEN') ? 'text-emerald-300 font-bold' : (activeChamp?.predColor === 'RED') ? 'text-rose-300 font-bold' : 'text-purple-300 font-bold';
@@ -12293,7 +12521,12 @@ function renderSmartView() {
   }
 
   if (signalEl) {
-    if (target) {
+    if (isTesting) {
+      signalEl.innerHTML = `<div class="flex flex-col items-center justify-center">
+        <span class="text-cyan-400 font-black text-sm tracking-wider leading-none flex items-center gap-1">🧪 TESTING</span>
+        <div class="text-[8px] text-cyan-300 font-mono font-bold leading-tight mt-0.5">Evaluating 52 Models Live (${testedCount}/${targetRounds} Rounds)</div>
+      </div>`;
+    } else if (target) {
       signalEl.innerHTML = `<div class="flex flex-col items-center justify-center">
         <span class="${targetColor} font-black text-sm tracking-wider leading-none flex items-center gap-1">${target} <span>${icon}</span></span>
         <div class="text-[8px] text-amber-300 font-mono font-bold leading-tight mt-0.5">🎯 Single Target: ${target}</div>
@@ -12304,7 +12537,10 @@ function renderSmartView() {
   }
 
   if (engineEl) {
-    if (currentPred?.isShieldActive) {
+    if (isTesting) {
+      engineEl.className = 'text-[7.5px] text-cyan-400 font-mono mt-0.5 font-bold';
+      engineEl.textContent = '52-Algorithm Live Audit • Need >50% WR';
+    } else if (currentPred?.isShieldActive) {
       engineEl.className = 'text-[7.5px] text-rose-400 font-mono mt-0.5 font-bold animate-pulse';
       engineEl.textContent = '🛡️ 4-LOSS SHIELD ACTIVE';
     } else {
@@ -12488,6 +12724,25 @@ window.changeHistoryPage = changeHistoryPage;
   renderNumberRoad();
 }
 
+function autoResetLiveAuditOnRefresh(tfOverride) {
+  const tf = tfOverride || S.timeframe || '30s';
+  const hist = (S.historyByTimeframe && S.historyByTimeframe[tf] && S.historyByTimeframe[tf].length > 0)
+    ? S.historyByTimeframe[tf]
+    : (S.history || []);
+  const realHist = hist.filter(r => !r.gap).sort((a, b) => String(a.period).localeCompare(String(b.period)));
+  const cutoff = realHist.length > 0 ? realHist[realHist.length - 1].period : 'RESET_NOW';
+
+  if (!S.auditResetPeriod) S.auditResetPeriod = {};
+  S.auditResetPeriod[tf] = cutoff;
+  try {
+    localStorage.removeItem('wingo_audit_reset_' + tf);
+  } catch(e) {}
+
+  if (window.TimeframeManager && typeof window.TimeframeManager.resetAudit === 'function') {
+    window.TimeframeManager.resetAudit(tf, cutoff);
+  }
+}
+
 function resetLiveAudit() {
   const tf = S.timeframe || '30s';
   const realHist = (S.history || []).filter(r => !r.gap).sort((a, b) => String(a.period).localeCompare(String(b.period)));
@@ -12515,10 +12770,7 @@ function renderPatternAnalytics() {
 
   if (!S.auditResetPeriod) S.auditResetPeriod = {};
   if (!S.auditResetPeriod[tf]) {
-    try {
-      const saved = localStorage.getItem('wingo_audit_reset_' + tf);
-      if (saved) S.auditResetPeriod[tf] = saved;
-    } catch(e) {}
+    autoResetLiveAuditOnRefresh(tf);
   }
   const resetCutoff = S.auditResetPeriod[tf] || null;
 
@@ -13114,6 +13366,9 @@ async function fetchLiveAPIResults(tfOverride) {
             S.history = parsedList;
             S.historyByTimeframe[tf] = [...parsedList];
             S.isInitialized = true;
+
+            // Automatically reset Live Prediction Audit fresh on refresh
+            autoResetLiveAuditOnRefresh(tf);
 
             // 1. Sync TimeframeManager and generate timeframe-isolated prediction
             if (window.TimeframeManager && typeof window.TimeframeManager.setHistory === 'function') {
@@ -14138,7 +14393,7 @@ function loadFromLocalStorage() {
       S.historyByTimeframe        = data.historyByTimeframe || { '30s': [], '1m': [], '3m': [], '5m': [] };
       S.aiPredictionMapByTimeframe = data.aiPredictionMapByTimeframe || { '30s': {}, '1m': {}, '3m': {}, '5m': {} };
       S.myBetsByTimeframe         = data.myBetsByTimeframe || { '30s': [], '1m': [], '3m': [], '5m': [] };
-      S.auditResetPeriod          = data.auditResetPeriod || {};
+      S.auditResetPeriod          = {}; // Live prediction audit restarts fresh on each refresh
 
       S.balance           = data.balance ?? 100;
       S.initialBalance    = data.initialBalance ?? 100;
@@ -14220,7 +14475,15 @@ function showBootLoader(show) {
 // BOOTSTRAP
 // ═══════════════════════════════════════════════════════════════
 window.onload = () => {
-  // ── 0. Show boot loader, hide timeframe overlay ──
+  // ── 0. Initialize Live Testing Mode fresh on each refresh ──
+  initLiveTestingOnRefresh();
+
+  // Clear stale persisted audit resets from old sessions
+  try {
+    ['30s', '1m', '3m', '5m'].forEach(k => localStorage.removeItem('wingo_audit_reset_' + k));
+  } catch(e) {}
+
+  // ── 0b. Show boot loader, hide timeframe overlay ──
   showBootLoader(true);
   showTimeframeLoading(null, false);
 
@@ -14240,6 +14503,9 @@ window.onload = () => {
     setTimeframe(S.timeframe || '30s', true);
 
     if (loaded && S.history && S.history.length >= MIN_DATA_TO_PREDICT) {
+      // ALWAYS start fresh live audit per refresh session
+      autoResetLiveAuditOnRefresh(S.timeframe);
+
       // ALWAYS use saved history
       renderHistoryTable();
       renderMiniBalls();
