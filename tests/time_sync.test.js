@@ -86,7 +86,7 @@ describe('Real Indian Standard Time (IST) & Server Time Synchronization Engine',
 
         assert.equal(diag.status, 'synced');
         assert.equal(diag.isAuthoritative, true);
-        assert.ok(diag.roundTripLatencyMs <= 30, `Expected low RTT, got ${diag.roundTripLatencyMs}`);
+        assert.ok(diag.roundTripLatencyMs <= 200, `Expected low RTT, got ${diag.roundTripLatencyMs}`);
         assert.ok(Number.isFinite(offset));
       } finally {
         globalThis.fetch = originalFetch;

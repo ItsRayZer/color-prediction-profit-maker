@@ -3513,8 +3513,9 @@ function computeRTState() {
   const dur = tf === '30s' ? 30 : (tf === '1m' ? 60 : (tf === '3m' ? 180 : 300));
   S.durationSeconds = dur;
 
-  // Synced real world clock derived from authoritative server time
-  const nowMs = getSyncedNowMs();
+  // Synced real world clock derived from authoritative server time.
+  // Add any manual fine-tuning offset (set by the +/- offset buttons).
+  const nowMs = getSyncedNowMs() + ((window._timerOffsetSec || 0) * 1000);
   const nowUtc = new Date(nowMs);
 
   // The lottery issue number resets daily at 00:00:00 UTC (05:30 AM IST)
