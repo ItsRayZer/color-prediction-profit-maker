@@ -3346,6 +3346,23 @@ function getActiveSystem() {
   return window.WinGo30sSystem;
 }
 
+function getRemainingSeconds(periodSeconds, now = Date.now()) {
+  const elapsed = Math.floor(now / 1000) % periodSeconds;
+  return elapsed === 0 ? 0 : periodSeconds - elapsed;
+}
+
+function formatTimerDisplay(periodSeconds, remainingSeconds) {
+  if (periodSeconds === 30) {
+    return String(remainingSeconds).padStart(2, '0');
+  }
+  const mins = Math.floor(remainingSeconds / 60);
+  const secs = remainingSeconds % 60;
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+window.getRemainingSeconds = getRemainingSeconds;
+window.formatTimerDisplay = formatTimerDisplay;
+
 function computeRTState() {
   const tf = S.timeframe || '30s';
   const dur = tf === '30s' ? 30 : (tf === '1m' ? 60 : (tf === '3m' ? 180 : 300));
@@ -3364,8 +3381,8 @@ function computeRTState() {
   const totalSecUtc = nowUtc.getUTCHours() * 3600 + nowUtc.getUTCMinutes() * 60 + nowUtc.getUTCSeconds();
   const elapsed = totalSecUtc % dur;
   
-  // Exact Real Time Countdown: :00 -> 00s remaining, :01 -> 29s (in 30s)
-  const secsLeft = (dur - elapsed) % dur;
+  // Exact Real Time Countdown: at exact boundary 00 / 00:00, otherwise dur - elapsed
+  const secsLeft = elapsed === 0 ? 0 : dur - elapsed;
   
   let periodIdx;
   if (elapsed === 0) {
@@ -3541,9 +3558,29 @@ function startRTEngine() {
       console.warn('RT Timer notice:', e);
     }
   }, 150);
+
+  // Immediately re-sync wall clock on tab resume / focus
+  if (!window._timerVisibilityListenersAdded) {
+    window._timerVisibilityListenersAdded = true;
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        const { secsLeft } = computeRTState();
+        S.secondsLeft = secsLeft;
+        updateTimerUI();
+        renderSmartView();
+      }
+    });
+    window.addEventListener('focus', () => {
+      const { secsLeft } = computeRTState();
+      S.secondsLeft = secsLeft;
+      updateTimerUI();
+      renderSmartView();
+    });
+  }
 }
 
 function updateTimerUI() {
+  const dur = S.durationSeconds || 30;
   const secsVal = Math.max(0, parseInt(S.secondsLeft) || 0);
   const mins = Math.floor(secsVal / 60);
   const secs = secsVal % 60;
@@ -3562,7 +3599,7 @@ function updateTimerUI() {
 
   const smartT = document.getElementById('smartTimerDisplay');
   if (smartT) {
-    smartT.textContent = `${ms}:${ss}`;
+    smartT.textContent = formatTimerDisplay(dur, secsVal);
     if (secsVal <= 5) {
       smartT.classList.add('text-rose-400');
       smartT.classList.remove('text-amber-300');
@@ -12433,10 +12470,9 @@ function renderSmartView() {
   if (periodEl) periodEl.textContent = S.currentPeriod ? S.currentPeriod.slice(-5) : (periodStr ? periodStr.slice(-5) : '—');
 
   if (timerEl) {
+    const dur = S.durationSeconds || 30;
     const sVal = Math.max(0, parseInt(S.secondsLeft ?? secsLeft) || 0);
-    const ms = String(Math.floor(sVal / 60)).padStart(2,'0');
-    const ss = String(sVal % 60).padStart(2,'0');
-    timerEl.textContent = `${ms}:${ss}`;
+    timerEl.textContent = formatTimerDisplay(dur, sVal);
     if (sVal <= 5) {
       timerEl.classList.add('text-rose-400');
       timerEl.classList.remove('text-amber-300');

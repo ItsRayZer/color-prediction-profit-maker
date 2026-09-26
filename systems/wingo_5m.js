@@ -23,8 +23,14 @@
       const now = new Date((nowUtc || new Date()).getTime() + (Number(offsetSeconds) || 0) * 1000);
       const totalSecUtc = now.getUTCHours() * 3600 + now.getUTCMinutes() * 60 + now.getUTCSeconds();
       const elapsed = totalSecUtc % this.duration;
-      const secsLeft = Math.max(0, (this.duration - 1) - elapsed);
-      const periodIdx = Math.floor(totalSecUtc / this.duration) + 1;
+      const secsLeft = elapsed === 0 ? 0 : this.duration - elapsed;
+      let periodIdx;
+      if (elapsed === 0) {
+        periodIdx = Math.floor(totalSecUtc / this.duration);
+        if (periodIdx <= 0) periodIdx = Math.floor(86400 / this.duration);
+      } else {
+        periodIdx = Math.floor(totalSecUtc / this.duration) + 1;
+      }
 
       const y = now.getUTCFullYear();
       const mo = String(now.getUTCMonth() + 1).padStart(2, '0');
