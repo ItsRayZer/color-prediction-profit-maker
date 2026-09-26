@@ -2456,6 +2456,11 @@ function startRTEngine() {
         }
       }
 
+      // ── SimBot Simulation Continuous Supervisor ──
+      if (typeof SimBot !== 'undefined' && typeof SimBot.tick === 'function') {
+        try { SimBot.tick(); } catch(e) { console.warn('SimBot tick:', e); }
+      }
+
       // ── Live countdown bar for result prompt ──
       const modal = document.getElementById('resultPromptModal');
       if (modal && modal.style.display === 'flex') {
@@ -2562,6 +2567,11 @@ function onPeriodRollover(finishedPeriod) {
   // Immediately poll for the finished period's real live result
   fetchLiveAPIResults(S.timeframe).catch(() => {});
   setTimeout(() => fetchLiveAPIResults(S.timeframe).catch(() => {}), 2000);
+
+  // Trigger SimBot tick for the new round
+  if (typeof SimBot !== 'undefined' && typeof SimBot.tick === 'function') {
+    try { SimBot.tick(); } catch(e) {}
+  }
 }
 
 function updateQueueBadge() {
@@ -5651,6 +5661,8 @@ function applyProModeUI() {
   if (isPro) {
     switchSubTab('smart');
   } else {
+    switchSubTab('history');
+  }
 }
 
 let currentHistoryPage = 1;
@@ -7585,7 +7597,8 @@ const SimBot = (() => {
       balance: 0, startBal: 0, baseBet: 0, curBet: 0,
       round: 0, wins: 0, losses: 0, lossChain: 0, curStreak: 0,
       maxWinStreak: 0, maxLossStreak: 0,
-      lastPrediction: null, resultHistory: [], lastSeenPeriod: null };
+      lastPrediction: null, resultHistory: [], lastSeenPeriod: null,
+      pendingBet: null, lastBetPeriod: null };
   }
   const states = { '30s': emptyState('30s'), '1m': emptyState('1m'), '3m': emptyState('3m'), '5m': emptyState('5m') };
   function st() { return states[activeTf]; }
@@ -7661,7 +7674,6 @@ const SimBot = (() => {
   // ── Refresh the SimBot dashboard panel ────────────────────────
   function refreshUI() {
     const s = st();
-    if (!s.running) return;
     const pnl = s.balance - s.startBal;
 
     const balEl = $id('simDisplayBalance');
@@ -7674,6 +7686,7 @@ const SimBot = (() => {
       pnlEl.textContent = (pnl >= 0 ? '+' : '') + `₹${pnl.toFixed(2)}`;
       pnlEl.className = `font-black text-[13px] font-mono ${pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
     }
+    if (!s.running) return;
     const betEl = $id('simDisplayBet');
     if (betEl) {
       betEl.textContent = `₹${s.curBet.toFixed(2)}`;
@@ -7693,7 +7706,7 @@ const SimBot = (() => {
     if ($id('simDisplayMaxWin'))  $id('simDisplayMaxWin').textContent  = `${s.maxWinStreak || 0}W`;
     if ($id('simDisplayMaxLoss')) $id('simDisplayMaxLoss').textContent = `${s.maxLossStreak || 0}L`;
 
-    const sig = s.lastPrediction || (window.S?.aiSignal?.target);
+    const sig = (s.pendingBet && s.pendingBet.target) || s.lastPrediction || (window.S?.aiSignal?.target);
     const sigEl = $id('simDisplaySignal');
     if (sigEl && sig) {
       sigEl.textContent = sig;
@@ -7729,15 +7742,30 @@ const SimBot = (() => {
     }
   }
 
-  // ── Process a new live result for a specific timeframe ─────
-  function onNewResult(actualNum, period, targetTf) {
+  // ── Place a pending bet ahead of draw: DEDUCT FROM BALANCE IMMEDIATELY ──
+  function placePendingBet(targetTf, targetPeriod) {
     const tf = targetTf || activeTf;
     const s = states[tf];
     if (!s || !s.running) return;
 
-    // Deduplicate — only process each period once per timeframe
-    if (period && period === s.lastSeenPeriod) return;
-    s.lastSeenPeriod = period || null;
+    let period = targetPeriod;
+    if (!period) {
+      if (tf === (window.S?.timeframe || '30s')) {
+        period = window.S?.currentPeriod ? String(window.S.currentPeriod) : null;
+      }
+    }
+    if (!period) return;
+
+    // Check if already placed a bet for this period
+    if (s.lastBetPeriod === String(period) || (s.pendingBet && String(s.pendingBet.period) === String(period))) {
+      return;
+    }
+
+    // Bankrupt guard
+    if (s.curBet > s.balance) {
+      halt(tf, 'BANKRUPT', '💸 Bankrupt — balance too low.', `${s.round} rounds  |  ${s.wins}W ${s.losses}L`);
+      return;
+    }
 
     // AI target for this timeframe strictly from locked prediction for this period
     let aiTarget = null;
@@ -7749,10 +7777,135 @@ const SimBot = (() => {
       const pred = window.getAIPredictionForPeriod(period);
       if (pred && pred.target) aiTarget = pred.target;
     }
-    if (!aiTarget && tf === window.S?.timeframe && window.S?.aiSignal?.target) {
-      aiTarget = window.S.aiSignal.target;
+    if (!aiTarget && tf === window.S?.timeframe) {
+      const pMap = window.S?.aiPredictionMap;
+      if (pMap && (pMap[period] || pMap[String(period).slice(-5)])) {
+        aiTarget = (pMap[period] || pMap[String(period).slice(-5)]).target;
+      } else if (window.S?.aiSignal?.target) {
+        aiTarget = window.S.aiSignal.target;
+      }
     }
     if (!aiTarget) aiTarget = s.lastPrediction || 'BIG';
+
+    const stake = s.curBet;
+
+    // ── DECREASE BALANCE IMMEDIATELY WHEN BET IS PLACED ──
+    s.balance -= stake;
+    s.lastBetPeriod = String(period);
+    s.lastPrediction = aiTarget;
+    s.pendingBet = {
+      period: String(period),
+      stake: stake,
+      target: aiTarget,
+      tf: tf,
+      timestamp: Date.now()
+    };
+
+    // ── Add Pending Bet into S.myBets & S.myBetsByTimeframe ──
+    if (window.S) {
+      if (!S.myBetsByTimeframe) S.myBetsByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
+      if (!S.myBetsByTimeframe[tf]) S.myBetsByTimeframe[tf] = [];
+
+      const betObj = {
+        period:    String(period),
+        tf,
+        type:      ['RED', 'GREEN'].includes(aiTarget) ? 'COLOR' : 'SIZE',
+        choice:    aiTarget,
+        aiSignal:  aiTarget,
+        stake:     stake,
+        amount:    stake,
+        payout:    0,
+        profit:    -stake,
+        status:    'PENDING',
+        result:    'PENDING',
+        sim:       true,
+        timestamp: Date.now()
+      };
+
+      const tfBets = S.myBetsByTimeframe[tf];
+      const existingTfIdx = tfBets.findIndex(b => String(b.period) === String(period));
+      if (existingTfIdx >= 0) tfBets[existingTfIdx] = betObj;
+      else tfBets.push(betObj);
+
+      if (tf === S.timeframe) {
+        if (!S.myBets) S.myBets = [];
+        const existingIdx = S.myBets.findIndex(b => String(b.period) === String(period));
+        if (existingIdx >= 0) S.myBets[existingIdx] = betObj;
+        else S.myBets.push(betObj);
+
+        if (typeof renderSmartView === 'function') try { renderSmartView(); } catch(e) {}
+        if (typeof renderMyBets === 'function') try { renderMyBets(); } catch(e) {}
+      }
+    }
+
+    if (tf === activeTf) {
+      refreshUI();
+      if ($id('simDisplayStatus')) {
+        $id('simDisplayStatus').textContent = `🎯 BET ₹${stake.toFixed(0)} on ${aiTarget} (P: ${String(period).slice(-4)})`;
+      }
+    }
+  }
+
+  // ── Supervisor tick: checks open round and automatically places bet ──
+  function tick() {
+    ['30s', '1m', '3m', '5m'].forEach(tf => {
+      const s = states[tf];
+      if (!s || !s.running) return;
+
+      if (tf === (window.S?.timeframe || '30s')) {
+        const secsLeft = typeof window.S?.secondsLeft === 'number' ? window.S.secondsLeft : 30;
+        // Place bet while round is open (countdown > 4s)
+        if (secsLeft > 4 && window.S?.currentPeriod) {
+          const curP = String(window.S.currentPeriod);
+          if (s.lastBetPeriod !== curP && (!s.pendingBet || String(s.pendingBet.period) !== curP)) {
+            placePendingBet(tf, curP);
+          }
+        }
+      }
+    });
+  }
+
+  // ── Process a new live result for a specific timeframe ─────
+  function onNewResult(actualNum, period, targetTf) {
+    const tf = targetTf || activeTf;
+    const s = states[tf];
+    if (!s || !s.running) return;
+
+    const pStr = period ? String(period) : null;
+    // Deduplicate — only process each period once per timeframe
+    if (pStr && pStr === s.lastSeenPeriod) return;
+    s.lastSeenPeriod = pStr;
+
+    // Check if there was an active pending bet for this period
+    const hadPending = (s.pendingBet && String(s.pendingBet.period) === pStr);
+    let betPlaced = hadPending ? s.pendingBet.stake : s.curBet;
+    let aiTarget = hadPending ? s.pendingBet.target : null;
+
+    if (!hadPending) {
+      // Bankrupt guard
+      if (s.curBet > s.balance) {
+        halt(tf, 'BANKRUPT', '💸 Bankrupt — balance too low.', `${s.round} rounds  |  ${s.wins}W ${s.losses}L`);
+        return;
+      }
+      // If bet wasn't placed in advance, deduct stake from balance now
+      s.balance -= betPlaced;
+    }
+    // Note: If hadPending was true, s.balance was ALREADY decreased when the bet was placed!
+
+    if (!aiTarget) {
+      if (window.TimeframeManager && typeof window.TimeframeManager.getPredictionForPeriod === 'function' && pStr) {
+        const pred = window.TimeframeManager.getPredictionForPeriod(tf, pStr);
+        if (pred && pred.target) aiTarget = pred.target;
+      }
+      if (!aiTarget && window.getAIPredictionForPeriod && pStr) {
+        const pred = window.getAIPredictionForPeriod(pStr);
+        if (pred && pred.target) aiTarget = pred.target;
+      }
+      if (!aiTarget && tf === window.S?.timeframe && window.S?.aiSignal?.target) {
+        aiTarget = window.S.aiSignal.target;
+      }
+      if (!aiTarget) aiTarget = s.lastPrediction || 'BIG';
+    }
     s.lastPrediction = aiTarget;
 
     // Resolve actual outcome
@@ -7783,21 +7936,13 @@ const SimBot = (() => {
       won = (aiTarget === 'BIG') === actualBig;
     }
 
-    // Bankrupt guard
-    if (s.curBet > s.balance) {
-      halt(tf, 'BANKRUPT', '💸 Bankrupt — balance too low.', `${s.round} rounds  |  ${s.wins}W ${s.losses}L`);
-      return;
-    }
-
-    // ── Bet & Martingale ──────────────────────────────────────
-    const betPlaced = s.curBet;
+    // ── Bet & Martingale Settlement ───────────────────────────
     s.round++;
-    s.balance -= betPlaced;
 
     let pnlThisRound;
     if (won) {
       const returned  = betPlaced * 1.96;
-      s.balance      += returned;
+      s.balance      += returned; // Credit returned stake + profit back into balance
       pnlThisRound    = betPlaced * 0.96;
       s.wins++;
       s.curStreak     = s.curStreak >= 0 ? s.curStreak + 1 : 1;
@@ -7806,6 +7951,7 @@ const SimBot = (() => {
       s.curBet        = s.baseBet;  // reset to base after win
       if (tf === activeTf && $id('simDisplayStatus')) $id('simDisplayStatus').textContent = `✅ WIN +₹${pnlThisRound.toFixed(2)}`;
     } else {
+      // Stake was ALREADY deducted from balance at bet placement!
       pnlThisRound    = -betPlaced;
       s.losses++;
       s.curStreak     = s.curStreak <= 0 ? s.curStreak - 1 : -1;
@@ -7816,15 +7962,16 @@ const SimBot = (() => {
       if (tf === activeTf && $id('simDisplayStatus')) $id('simDisplayStatus').textContent = `❌ LOSS — Next bet ₹${s.curBet.toFixed(2)}`;
     }
 
-    s.resultHistory.push({ won, bet: betPlaced, pnl: pnlThisRound, period });
+    s.pendingBet = null;
+    s.resultHistory.push({ won, bet: betPlaced, pnl: pnlThisRound, period: pStr });
 
     // ── Sync into S.myBetsByTimeframe[tf] and active S.myBets ──────────
-    if (window.S && period) {
+    if (window.S && pStr) {
       if (!S.myBetsByTimeframe) S.myBetsByTimeframe = { '30s': [], '1m': [], '3m': [], '5m': [] };
       if (!S.myBetsByTimeframe[tf]) S.myBetsByTimeframe[tf] = [];
 
       const betObj = {
-        period:    String(period),
+        period:    String(pStr),
         tf,
         type:      ['RED', 'GREEN'].includes(aiTarget) ? 'COLOR' : 'SIZE',
         choice:    aiTarget,
@@ -7840,13 +7987,13 @@ const SimBot = (() => {
       };
 
       const tfBets = S.myBetsByTimeframe[tf];
-      const existingTfIdx = tfBets.findIndex(b => String(b.period) === String(period));
+      const existingTfIdx = tfBets.findIndex(b => String(b.period) === String(pStr));
       if (existingTfIdx >= 0) tfBets[existingTfIdx] = betObj;
       else tfBets.push(betObj);
 
       if (tf === S.timeframe) {
         if (!S.myBets) S.myBets = [];
-        const existingIdx = S.myBets.findIndex(b => String(b.period) === String(period));
+        const existingIdx = S.myBets.findIndex(b => String(b.period) === String(pStr));
         if (existingIdx >= 0) S.myBets[existingIdx] = betObj;
         else S.myBets.push(betObj);
 
@@ -7855,6 +8002,9 @@ const SimBot = (() => {
       }
     }
 
+    // Inject history row in live history table
+    injectHistoryRow(pStr, aiTarget, (typeof actualNum === 'number' ? actualNum : (n !== null ? n : (won ? 8 : 2))), won, betPlaced, pnlThisRound);
+
     if (tf === activeTf) refreshUI();
 
     // ── Stop conditions ───────────────────────────────────────
@@ -7862,6 +8012,7 @@ const SimBot = (() => {
     if (pnl >= s.cfg.stopProfit)             halt(tf, 'PROFIT_HIT', `🎯 Profit Target Reached!`,  `+₹${pnl.toFixed(2)} in ${s.round} rounds  |  ${s.wins}W ${s.losses}L`);
     else if (Math.abs(Math.min(0,pnl)) >= s.cfg.stopLoss) halt(tf, 'LOSS_HIT',   `🛑 Stop Loss Triggered`,     `₹${pnl.toFixed(2)} in ${s.round} rounds  |  ${s.wins}W ${s.losses}L`);
     else if (s.round >= s.cfg.maxBets)       halt(tf, 'MAX_BETS',   `🏁 Max Bets Reached`,         `P&L: ${pnl >= 0 ? '+' : ''}₹${pnl.toFixed(2)}  |  ${s.wins}W ${s.losses}L`);
+    else if (s.curBet > s.balance)           halt(tf, 'BANKRUPT',   `💸 Bankrupt — balance too low.`, `${s.round} rounds  |  ${s.wins}W ${s.losses}L`);
   }
 
   function halt(tf, reason, msg, stats = '') {
@@ -7917,6 +8068,7 @@ const SimBot = (() => {
         cfg, running: true,
         balance: cfg.startBal, startBal: cfg.startBal,
         baseBet: cfg.baseBet,  curBet: cfg.baseBet,
+        pendingBet: null, lastBetPeriod: null
       });
       if ($id('simDisplayBalance')) $id('simDisplayBalance').textContent = `₹${cfg.startBal.toFixed(2)}`;
       if ($id('simDisplayPnl'))     $id('simDisplayPnl').textContent     = '₹0.00';
@@ -7924,13 +8076,36 @@ const SimBot = (() => {
       if ($id('simResultsStrip'))   $id('simResultsStrip').innerHTML     = '<span class="text-[8px] text-slate-500 italic">Waiting for first round...</span>';
       if ($id('simDisplayStatus'))  $id('simDisplayStatus').textContent  = `ACTIVE [${activeTf}] — NEXT ROUND`;
       showPanel('running');
+      // Immediately place bet for current active round if countdown is open
+      try {
+        if (activeTf === (window.S?.timeframe || '30s') && window.S?.currentPeriod && (window.S?.secondsLeft > 4)) {
+          placePendingBet(activeTf, String(window.S.currentPeriod));
+        }
+      } catch(e) {}
     },
 
     stop() {
       const s = st();
       if (!s.running) return;
+      if (s.pendingBet) {
+        s.balance += s.pendingBet.stake; // refund pending bet stake
+        if (window.S) {
+          const cancelBet = (bList) => {
+            if (!bList) return;
+            const b = bList.find(x => String(x.period) === String(s.pendingBet?.period) && x.sim && x.status === 'PENDING');
+            if (b) { b.status = 'CANCELLED'; b.result = 'CANCELLED'; b.profit = 0; }
+          };
+          cancelBet(S.myBetsByTimeframe?.[activeTf]);
+          if (activeTf === S.timeframe) {
+            cancelBet(S.myBets);
+            if (typeof renderMyBets === 'function') try { renderMyBets(); } catch(e) {}
+          }
+        }
+        s.pendingBet = null;
+      }
       const pnl = s.balance - s.startBal;
       halt(activeTf, 'MANUAL', '⏹ Simulation Stopped', `P&L: ${pnl >= 0 ? '+' : ''}₹${pnl.toFixed(2)}  |  ${s.round}r  |  ${s.wins}W ${s.losses}L`);
+      refreshUI();
     },
 
     reset() {
@@ -7948,6 +8123,11 @@ const SimBot = (() => {
     // Feed each real draw result (num = 0-9, period = period string, tf = optional timeframe)
     processResult(num, period, targetTf) {
       onNewResult(num, period, targetTf);
+    },
+
+    // Continuous tick supervisor
+    tick() {
+      tick();
     },
 
     isRunning(tf) { return tf ? (states[tf]?.running || false) : st().running; },
