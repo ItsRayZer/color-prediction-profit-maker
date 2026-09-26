@@ -1763,6 +1763,10 @@
             <span id="arenaInChargeBadge" class="text-[7.5px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black tracking-wider">👑 LEADER</span>
           </div>
           <div class="flex items-center gap-1.5">
+            <button id="arenaAutoModeBtn" onclick="toggleArenaAutoMode()" class="px-2 py-0.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[8px] font-mono font-black transition active:scale-95 flex items-center gap-1 shadow-sm" title="Toggle Auto Mode: Automatically select model with highest win rate">
+              <span id="arenaAutoModeDot" class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span id="arenaAutoModeText">AUTO: ON</span>
+            </button>
             <button onclick="restartLiveTestingMode()" class="px-2 py-0.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-[8px] font-mono font-bold transition active:scale-95 flex items-center gap-1" title="Restart Live Testing of All 52 Models">
               <i class="fa-solid fa-flask text-[7.5px]"></i> Test 52
             </button>
@@ -3926,10 +3930,25 @@ function runAI() {
   const pLast5 = pStr ? pStr.slice(-5) : null;
   const lockedPred = pStr && (S.aiPredictionMap?.[pStr] || S.aiPredictionMap?.[pLast5]);
 
-  // Check if a challenger model is currently IN CHARGE in the arena
+  // Active in-charge model is ALWAYS the single source of truth for the AI target
   const activeInCharge = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
   let outcome;
-  if (activeInCharge && activeInCharge.id !== 'BASE_PREDICTOR') {
+  if (activeInCharge) {
+    if (!activeInCharge.predTarget && realHist.length >= 2) {
+      try {
+        const stats = getArenaLiveStats();
+        const st = stats[activeInCharge.id] || {};
+        const freshP = generateModelNextPrediction(activeInCharge, realHist, st);
+        if (freshP && freshP.predTarget) {
+          activeInCharge.predType = freshP.predType;
+          activeInCharge.predTarget = freshP.predTarget;
+          activeInCharge.predColor = freshP.predColor;
+          activeInCharge.predSize = freshP.predSize;
+          activeInCharge.num = freshP.num;
+          activeInCharge.conf = freshP.conf;
+        }
+      } catch(e) {}
+    }
     const pType = activeInCharge.predType || (activeInCharge.predColor ? 'COLOR' : 'SIZE');
     const pTarget = activeInCharge.predTarget || (pType === 'COLOR' ? activeInCharge.predColor : activeInCharge.predSize) || 'GREEN';
     outcome = {
@@ -3942,7 +3961,7 @@ function runAI() {
       num: activeInCharge.num || (pTarget === 'GREEN' ? 7 : (pTarget === 'RED' ? 8 : (pTarget === 'BIG' ? 8 : 2))),
       prob: activeInCharge.conf || 0.78,
       entropy: 0.45,
-      reason: `👑 ${activeInCharge.name} (IN CHARGE — ${activeInCharge.winRatePct || '0.0%'} Win Rate)`,
+      reason: `👑 ${activeInCharge.name} (${window.ARENA_AUTO_MODE !== false ? 'AUTO #1' : 'MANUAL'} — ${activeInCharge.winRatePct || '0.0%'} Win Rate)`,
       engines: [activeInCharge.name],
       stake: 1
     };
@@ -9609,13 +9628,21 @@ const ARENA_CANONICAL_MODELS = [
 
 let lastLiveArenaRanking = null;
 let lastLiveArenaChampion = null;
-let manualArenaInChargeId = null;
+let manualArenaInChargeId = (() => {
+  try { return localStorage.getItem('wingo_arena_manual_champ') || null; } catch(e) { return null; }
+})();
+window.ARENA_AUTO_MODE = (() => {
+  try {
+    const v = localStorage.getItem('wingo_arena_auto_mode');
+    return v === null ? true : v !== 'false';
+  } catch(e) { return true; }
+})();
 
 // ═══════════════════════════════════════════════════════════════
 // 52-MODEL LIVE TESTING MODE & IN-CHARGE PROMOTION ENGINE
 // ═══════════════════════════════════════════════════════════════
 window.LIVE_TESTING = {
-  active: true,
+  active: false,
   roundsTested: 0,
   minRounds: 10,
   maxRounds: 20,
@@ -9624,7 +9651,104 @@ window.LIVE_TESTING = {
   testedPeriods: new Set()
 };
 
+function updateArenaAutoModeUI() {
+  const btn = document.getElementById('arenaAutoModeBtn');
+  const text = document.getElementById('arenaAutoModeText');
+  const dot = document.getElementById('arenaAutoModeDot');
+  const isAuto = (window.ARENA_AUTO_MODE !== false);
+  if (btn) {
+    if (isAuto) {
+      btn.className = 'px-2 py-0.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[8px] font-mono font-black transition active:scale-95 flex items-center gap-1 shadow-sm';
+      btn.title = 'Auto Mode is ON: Highest accuracy model is automatically in charge. Click to switch to Manual.';
+    } else {
+      btn.className = 'px-2 py-0.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700 text-[8px] font-mono font-bold transition active:scale-95 flex items-center gap-1';
+      btn.title = 'Auto Mode is OFF: Current in-charge model is locked manually. Click to enable Auto Mode.';
+    }
+  }
+  if (text) {
+    text.textContent = isAuto ? 'AUTO: ON' : 'AUTO: OFF';
+  }
+  if (dot) {
+    dot.className = isAuto ? 'w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse' : 'w-1.5 h-1.5 rounded-full bg-zinc-500';
+  }
+}
+
+function toggleArenaAutoMode(forceState) {
+  if (typeof forceState === 'boolean') {
+    window.ARENA_AUTO_MODE = forceState;
+  } else {
+    window.ARENA_AUTO_MODE = !(window.ARENA_AUTO_MODE !== false);
+  }
+  try { localStorage.setItem('wingo_arena_auto_mode', String(window.ARENA_AUTO_MODE)); } catch(e) {}
+
+  if (window.ARENA_AUTO_MODE) {
+    manualArenaInChargeId = null;
+    try { localStorage.removeItem('wingo_arena_manual_champ'); } catch(e) {}
+    showToast('⚡ Auto Mode ON: Highest accuracy model automatically In-Charge', 'success');
+  } else {
+    const active = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
+    if (active) {
+      manualArenaInChargeId = active.id;
+      try { localStorage.setItem('wingo_arena_manual_champ', active.id); } catch(e) {}
+    }
+    showToast('✋ Auto Mode OFF: In-Charge model locked manually', 'info');
+  }
+  updateArenaAutoModeUI();
+  updateArenaLeaderboardUI();
+  syncArenaInChargeWithSignal();
+  runAI();
+  if (typeof renderSmartView === 'function') renderSmartView();
+  if (typeof renderAIPanel === 'function') renderAIPanel();
+}
+
 function initLiveTestingOnRefresh() {
+  // Ensure canonical model stats exist without wiping persisted win rates
+  if (typeof ARENA_CANONICAL_MODELS !== 'undefined' && Array.isArray(ARENA_CANONICAL_MODELS)) {
+    const stats = getArenaLiveStats() || {};
+    const hist = (typeof S !== 'undefined' && S.history) ? S.history : [];
+    let changed = false;
+    ARENA_CANONICAL_MODELS.forEach(m => {
+      if (!stats[m.id]) {
+        stats[m.id] = {
+          wins: 0,
+          losses: 0,
+          streak: 0,
+          bestStreak: 0,
+          totalEvaluated: 0,
+          winRate: 0,
+          dopamine: 0.50,
+          lossPain: 0.0,
+          historyPath: [],
+          predType: m.predType || 'COLOR',
+          predTarget: m.predColor || 'GREEN',
+          predColor: m.predColor || 'GREEN',
+          predSize: m.predSize || 'BIG',
+          num: m.num || 7,
+          conf: m.conf || 0.75
+        };
+        changed = true;
+      }
+      if (!stats[m.id].predTarget || stats[m.id].predTarget === 'WAITING...') {
+        if (hist.length >= 2 && typeof generateModelNextPrediction === 'function') {
+          try {
+            const p = generateModelNextPrediction(m, hist, stats[m.id]);
+            stats[m.id].predType = p.predType;
+            stats[m.id].predTarget = p.predTarget;
+            stats[m.id].predColor = p.predColor;
+            stats[m.id].predSize = p.predSize;
+            stats[m.id].num = p.num;
+            stats[m.id].conf = p.conf;
+            changed = true;
+          } catch(e) {}
+        }
+      }
+    });
+    if (changed) saveArenaLiveStats(stats);
+  }
+  updateArenaAutoModeUI();
+}
+
+function restartLiveTestingMode() {
   window.LIVE_TESTING = {
     active: true,
     roundsTested: 0,
@@ -9634,51 +9758,10 @@ function initLiveTestingOnRefresh() {
     inChargeWinRate: 0,
     testedPeriods: new Set()
   };
-  manualArenaInChargeId = null;
-  try { localStorage.removeItem('wingo_arena_manual_champ'); } catch(e) {}
-  try { localStorage.removeItem('wingo_arena_live_stats'); } catch(e) {}
-
-  if (typeof ARENA_CANONICAL_MODELS !== 'undefined' && Array.isArray(ARENA_CANONICAL_MODELS)) {
-    const stats = {};
-    const hist = (typeof S !== 'undefined' && S.history) ? S.history : [];
-    ARENA_CANONICAL_MODELS.forEach(m => {
-      stats[m.id] = {
-        wins: 0,
-        losses: 0,
-        streak: 0,
-        bestStreak: 0,
-        totalEvaluated: 0,
-        winRate: 0,
-        dopamine: 0.50,
-        lossPain: 0.0,
-        historyPath: [],
-        predType: m.predType || 'COLOR',
-        predTarget: m.predColor || 'GREEN',
-        predColor: m.predColor || 'GREEN',
-        predSize: m.predSize || 'BIG',
-        num: m.num || 7,
-        conf: m.conf || 0.75
-      };
-      if (hist.length >= 2 && typeof generateModelNextPrediction === 'function') {
-        try {
-          const p = generateModelNextPrediction(m, hist, stats[m.id]);
-          stats[m.id].predType = p.predType;
-          stats[m.id].predTarget = p.predTarget;
-          stats[m.id].predColor = p.predColor;
-          stats[m.id].predSize = p.predSize;
-          stats[m.id].num = p.num;
-          stats[m.id].conf = p.conf;
-        } catch(e) {}
-      }
-    });
-    saveArenaLiveStats(stats);
-  }
-}
-
-function restartLiveTestingMode() {
-  initLiveTestingOnRefresh();
   resetLiveAudit();
   updateArenaLeaderboardUI();
+  syncArenaInChargeWithSignal();
+  runAI();
   if (typeof renderSmartView === 'function') renderSmartView();
   if (typeof renderAIPanel === 'function') renderAIPanel();
   showToast('🧪 Live Testing Mode Active: Testing 52 models for 10–20 live rounds...', 'info');
@@ -9703,45 +9786,64 @@ function resetArenaLiveStats() {
   try {
     localStorage.removeItem('wingo_arena_live_stats');
     manualArenaInChargeId = null;
-    localStorage.removeItem('wingo_arena_manual_champ');
+    try { localStorage.removeItem('wingo_arena_manual_champ'); } catch(e) {}
     updateArenaLeaderboardUI();
+    syncArenaInChargeWithSignal();
+    runAI();
+    if (typeof renderSmartView === 'function') renderSmartView();
+    if (typeof renderAIPanel === 'function') renderAIPanel();
     showToast('↺ All 52 Model Win Rates Reset to 0.0% (Clean Start)', 'info');
   } catch(e) {}
 }
 
 function setArenaManualInCharge(modelId) {
-  if (manualArenaInChargeId === modelId) {
+  if (manualArenaInChargeId === modelId && window.ARENA_AUTO_MODE === false) {
+    // Toggling off manual lock switches back to Auto Mode
+    window.ARENA_AUTO_MODE = true;
     manualArenaInChargeId = null;
+    try { localStorage.setItem('wingo_arena_auto_mode', 'true'); } catch(e) {}
     try { localStorage.removeItem('wingo_arena_manual_champ'); } catch(e) {}
-    showToast('⚡ Switched to Autonomous Adaptive Mode (Win-Rate Promoted)', 'info');
+    showToast('⚡ Auto Mode ON: Switched to Autonomous Top Win Rate', 'info');
   } else {
     manualArenaInChargeId = modelId;
+    window.ARENA_AUTO_MODE = false;
+    try { localStorage.setItem('wingo_arena_auto_mode', 'false'); } catch(e) {}
     try { localStorage.setItem('wingo_arena_manual_champ', modelId); } catch(e) {}
-    const m = ARENA_CANONICAL_MODELS.find(x => x.id === modelId);
-    showToast(`👑 ${m ? m.name : modelId} designated as IN CHARGE`, 'success');
+    const m = (typeof ARENA_CANONICAL_MODELS !== 'undefined') ? ARENA_CANONICAL_MODELS.find(x => x.id === modelId) : null;
+    showToast(`👑 ${m ? m.name : modelId} designated as IN CHARGE (Manual Mode)`, 'success');
   }
+  updateArenaAutoModeUI();
   updateArenaLeaderboardUI();
+  syncArenaInChargeWithSignal();
+  runAI();
+  if (typeof renderSmartView === 'function') renderSmartView();
+  if (typeof renderAIPanel === 'function') renderAIPanel();
 }
 
 // Predict next signals for a model under Zero-Peeking Algorithmic Isolation
 
 // Retrieve active in-charge algorithm
 function getArenaActiveInChargeModel() {
-  if (window.LIVE_TESTING && window.LIVE_TESTING.inChargeModel) {
-    return window.LIVE_TESTING.inChargeModel;
+  const models = (typeof cachedArenaModels !== 'undefined' && Array.isArray(cachedArenaModels) && cachedArenaModels.length > 0)
+    ? cachedArenaModels
+    : (typeof ARENA_CANONICAL_MODELS !== 'undefined' ? ARENA_CANONICAL_MODELS : []);
+
+  if (models.length === 0) return null;
+
+  // Auto Mode ON (Default): Always return the model with highest win rate / accuracy (sorted first)
+  if (window.ARENA_AUTO_MODE !== false) {
+    return models[0];
   }
-  if (typeof manualArenaInChargeId !== 'undefined' && manualArenaInChargeId && typeof ARENA_CANONICAL_MODELS !== 'undefined') {
-    const m = ARENA_CANONICAL_MODELS.find(x => x.id === manualArenaInChargeId);
-    if (m) return m;
+
+  // Auto Mode OFF (Manual): Return explicitly selected model
+  if (typeof manualArenaInChargeId !== 'undefined' && manualArenaInChargeId) {
+    const found = models.find(x => x.id === manualArenaInChargeId);
+    if (found) return found;
   }
-  if (typeof cachedArenaModels !== 'undefined' && Array.isArray(cachedArenaModels) && cachedArenaModels.length > 0) {
-    const inCharge = cachedArenaModels.find(m => m.isInCharge);
-    if (inCharge) return inCharge;
-  }
-  if (typeof ARENA_CANONICAL_MODELS !== 'undefined' && ARENA_CANONICAL_MODELS.length > 0) {
-    return ARENA_CANONICAL_MODELS.find(x => x.id === 'BASE_PREDICTOR') || ARENA_CANONICAL_MODELS[0];
-  }
-  return null;
+
+  const inCharge = models.find(m => m.isInCharge);
+  if (inCharge) return inCharge;
+  return models[0];
 }
 
 // Synchronize in-charge model prediction with global S.aiSignal and vice versa
@@ -9781,8 +9883,7 @@ function syncArenaInChargeWithSignal() {
 
   // Synchronize global S.aiSignal with the single prediction chosen by in-charge model
   if (typeof S !== 'undefined') {
-    const tested = (window.LIVE_TESTING && window.LIVE_TESTING.roundsTested) || 0;
-    const targetLimit = tested >= 10 ? 20 : 10;
+    const isAuto = (window.ARENA_AUTO_MODE !== false);
     S.aiSignal = {
       decision: isTesting ? 'TESTING' : 'BET',
       target: predTarget,
@@ -9792,8 +9893,8 @@ function syncArenaInChargeWithSignal() {
       num: targetNum,
       prob: conf,
       reason: isTesting
-        ? `🧪 Testing 52 Models Live (${tested}/${targetLimit} Rounds - Need >50% WR)`
-        : `👑 ${activeInCharge.name} (IN CHARGE — ${activeInCharge.winRatePct || '0.0%'} Win Rate)`,
+        ? `🧪 Testing 52 Models Live`
+        : `👑 ${activeInCharge.name} (${isAuto ? 'AUTO #1' : 'MANUAL'} — ${activeInCharge.winRatePct || '0.0%'} Win Rate)`,
       engines: isTesting ? ['52 Arena Models Test', activeInCharge.name] : [activeInCharge.name],
       stake: S.aiSignal?.stake || 1,
       isTest: isTesting ? true : (S.aiTestMode || false),
@@ -10943,30 +11044,21 @@ function _doUpdateArenaLeaderboardUI(liveRanking, liveChampion) {
   const ogPredictor = mergedModels.find(m => m.id === 'BASE_PREDICTOR') || mergedModels[0];
   const ogWinRate = ogPredictor.winRate;
 
-  let inChargeModel = ogPredictor;
+  let inChargeModel = mergedModels[0];
 
-  if (manualArenaInChargeId) {
-    const manualModel = mergedModels.find(m => m.id === manualArenaInChargeId);
-    if (manualModel) inChargeModel = manualModel;
+  if (window.ARENA_AUTO_MODE !== false) {
+    // AUTO MODE ON (DEFAULT): The model with the highest win rate / accuracy is automatically in charge!
+    // Since mergedModels is pre-sorted with highest winRate, evaluated, and wins first, mergedModels[0] is the top accuracy model!
+    inChargeModel = mergedModels[0];
   } else {
-    // Autonomous Adaptive Promotion Policy:
-    // When rounds have settled, challenger with highest win rate (and evaluated >= 1) takes the lead.
-    const evaluatedChallengers = mergedModels.filter(m => m.id !== 'BASE_PREDICTOR' && m.evaluated >= 1 && m.streak > -4);
-    if (evaluatedChallengers.length > 0) {
-      const best = evaluatedChallengers[0];
-      if (best.winRate > ogWinRate || (ogPredictor.evaluated === 0 && best.winRate > 0)) {
-        inChargeModel = best;
-      } else {
-        inChargeModel = ogPredictor;
-      }
+    // AUTO MODE OFF: Respect user's manually chosen model
+    if (manualArenaInChargeId) {
+      const manualModel = mergedModels.find(m => m.id === manualArenaInChargeId);
+      if (manualModel) inChargeModel = manualModel;
+      else inChargeModel = mergedModels[0];
     } else {
-      inChargeModel = ogPredictor;
+      inChargeModel = mergedModels[0];
     }
-  }
-
-  if (liveChampion && liveChampion.id && !manualArenaInChargeId) {
-    const matched = mergedModels.find(m => m.id === liveChampion.id);
-    if (matched) inChargeModel = matched;
   }
 
   const inChargeNameEl = document.getElementById('arenaInChargeName');
@@ -11027,15 +11119,12 @@ function _doUpdateArenaLeaderboardUI(liveRanking, liveChampion) {
     }
 
     if (inChargeBadgeEl) {
-      if (manualArenaInChargeId) {
-        inChargeBadgeEl.textContent = '👑 MODEL IN CHARGE';
-        inChargeBadgeEl.className = 'text-[8px] px-2 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-black tracking-wider shadow';
-      } else if (inChargeModel.id === 'BASE_PREDICTOR') {
-        inChargeBadgeEl.textContent = 'OG IN CHARGE';
-        inChargeBadgeEl.className = 'text-[8px] px-2 py-0.5 rounded-full bg-blue-500 text-white font-black tracking-wider shadow';
+      if (window.ARENA_AUTO_MODE !== false) {
+        inChargeBadgeEl.textContent = '⚡ AUTO (#1 ACCURACY)';
+        inChargeBadgeEl.className = 'text-[7.5px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black tracking-wider animate-pulse';
       } else {
-        inChargeBadgeEl.textContent = '👑 MODEL IN CHARGE';
-        inChargeBadgeEl.className = 'text-[8px] px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black tracking-wider shadow animate-pulse';
+        inChargeBadgeEl.textContent = '✋ MANUAL LOCK';
+        inChargeBadgeEl.className = 'text-[7.5px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-black tracking-wider';
       }
     }
 
@@ -11058,7 +11147,10 @@ function _doUpdateArenaLeaderboardUI(liveRanking, liveChampion) {
   // Synchronize In-Charge Model with live S.aiSignal and update Smart View immediately
   try {
     syncArenaInChargeWithSignal();
+    runAI();
     if (typeof renderSmartView === 'function') renderSmartView();
+    if (typeof renderAIPanel === 'function') renderAIPanel();
+    updateArenaAutoModeUI();
   } catch(e) {}
 
   if (inChargeStreakEl) {
@@ -12507,10 +12599,26 @@ function renderSmartView() {
   }
 
   const activeChamp = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
-  // Intelligent single prediction from active champion or signal (either COLOR or SIZE)
-  let target = activeChamp?.predTarget || currentPred?.target || activeChamp?.predColor || 'GREEN';
+  if (activeChamp && !activeChamp.predTarget && S.history && S.history.length >= 2) {
+    try {
+      const stats = getArenaLiveStats();
+      const st = stats[activeChamp.id] || {};
+      const freshP = generateModelNextPrediction(activeChamp, S.history, st);
+      if (freshP && freshP.predTarget) {
+        activeChamp.predType = freshP.predType;
+        activeChamp.predTarget = freshP.predTarget;
+        activeChamp.predColor = freshP.predColor;
+        activeChamp.predSize = freshP.predSize;
+        activeChamp.num = freshP.num;
+        activeChamp.conf = freshP.conf;
+      }
+    } catch(e) {}
+  }
+
+  // Intelligent single prediction strictly from active champion model
+  let target = activeChamp ? (activeChamp.predTarget || (activeChamp.predType === 'COLOR' ? activeChamp.predColor : activeChamp.predSize) || activeChamp.predColor || 'GREEN') : (currentPred?.target || 'GREEN');
   const decisionType = (activeChamp?.predType || (['BIG', 'SMALL'].includes(target) ? 'SIZE' : 'COLOR'));
-  const confVal = currentPred?.prob ? Math.round(currentPred.prob * 100) : (activeChamp?.conf ? Math.round(activeChamp.conf * 100) : 75);
+  const confVal = activeChamp?.conf ? Math.round(activeChamp.conf * 100) : (currentPred?.prob ? Math.round(currentPred.prob * 100) : 78);
 
   const isTesting = !!(window.LIVE_TESTING && window.LIVE_TESTING.active);
   const testedCount = (window.LIVE_TESTING && window.LIVE_TESTING.roundsTested) || 0;
@@ -12586,9 +12694,10 @@ function renderSmartView() {
       typeEl.textContent = 'Testing 52 Models';
       typeEl.className = 'text-cyan-300 font-bold';
     } else if (target) {
+      const isAuto = (window.ARENA_AUTO_MODE !== false);
       const champLabel = activeChamp ? (activeChamp.id === 'BASE_PREDICTOR' ? 'OG Quant' : '👑 ' + activeChamp.name.split(' ')[0]) : 'Quant';
-      typeEl.textContent = `${champLabel} • ${decisionType}`;
-      typeEl.className = (activeChamp?.predColor === 'GREEN') ? 'text-emerald-300 font-bold' : (activeChamp?.predColor === 'RED') ? 'text-rose-300 font-bold' : 'text-purple-300 font-bold';
+      typeEl.textContent = `${champLabel} • ${decisionType}${isAuto ? ' (Auto)' : ' (Lock)'}`;
+      typeEl.className = (target === 'GREEN') ? 'text-emerald-300 font-bold' : (target === 'RED') ? 'text-rose-300 font-bold' : (target === 'BIG' ? 'text-amber-300 font-bold' : 'text-sky-300 font-bold');
     } else {
       typeEl.textContent = '—';
       typeEl.className = 'text-slate-500 font-bold';
@@ -12604,7 +12713,7 @@ function renderSmartView() {
     } else if (target) {
       signalEl.innerHTML = `<div class="flex flex-col items-center justify-center">
         <span class="${targetColor} font-black text-sm tracking-wider leading-none flex items-center gap-1">${target} <span>${icon}</span></span>
-        <div class="text-[8px] text-amber-300 font-mono font-bold leading-tight mt-0.5">🎯 Single Target: ${target}</div>
+        <div class="text-[8px] text-amber-300 font-mono font-bold leading-tight mt-0.5">🎯 In-Charge: ${target} (${activeChamp ? activeChamp.name.split(' ')[0] : 'AI'})</div>
       </div>`;
     } else {
       signalEl.innerHTML = '<span class="text-slate-400 text-sm italic">ANALYZING...</span>';
@@ -12620,8 +12729,7 @@ function renderSmartView() {
       engineEl.textContent = '🛡️ 4-LOSS SHIELD ACTIVE';
     } else {
       engineEl.className = 'text-[7.5px] text-emerald-400 font-mono mt-0.5';
-      const engs = currentPred?.engines?.length ? currentPred.engines.join(' + ') : '8-Engine Neural Matrix';
-      engineEl.textContent = engs;
+      engineEl.textContent = activeChamp ? `👑 ${activeChamp.name} (${activeChamp.winRatePct || '0.0%'} WR)` : (currentPred?.engines?.length ? currentPred.engines.join(' + ') : 'Quant AI');
     }
   }
 
