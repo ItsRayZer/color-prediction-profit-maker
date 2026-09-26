@@ -4444,6 +4444,25 @@ function saveRealResult(period, numberInput, isLiveRound = false, skipUIRender =
     };
   }
 
+  // If prediction was set to TESTING, resolve the actual tested model prediction
+  if (existingPred && existingPred.target === 'TESTING') {
+    const inCharge = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
+    if (inCharge && inCharge.predTarget && inCharge.predTarget !== 'TESTING') {
+      const predT = inCharge.predTarget;
+      const predTy = inCharge.predType || (['RED', 'GREEN'].includes(predT) ? 'COLOR' : 'SIZE');
+      existingPred = {
+        target: predT,
+        type: predTy,
+        sizeTarget: predTy === 'SIZE' ? predT : (inCharge.predSize || 'BIG'),
+        colorTarget: predTy === 'COLOR' ? predT : (inCharge.predColor || 'GREEN'),
+        prob: inCharge.conf || 0.75,
+        engines: [inCharge.name]
+      };
+    } else {
+      existingPred = null;
+    }
+  }
+
   // Historical fallback: evaluate consensus strictly from history BEFORE this period
   if (!existingPred) {
     const priorHist = S.history.filter(r => !r.gap && String(r.period) < pStr).sort((a,b) => String(a.period).localeCompare(String(b.period)));
@@ -4902,16 +4921,18 @@ function renderHistoryTable() {
     let colorBadge = row.color === 'RED' ? '🔴' : row.color === 'GREEN' ? '🟢' : '🟣';
 
     // AI Prediction details (immutable & dual size/color aware)
-    const aiPred = getAIPredictionForPeriod(row.period);
+    const effectiveTarget = (row.aiTarget && row.aiTarget !== 'TESTING') ? row.aiTarget : ((aiPred && aiPred.target !== 'TESTING') ? aiPred.target : null);
     let aiText = '<span class="text-slate-500 text-[9px]">—</span>';
-    if (aiPred && aiPred.target) {
-      const isCorrect = (row.aiCorrect !== undefined && row.aiCorrect !== null)
+    let isCorrect = null;
+    if (effectiveTarget) {
+      const effectiveType = row.aiType || aiPred?.type || (['RED', 'GREEN'].includes(effectiveTarget) ? 'COLOR' : 'SIZE');
+      isCorrect = (row.aiCorrect !== undefined && row.aiCorrect !== null)
         ? row.aiCorrect
-        : ((aiPred.type === 'COLOR')
-          ? ([1,3,7,9,5].includes(row.number) ? aiPred.target === 'GREEN' : aiPred.target === 'RED')
-          : aiPred.target === row.size);
+        : ((effectiveType === 'COLOR')
+          ? ([1,3,7,9,5].includes(row.number) ? effectiveTarget === 'GREEN' : effectiveTarget === 'RED')
+          : effectiveTarget === row.size);
 
-      const targetLabel = aiPred.target === 'GREEN' ? '🟢 GREEN' : (aiPred.target === 'RED' ? '🔴 RED' : aiPred.target);
+      const targetLabel = effectiveTarget === 'GREEN' ? '🟢 GREEN' : (effectiveTarget === 'RED' ? '🔴 RED' : effectiveTarget);
       aiText = `<span class="px-1.5 py-0.5 rounded font-black text-[9px] ${isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">${targetLabel} ${isCorrect ? '✓' : '✗'}</span>`;
     }
 
@@ -4926,6 +4947,8 @@ function renderHistoryTable() {
       } else {
         betText = `<span class="px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-bold text-[9px] animate-pulse">PENDING</span>`;
       }
+    } else if (isCorrect !== null) {
+      betText = `<span class="font-black text-[9px] ${isCorrect ? 'text-emerald-400' : 'text-rose-400'}">${isCorrect ? '✓ WIN' : '✗ LOSS'}</span>`;
     }
 
     return `<div onclick="editHistoryRow('${row.period}')" class="grid grid-cols-12 py-2.5 px-3 items-center cursor-pointer hover:bg-indigo-900/40 active:bg-indigo-900/60 transition group border-b border-white/[0.06] text-[10px]">
@@ -7150,18 +7173,20 @@ function _renderTradingCandleChartCore(force = false) {
     // Determine correctness
     let isWin = false;
     let hasPrediction = false;
-    if (aiPred && (aiPred.prediction || aiPred.target)) {
+    const predT = (r.aiTarget && r.aiTarget !== 'TESTING') ? r.aiTarget : (aiPred && (aiPred.prediction || aiPred.target) && aiPred.target !== 'TESTING' ? (aiPred.prediction || aiPred.target) : null);
+    if (r.aiCorrect !== undefined && r.aiCorrect !== null) {
       hasPrediction = true;
-      const predTarget = String(aiPred.prediction || aiPred.target).toUpperCase();
-      if (aiPred.type === 'COLOR' || ['RED', 'GREEN', 'VIOLET'].includes(predTarget)) {
+      isWin = !!r.aiCorrect;
+    } else if (predT) {
+      hasPrediction = true;
+      const predTarget = String(predT).toUpperCase();
+      const predType = r.aiType || aiPred?.type || (['RED', 'GREEN', 'VIOLET'].includes(predTarget) ? 'COLOR' : 'SIZE');
+      if (predType === 'COLOR' || ['RED', 'GREEN', 'VIOLET'].includes(predTarget)) {
         const isGreen = [1,3,7,9,5].includes(num);
         isWin = predTarget === 'GREEN' ? isGreen : !isGreen;
       } else {
         isWin = predTarget === (r.size || '').toUpperCase();
       }
-    } else if (r.aiCorrect !== undefined && r.aiCorrect !== null) {
-      hasPrediction = true;
-      isWin = !!r.aiCorrect;
     }
 
     // Candle Direction:
@@ -7257,6 +7282,9 @@ function _renderTradingCandleChartCore(force = false) {
       } else if (color.includes('red') || [2,4,6,8].includes(num)) {
         markerColor = '#ef5350';
         markerShape = 'circle';
+      }
+      if (hasPrediction) {
+        markerText = `${num} ${r.size ? r.size[0] : ''} ${isWin ? '✓' : '✗'}`;
       }
     }
 
@@ -9712,41 +9740,27 @@ function syncArenaInChargeWithSignal() {
 
   // Synchronize global S.aiSignal with the single prediction chosen by in-charge model
   if (typeof S !== 'undefined') {
-    if (isTesting) {
-      const tested = window.LIVE_TESTING.roundsTested || 0;
-      const targetLimit = tested >= 10 ? 20 : 10;
-      S.aiSignal = {
-        decision: 'TESTING',
-        target: 'TESTING',
-        type: 'TESTING',
-        colorTarget: null,
-        sizeTarget: null,
-        num: null,
-        prob: tested / targetLimit,
-        reason: `🧪 Testing 52 Models Live (${tested}/${targetLimit} Rounds - Need >50% WR)`,
-        engines: ['52 Arena Models Test'],
-        stake: 0,
-        isTest: true,
-        isLiveTesting: true
-      };
-    } else {
-      S.aiSignal = {
-        decision: 'BET',
-        target: predTarget,
-        type: predType,
-        colorTarget: predType === 'COLOR' ? predTarget : (activeInCharge.predColor || 'GREEN'),
-        sizeTarget: predType === 'SIZE' ? predTarget : (activeInCharge.predSize || 'BIG'),
-        num: targetNum,
-        prob: conf,
-        reason: `👑 ${activeInCharge.name} (IN CHARGE — ${activeInCharge.winRatePct || '0.0%'} Win Rate)`,
-        engines: [activeInCharge.name],
-        stake: S.aiSignal?.stake || 1,
-        isTest: S.aiTestMode || false,
-        isLiveTesting: false
-      };
-      if (typeof S.aiPredictionMap === 'object' && S.currentPeriod) {
-        S.aiPredictionMap[String(S.currentPeriod)] = S.aiSignal;
-      }
+    const tested = (window.LIVE_TESTING && window.LIVE_TESTING.roundsTested) || 0;
+    const targetLimit = tested >= 10 ? 20 : 10;
+    S.aiSignal = {
+      decision: isTesting ? 'TESTING' : 'BET',
+      target: predTarget,
+      type: predType,
+      colorTarget: predType === 'COLOR' ? predTarget : (activeInCharge.predColor || 'GREEN'),
+      sizeTarget: predType === 'SIZE' ? predTarget : (activeInCharge.predSize || 'BIG'),
+      num: targetNum,
+      prob: conf,
+      reason: isTesting
+        ? `🧪 Testing 52 Models Live (${tested}/${targetLimit} Rounds - Need >50% WR)`
+        : `👑 ${activeInCharge.name} (IN CHARGE — ${activeInCharge.winRatePct || '0.0%'} Win Rate)`,
+      engines: isTesting ? ['52 Arena Models Test', activeInCharge.name] : [activeInCharge.name],
+      stake: S.aiSignal?.stake || 1,
+      isTest: isTesting ? true : (S.aiTestMode || false),
+      isLiveTesting: isTesting
+    };
+    if (typeof S.aiPredictionMap === 'object' && S.currentPeriod) {
+      S.aiPredictionMap[String(S.currentPeriod)] = { ...S.aiSignal };
+      S.aiPredictionMap[String(S.currentPeriod).slice(-5)] = { ...S.aiSignal };
     }
   }
 
@@ -9807,10 +9821,15 @@ function syncArenaInChargeWithSignal() {
 
   // Update Web View Fallback Companion HUD
   const fallbackSig = document.getElementById('webFallbackSignal');
-  if (fallbackSig && predTarget) {
-    const icon = predTarget === 'GREEN' ? '🟢' : (predTarget === 'RED' ? '🔴' : (predTarget === 'BIG' ? '🔼' : '🔽'));
-    fallbackSig.textContent = `${icon} ${predTarget}`;
-    fallbackSig.className = predTarget === 'GREEN' ? 'text-emerald-400 font-black text-xs' : (predTarget === 'RED' ? 'text-rose-400 font-black text-xs' : 'text-zinc-200 font-black text-xs');
+  if (fallbackSig) {
+    if (isTesting) {
+      fallbackSig.textContent = `🧪 TESTING`;
+      fallbackSig.className = 'text-cyan-400 font-black text-xs animate-pulse';
+    } else if (predTarget) {
+      const icon = predTarget === 'GREEN' ? '🟢' : (predTarget === 'RED' ? '🔴' : (predTarget === 'BIG' ? '🔼' : '🔽'));
+      fallbackSig.textContent = `${icon} ${predTarget}`;
+      fallbackSig.className = predTarget === 'GREEN' ? 'text-emerald-400 font-black text-xs' : (predTarget === 'RED' ? 'text-rose-400 font-black text-xs' : 'text-zinc-200 font-black text-xs');
+    }
   }
 }
 
@@ -12670,16 +12689,18 @@ window.changeHistoryPage = changeHistoryPage;
     const numColor = (n===0||n===5) ? 'text-purple-400' : (n%2===1 ? 'text-emerald-400' : 'text-rose-400');
 
     // AI Prediction (immutable & dual size/color aware)
-    const aiPred = getAIPredictionForPeriod(row.period);
+    const effectiveTarget = (row.aiTarget && row.aiTarget !== 'TESTING') ? row.aiTarget : ((aiPred && aiPred.target !== 'TESTING') ? aiPred.target : null);
     let aiHtml = '<span class="text-slate-600 text-[9px]">—</span>';
-    if (aiPred && aiPred.target) {
-      const isCorrect = (row.aiCorrect !== undefined && row.aiCorrect !== null)
+    let isCorrect = null;
+    if (effectiveTarget) {
+      const effectiveType = row.aiType || aiPred?.type || (['RED', 'GREEN'].includes(effectiveTarget) ? 'COLOR' : 'SIZE');
+      isCorrect = (row.aiCorrect !== undefined && row.aiCorrect !== null)
         ? row.aiCorrect
-        : ((aiPred.type === 'COLOR')
-          ? ([1,3,7,9,5].includes(row.number) ? aiPred.target === 'GREEN' : aiPred.target === 'RED')
-          : aiPred.target === row.size);
+        : ((effectiveType === 'COLOR')
+          ? ([1,3,7,9,5].includes(row.number) ? effectiveTarget === 'GREEN' : effectiveTarget === 'RED')
+          : effectiveTarget === row.size);
 
-      const targetLabel = aiPred.target === 'GREEN' ? '🟢 GREEN' : (aiPred.target === 'RED' ? '🔴 RED' : aiPred.target);
+      const targetLabel = effectiveTarget === 'GREEN' ? '🟢 GREEN' : (effectiveTarget === 'RED' ? '🔴 RED' : effectiveTarget);
       aiHtml = `<span class="px-2 py-0.5 rounded-full font-black text-[9px] ${isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">${targetLabel} ${isCorrect ? '✓' : '✗'}</span>`;
     }
 
@@ -12703,6 +12724,8 @@ window.changeHistoryPage = changeHistoryPage;
       } else {
         outcomeHtml = `${simBadge}<span class="text-amber-400 font-bold animate-pulse">₹${stake.toFixed(0)} ${bet.choice} ?</span>`;
       }
+    } else if (isCorrect !== null) {
+      outcomeHtml = `<span class="font-black text-[9.5px] ${isCorrect ? 'text-emerald-400' : 'text-rose-400'}">${isCorrect ? '✓ WIN' : '✗ LOSS'}</span>`;
     }
 
     return `<div onclick="editHistoryRow('${row.period}')" class="grid grid-cols-12 py-2 px-3 items-center hover:bg-white/5 cursor-pointer transition" title="Period ${row.period} (Click to edit)">
@@ -14008,6 +14031,11 @@ function showLossPopup(args) {
 
 // ── Trigger Win / Loss Notification inside AI Target Box (3s animated display) ────────
 function triggerResultPopup(period, number, size, color, passedIsCorrect = null, passedTarget = null) {
+  const isTesting = !!(window.LIVE_TESTING && window.LIVE_TESTING.active);
+  if (isTesting) {
+    // In live testing mode, the AI Target box continues to show "🧪 TESTING" without popup interruption
+    return;
+  }
   const tf = S.timeframe || '30s';
   const pred = (window.TimeframeManager && typeof window.TimeframeManager.getPredictionForPeriod === 'function')
     ? window.TimeframeManager.getPredictionForPeriod(tf, period)
