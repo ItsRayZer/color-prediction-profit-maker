@@ -58,19 +58,35 @@ export function getSyncedNowMs() {
  */
 async function sampleServerTime(endpoint = '/api/time') {
   const start = performance.now();
-  const resp = await fetch(endpoint, {
-    cache: 'no-store',
-    headers: { 'Accept': 'application/json' }
-  });
-  if (!resp.ok) {
-    throw new Error(`Time server responded with HTTP ${resp.status}`);
+  let serverTimeMs;
+  try {
+    const resp = await fetch(endpoint, {
+      cache: 'no-store',
+      headers: { 'Accept': 'application/json' }
+    });
+    if (!resp.ok) {
+      throw new Error(`Time server responded with HTTP ${resp.status}`);
+    }
+    const data = await resp.json();
+    serverTimeMs = Number(data.serverTimeMs);
+  } catch (primaryErr) {
+    try {
+      const cfResp = await fetch('https://cloudflare.com/cdn-cgi/trace', { cache: 'no-store' });
+      const cfText = await cfResp.text();
+      const tsLine = cfText.split('\n').find(l => l.startsWith('ts='));
+      if (tsLine) {
+        serverTimeMs = parseFloat(tsLine.split('=')[1]) * 1000;
+      } else {
+        throw primaryErr;
+      }
+    } catch {
+      throw primaryErr;
+    }
   }
-  const data = await resp.json();
   const end = performance.now();
 
-  const serverTimeMs = Number(data.serverTimeMs);
   if (!Number.isFinite(serverTimeMs)) {
-    throw new Error('Invalid serverTimeMs returned from /api/time');
+    throw new Error('Invalid serverTimeMs returned from time source');
   }
 
   const rtt = end - start;

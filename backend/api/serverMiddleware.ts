@@ -8,6 +8,35 @@ import { ArenaRouteHandler } from './arenaRoute.ts';
 import { FlyRouteHandler } from './flyRoute.ts';
 import { handleGetPrediction } from './predictionRoute.ts';
 
+let _serverClockSkewMs = 0;
+async function calibrateServerClock() {
+  try {
+    const resp = await fetch('https://cloudflare.com/cdn-cgi/trace');
+    if (resp.ok) {
+      const text = await resp.text();
+      const line = text.split('\n').find((l: string) => l.startsWith('ts='));
+      if (line) {
+        const atomicUtc = parseFloat(line.split('=')[1]) * 1000;
+        _serverClockSkewMs = Math.round(atomicUtc - Date.now());
+        return;
+      }
+    }
+  } catch (e) {}
+
+  try {
+    const headResp = await fetch('https://draw.ar-lottery01.com', { method: 'HEAD' });
+    const dateHdr = headResp.headers.get('date');
+    if (dateHdr) {
+      const serverEpoch = new Date(dateHdr).getTime();
+      _serverClockSkewMs = Math.round(serverEpoch - Date.now());
+      return;
+    }
+  } catch (e) {}
+}
+
+calibrateServerClock();
+setInterval(calibrateServerClock, 5 * 60 * 1000);
+
 export function createArenaMiddleware() {
   globalPredictionArena.initialize();
 
@@ -18,7 +47,7 @@ export function createArenaMiddleware() {
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      return res.end(JSON.stringify({ serverTimeMs: Date.now() }));
+      return res.end(JSON.stringify({ serverTimeMs: Date.now() + _serverClockSkewMs }));
     }
 
     if (!url.startsWith('/api/prediction') && !url.startsWith('/api/web-proxy')) {
