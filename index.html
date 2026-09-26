@@ -4311,8 +4311,45 @@ function renderAIPanel() {
 
   if (isTesting) {
     if (vEl) {
-      vEl.textContent = `🧪 TESTING (${testedCount}/${targetRounds} ROUNDS)`;
-      vEl.className = 'text-xl font-black text-cyan-400 mt-0.5 animate-pulse';
+      vEl.innerHTML = `
+        <div class="flex flex-col items-center gap-1.5">
+          <span class="text-[11px] font-black text-cyan-300 tracking-widest uppercase animate-pulse">⚙️ Benchmarking Models</span>
+          <div id="asiTestingDots" class="flex gap-2 items-center justify-center mt-0.5">
+            <div class="w-7 h-7 rounded-lg font-black text-[9px] flex items-center justify-center border border-amber-400/60 bg-amber-400/20 text-amber-300 animate-pulse" style="animation-delay:0ms">BIG</div>
+            <div class="w-7 h-7 rounded-lg font-black text-[9px] flex items-center justify-center border border-emerald-400/60 bg-emerald-400/20 text-emerald-300 animate-pulse" style="animation-delay:200ms">GRN</div>
+            <div class="w-7 h-7 rounded-lg font-black text-[9px] flex items-center justify-center border border-sky-400/60 bg-sky-400/20 text-sky-300 animate-pulse" style="animation-delay:400ms">SML</div>
+          </div>
+          <span class="text-[9px] font-mono text-cyan-400/80">${testedCount}/${targetRounds} rounds · selecting best model</span>
+        </div>`;
+      vEl.className = 'text-xl font-black text-cyan-400 mt-0.5';
+    }
+    // Animate the dots — cycle BIG/GRN/SML colors through the 4 result colors
+    const _dotsEl = document.getElementById('asiTestingDots');
+    if (_dotsEl && !window._asiDotsAnimating) {
+      window._asiDotsAnimating = true;
+      const _palettes = [
+        ['border-amber-400/60 bg-amber-400/20 text-amber-300','border-emerald-400/60 bg-emerald-400/20 text-emerald-300','border-sky-400/60 bg-sky-400/20 text-sky-300'],
+        ['border-rose-400/60 bg-rose-400/20 text-rose-300','border-amber-400/60 bg-amber-400/20 text-amber-300','border-emerald-400/60 bg-emerald-400/20 text-emerald-300'],
+        ['border-sky-400/60 bg-sky-400/20 text-sky-300','border-rose-400/60 bg-rose-400/20 text-rose-300','border-amber-400/60 bg-amber-400/20 text-amber-300'],
+        ['border-emerald-400/60 bg-emerald-400/20 text-emerald-300','border-sky-400/60 bg-sky-400/20 text-sky-300','border-rose-400/60 bg-rose-400/20 text-rose-300'],
+      ];
+      const _labels = [['BIG','GRN','SML'],['RED','BIG','GRN'],['SML','RED','BIG'],['GRN','SML','RED']];
+      let _pi = 0;
+      window._asiDotsTimer = setInterval(() => {
+        const d = document.getElementById('asiTestingDots');
+        if (!d || !(window.LIVE_TESTING && window.LIVE_TESTING.active)) {
+          clearInterval(window._asiDotsTimer);
+          window._asiDotsAnimating = false;
+          return;
+        }
+        _pi = (_pi + 1) % _palettes.length;
+        const btns = d.querySelectorAll('div');
+        btns.forEach((btn, i) => {
+          btn.className = `w-7 h-7 rounded-lg font-black text-[9px] flex items-center justify-center border animate-pulse ${_palettes[_pi][i]}`;
+          btn.style.animationDelay = `${i * 200}ms`;
+          btn.textContent = _labels[_pi][i];
+        });
+      }, 700);
     }
   } else if (!S.aiReady && S.history.length < MIN_DATA_TO_PREDICT) {
     vEl.textContent  = 'GATHERING DATA...';
@@ -9773,6 +9810,25 @@ const ARENA_CANONICAL_MODELS = [
     "dopamine": 0.5,
     "lossPain": 0,
     "historyPath": []
+  },
+  {
+    "id": "ASI",
+    "name": "ASI Supercomputer",
+    "cat": "meta",
+    "arch": "Regime-Routing · Sequence Mining · Expert-Minority Intelligence",
+    "desc": "Reads every model's live results, mines game sequences, detects regime shifts, and routes to the right specialist cluster — not just the highest win rate",
+    "baseWinRate": 0,
+    "streak": 0,
+    "predColor": "GREEN",
+    "predSize": "BIG",
+    "num": 7,
+    "conf": 0.82,
+    "predType": "COLOR",
+    "predTarget": "GREEN",
+    "bestStreak": 0,
+    "dopamine": 0.5,
+    "lossPain": 0,
+    "historyPath": []
   }
 ];
 
@@ -9788,11 +9844,45 @@ window.ARENA_AUTO_MODE = (() => {
   } catch(e) { return true; }
 })();
 
-// ═══════════════════════════════════════════════════════════════
-// 52-MODEL LIVE TESTING MODE & IN-CHARGE PROMOTION ENGINE
-// ═══════════════════════════════════════════════════════════════
-window.LIVE_TESTING = {
-  active: false,
+// ─── LIVE_TESTING state helpers ──────────────────────────────────────────────
+function _saveLiveTesting() {
+  try {
+    const lt = window.LIVE_TESTING;
+    localStorage.setItem('wingo_live_testing_state', JSON.stringify({
+      active: lt.active,
+      roundsTested: lt.roundsTested,
+      minRounds: lt.minRounds,
+      maxRounds: lt.maxRounds,
+      inChargeWinRate: lt.inChargeWinRate,
+      testedPeriods: Array.from(lt.testedPeriods || [])
+    }));
+  } catch(e) {}
+}
+function _loadLiveTesting() {
+  try {
+    const raw = localStorage.getItem('wingo_live_testing_state');
+    if (raw) {
+      const d = JSON.parse(raw);
+      return {
+        active: !!d.active,
+        roundsTested: Number(d.roundsTested) || 0,
+        minRounds: d.minRounds || 10,
+        maxRounds: d.maxRounds || 20,
+        inChargeModel: null,
+        inChargeWinRate: Number(d.inChargeWinRate) || 0,
+        testedPeriods: new Set(Array.isArray(d.testedPeriods) ? d.testedPeriods : [])
+      };
+    }
+  } catch(e) {}
+  return null;
+}
+
+// Restore persisted state — or activate automatically on a brand-new session
+// (no prior testing data AND no manually chosen champion means we should test)
+const _restoredLT = _loadLiveTesting();
+const _hasPriorChamp = !!manualArenaInChargeId;
+window.LIVE_TESTING = _restoredLT || {
+  active: !_hasPriorChamp,   // auto-start testing on truly fresh sessions
   roundsTested: 0,
   minRounds: 10,
   maxRounds: 20,
@@ -9800,6 +9890,8 @@ window.LIVE_TESTING = {
   inChargeWinRate: 0,
   testedPeriods: new Set()
 };
+// ─────────────────────────────────────────────────────────────────────────────
+
 
 function updateArenaAutoModeUI() {
   const btn = document.getElementById('arenaAutoModeBtn');
@@ -9908,6 +10000,7 @@ function restartLiveTestingMode() {
     inChargeWinRate: 0,
     testedPeriods: new Set()
   };
+  _saveLiveTesting(); // persist fresh restart state
   resetLiveAudit();
   updateArenaLeaderboardUI();
   syncArenaInChargeWithSignal();
@@ -10863,7 +10956,237 @@ function generateModelNextPrediction(model, history, modelStats) {
       cProb = 0.73 + Math.abs(gRate - 0.5) * 0.20;
       break;
     }
+    case 'ASI': {
+      // ══════════════════════════════════════════════════════════════════
+      // ASI — ARTIFICIAL SUPERCOMPUTER INTELLIGENCE
+      // Meta-model. Never copies the #1 model. Uses 5 exclusive strategies
+      // that no individual model has access to:
+      //
+      //  1. SEQUENCE SUFFIX MINING — scan 60 rounds for repeating length-3/4
+      //     suffixes in actual game data. Vote based on what historically follows.
+      //
+      //  2. REGIME DETECTION + CLUSTER ROUTING — detect TREND/CHOP/ALT/RANDOM
+      //     and only count votes from models that historically excel in that regime.
+      //
+      //  3. RECENCY-HOT WEIGHTING — weight by last-5-round performance, not just
+      //     lifetime win rate (a model winning 4/5 recent rounds beats a 60% lifer
+      //     on a 5-loss skid).
+      //
+      //  4. EXPERT-MINORITY DETECTOR — when a small cluster of top-accuracy models
+      //     disagrees with the majority, follow the cluster (majority is often noise).
+      //
+      //  5. CONTRARIAN TRIGGER — if ≥70% of models agree but that call lost 3+
+      //     consecutive rounds, flip (house rotation signal).
+      // ══════════════════════════════════════════════════════════════════
+
+      const asiStats = (typeof getArenaLiveStats === 'function') ? getArenaLiveStats() : {};
+      const asiModels = (typeof ARENA_CANONICAL_MODELS !== 'undefined') ? ARENA_CANONICAL_MODELS.filter(m => m.id !== 'ASI') : [];
+      const recentHist = hist.slice(-60);
+
+      // ── 1. SEQUENCE SUFFIX MINING ──────────────────────────────────
+      // Build sequences of COLOR and SIZE, find the current tail, count what follows
+      const seqColors = recentHist.map(r => r.color === 'GREEN' ? 1 : 0);
+      const seqSizes  = recentHist.map(r => r.size  === 'BIG'   ? 1 : 0);
+
+      function suffixVote(seq, suffixLen) {
+        if (seq.length < suffixLen + 1) return { score: 0, val: -1 };
+        const tail = seq.slice(-suffixLen).join(',');
+        let matchFollows1 = 0, matchFollows0 = 0;
+        for (let i = 0; i <= seq.length - suffixLen - 1; i++) {
+          if (seq.slice(i, i + suffixLen).join(',') === tail) {
+            seq[i + suffixLen] === 1 ? matchFollows1++ : matchFollows0++;
+          }
+        }
+        const total = matchFollows1 + matchFollows0;
+        if (total < 2) return { score: 0, val: -1 };
+        const val = matchFollows1 > matchFollows0 ? 1 : 0;
+        const score = Math.abs(matchFollows1 - matchFollows0) / total;
+        return { score, val };
+      }
+      const sm3c = suffixVote(seqColors, 3);
+      const sm4c = suffixVote(seqColors, 4);
+      const sm3s = suffixVote(seqSizes,  3);
+      const sm4s = suffixVote(seqSizes,  4);
+
+      let asiSeqColorScore = 0, asiSeqColorVal = -1;
+      if (sm4c.score > sm3c.score && sm4c.val >= 0) { asiSeqColorScore = sm4c.score; asiSeqColorVal = sm4c.val; }
+      else if (sm3c.val >= 0) { asiSeqColorScore = sm3c.score; asiSeqColorVal = sm3c.val; }
+
+      let asiSeqSizeScore = 0, asiSeqSizeVal = -1;
+      if (sm4s.score > sm3s.score && sm4s.val >= 0) { asiSeqSizeScore = sm4s.score; asiSeqSizeVal = sm4s.val; }
+      else if (sm3s.val >= 0) { asiSeqSizeScore = sm3s.score; asiSeqSizeVal = sm3s.val; }
+
+      // ── 2. REGIME DETECTION ────────────────────────────────────────
+      // Regimes: TREND (long streak), CHOP (constant flip), ALT (BGBG), RANDOM
+      let asiRegime = 'RANDOM';
+      if (recentHist.length >= 6) {
+        const last6s = seqSizes.slice(-6);
+        const last6c = seqColors.slice(-6);
+        // Dragon (trend): 4+ consecutive same
+        const sRun = last6s.slice(-4).every(v => v === last6s[last6s.length - 1]);
+        const cRun = last6c.slice(-4).every(v => v === last6c[last6c.length - 1]);
+        // Alternating: strict ABABAB
+        const altS = last6s.every((v, i) => i === 0 || v !== last6s[i - 1]);
+        const altC = last6c.every((v, i) => i === 0 || v !== last6c[i - 1]);
+        if (sRun || cRun)   asiRegime = 'TREND';
+        else if (altS || altC) asiRegime = 'ALT';
+        else {
+          // Chop = frequent short reversals (3+ reversals in 6)
+          const revS = last6s.filter((v, i) => i > 0 && v !== last6s[i - 1]).length;
+          if (revS >= 3) asiRegime = 'CHOP';
+        }
+      }
+
+      // Regime → which model categories to trust more
+      // TREND: momentum models (fly-dragonrider, STREAK_RIDER, fly-dopamine)
+      // CHOP: alternation models (STREAK_BREAKER, INVERSION_MODEL, fly-antennal-lobe)
+      // ALT: pattern models (SUFFIX_PATTERNS, PATTERN_TRIE, NGRAM_MODEL)
+      // RANDOM: all equal
+      const regimeTrust = {
+        'TREND': ['fly-neuromodulated-dopamine','STREAK_RIDER','fly-central-complex-navigation','LSTM_RECURRENT','GRU_RECURRENT'],
+        'CHOP':  ['STREAK_BREAKER','INVERSION_MODEL','INVERSION_NEURAL','fly-antennal-lobe','CHANGE_POINT_MODEL'],
+        'ALT':   ['SUFFIX_PATTERNS','PATTERN_TRIE','NGRAM_MODEL','MARKOV_TRANSITION','SECOND_ORDER_MARKOV'],
+        'RANDOM': []
+      };
+      const trustedIds = new Set(regimeTrust[asiRegime] || []);
+
+      // ── 3 + 4. RECENCY-HOT + EXPERT-MINORITY WEIGHTED VOTING ───────
+      let colorVotesGreen = 0, colorVotesRed = 0;
+      let sizeVotesBig = 0, sizeVotesSmall = 0;
+
+      for (const m of asiModels) {
+        const st = asiStats[m.id] || {};
+        const overallWR = (st.winRate !== undefined) ? Number(st.winRate) : 0;
+
+        // Recency: last 5 historyPath entries
+        const hp = Array.isArray(st.historyPath) ? st.historyPath.slice(0, 5) : [];
+        const recentWins = hp.filter(h => h.won).length;
+        const recentTotal = hp.length;
+        const recentWR = recentTotal > 0 ? recentWins / recentTotal : overallWR;
+
+        // Hot weight: blend recency (60%) and lifetime (40%)
+        const hotWR = recentTotal >= 3 ? (recentWR * 0.6 + overallWR * 0.4) : overallWR;
+
+        // Regime boost: trusted models in current regime get +40% weight
+        const regimeBoost = trustedIds.has(m.id) ? 1.4 : 1.0;
+
+        // Skip models with zero evaluations (no real data yet)
+        const evaluated = (st.totalEvaluated !== undefined) ? Number(st.totalEvaluated) : 0;
+        const weight = (evaluated > 0) ? (hotWR * regimeBoost) : 0.01; // tiny vote for untested
+
+        const predColor  = st.predColor  || m.predColor  || 'GREEN';
+        const predSize   = st.predSize   || m.predSize   || 'BIG';
+
+        if (predColor === 'GREEN') colorVotesGreen += weight;
+        else colorVotesRed += weight;
+
+        if (predSize === 'BIG') sizeVotesBig += weight;
+        else sizeVotesSmall += weight;
+      }
+
+      const totalColorVotes = colorVotesGreen + colorVotesRed || 1;
+      const totalSizeVotes  = sizeVotesBig + sizeVotesSmall  || 1;
+      const greenShare = colorVotesGreen / totalColorVotes;
+      const bigShare   = sizeVotesBig    / totalSizeVotes;
+
+      // Expert-minority: top-10 models by lifetime WR (excluding ASI)
+      const sortedByWR = asiModels
+        .filter(m => { const st = asiStats[m.id]; return st && Number(st.totalEvaluated) >= 3; })
+        .sort((a, b) => {
+          const wa = asiStats[a.id] ? Number(asiStats[a.id].winRate) : 0;
+          const wb = asiStats[b.id] ? Number(asiStats[b.id].winRate) : 0;
+          return wb - wa;
+        });
+      const expertCluster = sortedByWR.slice(0, 10);
+      let expertGreen = 0, expertRed = 0, expertBig = 0, expertSmall = 0;
+      for (const m of expertCluster) {
+        const st = asiStats[m.id] || {};
+        const pc = st.predColor || m.predColor || 'GREEN';
+        const ps = st.predSize  || m.predSize  || 'BIG';
+        if (pc === 'GREEN') expertGreen++; else expertRed++;
+        if (ps === 'BIG')   expertBig++;   else expertSmall++;
+      }
+      const expertColorMajority = expertGreen >= expertRed ? 'GREEN' : 'RED';
+      const expertSizeMajority  = expertBig   >= expertSmall? 'BIG'  : 'SMALL';
+      // If top-10 experts disagree with the full majority → trust the experts
+      const fullColorMajority = greenShare >= 0.5 ? 'GREEN' : 'RED';
+      const fullSizeMajority  = bigShare   >= 0.5 ? 'BIG'  : 'SMALL';
+      const expertColorDissents = expertCluster.length > 0 && expertColorMajority !== fullColorMajority;
+      const expertSizeDissents  = expertCluster.length > 0 && expertSizeMajority  !== fullSizeMajority;
+
+      // ── 5. CONTRARIAN TRIGGER ───────────────────────────────────────
+      // If ≥70% consensus on color/size but that call lost last 3 consecutive rounds → flip
+      const last3Hist = hist.slice(-3);
+      let last3ColorConsensus = fullColorMajority;
+      let last3SizeConsensus  = fullSizeMajority;
+      let flipColor = false, flipSize = false;
+
+      if (last3Hist.length >= 3) {
+        // Check if the majority prediction lost 3+ straight rounds
+        const majorityColorLoses = last3Hist.every(r => r.color !== fullColorMajority);
+        const majoritySizeLoses  = last3Hist.every(r => r.size  !== fullSizeMajority);
+        if (greenShare >= 0.70 || greenShare <= 0.30) {
+          if (majorityColorLoses) flipColor = true;
+        }
+        if (bigShare >= 0.70 || bigShare <= 0.30) {
+          if (majoritySizeLoses) flipSize = true;
+        }
+      }
+
+      // ── FUSE ALL SIGNALS ────────────────────────────────────────────
+      // Priority: sequence mining (if strong) > expert minority (if dissenting) > contrarian > consensus
+
+      // COLOR decision
+      let asiColorDec, asiColorConf;
+      if (asiSeqColorScore >= 0.50 && asiSeqColorVal >= 0) {
+        // Strong sequence signal wins
+        asiColorDec  = asiSeqColorVal === 1 ? 'GREEN' : 'RED';
+        asiColorConf = 0.72 + asiSeqColorScore * 0.20;
+      } else if (expertColorDissents && expertCluster.length >= 5) {
+        // Expert minority overrides full consensus
+        asiColorDec  = expertColorMajority;
+        asiColorConf = 0.70;
+      } else if (flipColor) {
+        // Contrarian trigger
+        asiColorDec  = fullColorMajority === 'GREEN' ? 'RED' : 'GREEN';
+        asiColorConf = 0.68;
+      } else {
+        // Weighted consensus
+        asiColorDec  = greenShare >= 0.5 ? 'GREEN' : 'RED';
+        asiColorConf = 0.62 + Math.abs(greenShare - 0.5) * 0.50;
+      }
+      // Blend with sequence if moderate
+      if (asiSeqColorScore >= 0.25 && asiSeqColorVal >= 0) {
+        const seqFavored = asiSeqColorVal === 1 ? 'GREEN' : 'RED';
+        if (seqFavored === asiColorDec) asiColorConf += 0.06;
+      }
+
+      // SIZE decision
+      let asiSizeDec, asiSizeConf;
+      if (asiSeqSizeScore >= 0.50 && asiSeqSizeVal >= 0) {
+        asiSizeDec  = asiSeqSizeVal === 1 ? 'BIG' : 'SMALL';
+        asiSizeConf = 0.72 + asiSeqSizeScore * 0.20;
+      } else if (expertSizeDissents && expertCluster.length >= 5) {
+        asiSizeDec  = expertSizeMajority;
+        asiSizeConf = 0.70;
+      } else if (flipSize) {
+        asiSizeDec  = fullSizeMajority === 'BIG' ? 'SMALL' : 'BIG';
+        asiSizeConf = 0.68;
+      } else {
+        asiSizeDec  = bigShare >= 0.5 ? 'BIG' : 'SMALL';
+        asiSizeConf = 0.62 + Math.abs(bigShare - 0.5) * 0.50;
+      }
+      if (asiSeqSizeScore >= 0.25 && asiSeqSizeVal >= 0) {
+        const seqFavored = asiSeqSizeVal === 1 ? 'BIG' : 'SMALL';
+        if (seqFavored === asiSizeDec) asiSizeConf += 0.06;
+      }
+
+      cDec  = asiColorDec;  cProb = asiColorConf;
+      sDec  = asiSizeDec;   sProb = asiSizeConf;
+      break;
+    }
     default: {
+
       cDec = last1.color === 'GREEN' ? 'RED' : 'GREEN';
       cProb = 0.65;
       sDec = last1.size === 'BIG' ? 'SMALL' : 'BIG';
@@ -10958,6 +11281,7 @@ function evaluateArenaModelsOnSettledRound(periodStr, number, size, color) {
   if (isNewTestingRound) {
     window.LIVE_TESTING.testedPeriods.add(pStr);
     window.LIVE_TESTING.roundsTested = window.LIVE_TESTING.testedPeriods.size;
+    _saveLiveTesting(); // persist progress so refreshes don't reset the counter
   }
 
   ARENA_CANONICAL_MODELS.forEach(m => {
@@ -11064,6 +11388,7 @@ function evaluateArenaModelsOnSettledRound(periodStr, number, size, color) {
       window.LIVE_TESTING.active = false;
       window.LIVE_TESTING.inChargeModel = bestModel;
       window.LIVE_TESTING.inChargeWinRate = bestWinRate;
+      _saveLiveTesting();
       setArenaManualInCharge(bestModel.id);
       showToast(`🏆 TESTING COMPLETE! ${bestModel.name} Promoted as MODEL IN-CHARGE (${(bestWinRate * 100).toFixed(1)}% WR over ${testedCount} live rounds)!`, 'success');
     } else if (testedCount >= 20) {
@@ -11071,9 +11396,11 @@ function evaluateArenaModelsOnSettledRound(periodStr, number, size, color) {
       window.LIVE_TESTING.active = false;
       window.LIVE_TESTING.inChargeModel = bestModel;
       window.LIVE_TESTING.inChargeWinRate = bestWinRate;
+      _saveLiveTesting();
       setArenaManualInCharge(bestModel.id);
       showToast(`🏆 TESTING COMPLETE (20/20 Rounds)! ${bestModel.name} Appointed as MODEL IN-CHARGE (${(bestWinRate * 100).toFixed(1)}% WR)!`, 'success');
     }
+
   }
 
   updateArenaLeaderboardUI();
