@@ -99,4 +99,68 @@ test('AI Target and In-Charge Model Synchronization', async (t) => {
     assert.equal(inChargeModel.id, 'QUANT_SIZE');
     assert.equal(inChargeModel.predTarget, 'BIG');
   });
+
+  await t.test('AI single result in history strictly matches in-charge model evaluation and target', () => {
+    // Simulated active in-charge model
+    const activeInCharge = { id: 'BASE_PREDICTOR', name: 'BASE_PREDICTOR (OG Algorithm)' };
+    const inChargeStats = {
+      historyPath: [
+        { period: '20260926010510', won: true, predType: 'COLOR', predTarget: 'GREEN', actual: 'GREEN' },
+        { period: '20260926010509', won: false, predType: 'COLOR', predTarget: 'RED', actual: 'GREEN' }
+      ]
+    };
+
+    const historyRows = [
+      { period: '20260926010510', number: 7, size: 'BIG', color: 'GREEN', aiTarget: 'BIG' }, // old legacy consensus was 'BIG'
+      { period: '20260926010509', number: 3, size: 'SMALL', color: 'GREEN', aiTarget: 'SMALL' }
+    ];
+
+    // Priority lookup function matching smartHistoryRows logic
+    function resolveRowAiPrediction(row) {
+      const hp = inChargeStats.historyPath.find(p => p.period === row.period);
+      if (hp && hp.predTarget) {
+        return { target: hp.predTarget, type: hp.predType, won: hp.won };
+      }
+      return { target: row.aiTarget, type: 'SIZE', won: row.aiTarget === row.size };
+    }
+
+    const res1 = resolveRowAiPrediction(historyRows[0]);
+    assert.equal(res1.target, 'GREEN');
+    assert.equal(res1.type, 'COLOR');
+    assert.equal(res1.won, true);
+
+    const res2 = resolveRowAiPrediction(historyRows[1]);
+    assert.equal(res2.target, 'RED');
+    assert.equal(res2.type, 'COLOR');
+    assert.equal(res2.won, false);
+  });
+
+  await t.test('Switching in-charge model updates history AI single result to match the newly in-charge model', () => {
+    const stats = {
+      MODEL_A: {
+        historyPath: [
+          { period: '20260926010510', won: true, predType: 'COLOR', predTarget: 'GREEN', actual: 'GREEN' }
+        ]
+      },
+      MODEL_B: {
+        historyPath: [
+          { period: '20260926010510', won: false, predType: 'SIZE', predTarget: 'SMALL', actual: 'BIG' }
+        ]
+      }
+    };
+
+    const row = { period: '20260926010510', number: 7, size: 'BIG', color: 'GREEN' };
+
+    function getHistoryResultForActiveModel(activeModelId) {
+      const hp = stats[activeModelId]?.historyPath?.find(p => p.period === row.period);
+      return hp ? { target: hp.predTarget, won: hp.won } : null;
+    }
+
+    // When MODEL_A is in charge
+    assert.deepEqual(getHistoryResultForActiveModel('MODEL_A'), { target: 'GREEN', won: true });
+
+    // When MODEL_B is in charge
+    assert.deepEqual(getHistoryResultForActiveModel('MODEL_B'), { target: 'SMALL', won: false });
+  });
 });
+

@@ -3612,8 +3612,11 @@ function startRTEngine() {
             if (!S.aiPredictionMap) S.aiPredictionMap = {};
             S.aiPredictionMap[finishedPeriod] = {
               target: S.aiSignal.target,
+              type: S.aiSignal.type || (['RED', 'GREEN'].includes(S.aiSignal.target) ? 'COLOR' : 'SIZE'),
+              sizeTarget: S.aiSignal.sizeTarget,
+              colorTarget: S.aiSignal.colorTarget,
               decision: S.aiSignal.decision || 'BET',
-              prob: S.aiSignal.prob || 0.55,
+              prob: S.aiSignal.prob || 0.75,
               engines: S.aiSignal.engines || [],
               isTest: S.aiSignal.isTest || S.aiTestMode
             };
@@ -4612,58 +4615,90 @@ function saveRealResult(period, numberInput, isLiveRound = false, skipUIRender =
     }
   }
 
-  // 1. Resolve and permanently freeze AI Prediction for this period so it NEVER mutates or flips!
-  let existingPred = (S.aiPredictionMap && (S.aiPredictionMap[pStr] || S.aiPredictionMap[pLast5]));
+  // 1. Resolve AI Prediction for this period strictly from active in-charge model / AI target
+  const activeInCharge = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
+  const arenaStats = (typeof getArenaLiveStats === 'function') ? getArenaLiveStats() : {};
+  const inChargeSt = activeInCharge ? arenaStats[activeInCharge.id] : null;
 
-  if (!existingPred && window.TimeframeManager && typeof window.TimeframeManager.getPredictionForPeriod === 'function') {
-    const tmPred = window.TimeframeManager.getPredictionForPeriod(S.timeframe, pStr);
-    if (tmPred && tmPred.target) existingPred = tmPred;
-  }
+  let existingPred = null;
 
-  const oldHistRow = S.history.find(r => String(r.period) === pStr || String(r.period).slice(-5) === pLast5);
-  if (!existingPred && oldHistRow && oldHistRow.aiTarget) {
-    existingPred = {
-      target: oldHistRow.aiTarget,
-      type: oldHistRow.aiType || 'SIZE',
-      sizeTarget: oldHistRow.aiSizeTarget,
-      colorTarget: oldHistRow.aiColorTarget,
-      prob: oldHistRow.aiProb || 0.60,
-      engines: oldHistRow.aiEngines || ['Quant AI']
-    };
-  }
-
-  // If this is current/recent period that rolled over live, capture S.aiSignal
-  if (!existingPred && S.aiSignal && S.aiSignal.target && (pStr === String(S.currentPeriod) || pLast5 === String(S.currentPeriod).slice(-5) || isLiveRound)) {
-    existingPred = {
-      target: S.aiSignal.target,
-      type: S.aiSignal.type || (['RED', 'GREEN'].includes(S.aiSignal.target) ? 'COLOR' : 'SIZE'),
-      sizeTarget: S.aiSignal.sizeTarget || (['BIG', 'SMALL'].includes(S.aiSignal.target) ? S.aiSignal.target : null),
-      colorTarget: S.aiSignal.colorTarget || (['RED', 'GREEN'].includes(S.aiSignal.target) ? S.aiSignal.target : null),
-      prob: S.aiSignal.prob || 0.60,
-      engines: S.aiSignal.engines || []
-    };
-  }
-
-  // If prediction was set to TESTING, resolve the actual tested model prediction
-  if (existingPred && existingPred.target === 'TESTING') {
-    const inCharge = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
-    if (inCharge && inCharge.predTarget && inCharge.predTarget !== 'TESTING') {
-      const predT = inCharge.predTarget;
-      const predTy = inCharge.predType || (['RED', 'GREEN'].includes(predT) ? 'COLOR' : 'SIZE');
+  // 1a. If active in-charge model already recorded this round in its historyPath
+  if (inChargeSt && Array.isArray(inChargeSt.historyPath)) {
+    const hp = inChargeSt.historyPath.find(p => String(p.period) === pStr || String(p.period).slice(-5) === pLast5);
+    if (hp && hp.predTarget && hp.predTarget !== 'TESTING') {
       existingPred = {
-        target: predT,
-        type: predTy,
-        sizeTarget: predTy === 'SIZE' ? predT : (inCharge.predSize || 'BIG'),
-        colorTarget: predTy === 'COLOR' ? predT : (inCharge.predColor || 'GREEN'),
-        prob: inCharge.conf || 0.75,
-        engines: [inCharge.name]
+        target: hp.predTarget,
+        type: hp.predType || (['RED', 'GREEN'].includes(hp.predTarget) ? 'COLOR' : 'SIZE'),
+        sizeTarget: hp.predType === 'SIZE' ? hp.predTarget : null,
+        colorTarget: hp.predType === 'COLOR' ? hp.predTarget : null,
+        prob: inChargeSt.conf || 0.75,
+        engines: [activeInCharge.name],
+        correct: hp.won
       };
-    } else {
-      existingPred = null;
     }
   }
 
-  // Historical fallback: evaluate consensus strictly from history BEFORE this period
+  // 1b. Check S.aiPredictionMap if stored
+  if (!existingPred && S.aiPredictionMap && (S.aiPredictionMap[pStr] || S.aiPredictionMap[pLast5])) {
+    const mapP = S.aiPredictionMap[pStr] || S.aiPredictionMap[pLast5];
+    if (mapP && mapP.target && mapP.target !== 'TESTING') {
+      existingPred = mapP;
+    }
+  }
+
+  // 1c. If active in-charge model had predTarget prepared for this round
+  if (!existingPred && activeInCharge && inChargeSt && inChargeSt.predTarget && inChargeSt.predTarget !== 'TESTING') {
+    const pType = inChargeSt.predType || (activeInCharge.predColor ? 'COLOR' : 'SIZE');
+    const pTarget = inChargeSt.predTarget || (pType === 'COLOR' ? activeInCharge.predColor : activeInCharge.predSize);
+    existingPred = {
+      target: pTarget,
+      type: pType,
+      sizeTarget: pType === 'SIZE' ? pTarget : (activeInCharge.predSize || 'BIG'),
+      colorTarget: pType === 'COLOR' ? pTarget : (activeInCharge.predColor || 'GREEN'),
+      prob: inChargeSt.conf || activeInCharge.conf || 0.75,
+      engines: [activeInCharge.name]
+    };
+  }
+
+  // 1d. If TimeframeManager has prediction recorded
+  if (!existingPred && window.TimeframeManager && typeof window.TimeframeManager.getPredictionForPeriod === 'function') {
+    const tmPred = window.TimeframeManager.getPredictionForPeriod(S.timeframe, pStr);
+    if (tmPred && tmPred.target && tmPred.target !== 'TESTING') existingPred = tmPred;
+  }
+
+  // 1e. If current/recent period that rolled over live, capture S.aiSignal
+  if (!existingPred && S.aiSignal && S.aiSignal.target && S.aiSignal.target !== 'TESTING' && (pStr === String(S.currentPeriod) || pLast5 === String(S.currentPeriod).slice(-5) || isLiveRound)) {
+    existingPred = {
+      target: S.aiSignal.target,
+      type: S.aiSignal.type || (['RED', 'GREEN'].includes(S.aiSignal.target) ? 'COLOR' : 'SIZE'),
+      sizeTarget: S.aiSignal.sizeTarget,
+      colorTarget: S.aiSignal.colorTarget,
+      prob: S.aiSignal.prob || 0.75,
+      engines: S.aiSignal.engines || (activeInCharge ? [activeInCharge.name] : ['Quant AI'])
+    };
+  }
+
+  // 1f. Walk-forward algorithmic prediction fallback strictly using Active In-Charge Model!
+  if (!existingPred) {
+    const priorHist = S.history.filter(r => !r.gap && String(r.period) < pStr).sort((a,b) => String(a.period).localeCompare(String(b.period)));
+    if (priorHist.length >= 2 && activeInCharge && typeof generateModelNextPrediction === 'function') {
+      try {
+        const freshP = generateModelNextPrediction(activeInCharge, priorHist, inChargeSt || {});
+        if (freshP && freshP.predTarget) {
+          existingPred = {
+            target: freshP.predTarget,
+            type: freshP.predType || (['RED', 'GREEN'].includes(freshP.predTarget) ? 'COLOR' : 'SIZE'),
+            sizeTarget: freshP.predType === 'SIZE' ? freshP.predTarget : freshP.predSize,
+            colorTarget: freshP.predType === 'COLOR' ? freshP.predTarget : freshP.predColor,
+            prob: freshP.conf || 0.75,
+            engines: [activeInCharge.name]
+          };
+        }
+      } catch(e) {}
+    }
+  }
+
+  // 1g. Ultimate fallback to legacy QuantAlgorithm if in-charge model is not present
   if (!existingPred) {
     const priorHist = S.history.filter(r => !r.gap && String(r.period) < pStr).sort((a,b) => String(a.period).localeCompare(String(b.period)));
     if (priorHist.length >= 2 && window.QuantAlgorithm) {
@@ -4685,12 +4720,12 @@ function saveRealResult(period, numberInput, isLiveRound = false, skipUIRender =
 
   if (!existingPred) {
     existingPred = {
-      target: 'BIG',
-      type: 'SIZE',
-      sizeTarget: 'BIG',
-      colorTarget: null,
-      prob: 0.50,
-      engines: ['Default Consensus']
+      target: 'GREEN',
+      type: 'COLOR',
+      sizeTarget: null,
+      colorTarget: 'GREEN',
+      prob: 0.60,
+      engines: [activeInCharge ? activeInCharge.name : 'Quant AI']
     };
   }
 
@@ -4990,51 +5025,86 @@ function editHistoryRow(period) {
   showResultPrompt(period, preNum);
 }
 
-// Universal AI prediction lookup (matches exact period, 5-digit suffix, bet history, or frozen history row)
+// Universal AI prediction lookup (matches exact period, 5-digit suffix, bet history, or in-charge model)
 function getAIPredictionForPeriod(period) {
   if (!period) return null;
   const pStr = String(period).trim();
   const last5 = pStr.length >= 5 ? pStr.slice(-5) : pStr;
 
-  // 1. Primary & Immutable: Check recorded history row first!
-  if (S.history && S.history.length) {
-    const row = S.history.find(r => String(r.period) === pStr || String(r.period).slice(-5) === last5);
-    if (row && row.aiTarget) {
+  const activeInCharge = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
+  const stats = (typeof getArenaLiveStats === 'function') ? getArenaLiveStats() : {};
+  const inChargeStats = activeInCharge ? stats[activeInCharge.id] : null;
+
+  // 1. Check active in-charge model's historyPath first (ground truth for in-charge live results)
+  if (inChargeStats && Array.isArray(inChargeStats.historyPath)) {
+    const hp = inChargeStats.historyPath.find(p => String(p.period) === pStr || String(p.period).slice(-5) === last5);
+    if (hp && hp.predTarget && hp.predTarget !== 'TESTING') {
       return {
-        target: row.aiTarget,
-        type: row.aiType || (['RED', 'GREEN'].includes(row.aiTarget) ? 'COLOR' : 'SIZE'),
-        sizeTarget: row.aiSizeTarget,
-        colorTarget: row.aiColorTarget,
-        prob: row.aiProb || 0.60,
-        engines: row.aiEngines || ['Quant AI'],
-        correct: row.aiCorrect,
-        sizeCorrect: row.aiSizeCorrect,
-        colorCorrect: row.aiColorCorrect
+        target: hp.predTarget,
+        type: hp.predType || (['RED', 'GREEN'].includes(hp.predTarget) ? 'COLOR' : 'SIZE'),
+        sizeTarget: hp.predType === 'SIZE' ? hp.predTarget : null,
+        colorTarget: hp.predType === 'COLOR' ? hp.predTarget : null,
+        prob: inChargeStats.conf || 0.75,
+        correct: hp.won,
+        engines: [activeInCharge.name]
       };
     }
   }
 
-  // 2. Stored AI prediction map (Permanent pre-draw lock)
+  // 2. Check recorded history row if it was stamped with current in-charge model
+  if (S.history && S.history.length) {
+    const row = S.history.find(r => String(r.period) === pStr || String(r.period).slice(-5) === last5);
+    if (row && row.aiTarget && row.aiTarget !== 'TESTING') {
+      if (!activeInCharge || !row.aiEngines || row.aiEngines.includes(activeInCharge.name)) {
+        return {
+          target: row.aiTarget,
+          type: row.aiType || (['RED', 'GREEN'].includes(row.aiTarget) ? 'COLOR' : 'SIZE'),
+          sizeTarget: row.aiSizeTarget,
+          colorTarget: row.aiColorTarget,
+          prob: row.aiProb || 0.60,
+          engines: row.aiEngines || (activeInCharge ? [activeInCharge.name] : ['Quant AI']),
+          correct: row.aiCorrect,
+          sizeCorrect: row.aiSizeCorrect,
+          colorCorrect: row.aiColorCorrect
+        };
+      }
+    }
+  }
+
+  // 3. Stored AI prediction map (Permanent pre-draw lock)
   if (S.aiPredictionMap) {
-    if (S.aiPredictionMap[pStr] && S.aiPredictionMap[pStr].target) {
+    if (S.aiPredictionMap[pStr] && S.aiPredictionMap[pStr].target && S.aiPredictionMap[pStr].target !== 'TESTING') {
       return S.aiPredictionMap[pStr];
     }
     const keys = Object.keys(S.aiPredictionMap);
     const foundKey = keys.find(k => k === pStr || (last5.length >= 4 && k.slice(-5) === last5));
-    if (foundKey && S.aiPredictionMap[foundKey]?.target) {
+    if (foundKey && S.aiPredictionMap[foundKey]?.target && S.aiPredictionMap[foundKey].target !== 'TESTING') {
       return S.aiPredictionMap[foundKey];
     }
   }
 
-  // 3. TimeframeManager recorded prediction
+  // 4. TimeframeManager recorded prediction
   if (window.TimeframeManager && typeof window.TimeframeManager.getPredictionForPeriod === 'function') {
     const tmPred = window.TimeframeManager.getPredictionForPeriod(S.timeframe, pStr);
-    if (tmPred && tmPred.target) return tmPred;
+    if (tmPred && tmPred.target && tmPred.target !== 'TESTING') return tmPred;
   }
 
-  // 4. Current upcoming round ONLY
+  // 5. Current upcoming round ONLY
   if (S.currentPeriod && (pStr === String(S.currentPeriod) || last5 === String(S.currentPeriod).slice(-5))) {
-    if (S.aiSignal && S.aiSignal.target) {
+    if (activeInCharge && activeInCharge.predTarget && activeInCharge.predTarget !== 'TESTING') {
+      const pType = activeInCharge.predType || (activeInCharge.predColor ? 'COLOR' : 'SIZE');
+      const pTarget = activeInCharge.predTarget || (pType === 'COLOR' ? activeInCharge.predColor : activeInCharge.predSize);
+      return {
+        target: pTarget,
+        type: pType,
+        sizeTarget: pType === 'SIZE' ? pTarget : (activeInCharge.predSize || 'BIG'),
+        colorTarget: pType === 'COLOR' ? pTarget : (activeInCharge.predColor || 'GREEN'),
+        prob: activeInCharge.conf || 0.75,
+        decision: 'BET',
+        engines: [activeInCharge.name]
+      };
+    }
+    if (S.aiSignal && S.aiSignal.target && S.aiSignal.target !== 'TESTING') {
       return {
         target: S.aiSignal.target,
         type: S.aiSignal.type || (['RED', 'GREEN'].includes(S.aiSignal.target) ? 'COLOR' : 'SIZE'),
@@ -5047,51 +5117,84 @@ function getAIPredictionForPeriod(period) {
     }
   }
 
-  // 5. Walk-Forward Algorithmic Prediction Fallback (strictly on prior history ONLY)
-  if (S.history && S.history.length && window.QuantAlgorithm) {
+  // 6. Walk-Forward Prediction strictly using Active In-Charge Model!
+  if (S.history && S.history.length) {
     const sorted = S.history.filter(r => !r.gap).sort((a, b) => String(a.period).localeCompare(String(b.period)));
     const targetIdx = sorted.findIndex(r => String(r.period) === pStr || String(r.period).slice(-5) === last5);
     if (targetIdx >= 0) {
       const row = sorted[targetIdx];
-      // STRICT: Only use prior rounds. Never include current or future rounds!
       const priorSlice = targetIdx >= 2 ? sorted.slice(0, targetIdx) : [];
       if (priorSlice.length >= 2) {
-        try {
-          const retro = (typeof window.QuantAlgorithm.generateConsensus === 'function')
-            ? window.QuantAlgorithm.generateConsensus(priorSlice)
-            : window.QuantAlgorithm.predictNextBet(
-                { history: priorSlice, balance: S.balance || 100, lossStreak: 0, timeframe: S.timeframe },
-                {}
-              );
-          if (retro && retro.target) {
-            const target = retro.target;
-            const type = ['RED', 'GREEN'].includes(target) ? 'COLOR' : 'SIZE';
-            let isCorrect = null;
-            if (row.number !== undefined) {
-              if (type === 'COLOR') {
-                const isGreen = [1, 3, 7, 9, 5].includes(row.number);
-                isCorrect = target === 'GREEN' ? isGreen : !isGreen;
-              } else {
-                isCorrect = target === row.size;
+        if (activeInCharge && typeof generateModelNextPrediction === 'function') {
+          try {
+            const pred = generateModelNextPrediction(activeInCharge, priorSlice, inChargeStats || {});
+            if (pred && pred.predTarget) {
+              const target = pred.predTarget;
+              const type = pred.predType || (['RED', 'GREEN'].includes(target) ? 'COLOR' : 'SIZE');
+              let isCorrect = null;
+              if (row.number !== undefined) {
+                if (type === 'COLOR') {
+                  const isGreen = [1, 3, 7, 9, 5].includes(row.number);
+                  isCorrect = target === 'GREEN' ? isGreen : !isGreen;
+                } else {
+                  isCorrect = target === row.size;
+                }
               }
+              row.aiTarget = target;
+              row.aiType = type;
+              row.aiCorrect = isCorrect;
+              row.aiProb = pred.conf || 0.75;
+              row.aiEngines = [activeInCharge.name];
+              return {
+                target,
+                type,
+                sizeTarget: type === 'SIZE' ? target : pred.predSize,
+                colorTarget: type === 'COLOR' ? target : pred.predColor,
+                prob: pred.conf || 0.75,
+                correct: isCorrect,
+                engines: [activeInCharge.name]
+              };
             }
-            // Cache on row for persistent speed & stability
-            row.aiTarget = target;
-            row.aiType = type;
-            row.aiCorrect = isCorrect;
-            row.aiProb = retro.prob || 0.60;
-            row.aiEngines = retro.engines || ['Quant AI'];
-            return {
-              target,
-              type,
-              sizeTarget: type === 'SIZE' ? target : null,
-              colorTarget: type === 'COLOR' ? target : null,
-              prob: retro.prob || 0.60,
-              correct: isCorrect,
-              engines: retro.engines || ['Quant AI']
-            };
-          }
-        } catch (e) {}
+          } catch(e) {}
+        }
+        // Fallback to QuantAlgorithm if activeInCharge is unavailable
+        if (window.QuantAlgorithm) {
+          try {
+            const retro = (typeof window.QuantAlgorithm.generateConsensus === 'function')
+              ? window.QuantAlgorithm.generateConsensus(priorSlice)
+              : window.QuantAlgorithm.predictNextBet(
+                  { history: priorSlice, balance: S.balance || 100, lossStreak: 0, timeframe: S.timeframe },
+                  {}
+                );
+            if (retro && retro.target) {
+              const target = retro.target;
+              const type = ['RED', 'GREEN'].includes(target) ? 'COLOR' : 'SIZE';
+              let isCorrect = null;
+              if (row.number !== undefined) {
+                if (type === 'COLOR') {
+                  const isGreen = [1, 3, 7, 9, 5].includes(row.number);
+                  isCorrect = target === 'GREEN' ? isGreen : !isGreen;
+                } else {
+                  isCorrect = target === row.size;
+                }
+              }
+              row.aiTarget = target;
+              row.aiType = type;
+              row.aiCorrect = isCorrect;
+              row.aiProb = retro.prob || 0.60;
+              row.aiEngines = retro.engines || ['Quant AI'];
+              return {
+                target,
+                type,
+                sizeTarget: type === 'SIZE' ? target : null,
+                colorTarget: type === 'COLOR' ? target : null,
+                prob: retro.prob || 0.60,
+                correct: isCorrect,
+                engines: retro.engines || ['Quant AI']
+              };
+            }
+          } catch (e) {}
+        }
       }
     }
   }
@@ -5120,19 +5223,44 @@ function renderHistoryTable() {
     const numClass = (row.number===0||row.number===5) ? 'text-purple-400' : (row.number%2===1 ? 'text-emerald-400' : 'text-rose-400');
     let colorBadge = row.color === 'RED' ? '🔴' : row.color === 'GREEN' ? '🟢' : '🟣';
 
-    // AI Prediction details (immutable & dual size/color aware)
-    const aiPred = getAIPredictionForPeriod(row.period);
-    const effectiveTarget = (row.aiTarget && row.aiTarget !== 'TESTING') ? row.aiTarget : ((aiPred && aiPred.target !== 'TESTING') ? aiPred.target : null);
-    let aiText = '<span class="text-slate-500 text-[9px]">—</span>';
-    let isCorrect = null;
-    if (effectiveTarget) {
-      const effectiveType = row.aiType || aiPred?.type || (['RED', 'GREEN'].includes(effectiveTarget) ? 'COLOR' : 'SIZE');
-      isCorrect = (row.aiCorrect !== undefined && row.aiCorrect !== null)
-        ? row.aiCorrect
-        : ((effectiveType === 'COLOR')
-          ? ([1,3,7,9,5].includes(row.number) ? effectiveTarget === 'GREEN' : effectiveTarget === 'RED')
-          : effectiveTarget === row.size);
+    // AI Prediction details (strictly aligned with active in-charge / AI target model)
+    const activeInCharge = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
+    const stats = (typeof getArenaLiveStats === 'function') ? getArenaLiveStats() : {};
+    const inChargeStats = activeInCharge ? stats[activeInCharge.id] : null;
 
+    let effectiveTarget = null;
+    let effectiveType = null;
+    let isCorrect = null;
+
+    const hp = inChargeStats?.historyPath?.find(p => String(p.period) === String(row.period) || String(p.period).slice(-5) === String(row.period).slice(-5));
+    if (hp && hp.predTarget && hp.predTarget !== 'TESTING') {
+      effectiveTarget = hp.predTarget;
+      effectiveType = hp.predType || (['RED', 'GREEN'].includes(effectiveTarget) ? 'COLOR' : 'SIZE');
+      isCorrect = hp.won;
+    } else {
+      const aiPred = getAIPredictionForPeriod(row.period);
+      if (aiPred && aiPred.target && aiPred.target !== 'TESTING') {
+        effectiveTarget = aiPred.target;
+        effectiveType = aiPred.type || (['RED', 'GREEN'].includes(effectiveTarget) ? 'COLOR' : 'SIZE');
+        isCorrect = (aiPred.correct !== undefined && aiPred.correct !== null) ? aiPred.correct : null;
+      } else if (row.aiTarget && row.aiTarget !== 'TESTING') {
+        effectiveTarget = row.aiTarget;
+        effectiveType = row.aiType || (['RED', 'GREEN'].includes(effectiveTarget) ? 'COLOR' : 'SIZE');
+        isCorrect = (row.aiCorrect !== undefined && row.aiCorrect !== null) ? row.aiCorrect : null;
+      }
+    }
+
+    if (effectiveTarget && isCorrect === null) {
+      if (effectiveType === 'COLOR') {
+        const isGreen = [1, 3, 7, 9, 5].includes(row.number);
+        isCorrect = effectiveTarget === 'GREEN' ? isGreen : !isGreen;
+      } else {
+        isCorrect = effectiveTarget === row.size;
+      }
+    }
+
+    let aiText = '<span class="text-slate-500 text-[9px]">—</span>';
+    if (effectiveTarget) {
       const targetLabel = effectiveTarget === 'GREEN' ? '🟢' : (effectiveTarget === 'RED' ? '🔴' : (effectiveTarget === 'BIG' ? 'B' : (effectiveTarget === 'SMALL' ? 'S' : effectiveTarget)));
       aiText = `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-black text-[9px] ${isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">${targetLabel} ${isCorrect ? '✓' : '✗'}</span>`;
     }
@@ -10022,6 +10150,7 @@ function restartLiveTestingMode() {
   syncArenaInChargeWithSignal();
   runAI();
   if (typeof renderSmartView === 'function') renderSmartView();
+  if (typeof renderHistoryTable === 'function') renderHistoryTable();
   if (typeof renderAIPanel === 'function') renderAIPanel();
   showToast('🧪 Live Testing Mode Active: Testing 52 models for 10–20 live rounds...', 'info');
 }
@@ -10050,6 +10179,7 @@ function resetArenaLiveStats() {
     syncArenaInChargeWithSignal();
     runAI();
     if (typeof renderSmartView === 'function') renderSmartView();
+    if (typeof renderHistoryTable === 'function') renderHistoryTable();
     if (typeof renderAIPanel === 'function') renderAIPanel();
     showToast('↺ All 52 Model Win Rates Reset to 0.0% (Clean Start)', 'info');
   } catch(e) {}
@@ -10076,6 +10206,7 @@ function setArenaManualInCharge(modelId) {
   syncArenaInChargeWithSignal();
   runAI();
   if (typeof renderSmartView === 'function') renderSmartView();
+  if (typeof renderHistoryTable === 'function') renderHistoryTable();
   if (typeof renderAIPanel === 'function') renderAIPanel();
 }
 
@@ -11368,6 +11499,35 @@ function evaluateArenaModelsOnSettledRound(periodStr, number, size, color) {
       actual: evaluatedType === 'COLOR' ? actualColor : actualSize
     });
     if (st.historyPath.length > 10) st.historyPath.length = 10;
+
+    // Synchronize active in-charge model prediction directly onto history row and prediction map
+    const activeChamp = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
+    if (activeChamp && m.id === activeChamp.id) {
+      if (typeof S !== 'undefined' && S.history) {
+        const rowInHist = S.history.find(r => String(r.period) === String(periodStr) || String(r.period).slice(-5) === String(periodStr).slice(-5));
+        if (rowInHist) {
+          rowInHist.aiTarget = evaluatedTarget;
+          rowInHist.aiType = evaluatedType;
+          rowInHist.aiCorrect = won;
+          rowInHist.aiSizeCorrect = (evaluatedType === 'SIZE') ? won : (evaluatedTarget === actualSize);
+          rowInHist.aiColorCorrect = (evaluatedType === 'COLOR') ? won : (evaluatedTarget === actualColor);
+          rowInHist.aiEngines = [m.name];
+        }
+      }
+      if (typeof S !== 'undefined' && S.aiPredictionMap) {
+        const predObj = {
+          target: evaluatedTarget,
+          type: evaluatedType,
+          sizeTarget: evaluatedType === 'SIZE' ? evaluatedTarget : null,
+          colorTarget: evaluatedType === 'COLOR' ? evaluatedTarget : null,
+          prob: st.conf || 0.75,
+          engines: [m.name],
+          correct: won
+        };
+        S.aiPredictionMap[String(periodStr)] = predObj;
+        S.aiPredictionMap[String(periodStr).slice(-5)] = predObj;
+      }
+    }
 
     // Generate next prediction (analyzing both sequences and picking single color or size)
     const nextP = generateModelNextPrediction(m, hist, st);
@@ -13402,19 +13562,45 @@ function renderSmartView() {
     const colorDot = color === 'RED' ? '🔴' : color === 'GREEN' ? '🟢' : '🟣';
     const numColor = (n===0||n===5) ? 'text-purple-400' : (n%2===1 ? 'text-emerald-400' : 'text-rose-400');
 
-    // AI Prediction (immutable & dual size/color aware)
-    const aiPred = getAIPredictionForPeriod(row.period);
-    const effectiveTarget = (row.aiTarget && row.aiTarget !== 'TESTING') ? row.aiTarget : ((aiPred && aiPred.target !== 'TESTING') ? aiPred.target : null);
-    let aiHtml = '<span class="text-slate-600 text-[9px]">—</span>';
-    let isCorrect = null;
-    if (effectiveTarget) {
-      const effectiveType = row.aiType || aiPred?.type || (['RED', 'GREEN'].includes(effectiveTarget) ? 'COLOR' : 'SIZE');
-      isCorrect = (row.aiCorrect !== undefined && row.aiCorrect !== null)
-        ? row.aiCorrect
-        : ((effectiveType === 'COLOR')
-          ? ([1,3,7,9,5].includes(row.number) ? effectiveTarget === 'GREEN' : effectiveTarget === 'RED')
-          : effectiveTarget === row.size);
+    // AI Prediction (strictly aligned with active in-charge / AI target model)
+    const activeInCharge = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
+    const stats = (typeof getArenaLiveStats === 'function') ? getArenaLiveStats() : {};
+    const inChargeStats = activeInCharge ? stats[activeInCharge.id] : null;
 
+    let effectiveTarget = null;
+    let effectiveType = null;
+    let isCorrect = null;
+
+    // 1. Priority: In-charge model's recorded historyPath
+    const hp = inChargeStats?.historyPath?.find(p => String(p.period) === String(row.period) || String(p.period).slice(-5) === String(row.period).slice(-5));
+    if (hp && hp.predTarget && hp.predTarget !== 'TESTING') {
+      effectiveTarget = hp.predTarget;
+      effectiveType = hp.predType || (['RED', 'GREEN'].includes(effectiveTarget) ? 'COLOR' : 'SIZE');
+      isCorrect = hp.won;
+    } else {
+      const aiPred = getAIPredictionForPeriod(row.period);
+      if (aiPred && aiPred.target && aiPred.target !== 'TESTING') {
+        effectiveTarget = aiPred.target;
+        effectiveType = aiPred.type || (['RED', 'GREEN'].includes(effectiveTarget) ? 'COLOR' : 'SIZE');
+        isCorrect = (aiPred.correct !== undefined && aiPred.correct !== null) ? aiPred.correct : null;
+      } else if (row.aiTarget && row.aiTarget !== 'TESTING') {
+        effectiveTarget = row.aiTarget;
+        effectiveType = row.aiType || (['RED', 'GREEN'].includes(effectiveTarget) ? 'COLOR' : 'SIZE');
+        isCorrect = (row.aiCorrect !== undefined && row.aiCorrect !== null) ? row.aiCorrect : null;
+      }
+    }
+
+    if (effectiveTarget && isCorrect === null) {
+      if (effectiveType === 'COLOR') {
+        const isGreen = [1, 3, 7, 9, 5].includes(row.number);
+        isCorrect = effectiveTarget === 'GREEN' ? isGreen : !isGreen;
+      } else {
+        isCorrect = effectiveTarget === row.size;
+      }
+    }
+
+    let aiHtml = '<span class="text-slate-600 text-[9px]">—</span>';
+    if (effectiveTarget) {
       const targetLabel = effectiveTarget === 'GREEN' ? '🟢' : (effectiveTarget === 'RED' ? '🔴' : (effectiveTarget === 'BIG' ? 'B' : (effectiveTarget === 'SMALL' ? 'S' : effectiveTarget)));
       aiHtml = `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-black text-[9px] ${isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">${targetLabel} ${isCorrect ? '✓' : '✗'}</span>`;
     }
