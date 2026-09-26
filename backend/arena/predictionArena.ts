@@ -77,8 +77,10 @@ import {
   NeuralConsensusExpert,
   ClassicalConsensusExpert,
   MultiTimeframeConsensusExpert,
-  AdaptiveEnsembleExpert
+  AdaptiveEnsembleExpert,
+  AsiSupercomputerExpert
 } from '../experts/metaExperts.ts';
+
 
 import { FlyBrainReservoirExpert } from '../fly/flyExpert.ts';
 import { globalFlyBrainArena, FlyBrainArena } from '../fly/flyArena.ts';
@@ -209,6 +211,8 @@ export class PredictionArena {
     this.registry.register(new ClassicalConsensusExpert());
     this.registry.register(new MultiTimeframeConsensusExpert());
     this.registry.register(new AdaptiveEnsembleExpert());
+    this.registry.register(new AsiSupercomputerExpert());
+
 
     // Initialize health records
     for (const expert of this.registry.getAll()) {

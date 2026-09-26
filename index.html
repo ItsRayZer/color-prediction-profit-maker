@@ -1507,18 +1507,28 @@
     <div id="card-col2-chart" class="liquid-glass-card apple-glass-card rounded-2xl overflow-hidden border border-white/[0.08] shadow-2xl flex flex-col relative transition-all card-draggable" draggable="false" data-card-id="card-col2-chart">
       <!-- Minimal Apple Single-Row Top Control Bar -->
       <div class="px-2.5 py-1.5 bg-black/90 border-b border-white/[0.07] flex items-center justify-between gap-1.5 select-none overflow-x-auto">
-        <!-- Window Name (Minimal: "Chart") -->
+        <!-- Window Name (Minimal: "Chart") + Win/Loss switch in top left -->
         <div class="flex items-center gap-1.5 shrink-0">
           <div class="card-drag-handle p-1 rounded text-slate-500 hover:text-white hover:bg-white/10 transition cursor-grab active:cursor-grabbing" title="Drag Window">
             <i class="fa-solid fa-grip-vertical text-[9px]"></i>
           </div>
           <span class="font-bold text-xs text-white tracking-wide">Chart</span>
+
+          <!-- Mode Pill in Top Left: Size Mode (B/S) vs AI Win/Loss Mode (W/L) -->
+          <div class="flex items-center bg-white/[0.05] p-0.5 rounded-lg border border-white/[0.08] ml-1">
+            <button id="chartModeBtn-size" onclick="setChartDisplayMode('size')" class="px-2 py-0.5 rounded text-[8.5px] font-black uppercase transition bg-amber-400 text-slate-950 shadow" title="Size Mode (Big/Small)">
+              B/S
+            </button>
+            <button id="chartModeBtn-winloss" onclick="setChartDisplayMode('winloss')" class="px-2 py-0.5 rounded text-[8.5px] font-bold uppercase transition text-slate-400 hover:text-white" title="AI Performance Mode (Win/Loss)">
+              W/L
+            </button>
+          </div>
         </div>
 
         <!-- Integrated Toolbar occupying top space -->
-          <div class="flex items-center gap-1 shrink-0 flex-nowrap">
+        <div class="flex items-center gap-1 shrink-0 flex-nowrap">
 
-          <!-- 4-Way Panning Cluster (Left, Right, Up, Down) — only controls kept -->
+          <!-- 4-Way Panning Cluster (Left, Right, Up, Down) -->
           <div class="flex items-center bg-white/[0.04] p-0.5 rounded border border-white/[0.08] gap-0.5">
             <button onclick="panChartHorizontal(-1, 10)" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[9px] active:scale-95" title="Pan Left"><i class="fa-solid fa-arrow-left"></i></button>
             <button onclick="panChartHorizontal(1, 10)" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[9px] active:scale-95" title="Pan Right"><i class="fa-solid fa-arrow-right"></i></button>
@@ -1526,11 +1536,18 @@
             <button onclick="panChartVertical(-1)" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/15 text-slate-300 hover:text-white text-[9px] active:scale-95" title="Pan Down"><i class="fa-solid fa-arrow-down"></i></button>
           </div>
 
+          <!-- Zoom In / Zoom Out -->
+          <div class="flex items-center bg-white/[0.04] p-0.5 rounded border border-white/[0.08] gap-0.5">
+            <button onclick="tradingChartZoom(1, 1)" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/15 text-white text-[9px] active:scale-95" title="Zoom In"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+            <button onclick="tradingChartZoom(-1, 1)" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/15 text-white text-[9px] active:scale-95" title="Zoom Out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+          </div>
+
           <!-- ⊕ Fit / Auto-center toggle -->
           <button id="btnTradingFit" onclick="tradingChartReset()" class="px-1.5 py-0.5 rounded bg-white/[0.08] hover:bg-white/[0.18] text-amber-300 border border-white/10 text-[8px] font-mono font-black active:scale-95 transition" title="Re-center: fit last 10 candles">⊕ Fit</button>
 
         </div>
       </div>
+
 
       <!-- HUD Candlestick Data Bar -->
       <div class="px-3 py-1 bg-black/70 border-b border-white/[0.05] flex items-center justify-between text-[9px] font-mono">
@@ -1751,7 +1768,7 @@
       <!-- ── B. APPLE-STYLE SEGMENTED SUB-NAVIGATION ── -->
       <div class="flex items-center p-1 bg-[#09090b] rounded-xl border border-white/[0.08] text-[9px] font-mono">
         <button id="btnAdaptiveSub_roster" onclick="switchAdaptiveSubView('roster')" class="flex-1 py-1 px-2 rounded-lg bg-zinc-800 text-white font-bold transition shadow-sm">
-          <i class="fa-solid fa-list-ol mr-1"></i> 52 Algorithms
+          <i class="fa-solid fa-list-ol mr-1"></i> 53 Algorithms
         </button>
         <button id="btnAdaptiveSub_audit" onclick="switchAdaptiveSubView('audit')" class="flex-1 py-1 px-2 rounded-lg text-zinc-400 hover:text-white transition">
           <i class="fa-solid fa-clock-rotate-left mr-1"></i> Live Audit
@@ -1761,14 +1778,14 @@
         </button>
       </div>
 
-      <!-- ── SUB-VIEW 1: 52 ISOLATED ALGORITHMS ROSTER ── -->
+      <!-- ── SUB-VIEW 1: 53 ISOLATED ALGORITHMS ROSTER ── -->
       <div id="adaptiveSubView_roster" class="space-y-2.5">
         <!-- Search, Sort & Category Filter -->
         <div class="p-2.5 rounded-2xl bg-[#09090b] border border-white/[0.08] space-y-2">
           <div class="flex items-center gap-1.5">
             <div class="flex-1 flex items-center bg-black/60 rounded-xl border border-white/10 px-2.5 py-1.5 gap-2 text-[9px] font-mono">
               <i class="fa-solid fa-magnifying-glass text-zinc-500"></i>
-              <input id="arenaSearchInput" type="text" placeholder="Search 52 algorithms..." oninput="filterArenaRoster()"
+              <input id="arenaSearchInput" type="text" placeholder="Search 53 algorithms (e.g. ASI, Neural, Markov)..." oninput="filterArenaRoster()"
                 class="bg-transparent text-white placeholder-zinc-500 focus:outline-none w-full text-[9px]">
             </div>
             <select id="arenaSortSelect" onchange="filterArenaRoster()" class="px-2.5 py-1.5 rounded-xl bg-black/60 border border-white/10 text-zinc-300 text-[8.5px] font-mono focus:outline-none">
@@ -1781,14 +1798,15 @@
 
           <!-- Category Filter Pills (Apple Minimalist Monochrome) -->
           <div class="flex flex-wrap items-center gap-1 text-[8px] font-mono">
-            <button id="arenaFilterBtn_all" onclick="setArenaCategoryFilter('all')" class="px-2 py-0.5 rounded-md bg-zinc-700 text-white font-bold transition">All (52)</button>
+            <button id="arenaFilterBtn_all" onclick="setArenaCategoryFilter('all')" class="px-2 py-0.5 rounded-md bg-zinc-700 text-white font-bold transition">All (53)</button>
+            <button id="arenaFilterBtn_meta" onclick="setArenaCategoryFilter('meta')" class="px-2 py-0.5 rounded-md bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 font-bold transition flex items-center gap-1">🧠 Meta & ASI (5)</button>
             <button id="arenaFilterBtn_fly" onclick="setArenaCategoryFilter('fly')" class="px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-zinc-200 transition">Fly Brains (14)</button>
             <button id="arenaFilterBtn_neural" onclick="setArenaCategoryFilter('neural')" class="px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-zinc-200 transition">Neural (12)</button>
             <button id="arenaFilterBtn_classical" onclick="setArenaCategoryFilter('classical')" class="px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-zinc-200 transition">Classical (15)</button>
             <button id="arenaFilterBtn_statistical" onclick="setArenaCategoryFilter('statistical')" class="px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-zinc-200 transition">Statistical (7)</button>
-            <button id="arenaFilterBtn_meta" onclick="setArenaCategoryFilter('meta')" class="px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-zinc-200 transition">Meta (4)</button>
           </div>
         </div>
+
 
         <!-- 52 Models Dynamic Container -->
         <div id="arenaRosterContainer" class="space-y-2 pb-6"></div>
@@ -6605,20 +6623,59 @@ let tradingBBLowerSeries = null;
 
 let tradingChartType = 'candlestick';
 let tradingChartScaleMode = 'dynamic'; // 'dynamic' (1x-5x ball delta) or 'fixed' (±1)
-let tradingChartDisplayMode = 'size'; // 'size' = BIG/SMALL direction, 'winloss' = WIN/LOSS direction
+let tradingChartDisplayMode = (() => {
+  try { return localStorage.getItem('wingo_chart_display_mode') || 'size'; } catch(e) { return 'size'; }
+})(); // 'size' = BIG/SMALL direction, 'winloss' = WIN/LOSS direction
 let tradingIndicators = { sma: false, ema: false, bb: false };
+
+// ── Chart View Persistence across Reloads ────────────────────────────────────
+function saveTradingChartViewState() {
+  try {
+    const state = {
+      displayMode: tradingChartDisplayMode,
+      autoCenter: !!window.tradingChartAutoCenter,
+      loadedCandlesCount: window._chartLoadedCandlesCount || 10,
+      logicalRange: window._savedUserLogicalRange || null,
+      verticalShift: priceScaleVerticalShift || 0
+    };
+    localStorage.setItem('wingo_chart_view_state', JSON.stringify(state));
+    localStorage.setItem('wingo_chart_display_mode', tradingChartDisplayMode);
+  } catch(e) {}
+}
+
+function restoreTradingChartViewState() {
+  try {
+    const raw = localStorage.getItem('wingo_chart_view_state');
+    if (raw) {
+      const s = JSON.parse(raw);
+      if (s.displayMode) tradingChartDisplayMode = s.displayMode;
+      if (typeof s.autoCenter === 'boolean') window.tradingChartAutoCenter = s.autoCenter;
+      if (s.loadedCandlesCount) window._chartLoadedCandlesCount = Math.max(10, Number(s.loadedCandlesCount));
+      if (s.logicalRange && Number.isFinite(s.logicalRange.from) && Number.isFinite(s.logicalRange.to)) {
+        window._savedUserLogicalRange = s.logicalRange;
+      }
+      if (typeof s.verticalShift === 'number') {
+        priceScaleVerticalShift = s.verticalShift;
+      }
+    }
+  } catch(e) {}
+}
+restoreTradingChartViewState();
 
 function setChartDisplayMode(mode) {
   tradingChartDisplayMode = mode === 'winloss' ? 'winloss' : 'size';
+  try { localStorage.setItem('wingo_chart_display_mode', tradingChartDisplayMode); } catch(e) {}
+  saveTradingChartViewState();
+
   const btnSize = document.getElementById('chartModeBtn-size');
   const btnWinLoss = document.getElementById('chartModeBtn-winloss');
   if (btnSize && btnWinLoss) {
     if (tradingChartDisplayMode === 'winloss') {
-      btnWinLoss.className = 'px-2.5 py-1 rounded-lg text-[9px] font-black uppercase transition flex items-center gap-1 bg-emerald-500 text-slate-950 shadow';
-      btnSize.className = 'px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase transition flex items-center gap-1 text-slate-400 hover:text-white';
+      btnWinLoss.className = 'px-2 py-0.5 rounded text-[8.5px] font-black uppercase transition bg-emerald-500 text-slate-950 shadow';
+      btnSize.className = 'px-2 py-0.5 rounded text-[8.5px] font-bold uppercase transition text-slate-400 hover:text-white';
     } else {
-      btnSize.className = 'px-2.5 py-1 rounded-lg text-[9px] font-black uppercase transition flex items-center gap-1 bg-amber-400 text-slate-950 shadow';
-      btnWinLoss.className = 'px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase transition flex items-center gap-1 text-slate-400 hover:text-white';
+      btnSize.className = 'px-2 py-0.5 rounded text-[8.5px] font-black uppercase transition bg-amber-400 text-slate-950 shadow';
+      btnWinLoss.className = 'px-2 py-0.5 rounded text-[8.5px] font-bold uppercase transition text-slate-400 hover:text-white';
     }
   }
 
@@ -6639,6 +6696,7 @@ function setChartDisplayMode(mode) {
 
   renderTradingCandleChart(true);
 }
+
 
 function toggleChartDisplayMode() {
   setChartDisplayMode(tradingChartDisplayMode === 'size' ? 'winloss' : 'size');
@@ -6758,10 +6816,12 @@ function applyPriceScaleShift(stepDelta = 0) {
 function panChartVertical(dir) {
   // Inverted sign so clicking Up moves chart view upwards and Down moves it downwards
   applyPriceScaleShift(dir * -1);
+  saveTradingChartViewState();
   if (typeof showToast === 'function') {
     showToast(dir > 0 ? '▲ Pan Up (Auto-Center Off)' : '▼ Pan Down (Auto-Center Off)', 'info');
   }
 }
+
 
 function resetPriceScaleShift() {
   priceScaleVerticalShift = 0;
@@ -6902,6 +6962,7 @@ function panChartHorizontal(dir, steps = 10) {
       }
     } catch(e) {}
   }
+  saveTradingChartViewState();
   if (typeof showToast === 'function') {
     showToast(dir < 0 ? '◀ Panning Left (Auto-Center Off)' : '▶ Panning Right (Auto-Center Off)', 'info');
   }
@@ -6911,18 +6972,55 @@ function tradingChartZoom(dir, multiplier = 1) {
   if (!tradingChartInstance) return;
   setTradingChartAutoCenter(false);
   const timeScale = tradingChartInstance.timeScale();
-  const curOptions = timeScale.options ? timeScale.options() : null;
-  const curSpacing = (curOptions && curOptions.barSpacing) ? curOptions.barSpacing : 14;
 
-  // Zoom changes candle width/spacing directly, keeping spacing >= 6 so candles never overlap
-  const factor = dir > 0 ? (1.25 * multiplier) : (0.78 / multiplier);
-  const newSpacing = Math.min(50, Math.max(6, Number((curSpacing * factor).toFixed(1))));
+  let range = timeScale.getVisibleLogicalRange();
+  if (!range || !Number.isFinite(range.from) || !Number.isFinite(range.to)) {
+    const hist = (S.history || []).filter(r => !r.gap && r.size);
+    const N = Math.min(hist.length, window._chartLoadedCandlesCount || 10);
+    range = { from: -1.5, to: (N - 1) + 1.5 };
+  }
 
-  timeScale.applyOptions({ barSpacing: newSpacing });
-  window._currentChartBarSpacing = newSpacing;
+  const span = Math.max(2, range.to - range.from);
+  const center = (range.from + range.to) / 2;
+
+  // dir > 0: Zoom In (narrower range, bigger candles)
+  // dir < 0: Zoom Out (wider range, more candles visible)
+  const factor = dir > 0 ? (0.70 / multiplier) : (1.42 * multiplier);
+  const newSpan = Math.max(3, Math.min(250, span * factor));
+
+  // If zooming out past loaded candles, dynamically expand loaded count
+  if (dir < 0 && newSpan > (window._chartLoadedCandlesCount || 10)) {
+    const realHist = (S.history || []).filter(r => !r.gap && r.size);
+    const targetCount = Math.min(realHist.length, Math.ceil(newSpan + 6));
+    if (targetCount > window._chartLoadedCandlesCount) {
+      window._chartLoadedCandlesCount = targetCount;
+      if (typeof _renderTradingCandleChartCore === 'function') {
+        _renderTradingCandleChartCore(true);
+      }
+    }
+  }
+
+  const newFrom = Number((center - (newSpan / 2)).toFixed(2));
+  const newTo = Number((center + (newSpan / 2)).toFixed(2));
+
+  window._savedUserLogicalRange = { from: newFrom, to: newTo };
+
+  try {
+    window._isProgrammaticRangeChange = true;
+    timeScale.setVisibleLogicalRange({ from: newFrom, to: newTo });
+  } catch (e) {
+    try {
+      if (dir > 0) timeScale.zoomIn();
+      else timeScale.zoomOut();
+    } catch(e2) {}
+  } finally {
+    setTimeout(() => { window._isProgrammaticRangeChange = false; }, 80);
+  }
+
+  saveTradingChartViewState();
 
   if (typeof showToast === 'function') {
-    showToast(dir > 0 ? `🔍 Zoom In (${Math.round(newSpacing)}px)` : `🔭 Zoom Out (${Math.round(newSpacing)}px)`, 'info');
+    showToast(dir > 0 ? `🔍 Zoom In (${Math.round(newSpan)} bars)` : `🔭 Zoom Out (${Math.round(newSpan)} bars)`, 'info');
   }
 }
 
@@ -6942,11 +7040,13 @@ function tradingChartReset() {
     _renderTradingCandleChartCore(true);
   }
   rearrangeTradingViewToMiddleRight(true);
+  saveTradingChartViewState();
 
   if (typeof showToast === 'function') {
     showToast('⊕ Fit: Last 10 Candles', 'info');
   }
 }
+
 
 let _twoFingerGesturesInitialized = false;
 function initChartTwoFingerGestures() {
@@ -11470,8 +11570,8 @@ function _doUpdateArenaLeaderboardUI(liveRanking, liveChampion) {
   const targetRounds = testedCount >= 10 ? 20 : 10;
 
   if (isTesting) {
-    if (inChargeNameEl) inChargeNameEl.textContent = '🧪 52-ALGORITHM LIVE TEST BENCHMARK';
-    if (inChargeDescEl) inChargeDescEl.textContent = `Benchmarking future outputs of all 52 models. Model with >50% win rate after 10-20 rounds will be promoted to Model In-Charge.`;
+    if (inChargeNameEl) inChargeNameEl.textContent = '🧪 53-ALGORITHM LIVE TEST BENCHMARK';
+    if (inChargeDescEl) inChargeDescEl.textContent = `Benchmarking future outputs of all 53 models (including ASI). Model with >50% win rate after 10-20 rounds will be promoted to Model In-Charge.`;
     if (inChargeWinRateEl) {
       inChargeWinRateEl.textContent = `${testedCount}/${targetRounds}`;
       inChargeWinRateEl.className = 'text-lg font-black text-cyan-400 font-mono tracking-tight';
@@ -11489,17 +11589,27 @@ function _doUpdateArenaLeaderboardUI(liveRanking, liveChampion) {
       inChargeSignalEl.textContent = `🧪 TESTING (${testedCount}/${targetRounds})`;
     }
   } else {
-    if (inChargeNameEl) inChargeNameEl.textContent = inChargeModel.name;
+    const isAsiInCharge = inChargeModel.id === 'ASI';
+    if (inChargeNameEl) {
+      if (isAsiInCharge) {
+        inChargeNameEl.innerHTML = '<span class="text-purple-300 flex items-center gap-1.5"><span class="animate-pulse">🧠</span> ASI Supercomputer</span>';
+      } else {
+        inChargeNameEl.textContent = inChargeModel.name;
+      }
+    }
     if (inChargeDescEl) inChargeDescEl.textContent = inChargeModel.desc;
     if (inChargeWinRateEl) {
       inChargeWinRateEl.textContent = inChargeModel.winRatePct;
-      inChargeWinRateEl.className = 'text-lg font-black text-emerald-400 font-mono tracking-tight';
+      inChargeWinRateEl.className = isAsiInCharge ? 'text-lg font-black text-purple-300 font-mono tracking-tight' : 'text-lg font-black text-emerald-400 font-mono tracking-tight';
     }
     if (ogWinRateEl) ogWinRateEl.textContent = `${ogPredictor.winRatePct} Win Rate`;
 
     const delta = (inChargeModel.winRate - ogWinRate) * 100;
     if (inChargeAdvantageEl) {
-      if (inChargeModel.evaluated === 0 && ogPredictor.evaluated === 0) {
+      if (isAsiInCharge) {
+        inChargeAdvantageEl.textContent = '🧠 Meta Intelligence · Multi-Regime Sequence Mining';
+        inChargeAdvantageEl.className = 'text-[8.5px] font-bold text-purple-200 font-mono bg-purple-950/60 px-2 py-0.5 rounded-md border border-purple-500/40 shadow-sm';
+      } else if (inChargeModel.evaluated === 0 && ogPredictor.evaluated === 0) {
         inChargeAdvantageEl.textContent = 'Awaiting 1st Live Result (0.0% Starting)';
         inChargeAdvantageEl.className = 'text-[8.5px] font-bold text-slate-400 font-mono bg-white/5 px-2 py-0.5 rounded-md border border-white/10';
       } else if (inChargeModel.id === 'BASE_PREDICTOR') {
@@ -11512,7 +11622,10 @@ function _doUpdateArenaLeaderboardUI(liveRanking, liveChampion) {
     }
 
     if (inChargeBadgeEl) {
-      if (window.ARENA_AUTO_MODE !== false) {
+      if (isAsiInCharge) {
+        inChargeBadgeEl.textContent = '🧠 ASI SUPERCOMPUTER';
+        inChargeBadgeEl.className = 'text-[7.5px] px-2 py-0.5 rounded-full bg-purple-500/25 text-purple-200 border border-purple-500/40 font-black tracking-wider shadow-sm';
+      } else if (window.ARENA_AUTO_MODE !== false) {
         inChargeBadgeEl.textContent = '⚡ AUTO (#1 ACCURACY)';
         inChargeBadgeEl.className = 'text-[7.5px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black tracking-wider animate-pulse';
       } else {
@@ -11520,6 +11633,7 @@ function _doUpdateArenaLeaderboardUI(liveRanking, liveChampion) {
         inChargeBadgeEl.className = 'text-[7.5px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-black tracking-wider';
       }
     }
+
 
     if (inChargeSignalEl && inChargeModel) {
       const pType = inChargeModel.predType || (inChargeModel.predColor ? 'COLOR' : 'SIZE');
@@ -11645,14 +11759,18 @@ async function loadPredictionArenaLeaderboard() {
 
 function setArenaCategoryFilter(cat) {
   arenaCategoryFilter = cat;
-  const cats = ['all', 'fly', 'neural', 'classical', 'statistical', 'meta'];
+  const cats = ['all', 'meta', 'fly', 'neural', 'classical', 'statistical'];
   cats.forEach(c => {
     const btn = document.getElementById('arenaFilterBtn_' + c);
     if (btn) {
       if (c === cat) {
-        btn.className = 'px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 font-black shadow transition';
+        btn.className = c === 'meta'
+          ? 'px-2.5 py-1 rounded-lg bg-purple-500 text-slate-950 font-black shadow transition flex items-center gap-1'
+          : 'px-2.5 py-1 rounded-lg bg-amber-500 text-slate-950 font-black shadow transition';
       } else {
-        btn.className = 'px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-slate-200 border border-white/5 transition';
+        btn.className = c === 'meta'
+          ? 'px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 font-bold transition flex items-center gap-1'
+          : 'px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-slate-200 border border-white/5 transition';
       }
     }
   });
@@ -11670,17 +11788,66 @@ function renderArenaRoster() {
                           (typeof currentAdaptiveSubView !== 'undefined' ? currentAdaptiveSubView === 'roster' : true);
   if (!isRosterVisible) return;
 
-  const models = cachedArenaModels || [];
+  const allModels = cachedArenaModels || [];
+  if (allModels.length === 0) {
+    container.innerHTML = '<div class="p-6 text-center text-zinc-500 font-mono text-[9px] bg-black/40 rounded-2xl border border-zinc-800/60">Initializing 53 Algorithms...</div>';
+    return;
+  }
+
+  const searchQ = (document.getElementById('arenaSearchInput')?.value || '').trim().toLowerCase();
+  const cat = arenaCategoryFilter || 'all';
+  const sortMode = document.getElementById('arenaSortSelect')?.value || 'winrate';
+
+  let models = [...allModels];
+
+  // 1. Category Filter
+  if (cat && cat !== 'all') {
+    models = models.filter(m => (m.cat || '').toLowerCase() === cat.toLowerCase());
+  }
+
+  // 2. Search Query Filter
+  if (searchQ) {
+    models = models.filter(m => 
+      (m.name || '').toLowerCase().includes(searchQ) ||
+      (m.id || '').toLowerCase().includes(searchQ) ||
+      (m.arch || '').toLowerCase().includes(searchQ) ||
+      (m.desc || '').toLowerCase().includes(searchQ) ||
+      (m.cat || '').toLowerCase().includes(searchQ)
+    );
+  }
+
+  // 3. Sort Filter
+  if (sortMode === 'winrate') {
+    models.sort((a, b) => (b.winRate - a.winRate) || (b.evaluated - a.evaluated) || (b.wins - a.wins));
+  } else if (sortMode === 'streak') {
+    models.sort((a, b) => b.streak - a.streak);
+  } else if (sortMode === 'rank') {
+    models.sort((a, b) => (a.rank || 0) - (b.rank || 0));
+  } else if (sortMode === 'name') {
+    models.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
   if (models.length === 0) {
-    container.innerHTML = '<div class="p-6 text-center text-zinc-500 font-mono text-[9px] bg-black/40 rounded-2xl border border-zinc-800/60">Initializing 52 Algorithms...</div>';
+    container.innerHTML = `
+      <div class="p-6 text-center text-zinc-500 font-mono text-[9px] bg-black/40 rounded-2xl border border-zinc-800/60 space-y-2">
+        <i class="fa-solid fa-filter-circle-xmark text-lg text-zinc-600 block"></i>
+        <span>No algorithms found matching "${searchQ || cat}".</span>
+        <div><button onclick="setArenaCategoryFilter('all');document.getElementById('arenaSearchInput').value='';filterArenaRoster();" class="text-amber-400 underline text-[8px]">Reset Filters (Show All 53)</button></div>
+      </div>
+    `;
     return;
   }
 
   const cardsHtml = models.map((m) => {
     const isLead = m.isInCharge;
-    const cardBorder = isLead 
-      ? 'border border-emerald-500/50 bg-[#0c0d10] shadow-[0_0_15px_rgba(16,185,129,0.15)]' 
-      : 'border border-zinc-800/80 bg-[#09090b] hover:border-zinc-700/60';
+    const isAsi = (m.id === 'ASI');
+
+    let cardBorder = 'border border-zinc-800/80 bg-[#09090b] hover:border-zinc-700/60';
+    if (isLead) {
+      cardBorder = 'border border-emerald-500/50 bg-[#0c0d10] shadow-[0_0_15px_rgba(16,185,129,0.15)]';
+    } else if (isAsi) {
+      cardBorder = 'border border-purple-500/60 bg-gradient-to-r from-purple-950/40 via-indigo-950/30 to-[#09090b] shadow-[0_0_22px_rgba(168,85,247,0.25)] ring-1 ring-purple-500/30';
+    }
 
     // Single Prediction Badge: either COLOR or SIZE
     const predType = m.predType || (m.predColor ? 'COLOR' : 'SIZE');
@@ -11724,31 +11891,36 @@ function renderArenaRoster() {
     // Neuro-State Pill (Dopamine vs Loss Pain)
     const dopVal = Math.round((m.dopamine !== undefined ? m.dopamine : 0.5) * 100);
     const painVal = Math.round((m.lossPain !== undefined ? m.lossPain : 0.0) * 100);
-    const neuroPill = painVal > 30 
-      ? `<span class="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 text-[7px] font-mono">🛡️ ${painVal}% Pain</span>`
-      : `<span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[7px] font-mono">⚡ ${dopVal}% Dopamine</span>`;
+    const neuroPill = isAsi
+      ? `<span class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-200 border border-purple-500/30 text-[7px] font-mono">🧠 Supercomputer</span>`
+      : (painVal > 30 
+        ? `<span class="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 text-[7px] font-mono">🛡️ ${painVal}% Pain</span>`
+        : `<span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[7px] font-mono">⚡ ${dopVal}% Dopamine</span>`);
 
     const inChargeBtn = isLead
       ? `<button onclick="setArenaManualInCharge('${m.id}')" class="px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black text-[7.5px] transition" title="Currently Live Champion">✓ In Charge</button>`
+      : isAsi
+      ? `<button onclick="setArenaManualInCharge('${m.id}')" class="px-2 py-0.5 rounded-lg bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/50 font-black text-[7.5px] transition active:scale-95 shadow-sm" title="Appoint ASI Supercomputer as Model In-Charge">🧠 Set In-Charge</button>`
       : `<button onclick="setArenaManualInCharge('${m.id}')" class="px-2 py-0.5 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-white border border-zinc-700/60 font-bold text-[7.5px] transition active:scale-95" title="Set this model as in charge">Set In-Charge</button>`;
 
     return `
       <div class="p-3 rounded-2xl border ${cardBorder} transition duration-150 space-y-2">
         <div class="flex items-center justify-between gap-1">
           <div class="flex items-center gap-2 min-w-0">
-            <span class="w-6 h-6 rounded-lg flex items-center justify-center text-[8.5px] font-mono shrink-0 ${isLead ? 'bg-emerald-500 text-slate-950 font-black' : 'bg-zinc-800 text-zinc-300 font-bold'}">
+            <span class="w-6 h-6 rounded-lg flex items-center justify-center text-[8.5px] font-mono shrink-0 ${isLead ? 'bg-emerald-500 text-slate-950 font-black' : (isAsi ? 'bg-purple-600 text-white font-black shadow' : 'bg-zinc-800 text-zinc-300 font-bold')}">
               #${m.rank}
             </span>
             <div class="min-w-0">
               <div class="flex items-center gap-1.5 flex-wrap">
-                <span class="text-[10px] font-black text-white truncate">${m.name}</span>
+                <span class="text-[10px] font-black ${isAsi ? 'text-purple-200' : 'text-white'} truncate">${isAsi ? '🧠 ' + m.name : m.name}</span>
                 ${isLead ? '<span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[7px] font-black flex items-center gap-0.5">👑 LEADER</span>' : ''}
+                ${isAsi && !isLead ? '<span class="px-1.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[7px] font-black flex items-center gap-0.5 animate-pulse">SUPERCOMPUTER</span>' : ''}
               </div>
-              <div class="text-[7.5px] text-zinc-500 truncate font-mono">${m.arch || m.cat}</div>
+              <div class="text-[7.5px] ${isAsi ? 'text-purple-400/80' : 'text-zinc-500'} truncate font-mono">${m.arch || m.cat}</div>
             </div>
           </div>
           <div class="text-right shrink-0">
-            <div class="text-sm font-black font-mono tracking-tight text-white">${m.winRatePct || '0.0%'}</div>
+            <div class="text-sm font-black font-mono tracking-tight ${isAsi ? 'text-purple-300' : 'text-white'}">${m.winRatePct || '0.0%'}</div>
             <div class="text-[7.5px] text-zinc-500 font-mono">${m.evaluated} rounds (${m.wins}W / ${m.losses}L)</div>
           </div>
         </div>
@@ -11786,6 +11958,7 @@ function renderArenaRoster() {
 
   container.innerHTML = cardsHtml;
 }
+
 
 // Immediately initialize tournament leaderboard state on script evaluation & DOMContentLoaded
 try { ensureArenaInitialPredictions(); updateArenaLeaderboardUI(); } catch (e) {}
