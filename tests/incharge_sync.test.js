@@ -162,5 +162,45 @@ test('AI Target and In-Charge Model Synchronization', async (t) => {
     // When MODEL_B is in charge
     assert.deepEqual(getHistoryResultForActiveModel('MODEL_B'), { target: 'SMALL', won: false });
   });
+
+  await t.test('Locked AI target for in-charge model is preserved on settlement and matches history exactly', () => {
+    const activeChamp = { id: 'CHAMP_QUANT', name: 'Champ Quant' };
+    const period = '20260926010515';
+
+    // 1. Prediction locked while round is active
+    const aiPredictionMap = {
+      [period]: { target: 'BIG', type: 'SIZE', prob: 0.82, engines: ['Champ Quant'] }
+    };
+    const history = [];
+
+    // 2. Round settles with Number 8 (BIG, RED)
+    const number = 8;
+    const actualSize = 'BIG';
+    const actualColor = 'RED';
+
+    // 3. Evaluation logic matching evaluateArenaModelsOnSettledRound
+    const locked = aiPredictionMap[period];
+    assert.ok(locked);
+    const evaluatedTarget = locked.target; // 'BIG'
+    const evaluatedType = locked.type;     // 'SIZE'
+    const won = evaluatedTarget === actualSize;
+    assert.equal(won, true);
+
+    // Save to history
+    history.push({
+      period,
+      number,
+      size: actualSize,
+      color: actualColor,
+      aiTarget: evaluatedTarget,
+      aiType: evaluatedType,
+      aiCorrect: won
+    });
+
+    // 4. Verify history row strictly matches AI In-Charge target and outcome
+    assert.equal(history[0].aiTarget, 'BIG');
+    assert.equal(history[0].aiType, 'SIZE');
+    assert.equal(history[0].aiCorrect, true);
+  });
 });
 

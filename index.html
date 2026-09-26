@@ -4052,17 +4052,27 @@ function runAI() {
         const st = stats[activeInCharge.id] || {};
         const freshP = generateModelNextPrediction(activeInCharge, realHist, st);
         if (freshP && freshP.predTarget) {
-          activeInCharge.predType = freshP.predType;
-          activeInCharge.predTarget = freshP.predTarget;
+          const pT = freshP.predTarget;
+          const pTp = freshP.predType || (['BIG', 'SMALL'].includes(pT) ? 'SIZE' : 'COLOR');
+          activeInCharge.predType = pTp;
+          activeInCharge.predTarget = pT;
           activeInCharge.predColor = freshP.predColor;
           activeInCharge.predSize = freshP.predSize;
           activeInCharge.num = freshP.num;
           activeInCharge.conf = freshP.conf;
+          st.predType = pTp;
+          st.predTarget = pT;
+          st.predColor = freshP.predColor;
+          st.predSize = freshP.predSize;
+          st.num = freshP.num;
+          st.conf = freshP.conf;
+          stats[activeInCharge.id] = st;
+          saveArenaLiveStats(stats);
         }
       } catch(e) {}
     }
-    const pType = activeInCharge.predType || (activeInCharge.predColor ? 'COLOR' : 'SIZE');
-    const pTarget = activeInCharge.predTarget || (pType === 'COLOR' ? activeInCharge.predColor : activeInCharge.predSize) || 'GREEN';
+    const pTarget = activeInCharge.predTarget || (activeInCharge.predType === 'COLOR' ? activeInCharge.predColor : activeInCharge.predSize) || activeInCharge.predColor || 'GREEN';
+    const pType = activeInCharge.predType || (['BIG', 'SMALL'].includes(pTarget) ? 'SIZE' : 'COLOR');
     outcome = {
       ready: true,
       decision: 'BET',
@@ -4622,8 +4632,16 @@ function saveRealResult(period, numberInput, isLiveRound = false, skipUIRender =
 
   let existingPred = null;
 
-  // 1a. If active in-charge model already recorded this round in its historyPath
-  if (inChargeSt && Array.isArray(inChargeSt.historyPath)) {
+  // 1a. Check S.aiPredictionMap if stored and locked for this period
+  if (!existingPred && S.aiPredictionMap && (S.aiPredictionMap[pStr] || S.aiPredictionMap[pLast5])) {
+    const mapP = S.aiPredictionMap[pStr] || S.aiPredictionMap[pLast5];
+    if (mapP && mapP.target && mapP.target !== 'TESTING') {
+      existingPred = mapP;
+    }
+  }
+
+  // 1b. If active in-charge model already recorded this round in its historyPath
+  if (!existingPred && inChargeSt && Array.isArray(inChargeSt.historyPath)) {
     const hp = inChargeSt.historyPath.find(p => String(p.period) === pStr || String(p.period).slice(-5) === pLast5);
     if (hp && hp.predTarget && hp.predTarget !== 'TESTING') {
       existingPred = {
@@ -4635,14 +4653,6 @@ function saveRealResult(period, numberInput, isLiveRound = false, skipUIRender =
         engines: [activeInCharge.name],
         correct: hp.won
       };
-    }
-  }
-
-  // 1b. Check S.aiPredictionMap if stored
-  if (!existingPred && S.aiPredictionMap && (S.aiPredictionMap[pStr] || S.aiPredictionMap[pLast5])) {
-    const mapP = S.aiPredictionMap[pStr] || S.aiPredictionMap[pLast5];
-    if (mapP && mapP.target && mapP.target !== 'TESTING') {
-      existingPred = mapP;
     }
   }
 
@@ -5051,27 +5061,7 @@ function getAIPredictionForPeriod(period) {
     }
   }
 
-  // 2. Check recorded history row if it was stamped with current in-charge model
-  if (S.history && S.history.length) {
-    const row = S.history.find(r => String(r.period) === pStr || String(r.period).slice(-5) === last5);
-    if (row && row.aiTarget && row.aiTarget !== 'TESTING') {
-      if (!activeInCharge || !row.aiEngines || row.aiEngines.includes(activeInCharge.name)) {
-        return {
-          target: row.aiTarget,
-          type: row.aiType || (['RED', 'GREEN'].includes(row.aiTarget) ? 'COLOR' : 'SIZE'),
-          sizeTarget: row.aiSizeTarget,
-          colorTarget: row.aiColorTarget,
-          prob: row.aiProb || 0.60,
-          engines: row.aiEngines || (activeInCharge ? [activeInCharge.name] : ['Quant AI']),
-          correct: row.aiCorrect,
-          sizeCorrect: row.aiSizeCorrect,
-          colorCorrect: row.aiColorCorrect
-        };
-      }
-    }
-  }
-
-  // 3. Stored AI prediction map (Permanent pre-draw lock)
+  // 2. Stored AI prediction map (Permanent pre-draw lock)
   if (S.aiPredictionMap) {
     if (S.aiPredictionMap[pStr] && S.aiPredictionMap[pStr].target && S.aiPredictionMap[pStr].target !== 'TESTING') {
       return S.aiPredictionMap[pStr];
@@ -5080,6 +5070,24 @@ function getAIPredictionForPeriod(period) {
     const foundKey = keys.find(k => k === pStr || (last5.length >= 4 && k.slice(-5) === last5));
     if (foundKey && S.aiPredictionMap[foundKey]?.target && S.aiPredictionMap[foundKey].target !== 'TESTING') {
       return S.aiPredictionMap[foundKey];
+    }
+  }
+
+  // 3. Check recorded history row
+  if (S.history && S.history.length) {
+    const row = S.history.find(r => String(r.period) === pStr || String(r.period).slice(-5) === last5);
+    if (row && row.aiTarget && row.aiTarget !== 'TESTING') {
+      return {
+        target: row.aiTarget,
+        type: row.aiType || (['RED', 'GREEN'].includes(row.aiTarget) ? 'COLOR' : 'SIZE'),
+        sizeTarget: row.aiSizeTarget,
+        colorTarget: row.aiColorTarget,
+        prob: row.aiProb || 0.60,
+        engines: row.aiEngines || (activeInCharge ? [activeInCharge.name] : ['Quant AI']),
+        correct: row.aiCorrect,
+        sizeCorrect: row.aiSizeCorrect,
+        colorCorrect: row.aiColorCorrect
+      };
     }
   }
 
@@ -5232,21 +5240,32 @@ function renderHistoryTable() {
     let effectiveType = null;
     let isCorrect = null;
 
-    const hp = inChargeStats?.historyPath?.find(p => String(p.period) === String(row.period) || String(p.period).slice(-5) === String(row.period).slice(-5));
+    const pStr = String(row.period);
+    const pLast5 = pStr.slice(-5);
+
+    // 1. Priority: In-charge model's recorded historyPath
+    const hp = inChargeStats?.historyPath?.find(p => String(p.period) === pStr || String(p.period).slice(-5) === pLast5);
     if (hp && hp.predTarget && hp.predTarget !== 'TESTING') {
       effectiveTarget = hp.predTarget;
       effectiveType = hp.predType || (['RED', 'GREEN'].includes(effectiveTarget) ? 'COLOR' : 'SIZE');
       isCorrect = hp.won;
     } else {
-      const aiPred = getAIPredictionForPeriod(row.period);
-      if (aiPred && aiPred.target && aiPred.target !== 'TESTING') {
-        effectiveTarget = aiPred.target;
-        effectiveType = aiPred.type || (['RED', 'GREEN'].includes(effectiveTarget) ? 'COLOR' : 'SIZE');
-        isCorrect = (aiPred.correct !== undefined && aiPred.correct !== null) ? aiPred.correct : null;
+      const mapP = (typeof S !== 'undefined' && S.aiPredictionMap) ? (S.aiPredictionMap[pStr] || S.aiPredictionMap[pLast5]) : null;
+      if (mapP && mapP.target && mapP.target !== 'TESTING') {
+        effectiveTarget = mapP.target;
+        effectiveType = mapP.type || (['RED', 'GREEN'].includes(effectiveTarget) ? 'COLOR' : 'SIZE');
+        isCorrect = (mapP.correct !== undefined && mapP.correct !== null) ? mapP.correct : null;
       } else if (row.aiTarget && row.aiTarget !== 'TESTING') {
         effectiveTarget = row.aiTarget;
         effectiveType = row.aiType || (['RED', 'GREEN'].includes(effectiveTarget) ? 'COLOR' : 'SIZE');
         isCorrect = (row.aiCorrect !== undefined && row.aiCorrect !== null) ? row.aiCorrect : null;
+      } else {
+        const aiPred = getAIPredictionForPeriod(row.period);
+        if (aiPred && aiPred.target && aiPred.target !== 'TESTING') {
+          effectiveTarget = aiPred.target;
+          effectiveType = aiPred.type || (['RED', 'GREEN'].includes(effectiveTarget) ? 'COLOR' : 'SIZE');
+          isCorrect = (aiPred.correct !== undefined && aiPred.correct !== null) ? aiPred.correct : null;
+        }
       }
     }
 
@@ -5261,7 +5280,7 @@ function renderHistoryTable() {
 
     let aiText = '<span class="text-slate-500 text-[9px]">—</span>';
     if (effectiveTarget) {
-      const targetLabel = effectiveTarget === 'GREEN' ? '🟢' : (effectiveTarget === 'RED' ? '🔴' : (effectiveTarget === 'BIG' ? 'B' : (effectiveTarget === 'SMALL' ? 'S' : effectiveTarget)));
+      const targetLabel = effectiveTarget === 'GREEN' ? '🟢' : (effectiveTarget === 'RED' ? '🔴' : (effectiveTarget === 'BIG' ? 'BIG' : (effectiveTarget === 'SMALL' ? 'SMALL' : effectiveTarget)));
       aiText = `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-black text-[9px] ${isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">${targetLabel} ${isCorrect ? '✓' : '✗'}</span>`;
     }
 
@@ -10214,26 +10233,67 @@ function setArenaManualInCharge(modelId) {
 
 // Retrieve active in-charge algorithm
 function getArenaActiveInChargeModel() {
-  const models = (typeof cachedArenaModels !== 'undefined' && Array.isArray(cachedArenaModels) && cachedArenaModels.length > 0)
-    ? cachedArenaModels
-    : (typeof ARENA_CANONICAL_MODELS !== 'undefined' ? ARENA_CANONICAL_MODELS : []);
-
-  if (models.length === 0) return null;
-
-  // Auto Mode ON (Default): Always return the model with highest win rate / accuracy (sorted first)
-  if (window.ARENA_AUTO_MODE !== false) {
-    return models[0];
+  if (typeof cachedArenaModels !== 'undefined' && Array.isArray(cachedArenaModels) && cachedArenaModels.length > 0) {
+    if (window.ARENA_AUTO_MODE !== false) {
+      return cachedArenaModels[0];
+    }
+    if (typeof manualArenaInChargeId !== 'undefined' && manualArenaInChargeId) {
+      const found = cachedArenaModels.find(x => x.id === manualArenaInChargeId);
+      if (found) return found;
+    }
+    const inCharge = cachedArenaModels.find(m => m.isInCharge);
+    if (inCharge) return inCharge;
+    return cachedArenaModels[0];
   }
 
-  // Auto Mode OFF (Manual): Return explicitly selected model
-  if (typeof manualArenaInChargeId !== 'undefined' && manualArenaInChargeId) {
-    const found = models.find(x => x.id === manualArenaInChargeId);
+  // Fallback: derive ranked models live from canonical models + persistent stats
+  const canon = (typeof ARENA_CANONICAL_MODELS !== 'undefined' ? ARENA_CANONICAL_MODELS : []);
+  if (canon.length === 0) return null;
+  const stats = (typeof getArenaLiveStats === 'function') ? getArenaLiveStats() : {};
+  const merged = canon.map(m => {
+    const st = stats[m.id] || {};
+    const winRate = (st.winRate !== undefined) ? Number(st.winRate) : 0;
+    const streak = (st.streak !== undefined) ? Number(st.streak) : 0;
+    const evaluated = (st.totalEvaluated !== undefined) ? Number(st.totalEvaluated) : 0;
+    const wins = (st.wins !== undefined) ? Number(st.wins) : 0;
+    const losses = (st.losses !== undefined) ? Number(st.losses) : 0;
+    const predTarget = st.predTarget || m.predTarget || m.predColor || 'GREEN';
+    const predType = st.predType || m.predType || (['BIG', 'SMALL'].includes(predTarget) ? 'SIZE' : 'COLOR');
+    return {
+      ...m,
+      winRate,
+      winRatePct: ((winRate || 0) * 100).toFixed(1) + '%',
+      streak,
+      bestStreak: (st.bestStreak !== undefined) ? Number(st.bestStreak) : Math.max(0, streak),
+      evaluated,
+      wins,
+      losses,
+      dopamine: (st.dopamine !== undefined) ? Number(st.dopamine) : 0.50,
+      lossPain: (st.lossPain !== undefined) ? Number(st.lossPain) : 0.0,
+      historyPath: Array.isArray(st.historyPath) ? st.historyPath : [],
+      predType,
+      predTarget,
+      predColor: st.predColor || m.predColor || 'GREEN',
+      predSize: st.predSize || m.predSize || 'BIG',
+      num: st.num || m.num || (predTarget === 'GREEN' ? 7 : (predTarget === 'RED' ? 8 : (predTarget === 'BIG' ? 8 : 2))),
+      conf: st.conf || m.conf || 0.75
+    };
+  });
+
+  if (window.ARENA_AUTO_MODE === false && typeof manualArenaInChargeId !== 'undefined' && manualArenaInChargeId) {
+    const found = merged.find(x => x.id === manualArenaInChargeId);
     if (found) return found;
   }
 
-  const inCharge = models.find(m => m.isInCharge);
-  if (inCharge) return inCharge;
-  return models[0];
+  merged.sort((a, b) => {
+    if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+    if (b.evaluated !== a.evaluated) return b.evaluated - a.evaluated;
+    if (b.wins !== a.wins) return b.wins - a.wins;
+    if (a.id === 'BASE_PREDICTOR') return -1;
+    if (b.id === 'BASE_PREDICTOR') return 1;
+    return a.name.localeCompare(b.name);
+  });
+  return merged[0];
 }
 
 // Synchronize in-charge model prediction with global S.aiSignal and vice versa
@@ -10243,8 +10303,8 @@ function syncArenaInChargeWithSignal() {
   if (!activeInCharge) return;
 
   const hist = (typeof S !== 'undefined' && S.history) ? S.history : [];
-  let predType = activeInCharge.predType || (activeInCharge.predColor ? 'COLOR' : 'SIZE');
-  let predTarget = activeInCharge.predTarget || (predType === 'COLOR' ? activeInCharge.predColor : activeInCharge.predSize) || 'GREEN';
+  let predTarget = activeInCharge.predTarget || (activeInCharge.predType === 'COLOR' ? activeInCharge.predColor : activeInCharge.predSize) || activeInCharge.predColor || 'GREEN';
+  let predType = activeInCharge.predType || (['BIG', 'SMALL'].includes(predTarget) ? 'SIZE' : 'COLOR');
   let targetNum = activeInCharge.num || (predTarget === 'GREEN' ? 7 : (predTarget === 'RED' ? 8 : (predTarget === 'BIG' ? 8 : 2)));
   let conf = activeInCharge.conf || 0.75;
 
@@ -10255,7 +10315,7 @@ function syncArenaInChargeWithSignal() {
       const st = stats[activeInCharge.id] || {};
       const freshP = generateModelNextPrediction(activeInCharge, hist, st);
       if (freshP && freshP.predTarget) {
-        predType = freshP.predType;
+        predType = freshP.predType || (['BIG', 'SMALL'].includes(freshP.predTarget) ? 'SIZE' : 'COLOR');
         predTarget = freshP.predTarget;
         targetNum = freshP.num;
         conf = freshP.conf;
@@ -10265,8 +10325,12 @@ function syncArenaInChargeWithSignal() {
         activeInCharge.conf = conf;
         st.predType = predType;
         st.predTarget = predTarget;
+        st.predColor = freshP.predColor;
+        st.predSize = freshP.predSize;
         st.num = targetNum;
         st.conf = conf;
+        stats[activeInCharge.id] = st;
+        saveArenaLiveStats(stats);
       }
     } catch(e) {}
   }
@@ -11460,8 +11524,27 @@ function evaluateArenaModelsOnSettledRound(periodStr, number, size, color) {
 
     // SINGLE PREDICTION EVALUATION: EITHER COLOR OR SIZE, NEVER BOTH!
     let won = false;
-    const evaluatedType = st.predType || 'COLOR';
-    const evaluatedTarget = st.predTarget || st.predColor || 'GREEN';
+    let evaluatedType = st.predType || 'COLOR';
+    let evaluatedTarget = st.predTarget || st.predColor || 'GREEN';
+
+    const activeChamp = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
+    const isThisInCharge = activeChamp && (m.id === activeChamp.id);
+
+    // If this model is the active in-charge champion, ensure evaluatedTarget strictly matches the locked AI prediction
+    if (isThisInCharge) {
+      const pStrKey = String(periodStr);
+      const pLast5Key = pStrKey.slice(-5);
+      const locked = (typeof S !== 'undefined' && S.aiPredictionMap)
+        ? (S.aiPredictionMap[pStrKey] || S.aiPredictionMap[pLast5Key])
+        : null;
+      if (locked && locked.target && locked.target !== 'TESTING') {
+        evaluatedTarget = locked.target;
+        evaluatedType = locked.type || (['RED', 'GREEN'].includes(evaluatedTarget) ? 'COLOR' : 'SIZE');
+      } else if (activeChamp.predTarget && activeChamp.predTarget !== 'TESTING') {
+        evaluatedTarget = activeChamp.predTarget;
+        evaluatedType = activeChamp.predType || (['RED', 'GREEN'].includes(evaluatedTarget) ? 'COLOR' : 'SIZE');
+      }
+    }
 
     if (evaluatedType === 'COLOR') {
       won = (evaluatedTarget === actualColor);
@@ -11501,8 +11584,7 @@ function evaluateArenaModelsOnSettledRound(periodStr, number, size, color) {
     if (st.historyPath.length > 10) st.historyPath.length = 10;
 
     // Synchronize active in-charge model prediction directly onto history row and prediction map
-    const activeChamp = (typeof getArenaActiveInChargeModel === 'function') ? getArenaActiveInChargeModel() : null;
-    if (activeChamp && m.id === activeChamp.id) {
+    if (isThisInCharge) {
       if (typeof S !== 'undefined' && S.history) {
         const rowInHist = S.history.find(r => String(r.period) === String(periodStr) || String(r.period).slice(-5) === String(periodStr).slice(-5));
         if (rowInHist) {
@@ -11795,9 +11877,8 @@ function _doUpdateArenaLeaderboardUI(liveRanking, liveChampion) {
     }
 
 
-    if (inChargeSignalEl && inChargeModel) {
-      const pType = inChargeModel.predType || (inChargeModel.predColor ? 'COLOR' : 'SIZE');
-      const pTarget = inChargeModel.predTarget || (pType === 'COLOR' ? inChargeModel.predColor : inChargeModel.predSize) || 'GREEN';
+      const pTarget = inChargeModel.predTarget || (inChargeModel.predType === 'COLOR' ? inChargeModel.predColor : inChargeModel.predSize) || inChargeModel.predColor || 'GREEN';
+      const pType = inChargeModel.predType || (['BIG', 'SMALL'].includes(pTarget) ? 'SIZE' : 'COLOR');
       if (pType === 'COLOR') {
         const colorClass = pTarget === 'GREEN' ? 'text-emerald-400' : 'text-rose-400';
         const icon = pTarget === 'GREEN' ? '🟢' : '🔴';
@@ -13571,22 +13652,32 @@ function renderSmartView() {
     let effectiveType = null;
     let isCorrect = null;
 
+    const pStr = String(row.period);
+    const pLast5 = pStr.slice(-5);
+
     // 1. Priority: In-charge model's recorded historyPath
-    const hp = inChargeStats?.historyPath?.find(p => String(p.period) === String(row.period) || String(p.period).slice(-5) === String(row.period).slice(-5));
+    const hp = inChargeStats?.historyPath?.find(p => String(p.period) === pStr || String(p.period).slice(-5) === pLast5);
     if (hp && hp.predTarget && hp.predTarget !== 'TESTING') {
       effectiveTarget = hp.predTarget;
       effectiveType = hp.predType || (['RED', 'GREEN'].includes(effectiveTarget) ? 'COLOR' : 'SIZE');
       isCorrect = hp.won;
     } else {
-      const aiPred = getAIPredictionForPeriod(row.period);
-      if (aiPred && aiPred.target && aiPred.target !== 'TESTING') {
-        effectiveTarget = aiPred.target;
-        effectiveType = aiPred.type || (['RED', 'GREEN'].includes(effectiveTarget) ? 'COLOR' : 'SIZE');
-        isCorrect = (aiPred.correct !== undefined && aiPred.correct !== null) ? aiPred.correct : null;
+      const mapP = (typeof S !== 'undefined' && S.aiPredictionMap) ? (S.aiPredictionMap[pStr] || S.aiPredictionMap[pLast5]) : null;
+      if (mapP && mapP.target && mapP.target !== 'TESTING') {
+        effectiveTarget = mapP.target;
+        effectiveType = mapP.type || (['RED', 'GREEN'].includes(effectiveTarget) ? 'COLOR' : 'SIZE');
+        isCorrect = (mapP.correct !== undefined && mapP.correct !== null) ? mapP.correct : null;
       } else if (row.aiTarget && row.aiTarget !== 'TESTING') {
         effectiveTarget = row.aiTarget;
         effectiveType = row.aiType || (['RED', 'GREEN'].includes(effectiveTarget) ? 'COLOR' : 'SIZE');
         isCorrect = (row.aiCorrect !== undefined && row.aiCorrect !== null) ? row.aiCorrect : null;
+      } else {
+        const aiPred = getAIPredictionForPeriod(row.period);
+        if (aiPred && aiPred.target && aiPred.target !== 'TESTING') {
+          effectiveTarget = aiPred.target;
+          effectiveType = aiPred.type || (['RED', 'GREEN'].includes(effectiveTarget) ? 'COLOR' : 'SIZE');
+          isCorrect = (aiPred.correct !== undefined && aiPred.correct !== null) ? aiPred.correct : null;
+        }
       }
     }
 
@@ -13601,7 +13692,7 @@ function renderSmartView() {
 
     let aiHtml = '<span class="text-slate-600 text-[9px]">—</span>';
     if (effectiveTarget) {
-      const targetLabel = effectiveTarget === 'GREEN' ? '🟢' : (effectiveTarget === 'RED' ? '🔴' : (effectiveTarget === 'BIG' ? 'B' : (effectiveTarget === 'SMALL' ? 'S' : effectiveTarget)));
+      const targetLabel = effectiveTarget === 'GREEN' ? '🟢' : (effectiveTarget === 'RED' ? '🔴' : (effectiveTarget === 'BIG' ? 'BIG' : (effectiveTarget === 'SMALL' ? 'SMALL' : effectiveTarget)));
       aiHtml = `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-black text-[9px] ${isCorrect ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}">${targetLabel} ${isCorrect ? '✓' : '✗'}</span>`;
     }
 
