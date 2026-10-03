@@ -1,0 +1,65 @@
+name: 24/7 Cloud WinGo Sync to Firebase
+
+on:
+  schedule:
+    # Run every 5 minutes to keep history continuously warm and fresh
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Sync WinGo History to Firebase RTDB
+        run: |
+          node -e "
+          const RTDB_BASE = 'https://zer0one-376d1-default-rtdb.asia-southeast1.firebasedatabase.app';
+          const TIMEFRAMES = [
+            { id: '30s', url: 'https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json?pageNo=1' },
+            { id: '1m',  url: 'https://draw.ar-lottery01.com/WinGo/WinGo_1M/GetHistoryIssuePage.json?pageNo=1'  },
+            { id: '3m',  url: 'https://draw.ar-lottery01.com/WinGo/WinGo_3M/GetHistoryIssuePage.json?pageNo=1'  },
+            { id: '5m',  url: 'https://draw.ar-lottery01.com/WinGo/WinGo_5M/GetHistoryIssuePage.json?pageNo=1'  }
+          ];
+
+          async function syncAll() {
+            for (const tf of TIMEFRAMES) {
+              try {
+                const res = await fetch(tf.url, {
+                  headers: {
+                    'Accept': 'application/json',
+                    'Referer': 'https://dhaniwin0.com/',
+                    'User-Agent': 'Mozilla/5.0'
+                  }
+                });
+                if (!res.ok) continue;
+                const data = await res.json();
+                const list = data.data?.list || [];
+                if (!list.length) continue;
+                const parsed = list.slice(0, 50).reverse().map(r => ({
+                  period: String(r.issueNumber || r.issue || r.period || ''),
+                  number: parseInt(r.number || r.openNumber || 0, 10),
+                  size: r.size || (parseInt(r.number || 0, 10) >= 5 ? 'BIG' : 'SMALL'),
+                  color: r.color || 'green'
+                })).filter(r => r.period && !isNaN(r.number));
+
+                await fetch(RTDB_BASE + '/live_history/' + tf.id + '.json', {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(parsed)
+                });
+                console.log('Synced', tf.id, parsed.length, 'rounds.');
+              } catch(e) {
+                console.error(tf.id, e.message);
+              }
+            }
+          }
+          syncAll();
+          "

@@ -1,6 +1,8 @@
-# Prediction Game Trading Chart
+# 01:01 Quant AI Terminal
 
-A professional, full-screen TradingView-style financial analytics dashboard and charting platform tailored for WinGo and color/size prediction games. Built with React 19, TypeScript, Vite, TradingView Lightweight Charts v5, and `lightweight-charts-drawing`.
+The active app is a static browser application for WinGo history, predictions, charts, simulation, and DhaniWin bet preparation. Desktop starts at `index.html`; mobile starts at `mobile.html` with its behavior in `mobile.js`; `terminal.html` is the separate full terminal. Firebase Hosting serves the generated `deploy/` folder.
+
+The React chart components under `src/` are a separate chart prototype and are not mounted by those HTML entry points. Vite provides local development middleware for the Node cloud API; Firebase Hosting is static and does not run that Node service in production.
 
 ---
 
@@ -96,6 +98,19 @@ Complete quantitative indicator suite:
    ```bash
    npx tsx scratch/test_trading_chart.js
    ```
+
+## Firebase Write Access
+
+Realtime Database rules are read-only for public clients. The Cloudflare sync Worker and optional Node cloud ingester write with a Firebase service account. Keep the downloaded service-account JSON outside the repository and never add it to client code or source control.
+
+Before deploying the database rules and Worker, add the JSON key as a Cloudflare secret:
+
+```bash
+cd cloudflare-worker
+npx wrangler secret put FIREBASE_SERVICE_ACCOUNT_JSON
+```
+
+Paste the complete service-account JSON when prompted. The service account must have permission to write to the `zer0one-376d1` Realtime Database. Local Node cloud ingestion also reads the same JSON from the `FIREBASE_SERVICE_ACCOUNT_JSON` environment variable.
 
 ---
 

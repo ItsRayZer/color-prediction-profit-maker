@@ -1,0 +1,990 @@
+/* ═══════════════════════════════════════════════════════════════
+   APPLE LIQUID GLASS MOBILE THEME (mobile.css)
+   Pure Mobile-First Ultra-Glass Styling
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  --safe-bottom: env(safe-area-inset-bottom, 12px);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --glass-bg: rgba(14, 14, 20, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.10);
+  --glass-specular: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  --accent-amber: #f59e0b;
+  --accent-purple: #c084fc;
+  --accent-emerald: #34d399;
+  --accent-sky: #38bdf8;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+  touch-action: manipulation;
+}
+
+body {
+  background: #09090b;
+  background-image: 
+    radial-gradient(ellipse at 50% -10%, rgba(120, 50, 255, 0.18), transparent 60%),
+    radial-gradient(ellipse at 80% 60%, rgba(245, 158, 11, 0.08), transparent 50%),
+    radial-gradient(ellipse at 20% 80%, rgba(56, 189, 248, 0.08), transparent 50%);
+  background-attachment: fixed;
+  color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+  user-select: none;
+  touch-action: manipulation;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior-y: contain;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+.liquid-glass-card, .ios-grouped-card, .dock-container, #mobileBottomDock {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* ── Apple Liquid Glass Card ── */
+.liquid-glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(28px) saturate(210%);
+  -webkit-backdrop-filter: blur(28px) saturate(210%);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.55), var(--glass-specular);
+  border-radius: 22px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s ease;
+}
+
+.liquid-glass-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, transparent 100%);
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* ── Apple Liquid Glass Header Bar (Seamless / No Line) ── */
+.liquid-glass-header {
+  background: rgba(10, 10, 15, 0.42) !important;
+  backdrop-filter: blur(28px) saturate(210%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(210%) !important;
+  border: none !important;
+  border-bottom: none !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.28) !important;
+}
+
+/* ── Fullscreen Immersive Win Animation ── */
+#fullScreenWinModal {
+  perspective: 1000px;
+}
+.win-glow-burst {
+  animation: winGlowPulse 1.5s ease-in-out infinite alternate;
+}
+@keyframes winGlowPulse {
+  0% { transform: scale(0.95); opacity: 0.6; filter: blur(20px); }
+  100% { transform: scale(1.1); opacity: 1; filter: blur(35px); }
+}
+.win-gold-badge {
+  animation: winBadgeBounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+@keyframes winBadgeBounce {
+  0% { transform: scale(0.3) rotate(-10deg); opacity: 0; }
+  70% { transform: scale(1.08) rotate(3deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+/* ── Apple Liquid Glass Floating Bottom Navigation Dock ── */
+#mobileBottomDock {
+  position: fixed;
+  bottom: calc(14px + var(--safe-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 24px);
+  max-width: 430px;
+  z-index: 99999;
+  pointer-events: auto;
+  transition: max-width 0.45s cubic-bezier(0.32, 0.72, 0, 1), bottom 0.45s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.3s ease;
+}
+
+/* Liquid glass: low-opacity tint + strong blur/saturation + specular rim + inner light.
+   Technique follows open-source Apple "Liquid Glass" CSS recreations on GitHub. */
+.dock-container {
+  position: relative;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.03) 45%, rgba(255, 255, 255, 0.06));
+  background-color: rgba(14, 14, 22, 0.42);
+  backdrop-filter: blur(22px) saturate(190%) brightness(1.08);
+  -webkit-backdrop-filter: blur(22px) saturate(190%) brightness(1.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 18px rgba(255, 255, 255, 0.05);
+  border-radius: 9999px;
+  padding: 5px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  overflow: hidden;
+  transition: padding 0.45s cubic-bezier(0.32, 0.72, 0, 1), background-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+/* Specular highlight sweep across the top edge */
+.dock-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(120% 60% at 50% -10%, rgba(255, 255, 255, 0.22), transparent 60%);
+  mix-blend-mode: screen;
+}
+
+.dock-btn {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 4px 6px;
+  border-radius: 9999px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  transition: transform 0.15s ease;
+}
+
+.dock-btn:active {
+  transform: scale(0.93);
+}
+
+.dock-btn-pill {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  opacity: 0;
+  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.dock-btn[data-tab="home"] .dock-btn-pill {
+  background: radial-gradient(circle at 50% 50%, rgba(245, 158, 11, 0.22), transparent 85%);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  box-shadow: 0 0 18px rgba(245, 158, 11, 0.25);
+}
+
+.dock-btn[data-tab="ai"] .dock-btn-pill {
+  background: radial-gradient(circle at 50% 50%, rgba(192, 132, 252, 0.22), transparent 85%);
+  border: 1px solid rgba(192, 132, 252, 0.35);
+  box-shadow: 0 0 18px rgba(192, 132, 252, 0.25);
+}
+
+.dock-btn[data-tab="sim"] .dock-btn-pill {
+  background: radial-gradient(circle at 50% 50%, rgba(52, 211, 153, 0.22), transparent 85%);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  box-shadow: 0 0 18px rgba(52, 211, 153, 0.25);
+}
+
+.dock-btn[data-tab="web"] .dock-btn-pill {
+  background: radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.22), transparent 85%);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  box-shadow: 0 0 18px rgba(56, 189, 248, 0.25);
+}
+
+.dock-btn.active .dock-btn-pill {
+  opacity: 1;
+}
+
+.dock-btn i {
+  font-size: 15px;
+  color: #71717a;
+  transition: color 0.2s ease, transform 0.2s ease;
+  position: relative;
+  z-index: 2;
+}
+
+.dock-btn.active i {
+  transform: translateY(-1px);
+}
+
+.dock-btn[data-tab="home"].active i { color: var(--accent-amber); }
+.dock-btn[data-tab="ai"].active i   { color: var(--accent-purple); }
+.dock-btn[data-tab="sim"].active i  { color: var(--accent-emerald); }
+.dock-btn[data-tab="web"].active i  { color: var(--accent-sky); }
+.dock-btn[data-tab="pattern"].active i { color: #f59e0b; }
+
+.dock-btn span.tab-title {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: #71717a;
+  margin-top: 2px;
+  transition: color 0.2s ease;
+  position: relative;
+  z-index: 2;
+}
+
+.dock-btn.active span.tab-title {
+  color: #ffffff;
+}
+
+.dock-indicator {
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  margin-top: 2px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  position: relative;
+  z-index: 2;
+}
+
+.dock-btn[data-tab="home"].active .dock-indicator { background: var(--accent-amber); opacity: 1; }
+.dock-btn[data-tab="ai"].active .dock-indicator   { background: var(--accent-purple); opacity: 1; }
+.dock-btn[data-tab="sim"].active .dock-indicator  { background: var(--accent-emerald); opacity: 1; }
+.dock-btn[data-tab="web"].active .dock-indicator  { background: var(--accent-sky); opacity: 1; }
+.dock-btn[data-tab="pattern"].active .dock-indicator { background: #f59e0b; opacity: 1; }
+
+/* ── Auto-compact liquid glass dock (idle → icon-only slim pill) ── */
+.dock-btn span.tab-title,
+.dock-indicator {
+  max-height: 14px;
+  overflow: hidden;
+  transition: max-height 0.4s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.25s ease, margin 0.4s ease, color 0.2s ease;
+}
+.dock-btn { transition: transform 0.15s ease, padding 0.4s cubic-bezier(0.32, 0.72, 0, 1); }
+
+#mobileBottomDock.dock-compact {
+  max-width: 236px;
+  bottom: calc(8px + var(--safe-bottom));
+  opacity: 0.92;
+}
+#mobileBottomDock.dock-compact .dock-container {
+  padding: 3px 4px;
+  background-color: rgba(14, 14, 22, 0.26);
+  box-shadow:
+    0 8px 26px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.30),
+    inset 0 0 14px rgba(255, 255, 255, 0.05);
+}
+#mobileBottomDock.dock-compact .dock-btn { padding: 8px 4px; }
+#mobileBottomDock.dock-compact .dock-btn span.tab-title,
+#mobileBottomDock.dock-compact .dock-indicator {
+  max-height: 0;
+  opacity: 0;
+  margin-top: 0;
+}
+
+/* ── Home (web) tab: top bar auto-hide; DhaniWin view always starts below our header ── */
+header.liquid-glass-header {
+  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  will-change: transform;
+}
+body.home-header-hidden header.liquid-glass-header {
+  transform: translateY(-110%);
+}
+#tab-web {
+  top: var(--app-header-h, 56px) !important;
+  bottom: 0 !important;
+  transition: top 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+}
+body.home-header-hidden #tab-web {
+  top: 0 !important;
+}
+
+#homeHeaderPullHandle {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 72px;
+  height: 20px;
+  z-index: 60;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-top: none;
+  border-radius: 0 0 14px 14px;
+  background: rgba(14, 14, 22, 0.35);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.18), 0 4px 14px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+#homeHeaderPullHandle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  width: 28px;
+  height: 4px;
+  border-radius: 9999px;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.55);
+}
+body.home-header-hidden #homeHeaderPullHandle { display: block; }
+
+/* ── Login / Register bar (logged out or session expired) ── */
+#dhaniAuthBar {
+  position: fixed;
+  left: 10px;
+  right: 82px;
+  bottom: calc(72px + var(--safe-bottom));
+  z-index: 60;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 6px 12px;
+  border-radius: 9999px;
+  background: rgba(14, 14, 22, 0.55);
+  backdrop-filter: blur(20px) saturate(190%);
+  -webkit-backdrop-filter: blur(20px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+#dhaniAuthBar .auth-btn {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: 9999px;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  transition: transform 0.15s ease;
+}
+#dhaniAuthBar .auth-btn:active { transform: scale(0.94); }
+#dhaniAuthBar .auth-btn-primary {
+  color: #0b1220;
+  background: linear-gradient(180deg, #7dd3fc, #38bdf8);
+  border-color: rgba(125, 211, 252, 0.6);
+}
+#dhaniAuthBar .auth-btn-ghost { background: transparent; border-color: transparent; padding: 5px 6px; color: rgba(255, 255, 255, 0.5); }
+#dhaniAuthBar #dhaniAuthBarText { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Page Transitions ── */
+.mobile-page {
+  animation: pageFadeIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── 3D Ball Elements ── */
+.ball-3d {
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 12px;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+  box-shadow: inset -2px -2px 5px rgba(0,0,0,0.5), inset 2px 2px 4px rgba(255,255,255,0.4), 0 3px 8px rgba(0,0,0,0.4);
+}
+
+.ball-green   { background: radial-gradient(circle at 35% 35%, #4ade80, #16a34a 70%, #14532d); }
+.ball-red     { background: radial-gradient(circle at 35% 35%, #fb7185, #e11d48 70%, #881337); }
+.ball-split-0 { background: linear-gradient(135deg, #e11d48 50%, #9333ea 50%); }
+.ball-split-5 { background: linear-gradient(135deg, #16a34a 50%, #9333ea 50%); }
+
+.seq-road-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+.seq-road-scroll::-webkit-scrollbar {
+  height: 2px;
+}
+.seq-road-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+
+/* ── Custom Scrollbar ── */
+::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   APPLE DYNAMIC ISLAND WIN/LOSS CELEBRATION BANNER
+   ═══════════════════════════════════════════════════════════════ */
+#winLossCelebrationBanner {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 28px);
+  max-width: 420px;
+  z-index: 999999;
+  pointer-events: auto;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.celebration-enter {
+  animation: appleSpringDown 0.42s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.celebration-exit {
+  animation: appleSpringUp 0.32s cubic-bezier(0.6, -0.28, 0.735, 0.045) forwards;
+}
+
+@keyframes appleSpringDown {
+  0% { transform: translate(-50%, -70px) scale(0.82); opacity: 0; }
+  65% { transform: translate(-50%, 6px) scale(1.02); opacity: 1; }
+  100% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+}
+
+@keyframes appleSpringUp {
+  0% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -70px) scale(0.85); opacity: 0; }
+}
+
+.celebration-win-box {
+  background: rgba(10, 24, 18, 0.90);
+  backdrop-filter: blur(36px) saturate(220%);
+  -webkit-backdrop-filter: blur(36px) saturate(220%);
+  border: 1px solid rgba(52, 211, 153, 0.45);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.9), 0 0 32px rgba(52, 211, 153, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.celebration-loss-box {
+  background: rgba(24, 12, 16, 0.90);
+  backdrop-filter: blur(36px) saturate(220%);
+  -webkit-backdrop-filter: blur(36px) saturate(220%);
+  border: 1px solid rgba(244, 63, 94, 0.4);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.9), 0 0 28px rgba(244, 63, 94, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Badge Glow Pulses */
+.win-pulse-active {
+  animation: winBadgePulse 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.loss-pulse-active {
+  animation: lossBadgePulse 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes winBadgePulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 rgba(52, 211, 153, 0); }
+  50% { transform: scale(1.05); box-shadow: 0 0 28px rgba(52, 211, 153, 0.85); }
+  100% { transform: scale(1); box-shadow: 0 0 0 rgba(52, 211, 153, 0); }
+}
+
+@keyframes lossBadgePulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 rgba(244, 63, 94, 0); }
+  50% { transform: scale(0.96); box-shadow: 0 0 22px rgba(244, 63, 94, 0.75); }
+  100% { transform: scale(1); box-shadow: 0 0 0 rgba(244, 63, 94, 0); }
+}
+
+/* Confetti Sparkles */
+.sparkle-particle {
+  position: absolute;
+  pointer-events: none;
+  animation: particleFloat 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes particleFloat {
+  0% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) scale(0) rotate(var(--rot)); opacity: 0; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SEQUENTIAL PREDICTION ROAD & BEAD CHAIN (ADAPTIVE AI)
+   ═══════════════════════════════════════════════════════════════ */
+.seq-road-scroll {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 6px 4px;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.seq-bead {
+  min-width: 38px;
+  height: 38px;
+  border-radius: 9999px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11.5px;
+  font-weight: 900;
+  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.16s ease;
+  cursor: pointer;
+  flex-shrink: 0;
+  user-select: none;
+  position: relative;
+}
+
+.seq-bead:active {
+  transform: scale(0.90);
+}
+
+.seq-bead-win {
+  background: radial-gradient(circle at 35% 35%, rgba(52, 211, 153, 0.35), rgba(16, 185, 129, 0.15));
+  border: 1px solid rgba(52, 211, 153, 0.55);
+  color: #34d399;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.seq-bead-loss {
+  background: radial-gradient(circle at 35% 35%, rgba(244, 63, 94, 0.35), rgba(225, 29, 72, 0.15));
+  border: 1px solid rgba(244, 63, 94, 0.55);
+  color: #fb7185;
+  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.seq-bead-sub {
+  font-size: 7px;
+  font-weight: 800;
+  opacity: 0.85;
+  margin-top: -2px;
+  letter-spacing: -0.2px;
+}
+
+/* Category Filter Buttons in AI Tab */
+.ai-filter-btn {
+  padding: 4px 9px;
+  border-radius: 9999px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 8.5px;
+  font-weight: 800;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+.ai-filter-btn.active {
+  background: rgba(192, 132, 252, 0.22);
+  border-color: rgba(192, 132, 252, 0.45);
+  color: #e9d5ff;
+  box-shadow: 0 0 12px rgba(192, 132, 252, 0.25);
+}
+.ai-filter-btn:not(.active) {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #a1a1aa;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CHART WATERMARK & ATTRIBUTION LOGO REMOVAL
+   ═══════════════════════════════════════════════════════════════ */
+#mobileChartContainer a,
+#mobileChartContainer [id*="tv-attr-logo"],
+#mobileChartContainer [class*="tv-attr"],
+#mobileChartContainer [class*="watermark"],
+#mobileChartContainer [class*="tv-logo"],
+#mobileChartContainer a[href*="tradingview.com"],
+a[href*="tradingview.com"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  height: 0 !important;
+  width: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  left: -9999px !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PREDICTION BOX IN-FLOW CELEBRATION ANIMATION
+   ═══════════════════════════════════════════════════════════════ */
+.inbox-win-active {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.28) 0%, rgba(6, 78, 59, 0.45) 50%, rgba(9, 9, 11, 0.95) 100%) !important;
+  border-color: rgba(52, 211, 153, 0.7) !important;
+  box-shadow: 0 0 28px rgba(16, 185, 129, 0.45), inset 0 0 16px rgba(52, 211, 153, 0.25) !important;
+  animation: inboxWinBounce 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.inbox-loss-active {
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.2) 0%, rgba(136, 19, 55, 0.35) 50%, rgba(9, 9, 11, 0.95) 100%) !important;
+  border-color: rgba(251, 113, 133, 0.6) !important;
+  box-shadow: 0 0 20px rgba(244, 63, 94, 0.35), inset 0 0 12px rgba(251, 113, 133, 0.15) !important;
+  animation: inboxLossShake 0.45s ease-in-out;
+}
+
+@keyframes inboxWinBounce {
+  0% { transform: scale(0.97); }
+  50% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
+@keyframes inboxLossShake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-3px); }
+  40%, 80% { transform: translateX(3px); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   APPLE iOS 18 GROUPED INSET SETTINGS STYLES
+   ═══════════════════════════════════════════════════════════════ */
+.ios-grouped-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  overflow: hidden;
+}
+
+/* Apple iOS Toggle Switch */
+.ios-toggle {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 26px;
+}
+
+.ios-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.ios-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.18);
+  transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ios-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.ios-toggle input:checked + .ios-slider {
+  background-color: #34c759;
+  border-color: #34c759;
+}
+
+.ios-toggle input:checked + .ios-slider:before {
+  transform: translateX(18px);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   EXACT WINDOW WIN / LOSS ANIMATIONS & PARTICLES (PC REPLICA)
+   ═══════════════════════════════════════════════════════════════ */
+@keyframes winElasticPop {
+  0% { transform: scale(0.92); filter: brightness(1); }
+  20% { transform: scale(1.08); filter: brightness(1.25); }
+  40% { transform: scale(0.97); }
+  60% { transform: scale(1.04); filter: brightness(1.15); }
+  80% { transform: scale(0.99); }
+  100% { transform: scale(1.03); filter: brightness(1.1); }
+}
+
+@keyframes winGlowPulse {
+  0%, 100% {
+    box-shadow: 0 0 28px 4px rgba(16, 185, 129, 0.45), inset 0 0 16px rgba(16, 185, 129, 0.35);
+    border-color: rgba(52, 211, 153, 0.9);
+  }
+  50% {
+    box-shadow: 0 0 42px 10px rgba(16, 185, 129, 0.7), inset 0 0 24px rgba(52, 211, 153, 0.5);
+    border-color: #10b981;
+  }
+}
+
+@keyframes celebrationSparkle {
+  0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.9; }
+  50% { transform: scale(1.3) rotate(15deg); opacity: 1; filter: drop-shadow(0 0 8px #34d399); }
+}
+
+@keyframes lossSadShrinkHeadDown {
+  0% { transform: scale(1) translateY(0); filter: brightness(1); }
+  18% { transform: scale(0.91) translateY(2px) rotate(-1.2deg); filter: brightness(0.85); }
+  35% { transform: scale(0.88) translateY(6px) rotate(1deg); filter: brightness(0.75); }
+  55% { transform: scale(0.89) translateY(8px) rotate(-0.5deg); filter: brightness(0.72); }
+  75% { transform: scale(0.88) translateY(7px) rotate(0.4deg); filter: brightness(0.75); }
+  100% { transform: scale(0.89) translateY(6px) rotate(0deg); filter: brightness(0.78); }
+}
+
+@keyframes lossSadGlowPulse {
+  0%, 100% {
+    box-shadow: 0 4px 20px 2px rgba(244, 63, 94, 0.35), inset 0 0 14px rgba(244, 63, 94, 0.25);
+    border-color: rgba(244, 63, 94, 0.7);
+  }
+  50% {
+    box-shadow: 0 8px 30px 4px rgba(244, 63, 94, 0.5), inset 0 0 20px rgba(244, 63, 94, 0.4);
+    border-color: #f43f5e;
+  }
+}
+
+@keyframes sadChildDroop {
+  0% { transform: translateY(0) scale(1); }
+  30% { transform: translateY(4px) scale(0.92); }
+  65% { transform: translateY(7px) scale(0.88); }
+  100% { transform: translateY(5px) scale(0.9); }
+}
+
+.smart-box-win-elastic {
+  animation: winElasticPop 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) forwards, winGlowPulse 1.8s ease-in-out infinite !important;
+  transform-origin: center center;
+}
+
+.smart-box-loss-sad {
+  animation: lossSadShrinkHeadDown 1.1s cubic-bezier(0.25, 1, 0.5, 1) forwards, lossSadGlowPulse 2s ease-in-out infinite !important;
+  transform-origin: top center;
+}
+
+.smart-box-fluid-restoring {
+  transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.anim-celebrate-sparkle {
+  animation: celebrationSparkle 1.2s ease-in-out infinite;
+}
+
+.anim-sad-droop {
+  animation: sadChildDroop 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+/* Realistic Floating Dollar Notes (Cinematic Celebration) */
+@keyframes floatMoneyDown {
+  0% {
+    transform: translateY(-28px) rotate(-15deg) scale(0.6);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0px) rotate(12deg) scale(1);
+  }
+  55% {
+    transform: translateY(22px) rotate(-18deg) scale(0.95);
+  }
+  85% {
+    opacity: 0.9;
+    transform: translateY(44px) rotate(15deg) scale(0.85);
+  }
+  100% {
+    transform: translateY(68px) rotate(-25deg) scale(0.7);
+    opacity: 0;
+  }
+}
+
+.dollar-bill-particle {
+  position: absolute;
+  pointer-events: none;
+  z-index: 30;
+  font-size: 11px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
+  animation: floatMoneyDown 2.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+/* Cinematic Damaged Glass Crack Effect on Loss (PC Replica) */
+@keyframes crackShatterPulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) rotate(-3deg);
+    filter: drop-shadow(0 0 1px #f43f5e);
+  }
+  15% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+    filter: drop-shadow(0 0 4px #f43f5e);
+  }
+  80% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.02);
+  }
+}
+
+.damage-crack-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 25;
+  overflow: hidden;
+  animation: crackShatterPulse 2.8s ease-out forwards;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ULTRA-MINIMALIST APPLE 3-DOT QUANTUM WAVE ANIMATION (NO TEXT)
+   ═══════════════════════════════════════════════════════════════ */
+.apple-dots-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 13px;
+  padding: 24px;
+}
+
+.apple-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #e4e4e7 55%, #a1a1aa 100%);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.45), 0 0 24px rgba(255, 255, 255, 0.18);
+  animation: appleQuantumWave 1.25s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+  transform: translateZ(0);
+  will-change: transform, opacity, box-shadow;
+}
+
+.apple-dot.dot-1 {
+  animation-delay: 0s;
+}
+
+.apple-dot.dot-2 {
+  animation-delay: 0.18s;
+}
+
+.apple-dot.dot-3 {
+  animation-delay: 0.36s;
+}
+
+@keyframes appleQuantumWave {
+  0%, 100% {
+    transform: translateY(0) scale(0.82);
+    opacity: 0.35;
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.2);
+  }
+  35% {
+    transform: translateY(-9px) scale(1.28);
+    opacity: 1;
+    box-shadow: 0 4px 18px rgba(255, 255, 255, 0.8), 0 0 32px rgba(255, 255, 255, 0.4);
+  }
+  65% {
+    transform: translateY(1.5px) scale(0.92);
+    opacity: 0.55;
+    box-shadow: 0 1px 8px rgba(255, 255, 255, 0.3);
+  }
+}
+
+.apple-loader-hidden {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: scale(1.03);
+  transition: opacity 0.32s cubic-bezier(0.16, 1, 0.3, 1), transform 0.32s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CINEMATIC APPLE MONEY RAIN OVERLAY & DYNAMIC ISLAND WIN PILL
+   ═══════════════════════════════════════════════════════════════ */
+#appleMoneyRainContainer {
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+#appleMoneyWinPill {
+  animation: applePillBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes applePillBounce {
+  0% {
+    opacity: 0;
+    transform: translateY(-24px) scale(0.85);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   APPLE COFFEE SUPPORT POPUP & RAZORPAY STYLING
+   ═══════════════════════════════════════════════════════════════ */
+.razorpay-payment-button {
+  background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%) !important;
+  color: #000000 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif !important;
+  font-weight: 800 !important;
+  font-size: 13px !important;
+  letter-spacing: -0.2px !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  border-radius: 14px !important;
+  padding: 10px 22px !important;
+  min-height: 42px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  box-shadow: 0 4px 18px rgba(245, 158, 11, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+  cursor: pointer !important;
+  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.16s ease !important;
+  user-select: none !important;
+  margin: 0 auto !important;
+}
+
+.razorpay-payment-button:hover {
+  filter: brightness(1.08) !important;
+  box-shadow: 0 6px 24px rgba(245, 158, 11, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
+}
+
+.razorpay-payment-button:active {
+  transform: scale(0.96) !important;
+}
+
+@keyframes scaleUpSpring {
+  0% {
+    opacity: 0;
+    transform: scale(0.88) translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-scale-up {
+  animation: scaleUpSpring 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes subtleFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.animate-bounce-subtle {
+  animation: subtleFloat 3s ease-in-out infinite;
+}

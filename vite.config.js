@@ -120,6 +120,31 @@ function arenaApiPlugin() {
           }
         }
 
+        // 24/7 Cloud Prediction Platform Endpoints
+        if (
+          req.url.startsWith('/api/state') ||
+          req.url.startsWith('/api/history') ||
+          req.url.startsWith('/api/session') ||
+          req.url.startsWith('/api/models') ||
+          req.url.startsWith('/api/health') ||
+          req.url.startsWith('/api/events') ||
+          req.url.startsWith('/api/admin/rebuild')
+        ) {
+          try {
+            if (!globalThis.__CLOUD_PLATFORM_INSTANCE) {
+              const { bootstrapCloudPlatform } = await import('./backend/cloud/main.js');
+              globalThis.__CLOUD_PLATFORM_INSTANCE = await bootstrapCloudPlatform({ port: 3001 });
+            }
+            const handler = globalThis.__CLOUD_PLATFORM_INSTANCE.cloudServer.createHandler();
+            return handler(req, res);
+          } catch (err) {
+            console.error('[Cloud Platform Middleware Error]', err);
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(JSON.stringify({ error: err.message }));
+          }
+        }
+
         if (!req.url.startsWith('/api/prediction') && !req.url.startsWith('/api/web-proxy')) {
           return next();
         }

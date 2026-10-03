@@ -1,0 +1,12 @@
+/*
+  Access-Control-Allow-Origin: *
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+
+/*.ogg
+  Cache-Control: public, max-age=31536000, immutable
+  Content-Type: audio/ogg
+
+/sounds/*
+  Cache-Control: public, max-age=31536000, immutable

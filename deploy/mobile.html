@@ -1,0 +1,1756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>01:01 – Quant AI Terminal (Mobile)</title>
+  <link rel="icon" type="image/jpeg" href="logo_0101.jpg">
+  <link rel="apple-touch-icon" href="logo_0101.jpg">
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="01:01 AI">
+  <meta name="theme-color" content="#09090b">
+
+  <!-- Tailwind CSS & FontAwesome -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- TradingView Lightweight Charts -->
+  <script src="https://unpkg.com/lightweight-charts@5.0.9/dist/lightweight-charts.standalone.production.js"></script>
+
+  <!-- Apple Liquid Glass Mobile Stylesheet -->
+  <link rel="stylesheet" href="mobile.css">
+
+  <!-- Firebase App, Analytics & Realtime Database SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-analytics.js";
+    import { getDatabase, ref, onValue, set, update, get } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAXXJI4mxVHEG0-31WLNyU4I-xM_GjYtFs",
+      authDomain: "zer0one-376d1.firebaseapp.com",
+      databaseURL: "https://zer0one-376d1-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "zer0one-376d1",
+      storageBucket: "zer0one-376d1.firebasestorage.app",
+      messagingSenderId: "18206664473",
+      appId: "1:18206664473:web:bd67d9e75b94ff31134788",
+      measurementId: "G-ZPHHYSLXCW"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    let analytics = null;
+    let rtdb = null;
+    try { analytics = getAnalytics(app); } catch (e) {}
+    try { rtdb = getDatabase(app); } catch (e) {}
+
+    window.firebaseApp = app;
+    window.firebaseAnalytics = analytics;
+    window.firebaseRTDB = rtdb;
+    console.log('[Mobile Firebase] Connected to RTDB (zer0one-376d1)');
+
+    // Register Service Worker for Standalone PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('[PWA] ServiceWorker registered with scope:', reg.scope))
+          .catch(err => console.log('[PWA] ServiceWorker registration failed:', err));
+      });
+    }
+
+    // Attach real-time cloud listeners to sync mobile engine directly with PC universal state
+    if (rtdb) {
+      try {
+        ['30s', '1m', '3m', '5m'].forEach(tfKey => {
+          // 1. Live History Stream
+          const histRef = ref(rtdb, `live_history/${tfKey}`);
+          onValue(histRef, (snapshot) => {
+            const raw = snapshot.val();
+            let val = null;
+            if (Array.isArray(raw) && raw.length > 0) {
+              val = raw.filter(Boolean);
+            } else if (raw && typeof raw === 'object') {
+              val = Object.values(raw).filter(v => v && typeof v === 'object');
+            }
+            if (val && val.length > 0) {
+              window._pendingCloudHistory = window._pendingCloudHistory || {};
+              window._pendingCloudHistory[tfKey] = val;
+              if (typeof window.applyCloudHistory === 'function') {
+                window.applyCloudHistory(tfKey, val);
+              }
+            }
+          });
+
+          // 2. Universal Brain State Stream
+          const stateRef = ref(rtdb, `universal_state/${tfKey}`);
+          onValue(stateRef, (snapshot) => {
+            const state = snapshot.val();
+            if (state) {
+              window._pendingUniversalCloudState = window._pendingUniversalCloudState || {};
+              window._pendingUniversalCloudState[tfKey] = state;
+              if (typeof window.applyUniversalCloudState === 'function') {
+                window.applyUniversalCloudState(tfKey, state);
+              }
+            }
+          });
+        });
+      } catch(e) {
+        console.warn('[Mobile RTDB Listener] Error:', e);
+      }
+    }
+  </script>
+</head>
+<body class="bg-[#09090b] text-white overflow-x-hidden min-h-screen">
+
+  <!-- ════════════════════════════════════════════════════════════
+       ULTRA-MINIMALIST APPLE 3-DOT RELOAD SCREEN (NO TEXT)
+  ════════════════════════════════════════════════════════════ -->
+  <div id="appleMinimalLoader" class="fixed inset-0 z-[99999] bg-black/90 backdrop-blur-2xl flex items-center justify-center transition-all duration-300 select-none pointer-events-auto" style="opacity: 1;">
+    <div class="apple-dots-container">
+      <span class="apple-dot dot-1"></span>
+      <span class="apple-dot dot-2"></span>
+      <span class="apple-dot dot-3"></span>
+    </div>
+  </div>
+  <script>
+    // Independent failsafe: guarantees loader never loops or gets stuck
+    (function() {
+      function hideLoader() {
+        var el = document.getElementById('appleMinimalLoader');
+        if (el && el.style.display !== 'none') {
+          el.style.opacity = '0';
+          el.style.pointerEvents = 'none';
+          setTimeout(function() {
+            el.classList.add('hidden');
+            el.style.display = 'none';
+          }, 300);
+        }
+      }
+      setTimeout(hideLoader, 1500);
+      window.addEventListener('load', function() { setTimeout(hideLoader, 300); });
+    })();
+  </script>
+
+  <!-- ════════════════════════════════════════════════════════════
+       APPLE DYNAMIC ISLAND WIN/LOSS CELEBRATION BANNER
+  ════════════════════════════════════════════════════════════ -->
+  <div id="winLossCelebrationBanner" class="hidden" onclick="dismissCelebrationBanner()">
+    <div id="celebrationInnerBox" class="liquid-glass-card p-3 rounded-2xl flex items-center justify-between gap-3 cursor-pointer">
+      <div class="flex items-center gap-2.5">
+        <div id="celebrationIconBox" class="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0">
+          <i id="celebrationIcon" class="fa-solid fa-trophy"></i>
+        </div>
+        <div class="flex flex-col">
+          <div class="flex items-center gap-1.5">
+            <span id="celebrationTitle" class="text-xs font-black tracking-tight">ROUND COMPLETED</span>
+            <span id="celebrationPeriodBadge" class="text-[8px] font-mono px-1.5 py-0.2 rounded bg-white/10 text-white/70">#--</span>
+          </div>
+          <span id="celebrationSubtext" class="text-[9px] font-mono text-zinc-300 mt-0.5">Awaiting draw settlement...</span>
+        </div>
+      </div>
+      <div class="flex flex-col items-end shrink-0 font-mono">
+        <span id="celebrationPnlBadge" class="text-xs font-black text-zinc-400"></span>
+        <span class="text-[7px] text-zinc-500 uppercase">Tap to close</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════
+       APPLE LIQUID GLASS MOBILE HEADER
+  ════════════════════════════════════════════════════════════ -->
+  <header class="fixed top-0 left-0 right-0 z-50 px-3.5 py-2.5 liquid-glass-header flex items-center justify-between">
+    <!-- Left: 01:01 Logo + Real World IST Clock -->
+    <div class="flex items-center gap-2.5">
+      <div class="flex items-center gap-1.5 cursor-pointer" onclick="switchMobileTab('web')">
+        <img src="logo_0101.jpg" class="h-8 w-auto object-contain rounded-md shadow-sm" alt="01:01" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+        <span style="display:none" class="text-lg font-black tracking-tight text-white">01:01</span>
+      </div>
+      <div id="realWorldClock" class="text-[9.5px] font-mono text-white/60 font-semibold bg-white/[0.05] px-2.5 py-1 rounded-full border border-white/[0.08]">--:--:-- UTC+5:30</div>
+    </div>
+
+    <!-- Right: Live Indicator + PC Mode Switch + Settings Button -->
+    <div class="flex items-center gap-1.5">
+      <div class="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono text-[9px]">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span>LIVE</span>
+      </div>
+      <button onclick="openDhaniAccountMenu()" class="w-7 h-7 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center transition active:scale-95" title="DhaniWin Account (Login / Logout)">
+        <i id="headerAccountIcon" class="fa-solid fa-right-to-bracket text-xs text-sky-300"></i>
+      </button>
+      <a href="settings.html" class="w-7 h-7 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-white/70 flex items-center justify-center transition active:scale-95" title="Settings (Apple iOS 18)">
+        <i class="fa-solid fa-gear text-xs"></i>
+      </a>
+    </div>
+  </header>
+
+  <!-- ════════════════════════════════════════════════════════════
+       MAIN VIEWPORT CONTAINER (Padded for Header & Floating Dock)
+  ════════════════════════════════════════════════════════════ -->
+  <main class="w-full max-w-md mx-auto pt-14 pb-28 px-3">
+
+    <!-- ╔══════════════════════════════════════════════════════════
+         PAGE 2: ANALYSE (Prediction Hero -> Audit -> Chart -> History -> Repeated / Frequency)
+    ══════════════════════════════════════════════════════════╗ -->
+    <section id="tab-home" class="mobile-page space-y-3" style="display:none;">
+      
+      <!-- High-Confidence "Best Time to Bet" Alert Card -->
+      <div id="bestTimeNotifCard" class="liquid-glass-card p-2.5 rounded-2xl flex items-center justify-between gap-2.5 border border-amber-500/30">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center shrink-0 text-xs font-bold">
+            🔔
+          </div>
+          <div>
+            <div class="text-[11px] font-bold text-white leading-tight">High-Confidence Alerts</div>
+            <p class="text-[8px] text-zinc-400">Push notification when Win Rate exceeds 60%</p>
+          </div>
+        </div>
+        <button id="btnEnableNotif" onclick="requestBestTimeNotificationPermission()" class="px-2.5 py-1 rounded-full bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-mono text-[8.5px] font-bold active:scale-95 transition shrink-0">
+          Enable
+        </button>
+      </div>
+
+      <!-- Timeframe Selector Pills -->
+      <div class="p-1 rounded-2xl bg-black/60 border border-white/[0.08] backdrop-blur-xl flex items-center justify-between gap-1">
+        <button onclick="setMobileTimeframe('30s')" id="tfBtn-30s" class="tf-btn flex-1 py-1.5 rounded-xl font-mono text-[10.5px] font-black transition active:scale-95 bg-amber-500/25 text-amber-300 border border-amber-400/40 shadow-sm">30s</button>
+        <button onclick="setMobileTimeframe('1m')"  id="tfBtn-1m"  class="tf-btn flex-1 py-1.5 rounded-xl font-mono text-[10.5px] font-black transition active:scale-95 text-white/50 hover:text-white hover:bg-white/5">1m</button>
+        <button onclick="setMobileTimeframe('3m')"  id="tfBtn-3m"  class="tf-btn flex-1 py-1.5 rounded-xl font-mono text-[10.5px] font-black transition active:scale-95 text-white/50 hover:text-white hover:bg-white/5">3m</button>
+        <button onclick="setMobileTimeframe('5m')"  id="tfBtn-5m"  class="tf-btn flex-1 py-1.5 rounded-xl font-mono text-[10.5px] font-black transition active:scale-95 text-white/50 hover:text-white hover:bg-white/5">5m</button>
+      </div>
+
+      <!-- 1. PREDICTION HERO CARD -->
+      <div id="heroPredictionCard" class="liquid-glass-card p-3.5 space-y-3 transition-all duration-500">
+        <!-- Top Bar: Period & IST Wall Clock Countdown -->
+        <div class="flex items-center justify-between pb-2 border-b border-white/[0.08]">
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+            <span class="text-[9.5px] font-mono text-zinc-400">PERIOD:</span>
+            <span id="heroPeriodNum" class="text-[11px] font-mono font-black text-amber-300 tracking-wider">--</span>
+          </div>
+          <div class="flex items-center gap-1.5 bg-black/50 px-2.5 py-0.5 rounded-full border border-white/[0.08]">
+            <i class="fa-solid fa-clock text-amber-400 text-[9px]"></i>
+            <span id="heroCountdown" class="font-mono text-base font-black text-amber-400 tracking-wider">00:00</span>
+          </div>
+        </div>
+
+        <!-- Giant Signal Badge & Target (Exact Window Win/Loss Replica) -->
+        <div id="smartTargetCardBox" class="p-3 rounded-2xl bg-gradient-to-br from-zinc-900/60 via-[#141416] to-black border border-white/[0.08] flex flex-col justify-center transition-all duration-500 overflow-hidden relative min-h-[72px] z-10">
+          
+          <!-- Normal AI Target Prediction View -->
+          <div id="smartTargetNormalView" class="flex items-center justify-between transition-all duration-300 w-full relative z-10">
+            <div class="flex flex-col">
+              <span class="text-[8px] uppercase font-mono tracking-widest text-amber-300/80 font-bold">AI Prediction Signal</span>
+              <div class="flex items-center gap-2 mt-0.5">
+                <span id="heroSignalBadge" class="text-2xl font-black tracking-tight text-white">CALCULATING...</span>
+                <span id="heroTypeBadge" class="text-[8.5px] font-bold px-2 py-0.5 rounded-md bg-white/10 text-zinc-300 font-mono border border-white/10">--</span>
+                <span id="heroColorBadge" class="hidden"></span>
+              </div>
+              <div class="flex items-center gap-1.5 mt-1 text-[9px] font-mono text-zinc-400">
+                <span>Confidence: <b id="heroConfVal" class="text-emerald-400 font-black">--%</b></span>
+                <span id="heroDigitVal" class="hidden"></span>
+              </div>
+            </div>
+            <div class="text-right flex flex-col items-end">
+              <span class="text-[8px] uppercase tracking-wider text-zinc-500 font-mono">In-Charge Model</span>
+              <span id="heroModelName" class="text-[10px] font-bold text-purple-300 max-w-[130px] truncate">Auto Champion</span>
+              <div class="mt-1 flex items-center gap-1">
+                <span id="heroAutoTag" class="text-[7.5px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-mono">AUTO</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Smooth Cinematic Elastic Win / Living Sad Loss 3s Animation View (EXACT WINDOW REPLICA) -->
+          <div id="smartTargetResultAnimView" class="hidden flex-col justify-center items-center transition-all duration-300 w-full py-1 relative z-20">
+            <div class="flex items-center justify-center gap-1">
+              <span id="smartResultAnimDot" class="w-1.5 h-1.5 rounded-full inline-block"></span>
+              <span id="smartResultAnimHeader" class="text-[8px] font-sans uppercase font-black tracking-wider"></span>
+            </div>
+            <div id="smartResultAnimTitleBox" class="text-base font-mono font-black tracking-wider flex items-center justify-center gap-1.5 my-0.5">
+              <i id="smartResultAnimIcon" class="text-sm"></i>
+              <span id="smartResultAnimText"></span>
+            </div>
+            <div id="smartResultAnimSub" class="flex items-center justify-center gap-1 text-[8.5px] font-mono">
+              <span id="smartResultAnimSubText"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sequential Prediction Road (Balls with Mixed Colors 0,5; Newest Left -> Older Right) -->
+        <div class="space-y-1">
+          <div class="flex items-center justify-between text-[8px] font-mono text-zinc-400 px-0.5">
+            <span class="flex items-center gap-1 font-bold text-zinc-300"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>RECENT DRAWS ROAD</span>
+            <span class="text-[7.5px] text-zinc-500 uppercase tracking-wider flex items-center gap-1 font-bold">Newest (L) <i class="fa-solid fa-arrow-right text-[6.5px]"></i> Older (R)</span>
+          </div>
+          <div id="heroSequentialBallRoad" class="flex items-center gap-1.5 overflow-x-auto py-1 px-1 bg-black/40 rounded-xl border border-white/[0.06] seq-road-scroll min-h-[38px]">
+            <div class="text-[8px] text-zinc-500 font-mono py-1 px-2">Awaiting draw data...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. ACCURACY CARD -->
+      <div class="liquid-glass-card p-3 space-y-2">
+        <div class="flex items-center justify-between pb-1.5 border-b border-white/[0.08]">
+          <div class="flex items-center gap-1.5">
+            <i class="fa-solid fa-bullseye text-emerald-400 text-xs"></i>
+            <span class="text-[10px] font-black uppercase tracking-wider text-white">Accuracy</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <button id="btnResetMobileAudit" onclick="resetMobileAudit(event)" class="px-2.5 py-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-mono text-[8.5px] font-bold border border-zinc-700 cursor-pointer touch-manipulation select-none active:scale-90 transition shadow-sm" title="Reset Session Accuracy">
+              Reset
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-1.5 text-center font-mono">
+          <div class="p-1.5 rounded-xl bg-black/40 border border-white/[0.06]">
+            <span class="text-[7px] uppercase text-zinc-500 block">Win Rate</span>
+            <span id="auditWinRate" class="text-base font-black text-emerald-400 tracking-tight">--%</span>
+          </div>
+          <div class="p-1.5 rounded-xl bg-black/40 border border-white/[0.06]">
+            <span class="text-[7px] uppercase text-zinc-500 block">Total</span>
+            <span id="auditTotal" class="text-base font-black text-white tracking-tight">0</span>
+          </div>
+          <div class="p-1.5 rounded-xl bg-black/40 border border-white/[0.06]">
+            <span class="text-[7px] uppercase text-zinc-500 block">Wins</span>
+            <span id="auditWins" class="text-base font-black text-emerald-300 tracking-tight">0</span>
+          </div>
+          <div class="p-1.5 rounded-xl bg-black/40 border border-white/[0.06]">
+            <span class="text-[7px] uppercase text-zinc-500 block">Losses</span>
+            <span id="auditLosses" class="text-base font-black text-rose-400 tracking-tight">0</span>
+          </div>
+        </div>
+
+        <!-- Longest Win / Loss Streak Metrics -->
+        <div class="grid grid-cols-2 gap-1.5 text-center font-mono pt-0.5">
+          <div class="p-1.5 rounded-xl bg-black/40 border border-emerald-500/20 flex items-center justify-between px-2.5">
+            <span class="text-[7.5px] uppercase text-zinc-400 font-bold flex items-center gap-1.5">
+              <i class="fa-solid fa-fire text-amber-400 text-[10px]"></i> Longest Win Streak
+            </span>
+            <span id="auditMaxWinStreak" class="text-xs font-black text-emerald-300">0 W</span>
+          </div>
+          <div class="p-1.5 rounded-xl bg-black/40 border border-rose-500/20 flex items-center justify-between px-2.5">
+            <span class="text-[7.5px] uppercase text-zinc-400 font-bold flex items-center gap-1.5">
+              <i class="fa-solid fa-snowflake text-rose-400 text-[10px]"></i> Longest Loss Streak
+            </span>
+            <span id="auditMaxLossStreak" class="text-xs font-black text-rose-400">0 L</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. TRADING CANDLESTICK / WIN-LOSS CHART CARD (FULL PC FEATURES) -->
+      <div class="liquid-glass-card p-3 space-y-2">
+        <!-- Top Control Bar -->
+        <div class="flex items-center justify-between pb-1.5 border-b border-white/[0.08] gap-1 flex-wrap">
+          <div class="flex items-center gap-1.5">
+            <i class="fa-solid fa-chart-line text-blue-400 text-xs"></i>
+            <span class="text-[10px] font-black uppercase tracking-wider text-white">Chart</span>
+
+            <!-- Mode Switch: B/S vs W/L -->
+            <div class="flex items-center bg-black/70 p-0.5 rounded-lg border border-white/[0.08]">
+              <button id="chartModeBtnCandles" onclick="setChartDisplayMode('candles')" class="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold transition active:scale-95 bg-white/20 text-white shadow-sm" title="Continuous Price Walk (Big/Small)">
+                B/S
+              </button>
+              <button id="chartModeBtnWinLoss" onclick="setChartDisplayMode('winloss')" class="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold transition active:scale-95 text-white/50 hover:text-white" title="AI Win/Loss Performance Walk">
+                W/L
+              </button>
+            </div>
+          </div>
+
+          <!-- Chart Types: Candles, Line, Area, Hollow, Bar -->
+          <div class="flex items-center gap-1">
+            <select id="mobileChartTypeSelect" onchange="switchTradingChartType(this.value)" class="bg-black/60 border border-white/[0.1] rounded px-1.5 py-0.5 text-[8px] font-mono text-zinc-300 focus:outline-none focus:border-amber-400">
+              <option value="candles">Candles</option>
+              <option value="line">Line</option>
+              <option value="area">Area</option>
+              <option value="hollow">Hollow</option>
+              <option value="bar">Bar</option>
+            </select>
+
+            <!-- Zoom & Fit Controls -->
+            <button onclick="tradingChartZoom(1)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-white text-[8px] flex items-center justify-center active:scale-95" title="Zoom In">+</button>
+            <button onclick="tradingChartZoom(-1)" class="w-5 h-5 rounded bg-white/5 hover:bg-white/15 text-white text-[8px] flex items-center justify-center active:scale-95" title="Zoom Out">-</button>
+            <button id="btnMobileFit" onclick="tradingChartReset()" class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[8px] font-mono font-bold active:scale-95" title="Fit to screen">⊕ Fit</button>
+          </div>
+        </div>
+
+        <!-- Indicator Toggles Ribbon -->
+        <div class="flex items-center justify-between text-[8px] font-mono pt-0.5">
+          <div class="flex items-center gap-1">
+            <span class="text-zinc-500">IND:</span>
+            <button id="btnMobileSMA" onclick="toggleTradingIndicator('sma')" class="px-1.5 py-0.5 rounded bg-white/5 text-zinc-400 border border-white/5 hover:text-white active:scale-95 transition">SMA 14</button>
+            <button id="btnMobileEMA" onclick="toggleTradingIndicator('ema')" class="px-1.5 py-0.5 rounded bg-white/5 text-zinc-400 border border-white/5 hover:text-white active:scale-95 transition">EMA 9</button>
+            <button id="btnMobileBB"  onclick="toggleTradingIndicator('bb')"  class="px-1.5 py-0.5 rounded bg-white/5 text-zinc-400 border border-white/5 hover:text-white active:scale-95 transition">BB Bands</button>
+          </div>
+          <div class="text-zinc-400 text-[8px]" id="chartTfLabel">WinGo 30s</div>
+        </div>
+
+        <!-- Interactive HUD Candlestick Inspection Bar -->
+        <div id="mobileCandleHud" class="p-1 rounded-lg bg-black/60 border border-white/[0.06] flex items-center justify-between text-[8px] font-mono text-zinc-400 overflow-x-auto">
+          <div class="flex items-center gap-1.5 whitespace-nowrap">
+            <span>O:<b id="hudOpen" class="text-white">--</b></span>
+            <span>H:<b id="hudHigh" class="text-emerald-400">--</b></span>
+            <span>L:<b id="hudLow" class="text-rose-400">--</b></span>
+            <span>C:<b id="hudClose" class="text-white">--</b></span>
+          </div>
+          <div class="whitespace-nowrap ml-1">
+            <span id="hudResult" class="text-amber-400 font-bold">--</span>
+          </div>
+        </div>
+
+        <!-- TradingView Lightweight Charts Mount Target -->
+        <div id="mobileChartContainer" class="w-full h-52 rounded-xl overflow-hidden bg-black/80 relative border border-white/[0.06]"></div>
+
+        <!-- Footer Statistics -->
+        <div class="grid grid-cols-4 gap-1 pt-1 text-center font-mono text-[8px]">
+          <div class="p-1 rounded bg-black/40 border border-white/[0.04]">
+            <span class="text-[7px] text-zinc-500 block uppercase">Net Score</span>
+            <b id="tradingNetPrice" class="text-emerald-400 font-bold">0.0</b>
+          </div>
+          <div class="p-1 rounded bg-black/40 border border-white/[0.04]">
+            <span class="text-[7px] text-zinc-500 block uppercase">Big %</span>
+            <b id="tradingBigPct" class="text-emerald-300 font-bold">50%</b>
+          </div>
+          <div class="p-1 rounded bg-black/40 border border-white/[0.04]">
+            <span class="text-[7px] text-zinc-500 block uppercase">Small %</span>
+            <b id="tradingSmallPct" class="text-rose-400 font-bold">50%</b>
+          </div>
+          <div class="p-1 rounded bg-black/40 border border-white/[0.04]">
+            <span class="text-[7px] text-zinc-500 block uppercase">Streak</span>
+            <b id="tradingActiveStreak" class="text-amber-300 font-bold">--</b>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. LIVE DRAW HISTORY & TREND ROAD -->
+      <div class="liquid-glass-card p-3 space-y-2.5">
+        <div class="flex items-center justify-between pb-1.5 border-b border-white/[0.08]">
+          <div class="flex items-center gap-1.5">
+            <i class="fa-solid fa-clock-rotate-left text-amber-400 text-xs"></i>
+            <span class="text-[10px] font-black uppercase tracking-wider text-white">Draw History & Evaluation</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <!-- View Mode Switch: Table vs Graph -->
+            <div class="flex items-center p-0.5 rounded-lg bg-black/40 border border-white/[0.08]">
+              <button id="mobileHistTabTable" onclick="switchMobileHistoryView('table')" class="px-2 py-0.5 rounded-md text-[8px] font-mono font-bold transition bg-amber-500/25 text-amber-300 border border-amber-400/40">
+                <i class="fa-solid fa-table-list mr-1"></i>Table
+              </button>
+              <button id="mobileHistTabGraph" onclick="switchMobileHistoryView('graph')" class="px-2 py-0.5 rounded-md text-[8px] font-mono font-bold transition text-zinc-400 hover:text-white">
+                <i class="fa-solid fa-chart-line mr-1"></i>Graph
+              </button>
+            </div>
+            <span id="historyCountBadge" class="text-[8px] font-mono px-1.5 py-0.5 rounded-full bg-white/10 text-zinc-400">0 Draws</span>
+          </div>
+        </div>
+
+        <!-- History Table Feed -->
+        <div id="mobileHistoryTableView" class="overflow-x-auto max-h-60 overflow-y-auto">
+          <table class="w-full text-left font-mono text-[9px] border-collapse">
+            <thead>
+              <tr class="text-zinc-500 border-b border-white/[0.06] text-[8px] uppercase">
+                <th class="py-1 px-1">Period</th>
+                <th class="py-1 px-1">Number</th>
+                <th class="py-1 px-1">Size</th>
+                <th class="py-1 px-1">Color</th>
+                <th class="py-1 px-1 text-right">AI Target & Result</th>
+              </tr>
+            </thead>
+            <tbody id="mobileHistoryTbody" class="divide-y divide-white/[0.04]">
+              <tr>
+                <td colspan="5" class="py-4 text-center text-zinc-500">Loading draw history...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- History Graph-like View (0-9 Number Road & SVG connector) -->
+        <div id="mobileHistoryGraphView" class="hidden space-y-1.5">
+          <!-- 0-9 Road Grid Column Header -->
+          <div class="grid gap-0 px-1 pt-1 pb-1 bg-black/60 rounded-t-lg border border-white/[0.06] text-[7.5px] font-mono font-bold" style="grid-template-columns:46px repeat(10,1fr) 20px 20px">
+            <div class="text-zinc-500 truncate">Period</div>
+            <div class="text-center text-zinc-400">0</div>
+            <div class="text-center text-zinc-400">1</div>
+            <div class="text-center text-zinc-400">2</div>
+            <div class="text-center text-zinc-400">3</div>
+            <div class="text-center text-zinc-400">4</div>
+            <div class="text-center text-zinc-400">5</div>
+            <div class="text-center text-zinc-400">6</div>
+            <div class="text-center text-zinc-400">7</div>
+            <div class="text-center text-zinc-400">8</div>
+            <div class="text-center text-zinc-400">9</div>
+            <div class="text-center text-amber-400">B/S</div>
+            <div class="text-center text-indigo-300">AI</div>
+          </div>
+          <!-- Road Rows Container with SVG Line -->
+          <div class="relative px-1 pb-1 max-h-60 overflow-y-auto bg-black/30 rounded-b-lg border-x border-b border-white/[0.06]" id="mobileGraphRoadContainer" style="scrollbar-width:thin;">
+            <svg id="mobileRoadConnectorSvg" class="absolute inset-0 pointer-events-none" style="width:100%;height:100%;overflow:visible;"></svg>
+            <div id="mobileGraphRoadRows" class="relative z-10 space-y-0.5"></div>
+          </div>
+          <!-- Graph Summary Stats Footer -->
+          <div class="grid grid-cols-3 gap-1.5 pt-1 text-center font-mono text-[8.5px]">
+            <div class="p-1 rounded-lg bg-black/40 border border-white/[0.06]">
+              <span class="text-[7px] text-zinc-500 block uppercase">BIG RATIO</span>
+              <b id="mobileGraphBigPct" class="text-amber-400 font-bold">50%</b>
+            </div>
+            <div class="p-1 rounded-lg bg-black/40 border border-white/[0.06]">
+              <span class="text-[7px] text-zinc-500 block uppercase">SMALL RATIO</span>
+              <b id="mobileGraphSmallPct" class="text-sky-400 font-bold">50%</b>
+            </div>
+            <div class="p-1 rounded-lg bg-black/40 border border-white/[0.06]">
+              <span class="text-[7px] text-zinc-500 block uppercase">AI WIN ACCURACY</span>
+              <b id="mobileGraphWinRatio" class="text-emerald-400 font-bold">—</b>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. NUMBER FREQUENCY (0-9) -->
+      <div class="liquid-glass-card p-3 space-y-2">
+        <div class="flex items-center justify-between pb-1 border-b border-white/[0.08]">
+          <span class="text-[9.5px] font-black uppercase tracking-wider text-white">Digit Frequency (0–9)</span>
+          <span class="text-[8px] font-mono text-zinc-400">Last 100 Rounds</span>
+        </div>
+        <div id="digitFrequencyGrid" class="grid grid-cols-5 gap-1.5 pt-1"></div>
+      </div>
+
+    </section>
+
+    <!-- ╔══════════════════════════════════════════════════════════
+         PAGE 2: ADAPTIVE AI (Apple Liquid Glass Intelligence)
+    ══════════════════════════════════════════════════════════╗ -->
+    <section id="tab-ai" class="mobile-page space-y-3" style="display:none;">
+      
+      <!-- 1. Champion In Charge Card -->
+      <div class="liquid-glass-card p-3.5 space-y-2.5">
+        <div class="flex items-center justify-between pb-1.5 border-b border-white/[0.08]">
+          <div class="flex items-center gap-1.5">
+            <i class="fa-solid fa-crown text-amber-400 text-xs"></i>
+            <span class="text-[10px] font-black uppercase tracking-wider text-white">Currently In Charge</span>
+          </div>
+          <button id="aiAutoModeBtn" onclick="toggleMobileAutoMode()" class="px-2 py-0.5 rounded-full font-mono text-[8px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 active:scale-95 transition">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span id="aiAutoModeText">AUTO: ON</span>
+          </button>
+        </div>
+
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <h3 id="aiChampionName" class="text-sm font-black text-white">Base Quant Predictor</h3>
+            <p id="aiChampionDesc" class="text-[8.5px] text-zinc-400 mt-0.5">Primary algorithm with momentum and pattern weighting</p>
+            <div class="flex items-center gap-1.5 mt-1.5 font-mono text-[8px]">
+              <span class="text-zinc-500 uppercase font-bold">In-Charge Target:</span>
+              <span id="aiChampionTargetBadge" class="px-2 py-0.5 rounded font-black text-[8.5px] bg-amber-500/20 text-amber-300 border border-amber-500/30">CALCULATING</span>
+              <span id="aiChampionTypeBadge" class="px-1.5 py-0.5 rounded font-bold text-[7.5px] bg-white/10 text-zinc-300 border border-white/10">--</span>
+            </div>
+          </div>
+          <div class="text-right shrink-0 bg-black/50 px-2.5 py-1 rounded-xl border border-white/[0.08]">
+            <span class="text-[7px] uppercase font-mono text-zinc-500 block">Win Rate</span>
+            <span id="aiChampionRate" class="text-base font-black text-emerald-400 font-mono">--%</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-1.5 pt-1 text-center font-mono text-[8.5px]">
+          <div class="p-1.5 rounded-xl bg-black/40 border border-white/[0.06]">
+            <span class="text-[7.5px] text-zinc-500 block uppercase">Streak Path</span>
+            <b id="aiChampionStreak" class="text-emerald-300 font-bold">--</b>
+          </div>
+          <div class="p-1.5 rounded-xl bg-black/40 border border-white/[0.06]">
+            <span class="text-[7.5px] text-zinc-500 block uppercase">Neuro-State</span>
+            <b id="aiChampionNeuro" class="text-purple-300 font-bold">Active</b>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. STREAK & PERFORMANCE BENTO GRID -->
+      <div class="grid grid-cols-2 gap-2 font-mono">
+        <!-- Card 1: Current Streak -->
+        <div id="bentoStreakBox" class="liquid-glass-card p-3 flex flex-col items-center justify-center text-center border border-emerald-500/25">
+          <span class="text-[7.5px] uppercase text-zinc-400 tracking-wider">CURRENT STREAK</span>
+          <span id="aiBentoCurrentStreak" class="text-lg font-black text-zinc-400 mt-0.5 tracking-tight">— Standby</span>
+          <span id="aiBentoStreakType" class="text-[7.5px] text-zinc-500 mt-0.5">Awaiting Live Round</span>
+        </div>
+
+        <!-- Card 2: Session Best Streak -->
+        <div class="liquid-glass-card p-3 flex flex-col items-center justify-center text-center border border-amber-500/20">
+          <span class="text-[7.5px] uppercase text-zinc-400 tracking-wider">SESSION BEST</span>
+          <span id="aiBentoBestStreak" class="text-lg font-black text-amber-300 mt-0.5 tracking-tight">0 Wins</span>
+          <span class="text-[7.5px] text-zinc-500 mt-0.5">Peak Momentum</span>
+        </div>
+
+        <!-- Card 3: Drawdown Safety Guard -->
+        <div class="liquid-glass-card p-3 flex flex-col items-center justify-center text-center border border-sky-500/20">
+          <span class="text-[7.5px] uppercase text-zinc-400 tracking-wider">DRAWDOWN GUARD</span>
+          <span id="aiBentoDrawdown" class="text-lg font-black text-sky-400 mt-0.5 tracking-tight">🛡️ Safe (0)</span>
+          <span class="text-[7.5px] text-zinc-500 mt-0.5">Optimal Capital Risk</span>
+        </div>
+
+        <!-- Card 4: Last 20 Accuracy -->
+        <div class="liquid-glass-card p-3 flex flex-col items-center justify-center text-center border border-purple-500/20">
+          <span class="text-[7.5px] uppercase text-zinc-400 tracking-wider">ACCURACY (LAST 20)</span>
+          <span id="aiBentoAccuracy" class="text-lg font-black text-purple-300 mt-0.5 tracking-tight">—%</span>
+          <span id="aiBentoScoreRatio" class="text-[7.5px] text-zinc-500 mt-0.5">0W · 0L</span>
+        </div>
+      </div>
+
+      <!-- 3. SEQUENTIAL PREDICTION HISTORY ROAD (BEAD CHAIN) -->
+      <div class="liquid-glass-card p-3 space-y-2">
+        <div class="flex items-center justify-between pb-1.5 border-b border-white/[0.08]">
+          <div class="flex items-center gap-1.5">
+            <i class="fa-solid fa-route text-amber-400 text-xs"></i>
+            <span class="text-[10px] font-black uppercase tracking-wider text-white">Sequential Prediction Road</span>
+          </div>
+          <span id="seqRoadCountBadge" class="text-[8px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">0 Predictions</span>
+        </div>
+
+        <!-- Horizontal Scrollable Glass Beads Ribbon -->
+        <div id="aiSequenceRoad" class="seq-road-scroll">
+          <div class="text-zinc-500 text-[8.5px] py-2">Waiting for first live prediction...</div>
+        </div>
+
+        <!-- Selected Bead Inspector Strip -->
+        <div id="seqBeadDetailStrip" class="p-2 rounded-xl bg-black/60 border border-white/[0.06] text-[8.5px] font-mono flex items-center justify-between text-zinc-300">
+          <span>Period <b id="detailPeriod" class="text-amber-300">--</b>: Pred <b id="detailPred" class="text-white">--</b></span>
+          <span>Actual: <b id="detailActual" class="text-white">--</b></span>
+          <span id="detailResultBadge" class="px-2 py-0.5 rounded font-black text-[7.5px] bg-white/10 text-zinc-400 border border-white/10">--</span>
+        </div>
+      </div>
+
+      <!-- 4. MARKET REGIME & NEURO-STATE RADAR -->
+      <div class="liquid-glass-card p-3 space-y-2">
+        <div class="flex items-center justify-between pb-1 border-b border-white/[0.08]">
+          <div class="flex items-center gap-1.5">
+            <i class="fa-solid fa-compass-drafting text-purple-400 text-xs"></i>
+            <span class="text-[10px] font-black uppercase tracking-wider text-white">Market Regime & Neuro-State</span>
+          </div>
+          <span id="aiRegimeName" class="text-[8px] font-mono text-emerald-400 font-bold">🐉 Dragon Trend (Directional)</span>
+        </div>
+
+        <div class="space-y-1 pt-0.5">
+          <div class="flex items-center justify-between text-[8px] font-mono text-zinc-400">
+            <span>Directional (Dragon)</span>
+            <span id="regimeScoreText" class="text-amber-300 font-bold">78% Strength</span>
+            <span>Oscillating (Chop)</span>
+          </div>
+          <div class="w-full bg-black/60 h-2 rounded-full overflow-hidden p-0.5 border border-white/[0.08]">
+            <div id="aiRegimeProgressBar" class="h-full rounded-full bg-gradient-to-r from-emerald-500 via-amber-400 to-rose-500 transition-all duration-300" style="width: 78%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. 8-ENGINE NEURAL CONSENSUS MATRIX -->
+      <div class="liquid-glass-card p-3 space-y-2">
+        <div class="flex items-center justify-between pb-1 border-b border-white/[0.08]">
+          <span class="text-[10px] font-black uppercase tracking-wider text-white">8-Engine Neural Matrix</span>
+          <span class="text-[8px] font-mono text-purple-300" id="matrixConsensusTag">Consensus: --</span>
+        </div>
+        <div id="aiMatrixList" class="space-y-1 pt-1 font-mono text-[9px]"></div>
+      </div>
+
+      <!-- 6. 101-ALGORITHM ROSTER & LEADERBOARD -->
+      <div class="liquid-glass-card p-3 space-y-2.5">
+        <div class="flex items-center justify-between pb-1 border-b border-white/[0.08]">
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] font-black uppercase tracking-wider text-white">Algorithm Leaderboard (101 Models)</span>
+            <span id="algoCountTag" class="text-[8px] font-mono text-zinc-400">101 Models</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <button id="resetAIWinRateBtn" onclick="resetUserAIModelsWinRate()" class="px-2 py-0.5 rounded-lg text-[8px] font-mono font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 active:scale-95 transition flex items-center gap-1" title="Reset all 101 model win rates to 0% for your personal session">
+              <i class="fa-solid fa-arrows-rotate text-[7px]"></i> Reset 0%
+            </button>
+            <button id="restoreGlobalAIBtn" onclick="restoreGlobalAIStats()" class="hidden px-1.5 py-0.5 rounded-lg text-[8px] font-mono font-bold bg-purple-500/15 text-purple-300 border border-purple-500/30 hover:bg-purple-500/25 active:scale-95 transition" title="Restore global cloud ratings">
+              Global
+            </button>
+          </div>
+        </div>
+
+        <!-- Category Filter Pills -->
+        <div class="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar">
+          <button onclick="setMobileAlgoCategory('all')" id="algoCat-all" class="ai-filter-btn active">All (101)</button>
+          <button onclick="setMobileAlgoCategory('Fly')" id="algoCat-Fly" class="ai-filter-btn">Fly (14)</button>
+          <button onclick="setMobileAlgoCategory('Neural')" id="algoCat-Neural" class="ai-filter-btn">Neural (12)</button>
+          <button onclick="setMobileAlgoCategory('Classical')" id="algoCat-Classical" class="ai-filter-btn">Classical (15)</button>
+          <button onclick="setMobileAlgoCategory('Signal')" id="algoCat-Signal" class="ai-filter-btn">Signal (12)</button>
+          <button onclick="setMobileAlgoCategory('Chaos')" id="algoCat-Chaos" class="ai-filter-btn">Chaos (10)</button>
+          <button onclick="setMobileAlgoCategory('Game')" id="algoCat-Game" class="ai-filter-btn">Game (10)</button>
+          <button onclick="setMobileAlgoCategory('Pattern')" id="algoCat-Pattern" class="ai-filter-btn">Pattern (10)</button>
+          <button onclick="setMobileAlgoCategory('Quantum')" id="algoCat-Quantum" class="ai-filter-btn">Quantum (5)</button>
+          <button onclick="setMobileAlgoCategory('Meta')" id="algoCat-Meta" class="ai-filter-btn">Meta (6)</button>
+          <button onclick="setMobileAlgoCategory('Statistical')" id="algoCat-Statistical" class="ai-filter-btn">Statistical (7)</button>
+        </div>
+
+        <input type="text" id="modelSearchInput" oninput="filterModelRoster()" placeholder="Search 101 algorithms..." class="w-full bg-black/50 border border-white/[0.1] rounded-xl px-2.5 py-1.5 text-[9px] font-mono text-white placeholder-zinc-500 focus:outline-none focus:border-purple-400">
+
+        <div id="aiRosterList" class="space-y-1.5 max-h-80 overflow-y-auto pr-1"></div>
+      </div>
+
+    </section>
+
+    <!-- ╔══════════════════════════════════════════════════════════
+         PAGE 3: SIMULATION (Advanced Test Bench)
+    ══════════════════════════════════════════════════════════╗ -->
+    <section id="tab-sim" class="mobile-page space-y-3" style="display:none;">
+      
+      <!-- Simulation Balance & Stats Card -->
+      <div class="liquid-glass-card p-3.5 space-y-3">
+        <div class="flex items-center justify-between pb-1.5 border-b border-white/[0.08]">
+          <div class="flex items-center gap-1.5">
+            <i class="fa-solid fa-robot text-emerald-400 text-xs"></i>
+            <span class="text-[10px] font-black uppercase tracking-wider text-white">Simulation Martingale Bot</span>
+          </div>
+          <button id="simBotToggleBtn" onclick="toggleSimBot()" class="px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 active:scale-95 transition">
+            ▶ START
+          </button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 font-mono">
+          <div class="p-2.5 rounded-2xl bg-black/50 border border-white/[0.08]">
+            <span class="text-[7.5px] uppercase text-zinc-500 block">Virtual Balance</span>
+            <span id="simBalanceVal" class="text-xl font-black text-emerald-400">₹10,000</span>
+          </div>
+          <div class="p-2.5 rounded-2xl bg-black/50 border border-white/[0.08]">
+            <span class="text-[7.5px] uppercase text-zinc-500 block">Net P&L</span>
+            <span id="simPnlVal" class="text-xl font-black text-zinc-300">₹0 (0%)</span>
+          </div>
+        </div>
+
+        <!-- Controls: Base Stake & Multiplier -->
+        <div class="space-y-1.5 pt-1 font-mono text-[9px]">
+          <div class="flex items-center justify-between">
+            <span class="text-zinc-400">Base Stake:</span>
+            <div class="flex items-center gap-1">
+              <button onclick="setSimBaseStake(10)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/15 text-zinc-300 border border-white/10 active:scale-95">₹10</button>
+              <button onclick="setSimBaseStake(50)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/15 text-zinc-300 border border-white/10 active:scale-95">₹50</button>
+              <button onclick="setSimBaseStake(100)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/15 text-zinc-300 border border-white/10 active:scale-95">₹100</button>
+            </div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-zinc-400">Active Stake:</span>
+            <b id="simActiveStake" class="text-amber-300 font-bold">₹10 (Level 0)</b>
+          </div>
+        </div>
+
+        <div class="pt-1 flex items-center justify-between border-t border-white/[0.06] text-[8px] font-mono text-zinc-500">
+          <span>Rounds Played: <b id="simRoundsCount" class="text-white">0</b></span>
+          <button onclick="resetSimBot()" class="text-rose-400 hover:underline">Reset Balance</button>
+        </div>
+      </div>
+
+      <!-- Sim Telemetry Log -->
+      <div class="liquid-glass-card p-3 space-y-2">
+        <div class="flex items-center justify-between pb-1 border-b border-white/[0.08]">
+          <span class="text-[9.5px] font-black uppercase tracking-wider text-white">Bot Execution Log</span>
+          <span class="text-[8px] font-mono text-zinc-400">Recent Bets</span>
+        </div>
+        <div id="simLogList" class="space-y-1 max-h-48 overflow-y-auto font-mono text-[8.5px]">
+          <div class="text-zinc-500 py-3 text-center">Bot is on standby. Click START to begin.</div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ╔══════════════════════════════════════════════════════════
+         PAGE 4: DHANIWIN (Real Embedded Web View & Auto-Betting)
+    ══════════════════════════════════════════════════════════╗ -->
+    <!-- ╔══════════════════════════════════════════════════════════
+         PAGE 4: DHANIWIN (Real Embedded Web View & Floating AI Assistant)
+    ══════════════════════════════════════════════════════════╗ -->
+    <section id="tab-web" class="mobile-page" style="display:block; position:fixed; inset:0; bottom:0; z-index:40; padding:0; margin:0; background:#000;">
+      
+      <!-- Fullscreen DhaniWin Iframe (Default: Last Selected Interval if session active, else Login/Registration) -->
+      <iframe id="dhaniwinIframe"
+        src="about:blank"
+        class="w-full h-full border-0 bg-black block"
+        loading="lazy"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; payment"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads">
+      </iframe>
+      <script>
+        (function() {
+          try {
+            // Only an ACTIVE session opens WinGo. 'dhaniwin_registered' just means the
+            // user has an account → show Login instead of Register. No personal credentials.
+            var isAuth = (
+              localStorage.getItem('dhaniwin_is_logged_in') === 'true' ||
+              localStorage.getItem('dhaniwin_logged_in') === '1' ||
+              localStorage.getItem('ar_token')
+            );
+            var lastTf = localStorage.getItem('dhaniwin_last_interval') || '30s';
+            var urlMap = {
+              '30s': 'https://dhaniwin44.com/WinGo/WinGo_30S',
+              '1m':  'https://dhaniwin44.com/WinGo/WinGo_1M',
+              '3m':  'https://dhaniwin44.com/WinGo/WinGo_3M',
+              '5m':  'https://dhaniwin44.com/WinGo/WinGo_5M'
+            };
+            var target;
+            if (isAuth) {
+              target = urlMap[lastTf] || urlMap['30s'];
+            } else if (localStorage.getItem('dhaniwin_registered') === '1') {
+              target = 'https://dhaniwin44.com/login';
+            } else {
+              target = 'https://dhaniwin44.com/register?inviteCode=EEJKXQN&from=app';
+            }
+            var iframe = document.getElementById('dhaniwinIframe');
+            if (iframe) iframe.src = target;
+          } catch(e) {}
+        })();
+      </script>
+
+      <!-- Pull handle: visible when our top bar is hidden; tap / swipe down to show it -->
+      <button id="homeHeaderPullHandle" type="button" aria-label="Show top bar"></button>
+
+      <!-- Login / Register bar (shown when logged out or session expired) -->
+      <div id="dhaniAuthBar" class="liquid-glass-pill" style="display:none;">
+        <i class="fa-solid fa-user-lock text-amber-300 text-xs"></i>
+        <span id="dhaniAuthBarText" class="text-[10.5px] font-bold text-white/80 whitespace-nowrap">Not logged in</span>
+        <button type="button" onclick="openDhaniLogin()" class="auth-btn auth-btn-primary">Login</button>
+        <button type="button" onclick="openDhaniRegister()" class="auth-btn">Register</button>
+        <button type="button" onclick="confirmDhaniLoggedIn()" class="auth-btn" title="I have logged in — open WinGo"><i class="fa-solid fa-check"></i></button>
+        <button type="button" onclick="dismissDhaniAuthBar()" class="auth-btn auth-btn-ghost" title="Hide"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+
+      <!-- Floating Circle Assistant (AssistiveTouch Orb) -->
+      <div id="dhaniwinFloatingOrb"
+        class="fixed select-none cursor-pointer transition-transform active:scale-90 touch-none"
+        style="bottom: 90px; right: 16px; width: 56px; height: 56px; z-index: 99998; display: block;"
+        title="DhaniWin Quant AI Assistant">
+        <!-- Outer Glowing Pulsing Ring -->
+        <div id="floatingOrbRing" class="absolute inset-0 rounded-full bg-gradient-to-tr from-amber-500 via-emerald-500 to-indigo-500 p-[2px] shadow-[0_4px_24px_rgba(16,185,129,0.55)]">
+          <div class="w-full h-full rounded-full bg-black/90 backdrop-blur-md flex flex-col items-center justify-center text-center">
+            <span id="floatingOrbIcon" class="text-xs leading-none">🎯</span>
+            <span id="floatingOrbTarget" class="text-[8.5px] font-black font-mono text-amber-300 leading-tight">BIG</span>
+            <span id="floatingOrbStake" class="text-[7.5px] font-bold font-mono text-emerald-400 leading-none">₹2</span>
+          </div>
+        </div>
+        <!-- Pulse Status Indicator Dot -->
+        <span id="floatingOrbDotPing" class="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black animate-ping"></span>
+        <span id="floatingOrbDot" class="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black"></span>
+      </div>
+
+      <!-- Frosted Glass Minimalist Assistant Hub Modal (Slide-Up) -->
+      <div id="dhaniwinAssistantModal" class="fixed inset-0 bg-black/80 backdrop-blur-xl flex flex-col justify-end transition-opacity duration-300 hidden" style="z-index: 100000;" onclick="if(event.target===this) toggleDhaniwinAssistantModal(false)">
+        <div class="w-full max-w-md mx-auto bg-[#121216] border-t border-white/[0.12] rounded-t-[32px] max-h-[85vh] overflow-y-auto pb-8 p-4 shadow-2xl space-y-3">
+          
+          <!-- Top Grab Bar -->
+          <div class="w-10 h-1 bg-white/20 rounded-full mx-auto cursor-pointer" onclick="toggleDhaniwinAssistantModal(false)"></div>
+
+          <!-- 1. Minimal Header: Real Scraped Balance + Sync & Close -->
+          <div class="flex items-center justify-between pb-2 border-b border-white/[0.08]">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <div class="flex flex-col">
+                <span class="text-[8px] font-mono text-zinc-400 uppercase tracking-wider">Real Scraped Balance</span>
+                <span id="mobileWebBalance" class="text-base font-black font-mono text-white">₹0.00</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button onclick="syncMobileUserWallet()" class="px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/15 text-zinc-200 font-mono text-[9px] flex items-center gap-1 active:scale-95 transition">
+                <i class="fa-solid fa-arrows-rotate text-[8px]"></i> Sync
+              </button>
+              <button onclick="toggleDhaniwinAssistantModal(false)" class="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-zinc-300 flex items-center justify-center text-xs">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- 2. Minimal Interval Selector (Auto-routes to WinGo_30S / 1M / 3M / 5M) -->
+          <div class="flex items-center justify-between gap-1 p-1 rounded-2xl bg-black/50 border border-white/[0.08]">
+            <button onclick="setMobileDhaniWinTimeframe('30s')" id="webTf-30s" class="flex-1 py-1.5 rounded-xl font-mono text-[10px] font-black transition active:scale-95 bg-amber-500/25 text-amber-300 border border-amber-400/40">30s</button>
+            <button onclick="setMobileDhaniWinTimeframe('1m')" id="webTf-1m" class="flex-1 py-1.5 rounded-xl font-mono text-[10px] font-black transition active:scale-95 text-white/50 hover:text-white hover:bg-white/5">1m</button>
+            <button onclick="setMobileDhaniWinTimeframe('3m')" id="webTf-3m" class="flex-1 py-1.5 rounded-xl font-mono text-[10px] font-black transition active:scale-95 text-white/50 hover:text-white hover:bg-white/5">3m</button>
+            <button onclick="setMobileDhaniWinTimeframe('5m')" id="webTf-5m" class="flex-1 py-1.5 rounded-xl font-mono text-[10px] font-black transition active:scale-95 text-white/50 hover:text-white hover:bg-white/5">5m</button>
+          </div>
+
+          <!-- 3. Current Period, Time & AI Prediction Target Card -->
+          <div class="liquid-glass-card p-3 rounded-2xl border border-white/[0.08] flex items-center justify-between">
+            <div class="flex flex-col">
+              <div class="flex items-center gap-1.5">
+                <span class="text-[9px] font-mono text-zinc-400">PERIOD:</span>
+                <span id="assistantPeriodNum" class="text-[10px] font-mono font-bold text-amber-300">--</span>
+              </div>
+              <div class="flex items-center gap-1 mt-1">
+                <i class="fa-solid fa-clock text-amber-400 text-[10px]"></i>
+                <span id="assistantCountdown" class="font-mono text-lg font-black text-amber-400 tracking-wider">00:00</span>
+              </div>
+            </div>
+            <div class="flex flex-col items-end">
+              <span class="text-[8px] font-mono uppercase tracking-wider text-zinc-400">AI Target</span>
+              <div class="flex items-center gap-1.5 mt-0.5">
+                <span id="mobileWebTargetDisplay" class="text-2xl font-black text-amber-300">BIG</span>
+                <span id="assistantConfBadge" class="text-[8.5px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">84%</span>
+              </div>
+              <span id="mobileWebLevelBadge" class="text-[7.5px] font-mono text-zinc-400 mt-0.5">Level 1 (Base)</span>
+            </div>
+          </div>
+
+          <!-- 4. Recent Sequence Prediction Road (Last 8 Balls) -->
+          <div class="space-y-1">
+            <div class="flex items-center justify-between text-[8px] font-mono text-zinc-400 px-0.5">
+              <span>RECENT SEQUENCE ROAD</span>
+              <span class="text-zinc-500">NEWEST ◄ OLDER</span>
+            </div>
+            <div id="assistantMiniRoad" class="flex items-center gap-1.5 p-2 rounded-xl bg-black/40 border border-white/[0.06] overflow-x-auto min-h-[38px]">
+              <!-- Dynamically populated with 8 latest balls with prediction result badges -->
+            </div>
+          </div>
+
+          <!-- 5. 1-Tap Base Bet Quick Set Chips & Recovery Stake Display -->
+          <div class="p-2.5 rounded-2xl bg-black/40 border border-white/[0.08] space-y-2">
+            <div class="flex items-center justify-between text-[8.5px] font-mono">
+              <span class="text-zinc-300 font-bold">1-TAP BASE BET (₹):</span>
+              <span class="text-zinc-400">Next Prep Stake: <b id="mobileWebStakeDisplay" class="text-emerald-400 font-bold">₹2</b></span>
+            </div>
+            <div class="grid grid-cols-6 gap-1">
+              <button onclick="setAssistantBaseStake(1)"   id="chipBtn-1"   class="py-1 rounded-lg font-mono text-[9.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95">₹1</button>
+              <button onclick="setAssistantBaseStake(2)"   id="chipBtn-2"   class="py-1 rounded-lg font-mono text-[9.5px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 active:scale-95">₹2</button>
+              <button onclick="setAssistantBaseStake(5)"   id="chipBtn-5"   class="py-1 rounded-lg font-mono text-[9.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95">₹5</button>
+              <button onclick="setAssistantBaseStake(10)"  id="chipBtn-10"  class="py-1 rounded-lg font-mono text-[9.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95">₹10</button>
+              <button onclick="setAssistantBaseStake(50)"  id="chipBtn-50"  class="py-1 rounded-lg font-mono text-[9.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95">₹50</button>
+              <button onclick="setAssistantBaseStake(100)" id="chipBtn-100" class="py-1 rounded-lg font-mono text-[9.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95">₹100</button>
+            </div>
+          </div>
+
+          <!-- 6. Loss Limit / Stop-Bet Reminder -->
+          <div class="p-2.5 rounded-2xl bg-black/40 border border-white/[0.08] flex items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5 text-[8.5px] font-mono text-zinc-300">
+              <i class="fa-solid fa-shield-halved text-rose-400"></i>
+              <span>Stop Bet if Loss Reaches:</span>
+            </div>
+            <div class="flex items-center gap-1 font-mono text-xs">
+              <span class="text-rose-400 font-bold">-₹</span>
+              <input id="mobileWebStopLossLimit" type="number" value="100" min="5" step="5" onchange="updateAssistantLossLimit(this.value)" class="w-14 bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-right font-bold text-rose-300 outline-none">
+            </div>
+          </div>
+
+          <!-- 7. Action Controls: Prep BIG, Prep SMALL, Auto-Prep Toggle -->
+          <div class="flex items-center gap-2">
+            <button onclick="mobileQuickOpenTarget('BIG')" class="flex-1 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 border border-sky-500/40 text-[9.5px] font-black active:scale-95 transition">
+              PREP BIG
+            </button>
+            <button onclick="mobileQuickOpenTarget('SMALL')" class="flex-1 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-[9.5px] font-black active:scale-95 transition">
+              PREP SMALL
+            </button>
+          </div>
+
+          <!-- Main Auto-Prep Toggle Button -->
+          <button id="mobileBridgeToggleBtn" onclick="toggleMobileRealAutoBet()" class="w-full py-2.5 rounded-xl font-mono text-[10px] font-black bg-emerald-500/25 hover:bg-emerald-500/35 text-emerald-300 border border-emerald-500/50 active:scale-95 transition shadow flex items-center justify-center gap-2">
+            <span id="mobileBridgeDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span id="mobileBridgeStatusLabel">▶ ACTIVATE AUTO-PREP</span>
+          </button>
+
+          <!-- Utilities Bar (Reload, WinGo 30s, Full View, Script, Open Tab) -->
+          <div class="grid grid-cols-5 gap-1 pt-1 border-t border-white/[0.06] text-[8px] font-mono">
+            <button onclick="reloadWebIframe()" class="py-1 rounded bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 text-center">
+              🔄 Reload
+            </button>
+            <button onclick="loadMobileWebUrl('https://dhaniwin44.com/WinGo/WinGo_30S')" class="py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold text-center">
+              🎮 WinGo
+            </button>
+            <button onclick="toggleDhaniWinTrueFullscreen()" id="btnTrueFullscreenToggle" class="py-1 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold text-center">
+              📺 Full View
+            </button>
+            <button onclick="copyMobileBridgeScript()" class="py-1 rounded bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-bold text-center">
+              📋 Script
+            </button>
+            <a id="mobileWebExternalTabLink" href="https://dhaniwin44.com/WinGo/WinGo_30S" target="_blank" rel="noopener noreferrer" onclick="openMobileBridgeTab(event)" class="py-1 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 font-bold text-center flex items-center justify-center">
+              ↗ Tab
+            </a>
+          </div>
+
+          <!-- Disclaimer / Instruction -->
+          <p class="text-[7.5px] font-mono text-zinc-500 text-center">
+            🔒 Auto-prep opens sheet & sets stake. Bet confirmation is strictly manual by user.
+          </p>
+
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════════════════════════
+           APPLE CINEMATIC MONEY RAIN CELEBRATION OVERLAY
+      ════════════════════════════════════════════════════════════ -->
+      <!-- Container: pointer-events-none so DhaniWin site is still clickable underneath. Canvas is pass-through. Pill button is pointer-events-auto so user can tap to dismiss. -->
+      <div id="appleMoneyRainContainer" class="fixed inset-0 pointer-events-none z-[100002] hidden flex flex-col items-center justify-start pt-16 transition-opacity duration-300 overflow-hidden">
+        <canvas id="appleMoneyRainCanvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+        <!-- Apple Dynamic Island Floating Win Pill — pointer-events-auto so it IS tappable -->
+        <div id="appleMoneyWinPill" class="relative z-10 px-4 py-2 rounded-full bg-black/90 border border-emerald-500/40 shadow-[0_8px_32px_rgba(16,185,129,0.35)] flex items-center gap-2 transform scale-95 transition-all duration-300 pointer-events-auto cursor-pointer" onclick="dismissAppleMoneyRain()">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="appleMoneyWinTitle" class="text-[11px] font-black font-mono tracking-tight text-white">PREDICTION WON</span>
+          <span id="appleMoneyWinBadge" class="text-[10px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-500/40">+₹2.00</span>
+
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ╔══════════════════════════════════════════════════════════
+         PAGE 4: PATTERN (Pattern Intelligence Layer)
+    ══════════════════════════════════════════════════════════╗ -->
+    <section id="tab-pattern" class="mobile-page space-y-3" style="display:none;"></section>
+
+  </main>
+
+  <!-- ════════════════════════════════════════════════════════════
+       BUY ME A COFFEE / SUPPORT POPUP MODAL (App Open)
+  ════════════════════════════════════════════════════════════ -->
+  <div id="coffeeSupportModal" class="fixed inset-0 z-[100000] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4 transition-all duration-300 opacity-0 pointer-events-none" onclick="if(event.target===this) closeCoffeeSupportModal(false)">
+    <div class="w-full max-w-[340px] bg-[#161618]/95 border border-white/[0.14] rounded-[30px] p-6 shadow-2xl relative text-center flex flex-col items-center gap-3.5 animate-scale-up" onclick="event.stopPropagation()">
+      <!-- Close Button -->
+      <button onclick="closeCoffeeSupportModal(false)" class="absolute top-3.5 right-3.5 w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white flex items-center justify-center text-xs transition active:scale-95" title="Close">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <!-- Coffee Cup Hero Badge -->
+      <div class="relative mt-1">
+        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400/25 to-orange-500/20 border border-amber-400/35 flex items-center justify-center text-2xl shadow-lg shadow-amber-500/20 text-amber-300 animate-bounce-subtle">
+          ☕
+        </div>
+        <span class="absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-full bg-amber-500 text-[8px] font-black font-mono text-black uppercase tracking-wider shadow">AI</span>
+      </div>
+
+      <!-- Title & Value Prop -->
+      <div class="space-y-1">
+        <h3 class="text-base font-black tracking-tight text-white">Buy Me a Coffee</h3>
+        <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[9px] font-mono font-bold">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>100% FREE &amp; ZERO ADS</span>
+        </div>
+      </div>
+
+      <p class="text-[11px] text-zinc-300 leading-relaxed font-normal px-1">
+        We operate 101 AI prediction algorithms, live IST sync, and 24/7 cloud sync completely free and ad-free. If 01:01 helps your analysis, consider buying a coffee to keep server &amp; compute running! 💛
+      </p>
+
+      <!-- Direct Unblockable Razorpay Payment Button (Guaranteed Zero Blank/Bad Request Errors) -->
+      <div id="coffeeModalRazorpayContainer" class="w-full space-y-2 pt-1">
+        <a href="https://pages.razorpay.com/pl_TjTtX1mh764PQS/view" target="_blank" rel="noopener noreferrer" onclick="closeCoffeeSupportModal(true)" class="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 hover:from-amber-300 hover:to-orange-400 text-black font-extrabold text-sm tracking-tight flex items-center justify-between shadow-lg shadow-amber-500/25 transition active:scale-[0.98] border border-amber-300/40 cursor-pointer">
+          <div class="flex items-center gap-2">
+            <span class="text-lg">☕</span>
+            <span class="font-black text-xs uppercase tracking-wider">Buy Me a Coffee</span>
+          </div>
+          <div class="flex items-center gap-1 text-[10px] font-mono font-bold bg-black/15 px-2.5 py-0.5 rounded-full text-black">
+            <span>From ₹18</span>
+            <i class="fa-solid fa-arrow-up-right-from-square text-[8.5px]"></i>
+          </div>
+        </a>
+
+        <!-- Quick Tiers -->
+        <div class="w-full grid grid-cols-3 gap-1.5 text-[9px] font-mono">
+          <a href="https://pages.razorpay.com/pl_TjTtX1mh764PQS/view" target="_blank" rel="noopener noreferrer" onclick="closeCoffeeSupportModal(true)" class="py-1.5 px-1 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-amber-300 font-bold transition flex items-center justify-center gap-1 active:scale-95">
+            <span>☕ ₹18</span>
+          </a>
+          <a href="https://pages.razorpay.com/pl_TjTtX1mh764PQS/view" target="_blank" rel="noopener noreferrer" onclick="closeCoffeeSupportModal(true)" class="py-1.5 px-1 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-amber-300 font-bold transition flex items-center justify-center gap-1 active:scale-95">
+            <span>🍛 ₹278</span>
+          </a>
+          <a href="https://pages.razorpay.com/pl_TjTtX1mh764PQS/view" target="_blank" rel="noopener noreferrer" onclick="closeCoffeeSupportModal(true)" class="py-1.5 px-1 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-amber-300 font-bold transition flex items-center justify-center gap-1 active:scale-95">
+            <span>❤️ Any</span>
+          </a>
+        </div>
+
+        <div class="text-[8px] font-mono text-zinc-400 text-center flex items-center justify-center gap-2 pt-0.5">
+          <span>🔒 Google Pay</span>
+          <span>•</span>
+          <span>PhonePe</span>
+          <span>•</span>
+          <span>Paytm</span>
+          <span>•</span>
+          <span>Cards</span>
+        </div>
+      </div>
+
+      <!-- Footer Buttons -->
+      <div class="w-full pt-2 border-t border-white/[0.08] flex flex-col items-center gap-2">
+        <button onclick="closeCoffeeSupportModal(false)" class="w-full py-2.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] text-zinc-300 hover:text-white font-medium text-xs tracking-tight transition active:scale-[0.98]">
+          Maybe Later
+        </button>
+        <button onclick="dismissCoffeeSupportModalToday()" class="text-[10px] text-zinc-400 hover:text-amber-300 transition flex items-center gap-1.5 py-1">
+          <i class="fa-regular fa-clock text-[9px]"></i>
+          <span>Don't show this again today</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════
+       APPLE MINIMALIST SETTINGS MODAL (iOS 18 Inset Grouped Architecture)
+  ════════════════════════════════════════════════════════════ -->
+  <div id="mobileSettingsModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-2xl flex flex-col justify-end transition-opacity duration-300 hidden" onclick="if(event.target===this) toggleMobileSettings()">
+    <div class="w-full max-w-md mx-auto bg-[#121214] border-t border-white/[0.14] rounded-t-[36px] max-h-[90vh] overflow-y-auto pb-14 p-4 shadow-2xl space-y-3.5">
+      
+      <!-- Top Grab Bar -->
+      <div class="w-10 h-1 bg-white/20 rounded-full mx-auto"></div>
+
+      <!-- Header: Title + Done Button -->
+      <div class="flex items-center justify-between pb-1">
+        <div>
+          <h2 class="text-xl font-bold tracking-tight text-white">Settings</h2>
+          <p class="text-[9.5px] font-mono text-zinc-400">01:01 Quant Terminal • iOS 18 Design</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <a href="settings.html" class="px-3 py-1.5 rounded-full bg-blue-500/20 text-[#0a84ff] border border-blue-500/30 font-bold text-xs flex items-center gap-1 active:scale-95 transition">
+            <span>Full Page</span>
+            <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+          </a>
+          <button onclick="toggleMobileSettings()" class="px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/80 font-bold text-xs tracking-tight transition active:scale-95">
+            Done
+          </button>
+        </div>
+      </div>
+
+      <!-- PROFILE & APP IDENTITY HEADER CARD -->
+      <div class="bg-gradient-to-r from-white/[0.07] via-white/[0.04] to-transparent border border-white/[0.1] rounded-2xl p-3.5 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <img src="logo_0101.jpg" class="w-10 h-10 rounded-xl object-contain shadow-md border border-white/10" alt="01:01 Logo">
+          <div>
+            <div class="text-xs font-bold text-white flex items-center gap-1.5">
+              <span>01:01 Quant AI Terminal</span>
+            </div>
+            <p class="text-[9px] font-mono text-zinc-400">Version 2.4.0 • Zero-Quota Edge Architecture</p>
+          </div>
+        </div>
+        <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[8px] font-mono font-bold flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          LIVE
+        </span>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════
+           FEATURED: ☕ BUY ME A COFFEE / SUPPORT COMMUNITY
+           ══════════════════════════════════════════════════════════════ -->
+      <div class="ios-grouped-card p-4 space-y-3 border border-amber-500/35 bg-gradient-to-br from-amber-500/[0.12] via-orange-500/[0.05] to-black/60 shadow-lg shadow-amber-500/5">
+        <div class="flex items-center justify-between pb-2 border-b border-white/[0.08]">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-black flex items-center justify-center text-lg shadow-md shrink-0">
+              ☕
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white flex items-center gap-1.5">
+                <span>Buy Me a Coffee</span>
+                <span class="text-[7.5px] font-mono px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30 font-bold uppercase">Community Funded</span>
+              </div>
+              <p class="text-[8.5px] text-zinc-300">Keep 01:01 100% free, zero ads &amp; support 24/7 server costs</p>
+            </div>
+          </div>
+        </div>
+
+        <p class="text-[10.5px] text-zinc-300 leading-relaxed font-normal">
+          We operate 101 AI prediction models, 24/7 cloud sync, and real-time IST telemetry with zero subscriptions and zero ads. If you enjoy the app, consider supporting with a coffee! 💛
+        </p>
+
+        <!-- Direct Unblockable Razorpay Payment Link & Tiers inside Settings -->
+        <div id="settingsCoffeeRazorpayContainer" class="w-full space-y-2 pt-0.5">
+          <a href="https://pages.razorpay.com/pl_TjTtX1mh764PQS/view" target="_blank" rel="noopener noreferrer" class="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 hover:from-amber-300 hover:to-orange-400 text-black font-extrabold text-sm tracking-tight flex items-center justify-between shadow-lg shadow-amber-500/20 transition active:scale-[0.98] border border-amber-300/40 cursor-pointer">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">☕</span>
+              <span class="font-black text-xs uppercase tracking-wider">Buy Me a Coffee</span>
+            </div>
+            <div class="flex items-center gap-1 text-[10px] font-mono font-bold bg-black/15 px-2.5 py-0.5 rounded-full text-black">
+              <span>From ₹18</span>
+              <i class="fa-solid fa-arrow-up-right-from-square text-[8.5px]"></i>
+            </div>
+          </a>
+
+          <!-- Quick Tiers -->
+          <div class="w-full grid grid-cols-3 gap-1.5 text-[9px] font-mono">
+            <a href="https://pages.razorpay.com/pl_TjTtX1mh764PQS/view" target="_blank" rel="noopener noreferrer" class="py-1.5 px-1 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-amber-300 font-bold transition flex items-center justify-center gap-1 active:scale-95">
+              <span>☕ ₹18</span>
+            </a>
+            <a href="https://pages.razorpay.com/pl_TjTtX1mh764PQS/view" target="_blank" rel="noopener noreferrer" class="py-1.5 px-1 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-amber-300 font-bold transition flex items-center justify-center gap-1 active:scale-95">
+              <span>🍛 ₹278</span>
+            </a>
+            <a href="https://pages.razorpay.com/pl_TjTtX1mh764PQS/view" target="_blank" rel="noopener noreferrer" class="py-1.5 px-1 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-amber-300 font-bold transition flex items-center justify-center gap-1 active:scale-95">
+              <span>❤️ Any</span>
+            </a>
+          </div>
+
+          <div class="flex items-center justify-between pt-1 border-t border-white/[0.06] text-[8px] font-mono text-zinc-400">
+            <span>⚡ 100% Free Forever</span>
+            <span>🔒 Secure UPI / Cards / Razorpay</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 1: SYSTEM & CLOUD ENGINE STATUS -->
+      <div class="ios-grouped-card p-3 space-y-2">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center justify-center shrink-0 text-sm">
+            <i class="fa-solid fa-microchip"></i>
+          </div>
+          <div class="flex-1">
+            <div class="text-xs font-bold text-white flex items-center gap-1.5">
+              <span>Universal Brain Engine</span>
+              <span class="text-[8px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">SYNCED</span>
+            </div>
+            <p class="text-[8.5px] font-mono text-zinc-400">Cloudflare Edge + Direct Upstream • 101 Models</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 2: PREDICTION ENGINE & INCHARGE CONTROLLER (HYBRID ARCHITECTURE) -->
+      <div class="ios-grouped-card p-3 space-y-3 border border-amber-500/25 bg-gradient-to-br from-amber-950/15 via-black/40 to-black/60">
+        <div class="flex items-center justify-between pb-1.5 border-b border-white/[0.08]">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center text-xs">
+              <i class="fa-solid fa-brain"></i>
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white">Prediction Engine</div>
+              <p class="text-[8px] text-zinc-400">Compute location &amp; In-Charge state machine</p>
+            </div>
+          </div>
+          <span id="activeEngineBadge" class="text-[8px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">LOCAL 53</span>
+        </div>
+
+        <!-- 1. Prediction Source Selector -->
+        <div class="space-y-1.5">
+          <label class="text-[8.5px] uppercase font-mono tracking-wider text-zinc-400 font-bold flex items-center justify-between">
+            <span>Prediction Source</span>
+            <span id="predSourceDesc" class="text-[7.5px] text-amber-400 normal-case font-normal">Fastest: Client Web Worker</span>
+          </label>
+          <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-black/50 border border-white/[0.08]">
+            <button type="button" id="sourceBtnLocal" onclick="setPredictionSource('LOCAL')" class="px-2.5 py-1.5 rounded-lg text-[9px] font-mono font-bold transition flex items-center justify-center gap-1.5 bg-amber-500/25 text-amber-300 border border-amber-500/40">
+              <i class="fa-solid fa-mobile-screen"></i>
+              <span>📱 Local (101 Models)</span>
+            </button>
+            <button type="button" id="sourceBtnCloud" onclick="setPredictionSource('CLOUD')" class="px-2.5 py-1.5 rounded-lg text-[9px] font-mono font-bold transition flex items-center justify-center gap-1.5 text-zinc-400 hover:text-white border border-transparent">
+              <i class="fa-solid fa-cloud"></i>
+              <span>☁️ Cloud Stream</span>
+            </button>
+          </div>
+          <p class="text-[7.5px] text-zinc-500 leading-tight">Local mode runs 101 specialized algorithms inside your browser Web Worker in parallel with zero lag. Cloud mode mirrors the 24/7 server stream.</p>
+        </div>
+
+        <!-- 2. In-Charge Decision Mode -->
+        <div class="space-y-1.5 pt-1.5 border-t border-white/[0.06]">
+          <label class="text-[8.5px] uppercase font-mono tracking-wider text-zinc-400 font-bold block">
+            In-Charge State Machine
+          </label>
+          <select id="inchargeModeSelect" onchange="setInchargeMode(this.value)" class="w-full px-2.5 py-1.5 rounded-xl bg-black/60 border border-white/[0.12] text-xs font-mono text-white focus:outline-none focus:border-amber-400">
+            <option value="WINNING_STREAK_OVERRIDE">🔥 Winning Streak Override (Base WR + Streak Lead)</option>
+            <option value="OVERALL_WIN_RATE">👑 Overall Win Rate (Server All-Time Benchmark)</option>
+            <option value="SESSION_WIN_RATE">🎯 Session Win Rate (User Session Isolated)</option>
+            <option value="SESSION_STREAK_OVERRIDE">⚡ Session Streak Override (Session WR + Streak Lead)</option>
+            <option value="UCB_RANKING">🎲 UCB-MAB Multi-Armed Bandit Ranking</option>
+          </select>
+        </div>
+
+        <!-- 3. Streak Threshold & Loss Return -->
+        <div class="grid grid-cols-2 gap-2 pt-1 border-t border-white/[0.06] text-[8.5px] font-mono">
+          <div>
+            <span class="text-zinc-400 block text-[7.5px] uppercase">Min Streak Override:</span>
+            <div class="flex items-center gap-1 mt-0.5">
+              <input type="number" id="inchargeMinStreakInput" min="2" max="10" value="3" onchange="setInchargeMinStreak(this.value)" class="w-14 px-2 py-0.5 rounded-lg bg-black/60 border border-white/[0.12] text-white font-mono text-center text-xs">
+              <span class="text-zinc-500 text-[8px]">Consecutive W</span>
+            </div>
+          </div>
+          <div>
+            <span class="text-zinc-400 block text-[7.5px] uppercase">On Wrong Prediction:</span>
+            <span class="text-emerald-400 font-bold text-[8.5px] flex items-center gap-1 mt-1">
+              <i class="fa-solid fa-rotate-left text-[7.5px]"></i> Return to Base
+            </span>
+          </div>
+        </div>
+
+        <!-- 4. Session Controls (Isolated) -->
+        <div class="flex items-center justify-between pt-1.5 border-t border-white/[0.06]">
+          <span class="text-[8px] text-zinc-400">User Session Isolation:</span>
+          <div class="flex items-center gap-1">
+            <button type="button" onclick="resetUserAIModelsWinRate()" class="px-2 py-1 rounded-lg bg-rose-500/15 text-rose-300 border border-rose-500/30 text-[8px] font-mono font-bold hover:bg-rose-500/25 active:scale-95 transition">
+              Reset Session (0%)
+            </button>
+            <button type="button" onclick="restoreGlobalAIStats()" class="px-2 py-1 rounded-lg bg-purple-500/15 text-purple-300 border border-purple-500/30 text-[8px] font-mono font-bold hover:bg-purple-500/25 active:scale-95 transition">
+              Sync Cloud
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SECTION 3: STANDALONE APP DOWNLOAD (PWA) -->
+      <div class="ios-grouped-card p-3 space-y-2.5 border border-indigo-500/30 bg-gradient-to-br from-indigo-950/20 to-black/60">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center justify-center shrink-0 text-sm">
+              <i class="fa-solid fa-mobile-screen-button"></i>
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white">Install WebApp</div>
+              <p class="text-[8px] text-zinc-400">Run as independent standalone mobile app</p>
+            </div>
+          </div>
+          <button id="pwaInstallActionBtn" onclick="triggerPWAInstall()" class="px-3 py-1 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-mono text-[9px] font-black tracking-wide transition active:scale-95 shadow-md flex items-center gap-1">
+            <i class="fa-solid fa-download text-[8px]"></i>
+            <span id="pwaInstallBtnText">INSTALL</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- SECTION 4: OUTSIDE APP NOTIFICATIONS, AUDIO & HAPTICS -->
+      <div class="ios-grouped-card divide-y divide-white/[0.06]">
+        <div class="p-3 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center shrink-0 text-sm">
+              <i class="fa-solid fa-bell"></i>
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white">Outside App Notifications</div>
+              <p class="text-[8px] text-zinc-400">Receive win/loss alerts when app is closed / phone locked</p>
+            </div>
+          </div>
+          <label class="ios-toggle shrink-0">
+            <input type="checkbox" id="settingOutsideNotif" onchange="toggleOutsideNotifications(this.checked)">
+            <span class="ios-slider"></span>
+          </label>
+        </div>
+
+        <div class="p-3">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center justify-center shrink-0 text-sm">
+                <i class="fa-solid fa-volume-high"></i>
+              </div>
+              <div>
+                <div class="text-xs font-bold text-white">Sound Effects (Siu &amp; Brhh)</div>
+                <p class="text-[8px] text-zinc-400">Siu on Win · Brhh on Loss audio cues</p>
+              </div>
+            </div>
+            <label class="ios-toggle shrink-0">
+              <input type="checkbox" id="settingSoundEffects" checked onchange="toggleSoundEffects(this.checked)">
+              <span class="ios-slider"></span>
+            </label>
+          </div>
+          <div class="mt-2.5 flex items-center gap-2">
+            <button type="button" onclick="playSoundEffect('win', true)" class="flex-1 py-1.5 px-2 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/25 text-[8.5px] font-mono font-bold flex items-center justify-center gap-1.5 active:scale-95 transition">
+              <i class="fa-solid fa-play text-[7.5px]"></i> Preview Suii (Win)
+            </button>
+            <button type="button" onclick="playSoundEffect('loss', true)" class="flex-1 py-1.5 px-2 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/25 text-[8.5px] font-mono font-bold flex items-center justify-center gap-1.5 active:scale-95 transition">
+              <i class="fa-solid fa-play text-[7.5px]"></i> Preview Bruh (Loss)
+            </button>
+          </div>
+        </div>
+
+        <div class="p-3 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center justify-center shrink-0 text-sm">
+              <i class="fa-solid fa-fingerprint"></i>
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white">Haptic Vibration</div>
+              <p class="text-[8px] text-zinc-400">Tactile pulse on round settlement</p>
+            </div>
+          </div>
+          <label class="ios-toggle shrink-0">
+            <input type="checkbox" id="settingHaptics" checked onchange="toggleHaptics(this.checked)">
+            <span class="ios-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- SECTION 5: BACKGROUND RUN & BATTERY OPTIMIZATION -->
+      <div class="ios-grouped-card divide-y divide-white/[0.06]">
+        <div class="p-3 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center justify-center shrink-0 text-sm">
+              <i class="fa-solid fa-bolt"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs font-bold text-white">Background Run (Keep-Alive)</span>
+                <span id="bgKeepAliveStatusTag" class="text-[7.5px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">ACTIVE</span>
+              </div>
+              <p class="text-[8px] text-zinc-400">Silent audio loop stops OS from freezing timers &amp; Web Workers</p>
+            </div>
+          </div>
+          <label class="ios-toggle shrink-0">
+            <input type="checkbox" id="settingBgKeepAlive" checked onchange="toggleBackgroundKeepAlive(this.checked)">
+            <span class="ios-slider"></span>
+          </label>
+        </div>
+
+        <div class="p-3 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center shrink-0 text-sm">
+              <i class="fa-solid fa-sun"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs font-bold text-white">Screen Always-On (Wake Lock)</span>
+                <span id="wakeLockStatusTag" class="text-[7.5px] font-mono font-bold px-1.5 py-0.2 rounded bg-white/10 text-zinc-400 border border-white/10">OFF</span>
+              </div>
+              <p class="text-[8px] text-zinc-400">Keep screen awake during live prediction &amp; betting rounds</p>
+            </div>
+          </div>
+          <label class="ios-toggle shrink-0">
+            <input type="checkbox" id="settingWakeLock" onchange="toggleWakeLock(this.checked)">
+            <span class="ios-slider"></span>
+          </label>
+        </div>
+
+        <button type="button" onclick="openBatteryOptimizationGuide()" class="w-full p-3 flex items-center justify-between hover:bg-white/[0.03] transition active:scale-[0.99] text-left">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center justify-center shrink-0 text-sm">
+              <i class="fa-solid fa-battery-three-quarters"></i>
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white">Battery Optimization Exemption</div>
+              <p class="text-[8px] text-zinc-400">Setup Android &amp; iOS unrestricted battery permissions</p>
+            </div>
+          </div>
+          <i class="fa-solid fa-chevron-right text-[10px] text-zinc-600"></i>
+        </button>
+
+        <div class="p-3 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center justify-center shrink-0 text-sm">
+              <i class="fa-solid fa-database"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs font-bold text-white">Persistent Storage Protection</span>
+                <span id="storagePersistStatusTag" class="text-[7.5px] font-mono font-bold px-1.5 py-0.2 rounded bg-white/10 text-zinc-400 border border-white/10">STANDARD</span>
+              </div>
+              <p class="text-[8px] text-zinc-400">Protect models, credentials, and seeds from cache purging</p>
+            </div>
+          </div>
+          <button type="button" id="btnRequestPersistStorage" onclick="requestPersistentStorageAction()" class="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-white font-mono text-[8px] font-bold active:scale-95 transition">
+            PROTECT
+          </button>
+        </div>
+      </div>
+
+      <!-- SECTION 6: RISK & SIMULATION STRATEGY -->
+      <div class="ios-grouped-card p-3 space-y-2.5">
+        <span class="text-[8.5px] uppercase font-mono tracking-wider text-zinc-400 block font-bold">Auto-Betting &amp; Risk Controls</span>
+        
+        <div class="flex items-center justify-between text-[9px] font-mono">
+          <span class="text-zinc-300">Base Stake (₹):</span>
+          <div class="flex items-center gap-1">
+            <button onclick="setBaseStakeOption(10)"  id="stakeBtn-10"  class="stake-opt-btn px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">₹10</button>
+            <button onclick="setBaseStakeOption(50)"  id="stakeBtn-50"  class="stake-opt-btn px-2 py-0.5 rounded-lg bg-white/5 text-zinc-400 border border-white/5">₹50</button>
+            <button onclick="setBaseStakeOption(100)" id="stakeBtn-100" class="stake-opt-btn px-2 py-0.5 rounded-lg bg-white/5 text-zinc-400 border border-white/5">₹100</button>
+            <button onclick="setBaseStakeOption(500)" id="stakeBtn-500" class="stake-opt-btn px-2 py-0.5 rounded-lg bg-white/5 text-zinc-400 border border-white/5">₹500</button>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between text-[9px] font-mono pt-1 border-t border-white/[0.04]">
+          <span class="text-zinc-300">Martingale Multiplier:</span>
+          <span class="text-emerald-400 font-bold">2.0x (Standard Double)</span>
+        </div>
+
+        <div class="flex items-center justify-between text-[9px] font-mono pt-1 border-t border-white/[0.04]">
+          <span class="text-zinc-300">Safety Stop-Loss Level:</span>
+          <span class="text-rose-400 font-bold">Level 5 (Max ₹320)</span>
+        </div>
+      </div>
+
+      <!-- SECTION 7: DATA EXPORT & CACHE RESET -->
+      <div class="ios-grouped-card divide-y divide-white/[0.06]">
+        <button onclick="exportAuditCSV()" class="w-full p-3 flex items-center justify-between hover:bg-white/[0.03] transition active:scale-[0.99] text-left">
+          <div class="flex items-center gap-2.5">
+            <div class="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center text-xs">
+              <i class="fa-solid fa-file-csv"></i>
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white">Export Audit History (CSV)</div>
+              <p class="text-[8px] text-zinc-400">Download draw evaluations as spreadsheet</p>
+            </div>
+          </div>
+          <i class="fa-solid fa-chevron-right text-[10px] text-zinc-600"></i>
+        </button>
+
+        <button onclick="exportLogsJSON()" class="w-full p-3 flex items-center justify-between hover:bg-white/[0.03] transition active:scale-[0.99] text-left">
+          <div class="flex items-center gap-2.5">
+            <div class="w-7 h-7 rounded-lg bg-blue-500/20 text-blue-300 flex items-center justify-center text-xs">
+              <i class="fa-solid fa-code"></i>
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white">Export Diagnostic Logs (JSON)</div>
+              <p class="text-[8px] text-zinc-400">Download complete session states</p>
+            </div>
+          </div>
+          <i class="fa-solid fa-chevron-right text-[10px] text-zinc-600"></i>
+        </button>
+
+        <button onclick="clearAppCache()" class="w-full p-3 flex items-center justify-between hover:bg-rose-500/[0.06] transition active:scale-[0.99] text-left">
+          <div class="flex items-center gap-2.5">
+            <div class="w-7 h-7 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center text-xs">
+              <i class="fa-solid fa-trash-can"></i>
+            </div>
+            <div>
+              <div class="text-xs font-bold text-rose-400">Reset Local Cache &amp; Storage</div>
+              <p class="text-[8px] text-zinc-500">Purge offline seed caches &amp; reset stats</p>
+            </div>
+          </div>
+          <i class="fa-solid fa-chevron-right text-[10px] text-zinc-600"></i>
+        </button>
+      </div>
+
+      <!-- SECTION 8: ABOUT & TRANSPARENCY FOOTER -->
+      <div class="text-center py-2 space-y-1">
+        <p class="text-[8.5px] font-mono text-zinc-400">01:01 Quant Terminal • Designed with Apple iOS Aesthetics</p>
+        <p class="text-[7.5px] text-zinc-400">Zero data collection • Zero commercial telemetry • 100% Free &amp; Ad-Free</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════
+       iOS PWA INSTALLATION GUIDE MODAL (Safari Instructions)
+  ════════════════════════════════════════════════════════════ -->
+  <div id="iosInstallModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-xl flex flex-col justify-end transition-opacity duration-300 hidden" onclick="if(event.target===this) toggleIOSInstallModal(false)">
+    <div class="w-full max-w-md mx-auto bg-[#18181b] border-t border-white/[0.12] rounded-t-[32px] p-5 shadow-2xl space-y-4">
+      <div class="w-10 h-1 bg-white/20 rounded-full mx-auto"></div>
+      
+      <div class="flex items-center justify-between pb-2 border-b border-white/[0.08]">
+        <div class="flex items-center gap-2">
+          <img src="logo_0101.jpg" class="w-7 h-7 rounded-lg object-contain" alt="01:01">
+          <div>
+            <h3 class="text-sm font-black text-white">Install 01:01 App</h3>
+            <p class="text-[8.5px] text-zinc-400">iOS Safari Home Screen Setup</p>
+          </div>
+        </div>
+        <button onclick="toggleIOSInstallModal(false)" class="text-zinc-400 hover:text-white text-sm">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 font-mono text-[9.5px]">
+        <div class="flex items-start gap-3 p-2.5 rounded-xl bg-black/40 border border-white/[0.06]">
+          <div class="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-[10px] shrink-0">1</div>
+          <p class="text-zinc-300">Tap the <b class="text-blue-400"><i class="fa-solid fa-arrow-up-from-bracket"></i> Share button</b> in Safari's bottom toolbar.</p>
+        </div>
+        <div class="flex items-start gap-3 p-2.5 rounded-xl bg-black/40 border border-white/[0.06]">
+          <div class="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-[10px] shrink-0">2</div>
+          <p class="text-zinc-300">Scroll down and tap <b class="text-white"><i class="fa-regular fa-square-plus"></i> Add to Home Screen</b>.</p>
+        </div>
+        <div class="flex items-start gap-3 p-2.5 rounded-xl bg-black/40 border border-white/[0.06]">
+          <div class="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-[10px] shrink-0">3</div>
+          <p class="text-zinc-300">Tap <b class="text-amber-400">Add</b> at the top-right corner to launch 01:01 as an individual app!</p>
+        </div>
+      </div>
+
+      <button onclick="toggleIOSInstallModal(false)" class="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-mono text-[10px] font-bold">
+        Got It
+      </button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════
+       APPLE LIQUID GLASS BACKGROUND RUN & BATTERY SETUP MODAL (STARTING)
+  ════════════════════════════════════════════════════════════ -->
+  <div id="bgPermissionModal" class="fixed inset-0 z-[100001] bg-black/80 backdrop-blur-2xl flex flex-col justify-end transition-opacity duration-300 hidden select-none" onclick="if(event.target===this) dismissBackgroundPermissionModal(false)">
+    <div class="w-full max-w-md mx-auto bg-[#141418] border-t border-white/[0.12] rounded-t-[32px] p-5 shadow-2xl space-y-4">
+      <div class="w-10 h-1 bg-white/20 rounded-full mx-auto cursor-pointer" onclick="dismissBackgroundPermissionModal(false)"></div>
+      
+      <div class="flex items-center gap-3 pb-1 border-b border-white/[0.08]">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-500/25 via-emerald-400/10 to-amber-500/20 border border-emerald-500/40 flex items-center justify-center text-xl shrink-0 shadow-[0_0_24px_rgba(16,185,129,0.35)]">
+          ⚡
+        </div>
+        <div>
+          <h3 class="text-sm font-black text-white tracking-tight">Background Run & Keep-Alive</h3>
+          <p class="text-[9px] text-zinc-400">Continuous AI predictions & auto-stake without sleep interruptions</p>
+        </div>
+      </div>
+
+      <div class="space-y-2.5 font-mono text-[9px]">
+        <div class="flex items-start gap-2.5 p-2.5 rounded-xl bg-black/40 border border-white/[0.06]">
+          <div class="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0 font-bold text-[10px]">
+            <i class="fa-solid fa-play"></i>
+          </div>
+          <div>
+            <span class="text-white font-bold block">Zero-Throttling Keep-Alive</span>
+            <span class="text-zinc-400 text-[8px] leading-tight block">Prevents OS timer freezing when phone locks or when switching between apps.</span>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-2.5 p-2.5 rounded-xl bg-black/40 border border-white/[0.06]">
+          <div class="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0 font-bold text-[10px]">
+            <i class="fa-solid fa-battery-full"></i>
+          </div>
+          <div>
+            <span class="text-white font-bold block">Battery Optimization Exemption</span>
+            <span class="text-zinc-400 text-[8px] leading-tight block">Set app to "Unrestricted" so Android/iOS battery killers never terminate live rounds.</span>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-2.5 p-2.5 rounded-xl bg-black/40 border border-white/[0.06]">
+          <div class="w-6 h-6 rounded-lg bg-rose-500/20 text-rose-300 flex items-center justify-center shrink-0 font-bold text-[10px]">
+            <i class="fa-solid fa-bell"></i>
+          </div>
+          <div>
+            <span class="text-white font-bold block">Outside Live Alerts</span>
+            <span class="text-zinc-400 text-[8px] leading-tight block">Receive outside push notifications for high-confidence AI predictions when the app is in background.</span>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-2.5 p-2.5 rounded-xl bg-black/40 border border-white/[0.06]">
+          <div class="w-6 h-6 rounded-lg bg-purple-500/20 text-purple-300 flex items-center justify-center shrink-0 font-bold text-[10px]">
+            <i class="fa-solid fa-sun"></i>
+          </div>
+          <div>
+            <span class="text-white font-bold block">Screen Always-On (Wake Lock)</span>
+            <span class="text-zinc-400 text-[8px] leading-tight block">Optionally keeps screen active during live draw cycles.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-2 pt-1">
+        <button type="button" onclick="allowBackgroundRunAll(true)" class="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-black font-black text-xs tracking-wide shadow-lg shadow-emerald-500/30 active:scale-[0.98] transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-bolt"></i>
+          <span>Enable All &amp; Open iOS Settings</span>
+          <i class="fa-solid fa-chevron-right text-[10px]"></i>
+        </button>
+
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="allowBackgroundRunAll(false)" class="flex-1 py-2.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] border border-white/10 text-emerald-300 font-mono text-[9px] font-bold active:scale-[0.98] transition flex items-center justify-center gap-1">
+            <i class="fa-solid fa-check text-[9px]"></i>
+            <span>Enable in Background</span>
+          </button>
+          <button type="button" onclick="openBatteryOptimizationGuide()" class="flex-1 py-2.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] border border-white/10 text-zinc-300 font-mono text-[9px] font-bold active:scale-[0.98] transition flex items-center justify-center gap-1">
+            <i class="fa-solid fa-circle-info text-amber-400 text-[9px]"></i>
+            <span>Battery Guide</span>
+          </button>
+        </div>
+
+        <button type="button" onclick="dismissBackgroundPermissionModal(false)" class="w-full py-1.5 text-center text-zinc-500 hover:text-zinc-300 font-mono text-[9px] transition">
+          Maybe Later
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════
+       APPLE BATTERY OPTIMIZATION EXEMPTION GUIDE MODAL
+  ════════════════════════════════════════════════════════════ -->
+  <div id="batteryGuideModal" class="fixed inset-0 z-[100003] bg-black/85 backdrop-blur-2xl flex flex-col justify-end transition-opacity duration-300 hidden select-none" onclick="if(event.target===this) toggleBatteryGuideModal(false)">
+    <div class="w-full max-w-md mx-auto bg-[#141418] border-t border-white/[0.12] rounded-t-[32px] p-5 shadow-2xl max-h-[85vh] overflow-y-auto space-y-4">
+      <div class="w-10 h-1 bg-white/20 rounded-full mx-auto cursor-pointer" onclick="toggleBatteryGuideModal(false)"></div>
+
+      <div class="flex items-center justify-between pb-2 border-b border-white/[0.08]">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center text-sm">
+            <i class="fa-solid fa-shield-heart"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-black text-white">Battery Optimization Guide</h3>
+            <p class="text-[8.5px] text-zinc-400">Prevent OS from suspending background calculations</p>
+          </div>
+        </div>
+        <button type="button" onclick="toggleBatteryGuideModal(false)" class="text-zinc-400 hover:text-white text-sm">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Android Guide -->
+      <div class="ios-grouped-card p-3 space-y-2">
+        <div class="flex items-center gap-2 text-xs font-bold text-emerald-400 pb-1 border-b border-white/[0.06]">
+          <i class="fa-brands fa-android text-sm"></i>
+          <span>Android (Samsung / Xiaomi / Pixel / OnePlus)</span>
+        </div>
+        <div class="space-y-2 font-mono text-[9px] text-zinc-300">
+          <div class="flex items-start gap-2">
+            <span class="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-bold text-[8.5px] shrink-0">1</span>
+            <p>Long-press browser or 01:01 icon on home screen → Tap <b>App Info (ℹ️)</b>.</p>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-bold text-[8.5px] shrink-0">2</span>
+            <p>Tap <b>Battery</b> or <b>App Battery Usage</b> → Select <b class="text-amber-300">Unrestricted</b> (or "Don't Optimize").</p>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-bold text-[8.5px] shrink-0">3</span>
+            <p>Open <b>Recent Apps</b> → Tap the app header icon and select <b class="text-emerald-300">Lock app 🔒</b> to prevent system cleanup.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- iOS Guide -->
+      <div class="ios-grouped-card p-3 space-y-2">
+        <div class="flex items-center gap-2 text-xs font-bold text-sky-400 pb-1 border-b border-white/[0.06]">
+          <i class="fa-brands fa-apple text-sm"></i>
+          <span>iOS / Safari (iPhone & iPad)</span>
+        </div>
+        <div class="space-y-2 font-mono text-[9px] text-zinc-300">
+          <div class="flex items-start gap-2">
+            <span class="w-4 h-4 rounded-full bg-sky-500/20 text-sky-300 flex items-center justify-center font-bold text-[8.5px] shrink-0">1</span>
+            <p>Install as Home Screen app: Tap Safari <b>Share <i class="fa-solid fa-arrow-up-from-bracket text-[8px]"></i></b> → <b>Add to Home Screen</b>.</p>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="w-4 h-4 rounded-full bg-sky-500/20 text-sky-300 flex items-center justify-center font-bold text-[8.5px] shrink-0">2</span>
+            <p>Ensure <b>Background Keep-Alive</b> is toggled ON. The silent audio buffer keeps Safari's engine running in background.</p>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="w-4 h-4 rounded-full bg-sky-500/20 text-sky-300 flex items-center justify-center font-bold text-[8.5px] shrink-0">3</span>
+            <p>Disable Low Power Mode when running automated long betting sessions.</p>
+          </div>
+        </div>
+      </div>
+
+      <button type="button" onclick="toggleBatteryGuideModal(false)" class="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-mono text-[10px] font-bold active:scale-[0.98] transition">
+        Understood & Done
+      </button>
+    </div>
+  </div>
+
+
+  <!-- ════════════════════════════════════════════════════════════
+       MODULAR ENGINES & SCRIPTS
+  ════════════════════════════════════════════════════════════ -->
+  <nav id="mobileBottomDock" class="select-none pointer-events-auto">
+    <div class="dock-container">
+      
+      <!-- 1. Home Tab (DhaniWin Web) -->
+      <button type="button" onclick="switchMobileTab('web')" class="dock-btn active" data-tab="web">
+        <div class="dock-btn-pill"></div>
+        <i class="fa-solid fa-gamepad"></i>
+        <span class="tab-title">Home</span>
+        <span class="dock-indicator"></span>
+      </button>
+
+      <!-- 2. Analyse Tab (Charts, Ball Roads, Frequencies) -->
+      <button type="button" onclick="switchMobileTab('home')" class="dock-btn" data-tab="home">
+        <div class="dock-btn-pill"></div>
+        <i class="fa-solid fa-chart-line"></i>
+        <span class="tab-title">Analyse</span>
+        <span class="dock-indicator"></span>
+      </button>
+
+      <!-- 3. AI Adaptive Tab (Model Roster & Champion) -->
+      <button type="button" onclick="switchMobileTab('ai')" class="dock-btn" data-tab="ai">
+        <div class="dock-btn-pill"></div>
+        <i class="fa-solid fa-brain"></i>
+        <span class="tab-title">AI Adaptive</span>
+        <span class="dock-indicator"></span>
+      </button>
+
+      <!-- 4. Pattern Tab (Live Pattern Intelligence) -->
+      <button type="button" onclick="switchMobileTab('pattern')" class="dock-btn" data-tab="pattern">
+        <div class="dock-btn-pill"></div>
+        <i class="fa-solid fa-shapes"></i>
+        <span class="tab-title">Pattern</span>
+        <span class="dock-indicator"></span>
+      </button>
+
+    </div>
+  </nav>
+
+  <!-- ════════════════════════════════════════════════════════════
+       MODULAR ENGINES & SCRIPTS
+  ════════════════════════════════════════════════════════════ -->
+  <script src="./src/algorithm/analysis/patternCatalog.js"></script>
+  <script src="./src/algorithm/analysis/patternStatistics.js"></script>
+  <script src="./src/algorithm/analysis/sequenceMatcher.js"></script>
+  <script src="./src/algorithm/analysis/patternAnalyzer.js"></script>
+  <script src="./src/algorithm/analysis/analysisState.js"></script>
+  <script src="./src/algorithm/analysis/gameHistoryAnalysis.js"></script>
+  <script src="./algorithms/quant_algorithm.js"></script>
+  <script src="./algorithms/arena_models.js"></script>
+  <script src="./systems/wingo_30s.js"></script>
+  <script src="./systems/wingo_1m.js"></script>
+  <script src="./systems/wingo_3m.js"></script>
+  <script src="./systems/wingo_5m.js"></script>
+  <script src="./systems/timeframe_manager.js"></script>
+
+  <!-- Core Mobile Orchestrator -->
+  <script src="mobile.js"></script>
+
+  <!-- Isolated Pattern Intelligence Layer (4th Tab) -->
+  <script type="module" src="./src/pattern/index.js"></script>
+</body>
+</html>
