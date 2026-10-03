@@ -72,13 +72,18 @@ async function calibrateServerClock() {
   } catch (e) {}
 }
 
-calibrateServerClock();
-setInterval(calibrateServerClock, 5 * 60 * 1000);
+let _clockCalibrated = false;
 
 function arenaApiPlugin() {
   return {
     name: 'arena-api-plugin',
     configureServer(server) {
+      if (!_clockCalibrated) {
+        _clockCalibrated = true;
+        calibrateServerClock();
+        const timer = setInterval(calibrateServerClock, 5 * 60 * 1000);
+        if (timer.unref) timer.unref();
+      }
       server.middlewares.use(async (req, res, next) => {
         if (!req.url) return next();
 
