@@ -234,12 +234,12 @@
 
   <!-- STICKY TOP NAVIGATION BAR -->
   <header class="sticky top-0 z-40 bg-black/80 backdrop-blur-xl border-b border-white/[0.08] px-4 pt-3 pb-2.5 flex items-center justify-between">
-    <a href="mobile.html" class="flex items-center gap-1.5 text-[#0a84ff] text-[17px] font-normal hover:opacity-75 transition active:scale-95">
+    <a href="mobile.html" onclick="if (window.history.length > 1) { event.preventDefault(); window.history.back(); }" class="flex items-center gap-1.5 text-[#0a84ff] text-[17px] font-normal hover:opacity-75 transition active:scale-95">
       <i class="fa-solid fa-chevron-left text-[14px]"></i>
       <span>Terminal</span>
     </a>
     <span class="text-[17px] font-semibold tracking-tight text-white">Settings</span>
-    <button onclick="window.location.href='mobile.html'" class="text-[#0a84ff] text-[17px] font-semibold hover:opacity-75 transition active:scale-95">
+    <button onclick="if (window.history.length > 1) { window.history.back(); } else { window.location.href='mobile.html'; }" class="text-[#0a84ff] text-[17px] font-semibold hover:opacity-75 transition active:scale-95">
       Done
     </button>
   </header>

@@ -50,13 +50,14 @@ class PatternIntelligenceCoordinator {
 
     try {
       this.worker = new Worker('src/pattern/engine/patternWorker.js', { type: 'module' });
+      this.worker.onerror = (err) => {
+        console.warn('[PatternWorker] Worker error, switching to inline pattern processor:', err.message || err);
+        this.worker = null;
+      };
     } catch (e) {
-      try {
-        this.worker = new Worker('patternWorker.js');
-      } catch (e2) {
-        console.warn('[PatternWorker] Worker initialization fallback notice:', e2.message);
-        return;
-      }
+      this.worker = null;
+      console.warn('[PatternWorker] Inline pattern engine active');
+      return;
     }
 
     this.worker.onmessage = async (e) => {

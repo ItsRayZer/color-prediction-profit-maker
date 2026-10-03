@@ -192,7 +192,7 @@
     <!-- ╔══════════════════════════════════════════════════════════
          PAGE 2: ANALYSE (Prediction Hero -> Audit -> Chart -> History -> Repeated / Frequency)
     ══════════════════════════════════════════════════════════╗ -->
-    <section id="tab-home" class="mobile-page space-y-3" style="display:none;">
+    <section id="tab-home" class="mobile-page space-y-3" style="display:block;">
       
       <!-- High-Confidence "Best Time to Bet" Alert Card -->
       <div id="bestTimeNotifCard" class="liquid-glass-card p-2.5 rounded-2xl flex items-center justify-between gap-2.5 border border-amber-500/30">
@@ -753,7 +753,7 @@
     <!-- ╔══════════════════════════════════════════════════════════
          PAGE 4: DHANIWIN (Real Embedded Web View & Floating AI Assistant)
     ══════════════════════════════════════════════════════════╗ -->
-    <section id="tab-web" class="mobile-page" style="display:block; position:fixed; inset:0; bottom:0; z-index:40; padding:0; margin:0; background:#000;">
+    <section id="tab-web" class="mobile-page" style="display:none; position:fixed; inset:0; bottom:0; z-index:40; padding:0; margin:0; background:#000;">
       
       <!-- Fullscreen DhaniWin Iframe (Default: Last Selected Interval if session active, else Login/Registration) -->
       <iframe id="dhaniwinIframe"
@@ -1696,7 +1696,7 @@
     <div class="dock-container">
       
       <!-- 1. Home Tab (DhaniWin Web) -->
-      <button type="button" onclick="switchMobileTab('web')" class="dock-btn active" data-tab="web">
+      <button type="button" onclick="switchMobileTab('web')" class="dock-btn" data-tab="web">
         <div class="dock-btn-pill"></div>
         <i class="fa-solid fa-gamepad"></i>
         <span class="tab-title">Home</span>
@@ -1704,7 +1704,7 @@
       </button>
 
       <!-- 2. Analyse Tab (Charts, Ball Roads, Frequencies) -->
-      <button type="button" onclick="switchMobileTab('home')" class="dock-btn" data-tab="home">
+      <button type="button" onclick="switchMobileTab('home')" class="dock-btn active" data-tab="home">
         <div class="dock-btn-pill"></div>
         <i class="fa-solid fa-chart-line"></i>
         <span class="tab-title">Analyse</span>

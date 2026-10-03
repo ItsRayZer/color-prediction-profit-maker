@@ -14931,20 +14931,20 @@ async function fetchLiveAPIResults(tfOverride) {
         }
       }
     } else {
-      // In Production (zer0ne.web.app):
-      // 1. Fetch from Firebase Cloud Realtime Database (100% immune to CORS and ISP blocking)
-      // 2. Fall back to upstream lottery feed or proxy if needed
+      // In Production:
+      // 1. Fetch from live upstream lottery feed for second-by-second live results
+      // 2. Fall back to Firebase Cloud Realtime Database
       try {
-        list = await fetchSingle(`${cloudRtdbUrl}?r=${r}`);
-        loadedFromCloud = true;
-      } catch(cloudErr) {
+        list = await fetchSingle(`${targetUrl}?r=${r}`);
+      } catch(err) {
         try {
-          list = await fetchSingle(`${targetUrl}?r=${r}`);
-        } catch(err) {
+          list = await fetchSingle(`${cloudRtdbUrl}?r=${r}`);
+          loadedFromCloud = true;
+        } catch(cloudErr) {
           try {
             list = await fetchSingle(`${origin}${proxyPath}?r=${r}`);
           } catch(e2) {
-            throw cloudErr;
+            throw err;
           }
         }
       }

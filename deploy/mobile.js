@@ -641,18 +641,20 @@ function _parseRawList(raw) {
 }
 
 async function fetchLiveHistoryFromDirectAPI(tf) {
-  // ── Source 1: Firebase RTDB (single source of truth, 100% CORS-immune, ~50ms ultra-fast) ──
-  try {
-    const rtdbUrl = `${RTDB_BASE}/live_history/${tf}.json`;
-    const raw = await _fetchWithTimeout(rtdbUrl, 2500);
-    const list = _parseRawList(raw);
-    if (list.length > 0) return list;
-  } catch (e) {}
-
-  // ── Source 2: Direct Upstream Lottery API (ar-lottery01.com) ──
+  // ── Source 1: Direct Upstream Lottery Feed (ar-lottery01.com — active live round data) ──
   try {
     const upstreamUrl = `${TF_UPSTREAM_URLS[tf] || TF_UPSTREAM_URLS['30s']}?pageNo=1&_=${Date.now()}`;
     const raw = await _fetchWithTimeout(upstreamUrl, 4000);
+    const list = _parseRawList(raw);
+    if (list.length > 0) return list;
+  } catch (e) {
+    // Upstream unavailable – fall through
+  }
+
+  // ── Source 2: Firebase RTDB (fallback) ──
+  try {
+    const rtdbUrl = `${RTDB_BASE}/live_history/${tf}.json?_=${Date.now()}`;
+    const raw = await _fetchWithTimeout(rtdbUrl, 2500);
     const list = _parseRawList(raw);
     if (list.length > 0) return list;
   } catch (e) {}
@@ -5122,8 +5124,8 @@ function initMobileApp() {
     };
   }
 
-  // Default startup view: Home (DhaniWin Web View)
-  switchMobileTab('web');
+  // Default startup view: Home (Analyse / Quant Terminal)
+  switchMobileTab('home');
 
   // If user already allowed high-confidence alert or has granted permission, remove card from Analyse page
   if ((typeof Notification !== 'undefined' && Notification.permission === 'granted') || localStorage.getItem('best_time_notif_enabled') === '1') {
