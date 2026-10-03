@@ -8,619 +8,1353 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   
-  <!-- FontAwesome & Tailwind -->
+  <!-- FontAwesome & SF Pro Font Definitions -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <script src="https://cdn.tailwindcss.com"></script>
   
   <style>
+    /* ==========================================================================
+       REAL APPLE iOS 18 LIQUID GLASS & AMOLED DESIGN SYSTEM
+       Strict Cupertino HIG Palette: No cheap oversaturated / amateur neon colors.
+       Pure AMOLED Pitch Black (#000000) Base.
+       ========================================================================== */
     :root {
-      --ios-bg: #000000;
-      --ios-card: #1c1c1e;
-      --ios-card-border: rgba(255, 255, 255, 0.08);
-      --ios-separator: rgba(255, 255, 255, 0.08);
-      --ios-chevron: #48484a;
-      --ios-blue: #0a84ff;
-      --ios-green: #30d158;
-      --ios-red: #ff453a;
-      --ios-orange: #ff9f0a;
-      --ios-pink: #ff375f;
-      --ios-purple: #bf5af2;
-      --ios-indigo: #5e5ce6;
-      --ios-teal: #64d2ff;
-      --ios-yellow: #ffd60a;
-      --ios-gray: #8e8e93;
+      --ios-amoled-bg: #000000;
+      --ios-surface-glass: rgba(28, 28, 30, 0.72);
+      --ios-surface-pressed: rgba(44, 44, 46, 0.65);
+      --ios-hairline: rgba(255, 255, 255, 0.08);
+      --ios-separator: rgba(84, 84, 88, 0.36);
+      
+      /* Apple Standard System Colors (iOS 18 Dark Mode) */
+      --apple-blue: #007aff;
+      --apple-blue-tint: #0a84ff;
+      --apple-green: #34c759;
+      --apple-green-tint: #30d158;
+      --apple-indigo: #5856d6;
+      --apple-indigo-tint: #5e5ce6;
+      --apple-orange: #ff9500;
+      --apple-orange-tint: #ff9f0a;
+      --apple-pink: #ff2d55;
+      --apple-pink-tint: #ff375f;
+      --apple-purple: #af52de;
+      --apple-purple-tint: #bf5af2;
+      --apple-red: #ff3b30;
+      --apple-red-tint: #ff453a;
+      --apple-teal: #30b0c7;
+      --apple-teal-tint: #64d2ff;
+      --apple-yellow: #ffcc00;
+      --apple-yellow-tint: #ffd60a;
+      --apple-gray: #8e8e93;
+      --apple-gray-2: #636366;
+      --apple-gray-3: #48484a;
+      --apple-gray-4: #3a3a3c;
+      --apple-gray-5: #2c2c2e;
+      --apple-gray-6: #1c1c1e;
+
+      /* Labels */
+      --label-primary: #ffffff;
+      --label-secondary: rgba(235, 235, 245, 0.60);
+      --label-tertiary: rgba(235, 235, 245, 0.30);
+      --label-quaternary: rgba(235, 235, 245, 0.18);
     }
 
     * {
       -webkit-tap-highlight-color: transparent;
       box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    input, textarea, select {
+      user-select: auto;
+      -webkit-user-select: auto;
     }
 
     html, body {
-      background-color: var(--ios-bg);
-      color: #ffffff;
+      background-color: var(--ios-amoled-bg);
+      color: var(--label-primary);
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
-      touch-action: manipulation;
-      text-rendering: optimizeLegibility;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
       margin: 0;
       padding: 0;
       overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+      min-height: 100vh;
+      padding-bottom: calc(48px + env(safe-area-inset-bottom, 20px));
     }
 
-    /* iOS 18 Grouped Inset Card */
-    .ios-inset-group {
-      background-color: var(--ios-card);
-      border-radius: 14px;
-      overflow: hidden;
-      margin-left: 16px;
-      margin-right: 16px;
-      margin-bottom: 24px;
-      border: 1px solid var(--ios-card-border);
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-      transform: translateZ(0);
+    /* Ambient Liquid Specular Glow */
+    .liquid-mesh {
+      position: fixed;
+      top: -120px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 440px;
+      height: 380px;
+      background: radial-gradient(circle, rgba(10, 132, 255, 0.07) 0%, rgba(94, 92, 230, 0.04) 40%, rgba(0, 0, 0, 0) 70%);
+      pointer-events: none;
+      z-index: 0;
+      filter: blur(60px);
     }
 
-    .ios-group-title {
-      font-size: 13px;
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: -0.1px;
-      color: #8e8e93;
-      margin-left: 32px;
-      margin-bottom: 8px;
-    }
-
-    .ios-row {
+    /* STICKY BLURRED LIQUID GLASS NAV BAR */
+    .ios-navbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(28px) saturate(190%);
+      -webkit-backdrop-filter: blur(28px) saturate(190%);
+      border-bottom: 0.5px solid var(--ios-hairline);
+      padding: calc(env(safe-area-inset-top, 12px) + 8px) 16px 10px 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 11px 16px;
-      position: relative;
-      transition: background-color 0.15s ease;
-      min-height: 48px;
+      transition: background-color 0.25s ease, border-color 0.25s ease;
     }
 
-    .ios-row:active {
-      background-color: rgba(255, 255, 255, 0.05);
-    }
-
-    .ios-row:not(:last-child)::after {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 56px;
-      right: 0;
-      height: 1px;
-      background-color: var(--ios-separator);
-    }
-
-    .ios-row-clean:not(:last-child)::after {
-      left: 16px;
-    }
-
-    /* Apple Squircles for Setting Category Icons */
-    .ios-icon-box {
-      width: 29px;
-      height: 29px;
-      border-radius: 7px;
-      display: flex;
+    .ios-nav-back, .ios-nav-action {
+      display: inline-flex;
       align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      color: #ffffff;
-      flex-shrink: 0;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-    }
-
-    /* iOS 18 Native Toggle Switch */
-    .ios-switch {
-      position: relative;
-      display: inline-block;
-      width: 51px;
-      height: 31px;
-      flex-shrink: 0;
-    }
-
-    .ios-switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .ios-switch-slider {
-      position: absolute;
+      gap: 5px;
+      color: var(--apple-blue-tint);
+      font-size: 17px;
+      font-weight: 400;
+      text-decoration: none;
+      background: none;
+      border: none;
+      padding: 4px 6px;
+      margin: -4px -6px;
       cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: #39393d;
-      transition: .3s cubic-bezier(0.3, 0.8, 0.4, 1);
-      border-radius: 31px;
+      transition: opacity 0.15s ease, transform 0.1s ease;
     }
 
-    .ios-switch-slider:before {
-      position: absolute;
-      content: "";
-      height: 27px;
-      width: 27px;
-      left: 2px;
-      bottom: 2px;
-      background-color: #ffffff;
-      transition: .3s cubic-bezier(0.3, 0.8, 0.4, 1);
+    .ios-nav-back:active, .ios-nav-action:active {
+      opacity: 0.45;
+      transform: scale(0.97);
+    }
+
+    .ios-nav-title {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.4px;
+      color: var(--label-primary);
+      text-align: center;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      pointer-events: none;
+    }
+
+    .ios-navbar.scrolled .ios-nav-title {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* LARGE TITLE */
+    .ios-large-title-wrap {
+      padding: 12px 20px 8px 20px;
+    }
+
+    .ios-large-title {
+      font-size: 34px;
+      font-weight: 700;
+      letter-spacing: -0.7px;
+      color: #ffffff;
+      margin: 0;
+      line-height: 41px;
+    }
+
+    .ios-subtitle-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 4px;
+      padding: 3px 9px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 0.5px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      font-size: 11px;
+      color: var(--label-secondary);
+      font-weight: 500;
+      letter-spacing: -0.1px;
+    }
+
+    .status-dot-active {
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
-      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25), 0 1px 1px rgba(0, 0, 0, 0.15);
+      background: var(--apple-green);
+      box-shadow: 0 0 8px rgba(52, 199, 89, 0.7);
     }
 
-    .ios-switch input:checked + .ios-switch-slider {
-      background-color: #34c759;
-    }
-
-    .ios-switch input:checked + .ios-switch-slider:before {
-      transform: translateX(20px);
-    }
-
-    /* Apple Search Bar */
-    .ios-search-container {
+    /* SEARCH BAR (Cupertino Native Glass) */
+    .ios-search-shell {
       margin: 8px 16px 18px 16px;
       position: relative;
     }
 
     .ios-search-input {
       width: 100%;
-      height: 36px;
-      background-color: #1c1c1e;
-      border-radius: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.07);
-      padding: 0 12px 0 34px;
+      height: 38px;
+      background: rgba(118, 118, 128, 0.22);
+      border-radius: 11px;
+      border: 0.5px solid rgba(255, 255, 255, 0.08);
+      padding: 0 34px 0 34px;
       font-size: 15px;
+      font-weight: 400;
+      letter-spacing: -0.2px;
       color: #ffffff;
       outline: none;
-      transition: all 0.2s ease;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .ios-search-input::placeholder {
+      color: var(--apple-gray);
+      font-weight: 400;
     }
 
     .ios-search-input:focus {
-      background-color: #2c2c2e;
-      border-color: var(--ios-blue);
+      background: rgba(118, 118, 128, 0.32);
+      border-color: rgba(10, 132, 255, 0.45);
+      box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.15);
     }
 
-    .ios-search-icon {
+    .ios-search-glyph {
       position: absolute;
       left: 11px;
-      top: 10px;
-      color: #8e8e93;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--apple-gray);
       font-size: 14px;
+      pointer-events: none;
     }
 
-    /* Toast Notification */
-    #appleToast {
-      position: fixed;
-      top: 18px;
-      left: 50%;
-      transform: translateX(-50%) translateY(-100px);
-      background: rgba(28, 28, 30, 0.95);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      padding: 10px 20px;
-      border-radius: 30px;
-      color: #ffffff;
+    .ios-search-clear {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--apple-gray-3);
+      color: #000000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      cursor: pointer;
+      border: none;
+    }
+
+    /* INSET GROUPED LIST CARD (Cupertino Real Liquid Glass) */
+    .ios-inset-group {
+      background: var(--ios-surface-glass);
+      backdrop-filter: blur(30px) saturate(180%);
+      -webkit-backdrop-filter: blur(30px) saturate(180%);
+      border-radius: 14px;
+      margin: 0 16px 22px 16px;
+      border: 0.5px solid var(--ios-hairline);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.55), inset 0 0.5px 0.5px rgba(255, 255, 255, 0.09);
+      overflow: hidden;
+      transform: translateZ(0);
+      position: relative;
+    }
+
+    .ios-group-title {
       font-size: 13px;
-      font-weight: 600;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-      z-index: 9999;
-      opacity: 0;
-      transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: -0.05px;
+      color: var(--label-secondary);
+      margin-left: 32px;
+      margin-right: 32px;
+      margin-bottom: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .ios-group-footer {
+      font-size: 12.5px;
+      font-weight: 400;
+      line-height: 16px;
+      letter-spacing: -0.1px;
+      color: var(--label-secondary);
+      margin-left: 32px;
+      margin-right: 32px;
+      margin-top: -14px;
+      margin-bottom: 22px;
+    }
+
+    /* ROWS */
+    .ios-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 48px;
+      padding: 10px 16px;
+      position: relative;
+      background: transparent;
+      transition: background-color 0.12s ease;
+      cursor: default;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .ios-row.interactive {
+      cursor: pointer;
+    }
+
+    .ios-row.interactive:active {
+      background: var(--ios-surface-pressed);
+    }
+
+    /* Hairline Separator indented 58px (matches icon + spacing) */
+    .ios-row:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 58px;
+      right: 0;
+      height: 0.5px;
+      background-color: var(--ios-separator);
+    }
+
+    .ios-row-flush:not(:last-child)::after {
+      left: 16px;
+    }
+
+    .ios-row-left {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .ios-row-right {
       display: flex;
       align-items: center;
       gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .ios-label-primary {
+      font-size: 16.5px;
+      font-weight: 400;
+      letter-spacing: -0.3px;
+      color: var(--label-primary);
+      line-height: 20px;
+    }
+
+    .ios-label-secondary {
+      font-size: 12px;
+      font-weight: 400;
+      letter-spacing: -0.15px;
+      color: var(--label-secondary);
+      margin-top: 1px;
+      line-height: 15px;
+    }
+
+    .ios-value-label {
+      font-size: 16px;
+      font-weight: 400;
+      letter-spacing: -0.3px;
+      color: var(--label-secondary);
+    }
+
+    .ios-chevron {
+      color: var(--apple-gray-2);
+      font-size: 13px;
+      margin-left: 2px;
+      transition: transform 0.2s ease;
+    }
+
+    /* SQUIRCLE ICON BADGES (Exact iOS System Colors) */
+    .ios-squircle {
+      width: 30px;
+      height: 30px;
+      border-radius: 7.5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-size: 14.5px;
+      flex-shrink: 0;
+      box-shadow: 0 1.5px 5px rgba(0, 0, 0, 0.4), inset 0 0.5px 0.5px rgba(255, 255, 255, 0.35);
+    }
+
+    .sq-blue    { background: linear-gradient(180deg, #0a84ff 0%, #007aff 100%); }
+    .sq-green   { background: linear-gradient(180deg, #30d158 0%, #28cd41 100%); }
+    .sq-indigo  { background: linear-gradient(180deg, #5e5ce6 0%, #5856d6 100%); }
+    .sq-orange  { background: linear-gradient(180deg, #ff9f0a 0%, #ff9500 100%); }
+    .sq-pink    { background: linear-gradient(180deg, #ff375f 0%, #ff2d55 100%); }
+    .sq-purple  { background: linear-gradient(180deg, #bf5af2 0%, #af52de 100%); }
+    .sq-red     { background: linear-gradient(180deg, #ff453a 0%, #ff3b30 100%); }
+    .sq-teal    { background: linear-gradient(180deg, #64d2ff 0%, #30b0c7 100%); }
+    .sq-yellow  { background: linear-gradient(180deg, #ffd60a 0%, #ffcc00 100%); color: #000000; }
+    .sq-gray    { background: linear-gradient(180deg, #8e8e93 0%, #636366 100%); }
+    .sq-bronze  { background: linear-gradient(180deg, #e5a953 0%, #b8860b 100%); color: #1c1c1e; }
+    .sq-mesh    { background: linear-gradient(135deg, #ff3b30 0%, #af52de 50%, #007aff 100%); }
+
+    /* REAL APPLE SWITCH (51px x 31px) */
+    .ios-switch {
+      position: relative;
+      display: inline-block;
+      width: 51px;
+      height: 31px;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    .ios-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+
+    .ios-switch-track {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #39393d;
+      border-radius: 31px;
+      transition: background-color 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .ios-switch-thumb {
+      position: absolute;
+      height: 27px;
+      width: 27px;
+      left: 2px;
+      bottom: 2px;
+      background-color: #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35), 0 1px 1px rgba(0, 0, 0, 0.16);
+      transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .ios-switch input:checked + .ios-switch-track {
+      background-color: var(--apple-green);
+    }
+
+    .ios-switch input:checked + .ios-switch-track .ios-switch-thumb {
+      transform: translateX(20px);
+    }
+
+    .ios-switch input:disabled + .ios-switch-track {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* APPLE SELECT / PICKER PILL */
+    .ios-picker-pill {
+      background: rgba(118, 118, 128, 0.24);
+      border: 0.5px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      color: var(--apple-blue-tint);
+      font-size: 14.5px;
+      font-weight: 500;
+      padding: 5px 10px;
+      outline: none;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transition: background 0.15s ease;
+    }
+
+    .ios-picker-pill:focus {
+      border-color: var(--apple-blue-tint);
+    }
+
+    .ios-picker-pill option {
+      background-color: #1c1c1e;
+      color: #ffffff;
+    }
+
+    /* SEGMENTED CONTROL FOR STAKE */
+    .ios-segmented {
+      display: inline-flex;
+      background: rgba(118, 118, 128, 0.24);
+      border-radius: 8px;
+      padding: 2px;
+      border: 0.5px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .ios-seg-btn {
+      background: transparent;
+      border: none;
+      color: var(--label-secondary);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      font-family: inherit;
+    }
+
+    .ios-seg-btn.active {
+      background: rgba(255, 255, 255, 0.18);
+      color: #ffffff;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+      font-weight: 600;
+    }
+
+    /* MICRO PILL TAGS */
+    .ios-tag-micro {
+      font-size: 10px;
+      font-weight: 600;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      padding: 2.5px 7px;
+      border-radius: 12px;
+      letter-spacing: 0.2px;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .tag-active  { background: rgba(52, 199, 89, 0.18); color: var(--apple-green-tint); border: 0.5px solid rgba(52, 199, 89, 0.3); }
+    .tag-neutral { background: rgba(255, 255, 255, 0.08); color: var(--label-secondary); border: 0.5px solid rgba(255, 255, 255, 0.1); }
+    .tag-warning { background: rgba(255, 149, 0, 0.18); color: var(--apple-orange-tint); border: 0.5px solid rgba(255, 149, 0, 0.3); }
+    .tag-danger  { background: rgba(255, 59, 48, 0.18); color: var(--apple-red-tint); border: 0.5px solid rgba(255, 59, 48, 0.3); }
+
+    /* SOUND TEST PILLS */
+    .ios-sound-chip {
+      background: rgba(255, 255, 255, 0.07);
+      border: 0.5px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--label-primary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .ios-sound-chip:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .ios-sound-chip:active {
+      transform: scale(0.96);
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    /* COFFEE CARD (Special Dark Bronze Edition) */
+    .ios-bronze-card {
+      background: linear-gradient(135deg, rgba(255, 159, 10, 0.12) 0%, rgba(28, 28, 30, 0.85) 60%, rgba(255, 204, 0, 0.06) 100%);
+      border: 0.5px solid rgba(255, 159, 10, 0.3);
+      border-radius: 14px;
+      margin: 0 16px 22px 16px;
+      padding: 16px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6), inset 0 0.5px 0.5px rgba(255, 204, 0, 0.2);
+    }
+
+    .ios-gold-btn {
+      width: 100%;
+      padding: 11px 16px;
+      border-radius: 10px;
+      background: linear-gradient(180deg, #ffb340 0%, #ff9500 100%);
+      color: #000000;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      text-decoration: none;
+      border: none;
+      box-shadow: 0 4px 14px rgba(255, 149, 0, 0.35);
+      cursor: pointer;
+      transition: transform 0.12s ease, opacity 0.12s ease;
+      margin-top: 12px;
+    }
+
+    .ios-gold-btn:active {
+      transform: scale(0.98);
+      opacity: 0.9;
+    }
+
+    /* DYNAMIC ISLAND STYLE FLOATING TOAST */
+    #appleToast {
+      position: fixed;
+      top: calc(env(safe-area-inset-top, 12px) + 8px);
+      left: 50%;
+      transform: translateX(-50%) translateY(-120px) scale(0.9);
+      background: rgba(30, 30, 32, 0.88);
+      backdrop-filter: blur(35px) saturate(210%);
+      -webkit-backdrop-filter: blur(35px) saturate(210%);
+      border: 0.5px solid rgba(255, 255, 255, 0.14);
+      padding: 8px 18px;
+      border-radius: 36px;
+      color: #ffffff;
+      font-size: 13.5px;
+      font-weight: 500;
+      letter-spacing: -0.2px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.75), 0 0 0 0.5px rgba(255, 255, 255, 0.1);
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      white-space: nowrap;
     }
 
     #appleToast.show {
-      transform: translateX(-50%) translateY(0);
+      transform: translateX(-50%) translateY(0) scale(1);
       opacity: 1;
+    }
+
+    /* CUPERTINO SHEET MODALS */
+    .ios-sheet-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.28s ease;
+    }
+
+    .ios-sheet-backdrop.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .ios-sheet-card {
+      width: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+      background: #1c1c1e;
+      border-top: 0.5px solid rgba(255, 255, 255, 0.15);
+      border-radius: 28px 28px 0 0;
+      padding: 12px 20px calc(24px + env(safe-area-inset-bottom, 20px)) 20px;
+      box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.8);
+      max-height: 88vh;
+      overflow-y: auto;
+      transform: translateY(100%);
+      transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .ios-sheet-backdrop.active .ios-sheet-card {
+      transform: translateY(0);
+    }
+
+    .ios-sheet-handle {
+      width: 36px;
+      height: 5px;
+      border-radius: 2.5px;
+      background: rgba(255, 255, 255, 0.25);
+      margin: 4px auto 16px auto;
+      cursor: pointer;
+    }
+
+    .ios-guide-box {
+      background: rgba(0, 0, 0, 0.4);
+      border: 0.5px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+    }
+
+    .ios-modal-btn {
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      background: var(--apple-blue);
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.15s ease, transform 0.1s ease;
+      margin-top: 14px;
+    }
+
+    .ios-modal-btn:active {
+      opacity: 0.8;
+      transform: scale(0.98);
+    }
+
+    /* Container max width for tablet / desktop viewing */
+    .ios-main-content {
+      max-width: 440px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Apple URL scheme link micro-button */
+    .ios-scheme-badge {
+      font-size: 11px;
+      color: var(--apple-blue-tint);
+      background: rgba(10, 132, 255, 0.12);
+      border: 0.5px solid rgba(10, 132, 255, 0.25);
+      border-radius: 6px;
+      padding: 2px 7px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
   </style>
 </head>
-<body class="bg-black text-white min-h-screen pb-16">
 
-  <!-- Apple Toast Feedback -->
+<body>
+  <!-- Ambient Liquid Mesh Glow -->
+  <div class="liquid-mesh"></div>
+
+  <!-- Dynamic Island Style Floating Toast -->
   <div id="appleToast">
-    <i id="appleToastIcon" class="fa-solid fa-check text-emerald-400"></i>
+    <i id="appleToastIcon" class="fa-solid fa-check text-[#30d158]"></i>
     <span id="appleToastText">Settings updated</span>
   </div>
 
   <!-- STICKY TOP NAVIGATION BAR -->
-  <header class="sticky top-0 z-40 bg-black/80 backdrop-blur-xl border-b border-white/[0.08] px-4 pt-3 pb-2.5 flex items-center justify-between">
-    <a href="mobile.html" onclick="if (window.history.length > 1) { event.preventDefault(); window.history.back(); }" class="flex items-center gap-1.5 text-[#0a84ff] text-[17px] font-normal hover:opacity-75 transition active:scale-95">
-      <i class="fa-solid fa-chevron-left text-[14px]"></i>
+  <header id="iosHeader" class="ios-navbar">
+    <a href="mobile.html" onclick="if (window.history.length > 1) { event.preventDefault(); window.history.back(); }" class="ios-nav-back">
+      <i class="fa-solid fa-chevron-left" style="font-size: 15px;"></i>
       <span>Terminal</span>
     </a>
-    <span class="text-[17px] font-semibold tracking-tight text-white">Settings</span>
-    <button onclick="if (window.history.length > 1) { window.history.back(); } else { window.location.href='mobile.html'; }" class="text-[#0a84ff] text-[17px] font-semibold hover:opacity-75 transition active:scale-95">
+    <span class="ios-nav-title">Settings</span>
+    <button onclick="if (window.history.length > 1) { window.history.back(); } else { window.location.href='mobile.html'; }" class="ios-nav-action" style="font-weight: 600;">
       Done
     </button>
   </header>
 
-  <main class="max-w-md mx-auto pt-3">
+  <main class="ios-main-content">
     
-    <!-- SEARCH BAR -->
-    <div class="ios-search-container">
-      <i class="fa-solid fa-magnifying-glass ios-search-icon"></i>
-      <input type="text" id="appleSettingsSearch" class="ios-search-input" placeholder="Search settings..." oninput="filterSettings(this.value)">
+    <!-- LARGE CUPERTINO TITLE -->
+    <div class="ios-large-title-wrap">
+      <h1 class="ios-large-title">Settings</h1>
+      <div class="ios-subtitle-pill">
+        <span class="status-dot-active"></span>
+        <span>01:01 Quant Terminal • Real-Time Engine Active</span>
+      </div>
     </div>
 
-    <!-- PROFILE / ACCOUNT CARD -->
+    <!-- CUPERTINO SEARCH BAR -->
+    <div class="ios-search-shell">
+      <i class="fa-solid fa-magnifying-glass ios-search-glyph"></i>
+      <input type="text" id="appleSettingsSearch" class="ios-search-input" placeholder="Search" oninput="filterSettings(this.value)">
+      <button id="searchClearBtn" class="ios-search-clear" onclick="clearSettingsSearch()">✕</button>
+    </div>
+
+    <!-- PROFILE / ACCOUNT CARD (Apple ID Inset) -->
     <div class="ios-inset-group">
-      <div class="ios-row cursor-pointer" onclick="openProfileSheet()">
-        <div class="flex items-center gap-3.5">
-          <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center text-white text-xl font-bold shadow-md">
+      <div class="ios-row interactive" onclick="openProfileSheet()" style="padding: 13px 16px;">
+        <div class="ios-row-left" style="gap: 15px;">
+          <!-- Authentic Apple Profile Monogram -->
+          <div style="width: 58px; height: 58px; border-radius: 50%; background: linear-gradient(135deg, #48484a 0%, #1c1c1e 100%); border: 1.5px solid rgba(255, 255, 255, 0.2); display: flex; align-items: center; justify-content: center; font-size: 21px; font-weight: 700; color: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.5); position: relative; flex-shrink: 0;">
             RZ
+            <span style="position: absolute; bottom: 0; right: 0; width: 15px; height: 15px; border-radius: 50%; background: #34c759; border: 2.5px solid #000000;"></span>
           </div>
           <div>
-            <div class="text-[17px] font-semibold text-white tracking-tight flex items-center gap-2">
-              <span>RayZer Quant Member</span>
-              <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[9px] font-mono font-bold">PRO</span>
+            <div style="font-size: 18px; font-weight: 600; letter-spacing: -0.3px; color: #ffffff; display: flex; align-items: center; gap: 7px;">
+              <span>RayZer Quant</span>
+              <span class="ios-tag-micro tag-active">PRO</span>
             </div>
-            <p class="text-[12px] text-[#8e8e93] mt-0.5" id="profileAccountSubtext">DhaniWin Connected • Real-Time Engine Active</p>
+            <div id="profileAccountSubtext" class="ios-label-secondary" style="margin-top: 3px;">
+              DhaniWin Connected • Period Synced
+            </div>
+            <div style="font-size: 11px; color: var(--apple-blue-tint); margin-top: 3px; font-weight: 500;">
+              Subscription, Cloudflare Edge &amp; Security
+            </div>
           </div>
         </div>
-        <i class="fa-solid fa-chevron-right text-[#48484a] text-xs"></i>
+        <i class="fa-solid fa-chevron-right ios-chevron"></i>
       </div>
     </div>
 
-    <!-- FEATURED: BUY ME A COFFEE (GOLD CARD) -->
-    <div class="ios-inset-group bg-gradient-to-br from-amber-500/15 via-[#1c1c1e] to-amber-600/10 border-amber-500/30">
-      <div class="p-4 space-y-3">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2.5">
-            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-amber-600 text-black flex items-center justify-center font-black text-base shadow-lg shadow-amber-500/30">
-              ☕
+    <!-- COFFEE / SUPPORTER (Apple Special Edition Dark Bronze Inset) -->
+    <div class="ios-bronze-card setting-category" data-cat="supporter">
+      <div style="display: flex; align-items: flex-start; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 11px;">
+          <div class="ios-squircle sq-bronze">
+            <i class="fa-solid fa-mug-saucer"></i>
+          </div>
+          <div>
+            <div style="font-size: 15px; font-weight: 600; color: #ffd60a; letter-spacing: -0.2px;">
+              Independent Server Fund
+            </div>
+            <div style="font-size: 11px; color: rgba(235, 235, 245, 0.6); margin-top: 1px;">
+              Keep 01:01 Terminal 100% Free &amp; Ads-Free
+            </div>
+          </div>
+        </div>
+        <span class="ios-tag-micro tag-warning">COMMUNITY</span>
+      </div>
+
+      <p style="font-size: 12px; color: rgba(235, 235, 245, 0.75); line-height: 17px; margin: 10px 0 0 0;">
+        Our real-time prediction engines, 101 AI models, and zero-delay edge nodes run 24/7 without banner ads or subscriptions. If this terminal helps you, consider buying a coffee!
+      </p>
+
+      <a href="https://pages.razorpay.com/pl_TjTtX1mh764PQS/view" target="_blank" rel="noopener noreferrer" class="ios-gold-btn">
+        <i class="fa-solid fa-heart" style="font-size: 13px;"></i>
+        <span>Support Terminal (₹18 - Any)</span>
+        <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px; opacity: 0.7;"></i>
+      </a>
+    </div>
+
+    <!-- SECTION: CONNECTIVITY & LIVE SYNC -->
+    <div class="setting-category" data-cat="sync network">
+      <div class="ios-group-title">
+        <span>Connectivity &amp; Edge Sync</span>
+      </div>
+      <div class="ios-inset-group">
+        
+        <!-- Live Lottery API Upstream -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-blue">
+              <i class="fa-solid fa-tower-broadcast"></i>
             </div>
             <div>
-              <h3 class="text-sm font-bold text-amber-300">Support Free & Ads-Free Terminal</h3>
-              <p class="text-[10px] text-zinc-400">Keep servers 100% free, fast, and unmonetized</p>
+              <div class="ios-label-primary">Lottery Upstream</div>
+              <div class="ios-label-secondary">draw.ar-lottery01.com (Priority 1)</div>
             </div>
           </div>
-          <span class="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-[8.5px] font-black tracking-wide border border-amber-400/30">
-            OFFICIAL
-          </span>
+          <span class="ios-tag-micro tag-active">LIVE 30s</span>
         </div>
 
-        <p class="text-[11px] text-zinc-300 leading-relaxed">
-          If our real-time AI models and pattern recognition help you win, consider buying a cup of coffee to cover server maintenance!
-        </p>
+        <!-- Cloudflare Pages Edge -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-indigo">
+              <i class="fa-solid fa-cloud"></i>
+            </div>
+            <div>
+              <div class="ios-label-primary">Edge Network</div>
+              <div class="ios-label-secondary">0one.pages.dev (Global CDN)</div>
+            </div>
+          </div>
+          <span class="ios-value-label">Active</span>
+        </div>
 
-        <a href="https://pages.razorpay.com/pl_TjTtX1mh764PQS/view" target="_blank" rel="noopener noreferrer" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 active:scale-[0.98] transition">
-          <i class="fa-solid fa-mug-hot"></i>
-          <span>Buy Me a Coffee (₹18 - Any)</span>
-          <i class="fa-solid fa-arrow-up-right-from-square text-[10px] ml-1"></i>
-        </a>
+        <!-- Dual Incharge Server Sync -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-teal">
+              <i class="fa-solid fa-arrows-rotate"></i>
+            </div>
+            <div>
+              <div class="ios-label-primary">Dual Incharge Sync</div>
+              <div class="ios-label-secondary">Incharge B (Server) vs Incharge A (Local)</div>
+            </div>
+          </div>
+          <span class="ios-tag-micro tag-neutral">VERIFIED</span>
+        </div>
+
+      </div>
+      <div class="ios-group-footer">
+        Upstream results are polled directly with low-latency round-trip time (RTT) estimation to ensure zero-delay countdown settlement.
       </div>
     </div>
 
-    <!-- SECTION: NOTIFICATIONS & SOUNDS -->
-    <div class="setting-category" data-cat="sound">
-      <div class="ios-group-title">Notifications & Audio</div>
+    <!-- SECTION: NOTIFICATIONS & AUDIO -->
+    <div class="setting-category" data-cat="sound notifications audio">
+      <div class="ios-group-title">Notifications &amp; Sounds</div>
       <div class="ios-inset-group">
+        
         <!-- Outside Notifications -->
         <div class="ios-row">
-          <div class="flex items-center gap-3">
-            <div class="ios-icon-box bg-[#ff453a]">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-red">
               <i class="fa-solid fa-bell"></i>
             </div>
             <div>
-              <div class="text-[15px] font-medium text-white">Outside Notifications</div>
-              <div class="text-[11px] text-[#8e8e93]">High-confidence alerts in background</div>
+              <div class="ios-label-primary">Outside Notifications</div>
+              <div class="ios-label-secondary">High-confidence alerts in background</div>
             </div>
           </div>
-          <div class="flex items-center gap-2.5">
-            <span id="notifStatusTag" class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-white/10 text-zinc-300">CHECKING</span>
+          <div class="ios-row-right">
+            <span id="notifStatusTag" class="ios-tag-micro tag-neutral">CHECKING</span>
             <label class="ios-switch">
               <input type="checkbox" id="swOutsideNotif" onchange="toggleOutsideNotif(this.checked)">
-              <span class="ios-switch-slider"></span>
+              <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
             </label>
           </div>
         </div>
 
         <!-- Sound Effects (Siu & Brhh) -->
-        <div class="p-3.5 space-y-2.5">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <div class="ios-icon-box bg-[#ff375f]">
+        <div class="ios-row" style="flex-direction: column; align-items: stretch; gap: 11px; padding: 12px 16px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div class="ios-row-left">
+              <div class="ios-squircle sq-pink">
                 <i class="fa-solid fa-volume-high"></i>
               </div>
               <div>
-                <div class="text-[15px] font-medium text-white">Sound Effects (Siu &amp; Brhh)</div>
-                <div class="text-[11px] text-[#8e8e93]">Siu on Win · Brhh on Loss cues</div>
+                <div class="ios-label-primary">Sound Cues (Suii &amp; Bruh)</div>
+                <div class="ios-label-secondary">Tactile audio for round win/loss outcomes</div>
               </div>
             </div>
             <label class="ios-switch">
               <input type="checkbox" id="swSoundEffects" checked onchange="toggleSound(this.checked)">
-              <span class="ios-switch-slider"></span>
+              <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
             </label>
           </div>
-          
-          <!-- Instant Audio Test Buttons -->
-          <div class="flex items-center gap-2 pt-1 pl-10">
-            <button onclick="playTestAudio('win')" class="flex-1 py-1.5 px-2.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 font-mono text-[10px] font-bold flex items-center justify-center gap-1.5 active:scale-95 transition">
-              <i class="fa-solid fa-play text-[8px]"></i>
-              <span>Preview Suii (Win)</span>
+
+          <!-- Apple Segmented Sound Preview Buttons -->
+          <div style="display: flex; gap: 8px; margin-left: 43px;">
+            <button onclick="playTestAudio('win')" class="ios-sound-chip" style="flex: 1; justify-content: center;">
+              <i class="fa-solid fa-play" style="font-size: 9px; color: var(--apple-green);"></i>
+              <span>Play Win (Suii)</span>
             </button>
-            <button onclick="playTestAudio('loss')" class="flex-1 py-1.5 px-2.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 font-mono text-[10px] font-bold flex items-center justify-center gap-1.5 active:scale-95 transition">
-              <i class="fa-solid fa-play text-[8px]"></i>
-              <span>Preview Bruh (Loss)</span>
+            <button onclick="playTestAudio('loss')" class="ios-sound-chip" style="flex: 1; justify-content: center;">
+              <i class="fa-solid fa-play" style="font-size: 9px; color: var(--apple-red);"></i>
+              <span>Play Loss (Bruh)</span>
             </button>
           </div>
         </div>
 
         <!-- Haptics -->
         <div class="ios-row">
-          <div class="flex items-center gap-3">
-            <div class="ios-icon-box bg-[#bf5af2]">
-              <i class="fa-solid fa-fingerprint"></i>
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-purple">
+              <i class="fa-solid fa-hand"></i>
             </div>
             <div>
-              <div class="text-[15px] font-medium text-white">Haptic Feedback</div>
-              <div class="text-[11px] text-[#8e8e93]">Vibrate on draw settlement</div>
+              <div class="ios-label-primary">Haptic Feedback</div>
+              <div class="ios-label-secondary">Vibrate on round settlement</div>
             </div>
           </div>
-          <label class="ios-switch">
-            <input type="checkbox" id="swHaptics" checked onchange="toggleHaptics(this.checked)">
-            <span class="ios-switch-slider"></span>
-          </label>
+          <div class="ios-row-right">
+            <label class="ios-switch">
+              <input type="checkbox" id="swHaptics" checked onchange="toggleHaptics(this.checked)">
+              <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
+            </label>
+          </div>
         </div>
+
+      </div>
+      <div class="ios-group-footer">
+        Sounds are throttled and suppressed when not logged in to prevent sudden disruptions.
       </div>
     </div>
 
-    <!-- SECTION: BACKGROUND RUN & BATTERY EXEMPTION -->
-    <div class="setting-category" data-cat="battery">
-      <div class="ios-group-title">Performance & Background</div>
+    <!-- SECTION: GENERAL & PERFORMANCE -->
+    <div class="setting-category" data-cat="battery performance wake background">
+      <div class="ios-group-title">General &amp; Performance</div>
       <div class="ios-inset-group">
+        
         <!-- Background Keep-Alive -->
         <div class="ios-row">
-          <div class="flex items-center gap-3">
-            <div class="ios-icon-box bg-[#30d158]">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-green">
               <i class="fa-solid fa-bolt"></i>
             </div>
             <div>
-              <div class="text-[15px] font-medium text-white">Background Keep-Alive</div>
-              <div class="text-[11px] text-[#8e8e93]">Prevents browser throttling in sleep</div>
+              <div class="ios-label-primary">Background Keep-Alive</div>
+              <div class="ios-label-secondary">Prevents browser tab throttle in sleep</div>
             </div>
           </div>
-          <div class="flex items-center gap-2">
-            <span id="keepAliveTag" class="text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">ACTIVE</span>
+          <div class="ios-row-right">
+            <span id="keepAliveTag" class="ios-tag-micro tag-active">ACTIVE</span>
             <label class="ios-switch">
               <input type="checkbox" id="swKeepAlive" checked onchange="toggleKeepAlive(this.checked)">
-              <span class="ios-switch-slider"></span>
+              <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
             </label>
           </div>
         </div>
 
         <!-- Screen Wake Lock -->
         <div class="ios-row">
-          <div class="flex items-center gap-3">
-            <div class="ios-icon-box bg-[#ff9f0a]">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-orange">
               <i class="fa-solid fa-sun"></i>
             </div>
             <div>
-              <div class="text-[15px] font-medium text-white">Screen Wake Lock</div>
-              <div class="text-[11px] text-[#8e8e93]">Keep screen awake during live rounds</div>
+              <div class="ios-label-primary">Screen Wake Lock</div>
+              <div class="ios-label-secondary">Keep display active during live sessions</div>
             </div>
           </div>
-          <label class="ios-switch">
-            <input type="checkbox" id="swWakeLock" onchange="toggleWakeLock(this.checked)">
-            <span class="ios-switch-slider"></span>
-          </label>
+          <div class="ios-row-right">
+            <label class="ios-switch">
+              <input type="checkbox" id="swWakeLock" onchange="toggleWakeLock(this.checked)">
+              <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
+            </label>
+          </div>
         </div>
 
-        <!-- Battery Optimization Exemption Guide Row -->
-        <div class="ios-row cursor-pointer" onclick="openBatteryGuideModal()">
-          <div class="flex items-center gap-3">
-            <div class="ios-icon-box bg-[#0a84ff]">
-              <i class="fa-solid fa-shield-halved"></i>
+        <!-- Battery Exemption Guide -->
+        <div class="ios-row interactive" onclick="openBatteryGuideModal()">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-blue">
+              <i class="fa-solid fa-battery-three-quarters"></i>
             </div>
             <div>
-              <div class="text-[15px] font-medium text-white">Battery Exemption Guide</div>
-              <div class="text-[11px] text-[#8e8e93]">Set "Unrestricted" on Samsung, MIUI, Vivo</div>
+              <div class="ios-label-primary">Battery Exemption Guide</div>
+              <div class="ios-label-secondary">Unrestricted background setup for Android/iOS</div>
             </div>
           </div>
-          <i class="fa-solid fa-chevron-right text-[#48484a] text-xs"></i>
+          <i class="fa-solid fa-chevron-right ios-chevron"></i>
         </div>
 
         <!-- Persistent Storage -->
         <div class="ios-row">
-          <div class="flex items-center gap-3">
-            <div class="ios-icon-box bg-[#64d2ff]">
-              <i class="fa-solid fa-database"></i>
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-teal">
+              <i class="fa-solid fa-hard-drive"></i>
             </div>
             <div>
-              <div class="text-[15px] font-medium text-white">Persistent Storage</div>
-              <div class="text-[11px] text-[#8e8e93]">Retain offline history & models</div>
+              <div class="ios-label-primary">Persistent Storage</div>
+              <div class="ios-label-secondary">Retain offline history &amp; trained models</div>
             </div>
           </div>
-          <button onclick="requestPersistence()" id="persistBtn" class="text-xs font-bold text-[#0a84ff] hover:opacity-75">
-            Check
-          </button>
+          <div class="ios-row-right">
+            <button onclick="requestPersistence()" id="persistBtn" class="ios-picker-pill" style="font-size: 13px; padding: 4px 10px;">
+              Verify
+            </button>
+          </div>
         </div>
+
+      </div>
+      <div class="ios-group-footer">
+        Wake Lock and Keep-Alive maintain uninterrupted countdowns even when phone screen is dimmed or minimized.
       </div>
     </div>
 
-    <!-- SECTION: PREDICTION ENGINE & IN-CHARGE AI -->
-    <div class="setting-category" data-cat="engine">
-      <div class="ios-group-title">Quant Prediction Engine</div>
+    <!-- SECTION: PREDICTION INTELLIGENCE & IN-CHARGE AI -->
+    <div class="setting-category" data-cat="ai model prediction quant">
+      <div class="ios-group-title">Quant Intelligence &amp; AI</div>
       <div class="ios-inset-group">
+        
         <!-- Default Timeframe -->
         <div class="ios-row">
-          <div class="flex items-center gap-3">
-            <div class="ios-icon-box bg-[#5e5ce6]">
-              <i class="fa-solid fa-clock"></i>
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-indigo">
+              <i class="fa-solid fa-stopwatch"></i>
             </div>
-            <div class="text-[15px] font-medium text-white">Default Interval</div>
+            <div class="ios-label-primary">Default Interval</div>
           </div>
-          <select id="selTimeframe" onchange="setTimeframe(this.value)" class="bg-[#2c2c2e] text-[#0a84ff] font-bold text-xs px-2.5 py-1 rounded-lg border border-white/10 outline-none">
-            <option value="30s">30s WinGo</option>
-            <option value="1m">1 Min WinGo</option>
-            <option value="3m">3 Min WinGo</option>
-            <option value="5m">5 Min WinGo</option>
-          </select>
+          <div class="ios-row-right">
+            <select id="selTimeframe" onchange="setTimeframe(this.value)" class="ios-picker-pill">
+              <option value="30s">30s WinGo</option>
+              <option value="1m">1 Min WinGo</option>
+              <option value="3m">3 Min WinGo</option>
+              <option value="5m">5 Min WinGo</option>
+            </select>
+          </div>
         </div>
 
-        <!-- Incharge Mode -->
+        <!-- In-Charge AI Mode -->
         <div class="ios-row">
-          <div class="flex items-center gap-3">
-            <div class="ios-icon-box bg-[#bf5af2]">
-              <i class="fa-solid fa-microchip"></i>
-            </div>
-            <div class="text-[15px] font-medium text-white">In-Charge AI Mode</div>
-          </div>
-          <select id="selInchargeMode" onchange="setInchargeMode(this.value)" class="bg-[#2c2c2e] text-[#0a84ff] font-bold text-xs px-2.5 py-1 rounded-lg border border-white/10 outline-none max-w-[150px] truncate">
-            <option value="WINNING_STREAK_OVERRIDE">Winning Streak Override</option>
-            <option value="CONSENSUS_WEIGHTED">Consensus Weighted</option>
-            <option value="ACCURACY_LEADER">Top Accuracy Leader</option>
-          </select>
-        </div>
-
-        <!-- Stake Base -->
-        <div class="ios-row">
-          <div class="flex items-center gap-3">
-            <div class="ios-icon-box bg-[#ffd60a] text-black">
-              <i class="fa-solid fa-coins"></i>
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-mesh">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
             </div>
             <div>
-              <div class="text-[15px] font-medium text-white">Autopilot Stake</div>
-              <div class="text-[11px] text-[#8e8e93]">Base simulation unit</div>
+              <div class="ios-label-primary">In-Charge Strategy</div>
+              <div class="ios-label-secondary">Dynamic leader selection rule</div>
             </div>
           </div>
-          <div class="flex items-center gap-1">
-            <button onclick="setBaseStake(10)" class="px-2 py-0.5 rounded text-xs font-mono font-bold bg-white/10 text-white hover:bg-amber-500/20 active:scale-95">₹10</button>
-            <button onclick="setBaseStake(50)" class="px-2 py-0.5 rounded text-xs font-mono font-bold bg-white/10 text-white hover:bg-amber-500/20 active:scale-95">₹50</button>
-            <button onclick="setBaseStake(100)" class="px-2 py-0.5 rounded text-xs font-mono font-bold bg-white/10 text-white hover:bg-amber-500/20 active:scale-95">₹100</button>
+          <div class="ios-row-right">
+            <select id="selInchargeMode" onchange="setInchargeMode(this.value)" class="ios-picker-pill" style="max-width: 140px; text-overflow: ellipsis;">
+              <option value="WINNING_STREAK_OVERRIDE">Streak Leader</option>
+              <option value="CONSENSUS_WEIGHTED">Consensus</option>
+              <option value="ACCURACY_LEADER">Top Accuracy</option>
+            </select>
           </div>
         </div>
+
+        <!-- Stake Base Segmented Control -->
+        <div class="ios-row" style="flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 16px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div class="ios-row-left">
+              <div class="ios-squircle sq-yellow">
+                <i class="fa-solid fa-coins"></i>
+              </div>
+              <div>
+                <div class="ios-label-primary">Autopilot Base Unit</div>
+                <div class="ios-label-secondary">Starting Martingale simulation stake</div>
+              </div>
+            </div>
+            <span id="currentStakeDisplay" class="ios-value-label" style="font-weight: 600; color: #ffffff;">₹10</span>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; margin-top: 2px;">
+            <div class="ios-segmented">
+              <button id="stakeBtn10" onclick="setBaseStake(10)" class="ios-seg-btn active">₹10</button>
+              <button id="stakeBtn50" onclick="setBaseStake(50)" class="ios-seg-btn">₹50</button>
+              <button id="stakeBtn100" onclick="setBaseStake(100)" class="ios-seg-btn">₹100</button>
+              <button id="stakeBtnCustom" onclick="promptCustomStake()" class="ios-seg-btn">Custom</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div class="ios-group-footer">
+        101 canonical AI models analyze real draw patterns concurrently. The In-Charge engine dynamically assigns capital to the top-performing model.
+      </div>
+    </div>
+
+    <!-- SECTION: APPLE IOS SYSTEM SHORTCUTS (from FifiTheBulldog/ios-settings-urls) -->
+    <div class="setting-category" data-cat="apple ios shortcuts system">
+      <div class="ios-group-title">
+        <span>Apple iOS System Shortcuts</span>
+        <span class="ios-tag-micro tag-neutral">iOS PREFS</span>
+      </div>
+      <div class="ios-inset-group">
+        
+        <!-- Apple Notifications Settings URL -->
+        <a href="App-prefs:root=NOTIFICATIONS_ID" class="ios-row interactive">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-red">
+              <i class="fa-solid fa-sliders"></i>
+            </div>
+            <div>
+              <div class="ios-label-primary">iOS Notifications Settings</div>
+              <div class="ios-label-secondary">Configure lock-screen banners &amp; badges</div>
+            </div>
+          </div>
+          <div class="ios-row-right">
+            <span class="ios-scheme-badge">prefs</span>
+            <i class="fa-solid fa-arrow-up-right-from-square ios-chevron" style="font-size: 11px;"></i>
+          </div>
+        </a>
+
+        <!-- Apple Battery & Low Power Mode URL -->
+        <a href="App-prefs:root=BATTERY" class="ios-row interactive">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-green">
+              <i class="fa-solid fa-battery-full"></i>
+            </div>
+            <div>
+              <div class="ios-label-primary">iOS Battery &amp; Low Power</div>
+              <div class="ios-label-secondary">Disable Low Power throttling during trading</div>
+            </div>
+          </div>
+          <div class="ios-row-right">
+            <span class="ios-scheme-badge">prefs</span>
+            <i class="fa-solid fa-arrow-up-right-from-square ios-chevron" style="font-size: 11px;"></i>
+          </div>
+        </a>
+
+        <!-- Apple Safari Settings URL -->
+        <a href="App-prefs:root=SAFARI" class="ios-row interactive">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-blue">
+              <i class="fa-brands fa-safari"></i>
+            </div>
+            <div>
+              <div class="ios-label-primary">Safari Settings</div>
+              <div class="ios-label-secondary">Manage cookies, storage &amp; audio autoplay</div>
+            </div>
+          </div>
+          <div class="ios-row-right">
+            <span class="ios-scheme-badge">prefs</span>
+            <i class="fa-solid fa-arrow-up-right-from-square ios-chevron" style="font-size: 11px;"></i>
+          </div>
+        </a>
+
+      </div>
+      <div class="ios-group-footer">
+        Direct URL schemes open native iOS Settings sub-menus when using iPhone, iPad, or Safari Web Apps.
       </div>
     </div>
 
     <!-- SECTION: DATA & STORAGE -->
-    <div class="setting-category" data-cat="data">
-      <div class="ios-group-title">Data & Storage</div>
+    <div class="setting-category" data-cat="data export storage backup">
+      <div class="ios-group-title">Data &amp; Storage</div>
       <div class="ios-inset-group">
-        <div class="ios-row cursor-pointer" onclick="exportData('csv')">
-          <div class="flex items-center gap-3">
-            <div class="ios-icon-box bg-[#32d74b]">
+        
+        <div class="ios-row interactive" onclick="exportData('csv')">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-green">
               <i class="fa-solid fa-file-csv"></i>
             </div>
-            <div class="text-[15px] font-medium text-white">Export Draw History (CSV)</div>
+            <div class="ios-label-primary">Export Draw History (CSV)</div>
           </div>
-          <i class="fa-solid fa-arrow-down text-zinc-400 text-xs"></i>
+          <i class="fa-solid fa-arrow-down ios-chevron"></i>
         </div>
 
-        <div class="ios-row cursor-pointer" onclick="exportData('json')">
-          <div class="flex items-center gap-3">
-            <div class="ios-icon-box bg-[#0a84ff]">
+        <div class="ios-row interactive" onclick="exportData('json')">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-blue">
               <i class="fa-solid fa-file-code"></i>
             </div>
-            <div class="text-[15px] font-medium text-white">Export State Snapshot (JSON)</div>
+            <div class="ios-label-primary">Export State Snapshot (JSON)</div>
           </div>
-          <i class="fa-solid fa-arrow-down text-zinc-400 text-xs"></i>
+          <i class="fa-solid fa-arrow-down ios-chevron"></i>
         </div>
 
-        <div class="ios-row cursor-pointer" onclick="purgeCache()">
-          <div class="flex items-center gap-3">
-            <div class="ios-icon-box bg-[#ff453a]">
-              <i class="fa-solid fa-trash-can"></i>
+        <div class="ios-row interactive" onclick="purgeCache()">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-red">
+              <i class="fa-solid fa-trash"></i>
             </div>
-            <div class="text-[15px] font-medium text-[#ff453a]">Clear Local Storage & Cache</div>
+            <div class="ios-label-primary" style="color: var(--apple-red-tint);">Reset Cache &amp; Storage</div>
           </div>
-          <span class="text-xs text-zinc-500 font-mono">Reset</span>
+          <span class="ios-tag-micro tag-danger">PURGE</span>
         </div>
+
+      </div>
+      <div class="ios-group-footer">
+        Export creates an unencrypted snapshot of your local session accuracy records and custom settings.
       </div>
     </div>
 
-    <!-- SECTION: ABOUT & VERSION -->
-    <div class="setting-category" data-cat="about">
+    <!-- SECTION: ABOUT -->
+    <div class="setting-category" data-cat="about version platform">
       <div class="ios-group-title">About</div>
       <div class="ios-inset-group">
+        
         <div class="ios-row">
-          <span class="text-[15px] text-white">Platform</span>
-          <span class="text-[15px] text-[#8e8e93]">01:01 Quant Terminal</span>
+          <span class="ios-label-primary">Terminal Platform</span>
+          <span class="ios-value-label">01:01 Quant Terminal</span>
         </div>
+
         <div class="ios-row">
-          <span class="text-[15px] text-white">Engine Version</span>
-          <span class="text-[15px] text-[#8e8e93]">v3.4.2 Pro (ARM64)</span>
+          <span class="ios-label-primary">Architecture</span>
+          <span class="ios-value-label">Cloudflare Edge + Liquid Glass</span>
         </div>
+
         <div class="ios-row">
-          <span class="text-[15px] text-white">Tracked Models</span>
-          <span class="text-[15px] text-[#8e8e93]">101 Canonical AI Models</span>
+          <span class="ios-label-primary">Engine Version</span>
+          <span class="ios-value-label">v3.4.2 Pro (ARM64)</span>
         </div>
+
         <div class="ios-row">
-          <span class="text-[15px] text-white">Pattern Engine</span>
-          <span class="text-[15px] text-emerald-400 font-mono">Isolated IndexedDB</span>
+          <span class="ios-label-primary">AI Ensembles</span>
+          <span class="ios-value-label">101 Canonical Models</span>
         </div>
+
+        <div class="ios-row">
+          <span class="ios-label-primary">Pattern Engine</span>
+          <span class="ios-value-label" style="color: var(--apple-green-tint); font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13.5px;">IndexedDB Isolated</span>
+        </div>
+
       </div>
     </div>
 
-    <!-- DISCLAIMER -->
-    <div class="text-center px-6 py-4">
-      <p class="text-[11px] text-[#636366] leading-relaxed">
-        01:01 Quant Terminal is an analytical mathematical modeling tool. No guaranteed returns. Play responsibly.
+    <!-- FOOTER DISCLAIMER -->
+    <div style="text-align: center; padding: 12px 24px 28px 24px;">
+      <p style="font-size: 11.5px; color: var(--apple-gray-2); line-height: 16px; margin: 0;">
+        01:01 Quant Terminal is an analytical mathematical modeling instrument. Strictly no guaranteed returns. Please play responsibly.
+      </p>
+      <p style="font-size: 11px; color: var(--apple-gray-3); margin-top: 8px;">
+        Designed with Cupertino HIG Aesthetics • Pure AMOLED Dark
       </p>
     </div>
 
   </main>
 
-  <!-- BATTERY OPTIMIZATION GUIDE MODAL -->
-  <div id="appleBatteryGuideModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-xl flex flex-col justify-end hidden select-none" onclick="if(event.target===this) closeBatteryGuideModal()">
-    <div class="w-full max-w-md mx-auto bg-[#1c1c1e] border-t border-white/[0.14] rounded-t-[32px] p-5 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
-      <div class="w-10 h-1 bg-white/20 rounded-full mx-auto cursor-pointer" onclick="closeBatteryGuideModal()"></div>
+  <!-- BATTERY OPTIMIZATION GUIDE MODAL (Apple Sheet Style) -->
+  <div id="appleBatteryGuideModal" class="ios-sheet-backdrop" onclick="if(event.target===this) closeBatteryGuideModal()">
+    <div class="ios-sheet-card">
+      <div class="ios-sheet-handle" onclick="closeBatteryGuideModal()"></div>
       
-      <div class="flex items-center justify-between pb-2 border-b border-white/[0.08]">
-        <div class="flex items-center gap-2.5">
-          <div class="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center text-lg">
-            🛡️
+      <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 0.5px solid var(--ios-separator); margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div class="ios-squircle sq-blue" style="width: 34px; height: 34px;">
+            <i class="fa-solid fa-shield-halved" style="font-size: 16px;"></i>
           </div>
           <div>
-            <h3 class="text-base font-bold text-white">Battery Exemption Guide</h3>
-            <p class="text-[10px] text-zinc-400">Prevent OS from pausing WebSocket & Keep-Alive</p>
+            <div style="font-size: 16.5px; font-weight: 600; color: #ffffff;">Battery Optimization Guide</div>
+            <div style="font-size: 11px; color: var(--label-secondary);">Prevent mobile OS from putting WebSocket to sleep</div>
           </div>
         </div>
-        <button onclick="closeBatteryGuideModal()" class="w-7 h-7 rounded-full bg-white/10 text-zinc-400 hover:text-white flex items-center justify-center text-xs">✕</button>
+        <button onclick="closeBatteryGuideModal()" style="width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.1); border: none; color: #ffffff; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px;">✕</button>
       </div>
 
-      <div class="space-y-3 font-sans text-xs text-zinc-300">
-        <div class="p-3 rounded-xl bg-black/40 border border-white/[0.06] space-y-1">
-          <b class="text-amber-300 flex items-center gap-1.5">
-            <i class="fa-solid fa-mobile-screen"></i> Xiaomi / Redmi / POCO (MIUI / HyperOS):
-          </b>
-          <p class="text-[11px] text-zinc-400">Settings → Apps → Manage Apps → Chrome/Browser → Battery Saver → Select <b>"No Restrictions"</b>. Also turn ON <b>"Autostart"</b>.</p>
+      <div style="space-y: 10px; font-size: 12.5px; color: rgba(235, 235, 245, 0.85);">
+        
+        <div class="ios-guide-box">
+          <div style="display: flex; align-items: center; gap: 7px; color: var(--apple-orange-tint); font-weight: 600; font-size: 13px; margin-bottom: 4px;">
+            <i class="fa-solid fa-mobile-screen"></i>
+            <span>Xiaomi / Redmi / POCO (MIUI / HyperOS)</span>
+          </div>
+          <p style="margin: 0; font-size: 11.5px; color: var(--label-secondary); line-height: 16px;">
+            Settings → Apps → Manage Apps → Chrome/Browser → Battery Saver → Select <b style="color: #ffffff;">"No Restrictions"</b>. Enable <b style="color: #ffffff;">"Autostart"</b>.
+          </p>
         </div>
 
-        <div class="p-3 rounded-xl bg-black/40 border border-white/[0.06] space-y-1">
-          <b class="text-sky-300 flex items-center gap-1.5">
-            <i class="fa-solid fa-mobile-screen"></i> Samsung (One UI):
-          </b>
-          <p class="text-[11px] text-zinc-400">Settings → Apps → Chrome/Browser → Battery → Select <b>"Unrestricted"</b>. Ensure it is removed from "Sleeping Apps".</p>
+        <div class="ios-guide-box">
+          <div style="display: flex; align-items: center; gap: 7px; color: var(--apple-blue-tint); font-weight: 600; font-size: 13px; margin-bottom: 4px;">
+            <i class="fa-solid fa-mobile-screen"></i>
+            <span>Samsung Galaxy (One UI)</span>
+          </div>
+          <p style="margin: 0; font-size: 11.5px; color: var(--label-secondary); line-height: 16px;">
+            Settings → Apps → Chrome/Browser → Battery → Select <b style="color: #ffffff;">"Unrestricted"</b>. Ensure it is removed from "Deep Sleeping Apps".
+          </p>
         </div>
 
-        <div class="p-3 rounded-xl bg-black/40 border border-white/[0.06] space-y-1">
-          <b class="text-emerald-300 flex items-center gap-1.5">
-            <i class="fa-solid fa-mobile-screen"></i> Realme / OPPO / OnePlus (ColorOS):
-          </b>
-          <p class="text-[11px] text-zinc-400">Settings → Battery → App Battery Management → Chrome/Browser → Allow <b>"Foreground &amp; Background Activity"</b>.</p>
+        <div class="ios-guide-box">
+          <div style="display: flex; align-items: center; gap: 7px; color: var(--apple-green-tint); font-weight: 600; font-size: 13px; margin-bottom: 4px;">
+            <i class="fa-solid fa-mobile-screen"></i>
+            <span>Realme / OPPO / OnePlus (ColorOS)</span>
+          </div>
+          <p style="margin: 0; font-size: 11.5px; color: var(--label-secondary); line-height: 16px;">
+            Settings → Battery → App Battery Management → Chrome/Browser → Allow <b style="color: #ffffff;">"Foreground &amp; Background Activity"</b>.
+          </p>
         </div>
 
-        <div class="p-3 rounded-xl bg-black/40 border border-white/[0.06] space-y-1">
-          <b class="text-purple-300 flex items-center gap-1.5">
-            <i class="fa-brands fa-apple"></i> Apple iPhone (iOS):
-          </b>
-          <p class="text-[11px] text-zinc-400">Settings → Safari → Advanced → ensure JavaScript is ON. Add to Home Screen (PWA) for dedicated background lifecycle.</p>
+        <div class="ios-guide-box">
+          <div style="display: flex; align-items: center; gap: 7px; color: var(--apple-purple-tint); font-weight: 600; font-size: 13px; margin-bottom: 4px;">
+            <i class="fa-brands fa-apple"></i>
+            <span>Apple iPhone &amp; iPad (iOS)</span>
+          </div>
+          <p style="margin: 0; font-size: 11.5px; color: var(--label-secondary); line-height: 16px;">
+            Tap Share in Safari → <b style="color: #ffffff;">"Add to Home Screen"</b> to run in dedicated standalone PWA container without background throttling.
+          </p>
+        </div>
+
+      </div>
+
+      <button onclick="closeBatteryGuideModal()" class="ios-modal-btn">
+        Got It, Understood
+      </button>
+    </div>
+  </div>
+
+  <!-- PROFILE / ACCOUNT SHEET MODAL -->
+  <div id="appleProfileSheetModal" class="ios-sheet-backdrop" onclick="if(event.target===this) closeProfileSheet()">
+    <div class="ios-sheet-card">
+      <div class="ios-sheet-handle" onclick="closeProfileSheet()"></div>
+      
+      <div style="text-align: center; padding: 10px 0 16px 0;">
+        <div style="width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, #48484a 0%, #1c1c1e 100%); border: 2px solid rgba(255, 255, 255, 0.25); display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 700; color: #ffffff; margin: 0 auto; box-shadow: 0 6px 18px rgba(0,0,0,0.6);">
+          RZ
+        </div>
+        <h2 style="font-size: 20px; font-weight: 700; margin: 10px 0 2px 0;">RayZer Quant Member</h2>
+        <p style="font-size: 13px; color: var(--label-secondary); margin: 0;">mrabensojan@gmail.com</p>
+        <div style="display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; padding: 3px 10px; border-radius: 20px; background: rgba(52, 199, 89, 0.15); border: 0.5px solid rgba(52, 199, 89, 0.3);">
+          <span style="width: 6px; height: 6px; border-radius: 50%; background: #34c759;"></span>
+          <span style="font-size: 11px; font-weight: 600; color: #30d158;">PRO QUANT ACCESS ACTIVE</span>
         </div>
       </div>
 
-      <button onclick="closeBatteryGuideModal()" class="w-full py-2.5 rounded-xl bg-[#0a84ff] hover:bg-blue-600 text-white font-bold text-xs active:scale-[0.98] transition">
-        Got it, Understood
+      <div class="ios-inset-group" style="margin: 0 0 16px 0;">
+        <div class="ios-row">
+          <span class="ios-label-primary">Session Security</span>
+          <span class="ios-tag-micro tag-active">SHA-256 SIGNED</span>
+        </div>
+        <div class="ios-row">
+          <span class="ios-label-primary">Edge Node Latency</span>
+          <span class="ios-value-label" id="profileLatencyTag">~24 ms</span>
+        </div>
+        <div class="ios-row">
+          <span class="ios-label-primary">Storage State</span>
+          <span class="ios-value-label">Persistent IndexedDB</span>
+        </div>
+      </div>
+
+      <button onclick="closeProfileSheet()" class="ios-modal-btn">
+        Close
       </button>
     </div>
   </div>
@@ -639,9 +1373,14 @@
       if (!toast || !text || !icon) return;
 
       text.textContent = msg;
-      icon.className = isSuccess ? 'fa-solid fa-check text-emerald-400' : 'fa-solid fa-circle-exclamation text-amber-400';
+      icon.className = isSuccess ? 'fa-solid fa-check' : 'fa-solid fa-circle-exclamation';
+      icon.style.color = isSuccess ? 'var(--apple-green)' : 'var(--apple-orange)';
       toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 2400);
+      
+      clearTimeout(window._appleToastTimer);
+      window._appleToastTimer = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2400);
     }
 
     function playTestAudio(type) {
@@ -694,8 +1433,52 @@
         if (selInc && cfg.mode) selInc.value = cfg.mode;
       } catch(e) {}
 
+      // Stake
+      updateStakeUI();
+
       // Notifications
       updateNotifTag();
+
+      // Scroll listener for large title collapse
+      window.addEventListener('scroll', handleNavbarScroll, { passive: true });
+    }
+
+    function handleNavbarScroll() {
+      const header = document.getElementById('iosHeader');
+      if (!header) return;
+      if (window.scrollY > 40) {
+        header.classList.add('scrolled');
+      } else {
+        header.classList.remove('scrolled');
+      }
+    }
+
+    function updateStakeUI() {
+      const stake = parseInt(localStorage.getItem('quant_sim_stake') || '10', 10);
+      const display = document.getElementById('currentStakeDisplay');
+      if (display) display.textContent = `₹${stake}`;
+
+      ['10', '50', '100'].forEach(v => {
+        const btn = document.getElementById(`stakeBtn${v}`);
+        if (btn) {
+          if (stake === parseInt(v, 10)) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        }
+      });
+
+      const customBtn = document.getElementById('stakeBtnCustom');
+      if (customBtn) {
+        if (![10, 50, 100].includes(stake)) {
+          customBtn.classList.add('active');
+          customBtn.textContent = `₹${stake}`;
+        } else {
+          customBtn.classList.remove('active');
+          customBtn.textContent = 'Custom';
+        }
+      }
     }
 
     function updateNotifTag() {
@@ -705,20 +1488,20 @@
 
       if (typeof Notification === 'undefined') {
         tag.textContent = 'UNSUPPORTED';
-        tag.className = 'text-[9px] font-mono px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400';
+        tag.className = 'ios-tag-micro tag-danger';
         sw.checked = false;
         sw.disabled = true;
       } else if (Notification.permission === 'granted') {
         tag.textContent = 'ALLOWED';
-        tag.className = 'text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold';
+        tag.className = 'ios-tag-micro tag-active';
         sw.checked = true;
       } else if (Notification.permission === 'denied') {
         tag.textContent = 'BLOCKED';
-        tag.className = 'text-[9px] font-mono px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 font-bold';
+        tag.className = 'ios-tag-micro tag-danger';
         sw.checked = false;
       } else {
         tag.textContent = 'ASK';
-        tag.className = 'text-[9px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400';
+        tag.className = 'ios-tag-micro tag-warning';
         sw.checked = false;
       }
     }
@@ -729,9 +1512,9 @@
           Notification.requestPermission().then(permission => {
             updateNotifTag();
             if (permission === 'granted') {
-              showToast('Outside Notifications Enabled!');
+              showToast('Outside Notifications Enabled');
             } else {
-              showToast('Notification permission not granted', false);
+              showToast('Notification permission denied', false);
             }
           });
         }
@@ -744,7 +1527,7 @@
     function toggleSound(checked) {
       localStorage.setItem('quant_sound', checked ? '1' : '0');
       if (checked) playTestAudio('win');
-      showToast(checked ? 'Sound Effects ON' : 'Sound Effects Muted');
+      showToast(checked ? 'Sound Effects Enabled' : 'Sound Effects Muted');
     }
 
     function toggleHaptics(checked) {
@@ -762,16 +1545,14 @@
       const tag = document.getElementById('keepAliveTag');
       if (tag) {
         tag.textContent = checked ? 'ACTIVE' : 'OFF';
-        tag.className = checked 
-          ? 'text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30'
-          : 'text-[9px] font-mono px-2 py-0.5 rounded-full bg-white/10 text-zinc-400';
+        tag.className = checked ? 'ios-tag-micro tag-active' : 'ios-tag-micro tag-neutral';
       }
       showToast(checked ? 'Background Keep-Alive Active' : 'Keep-Alive Disabled');
     }
 
     function setTimeframe(val) {
       localStorage.setItem('quant_default_tf', val);
-      showToast(`Default Interval set to ${val}`);
+      showToast(`Default Interval: ${val}`);
     }
 
     function setInchargeMode(val) {
@@ -779,12 +1560,25 @@
       try { cfg = JSON.parse(localStorage.getItem('quant_incharge_settings') || '{}'); } catch(e) {}
       cfg.mode = val;
       localStorage.setItem('quant_incharge_settings', JSON.stringify(cfg));
-      showToast(`In-Charge AI Mode set to ${val}`);
+      showToast(`In-Charge Mode: ${val}`);
     }
 
     function setBaseStake(val) {
       localStorage.setItem('quant_sim_stake', val);
-      showToast(`Autopilot Base Stake set to ₹${val}`);
+      updateStakeUI();
+      showToast(`Autopilot Stake: ₹${val}`);
+    }
+
+    function promptCustomStake() {
+      const input = prompt('Enter custom base simulation stake (₹):', '20');
+      if (input !== null) {
+        const val = parseInt(input, 10);
+        if (!isNaN(val) && val > 0) {
+          setBaseStake(val);
+        } else {
+          showToast('Invalid stake amount', false);
+        }
+      }
     }
 
     function requestPersistence() {
@@ -799,12 +1593,22 @@
 
     function openBatteryGuideModal() {
       const modal = document.getElementById('appleBatteryGuideModal');
-      if (modal) modal.classList.remove('hidden');
+      if (modal) modal.classList.add('active');
     }
 
     function closeBatteryGuideModal() {
       const modal = document.getElementById('appleBatteryGuideModal');
-      if (modal) modal.classList.add('hidden');
+      if (modal) modal.classList.remove('active');
+    }
+
+    function openProfileSheet() {
+      const modal = document.getElementById('appleProfileSheetModal');
+      if (modal) modal.classList.add('active');
+    }
+
+    function closeProfileSheet() {
+      const modal = document.getElementById('appleProfileSheetModal');
+      if (modal) modal.classList.remove('active');
     }
 
     function purgeCache() {
@@ -831,10 +1635,22 @@
 
     function filterSettings(query) {
       const q = query.toLowerCase().trim();
+      const clearBtn = document.getElementById('searchClearBtn');
+      if (clearBtn) clearBtn.style.display = q ? 'flex' : 'none';
+
       document.querySelectorAll('.setting-category').forEach(cat => {
         const text = cat.textContent.toLowerCase();
         cat.style.display = (!q || text.includes(q)) ? 'block' : 'none';
       });
+    }
+
+    function clearSettingsSearch() {
+      const input = document.getElementById('appleSettingsSearch');
+      if (input) {
+        input.value = '';
+        filterSettings('');
+        input.focus();
+      }
     }
 
     document.addEventListener('DOMContentLoaded', initSettings);
