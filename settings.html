@@ -726,12 +726,12 @@
 
   <!-- STICKY TOP NAVIGATION BAR -->
   <header id="iosHeader" class="ios-navbar">
-    <a href="mobile.html" onclick="if (window.history.length > 1) { event.preventDefault(); window.history.back(); }" class="ios-nav-back">
+    <a href="/mobile" onclick="if (window.history.length > 1) { event.preventDefault(); window.history.back(); }" class="ios-nav-back">
       <i class="fa-solid fa-chevron-left" style="font-size: 15px;"></i>
       <span>Terminal</span>
     </a>
     <span class="ios-nav-title">Settings</span>
-    <button onclick="if (window.history.length > 1) { window.history.back(); } else { window.location.href='mobile.html'; }" class="ios-nav-action" style="font-weight: 600;">
+    <button onclick="if (window.history.length > 1) { window.history.back(); } else { window.location.href='/mobile'; }" class="ios-nav-action" style="font-weight: 600;">
       Done
     </button>
   </header>
@@ -1655,7 +1655,7 @@
       if (confirm('Clear local preferences, cached round history, and restart session?')) {
         localStorage.clear();
         showToast('Cache purged. Resetting...');
-        setTimeout(() => window.location.href = 'mobile.html', 800);
+        setTimeout(() => window.location.href = '/mobile', 800);
       }
     }
 

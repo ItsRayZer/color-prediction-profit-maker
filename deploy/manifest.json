@@ -1,11 +1,12 @@
 {
   "name": "01:01 Quant AI Terminal",
   "short_name": "01:01 AI",
-  "start_url": "./mobile.html",
-  "id": "/mobile.html",
+  "start_url": "/mobile",
+  "scope": "/",
+  "id": "/mobile",
   "display": "standalone",
-  "background_color": "#09090b",
-  "theme_color": "#09090b",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "orientation": "portrait-primary",
   "description": "01:01 Professional Quant AI Color Prediction Terminal with Real-time Universal Engine Sync",
   "icons": [

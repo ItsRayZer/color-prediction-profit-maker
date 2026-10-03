@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>01:01 – Quant AI Terminal</title>
   <link rel="icon" type="image/jpeg" href="logo_0101.jpg">
+  <link rel="manifest" href="manifest.json">
   <!-- Seamless Mobile Device Auto-Router with Persistent Preference -->
   <script>
     (function() {
@@ -19,7 +20,7 @@
       }
       // If user hasn't explicitly preferred PC and is on a phone/small viewport, open mobile view
       if (localStorage.getItem('quant_preferred_view') === 'mobile' || window.innerWidth < 768 || (/Android|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) && !/iPad/i.test(navigator.userAgent))) {
-        window.location.replace('mobile.html');
+        window.location.replace('/mobile');
       }
     })();
   </script>
@@ -874,7 +875,7 @@
   <!-- Right: Desktop Mobile Mode Toggle + Live status dot + Settings gear -->
   <div class="flex items-center gap-2">
     <!-- Mobile App Link button -->
-    <a id="toggleMobileModeBtn" href="mobile.html" onclick="localStorage.setItem('quant_preferred_view', 'mobile'); sessionStorage.removeItem('quant_force_pc');" class="flex px-2.5 py-1 rounded-full bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-[10px] font-mono font-bold items-center gap-1.5 transition active:scale-95 text-amber-300" title="Switch to Mobile App View">
+    <a id="toggleMobileModeBtn" href="/mobile" onclick="localStorage.setItem('quant_preferred_view', 'mobile'); sessionStorage.removeItem('quant_force_pc');" class="flex px-2.5 py-1 rounded-full bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-[10px] font-mono font-bold items-center gap-1.5 transition active:scale-95 text-amber-300" title="Switch to Mobile App View">
       <i class="fa-solid fa-mobile-screen"></i>
       <span id="mobileModeBtnText">Mobile App</span>
     </a>
