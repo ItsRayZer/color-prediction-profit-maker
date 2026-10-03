@@ -3262,49 +3262,44 @@ function initDockAutoCompact() {
   if (!dock) return;
 
   let lastScrollY = window.scrollY;
-  let lastTouchY = 0;
-  let idleTimer = null;
-  const IDLE_MS = 3500;
+  const SCROLL_THRESHOLD = 8;
 
-  const compact = () => dock.classList.add('dock-compact');
-  const expand  = () => dock.classList.remove('dock-compact');
-
-  const resetIdle = () => {
-    clearTimeout(idleTimer);
-    idleTimer = setTimeout(compact, IDLE_MS);
+  const compact = () => {
+    dock.classList.add('dock-compact');
+    document.body.classList.add('nav-compact');
+  };
+  const expand = () => {
+    dock.classList.remove('dock-compact');
+    document.body.classList.remove('nav-compact');
   };
 
-  // ── Window scroll (for pages that scroll) ──
+  // ── Window scroll: scrolling down = compact, scrolling up = back to normal ──
   window.addEventListener('scroll', () => {
     const y = window.scrollY;
-    if (y > lastScrollY + 4)       { compact(); }   // scrolling DOWN → compact
-    else if (y < lastScrollY - 4)  { expand();  }   // scrolling UP   → expand
+
+    // At top of the screen: always restore full normal menu
+    if (y <= 20) {
+      expand();
+      lastScrollY = y;
+      return;
+    }
+
+    const delta = y - lastScrollY;
+    if (delta > SCROLL_THRESHOLD && y > 60) {
+      // User scrolled DOWN → make menu compact
+      compact();
+    } else if (delta < -SCROLL_THRESHOLD) {
+      // User scrolled UP → make menu back to normal
+      expand();
+    }
+
     lastScrollY = y;
-    resetIdle();
   }, { passive: true });
 
-  // ── Touch swipe on main content area (finger down = scroll down = compact) ──
-  document.addEventListener('touchstart', e => {
-    lastTouchY = e.touches[0]?.clientY ?? 0;
-  }, { passive: true });
-
-  document.addEventListener('touchmove', e => {
-    const curY = e.touches[0]?.clientY ?? 0;
-    const delta = lastTouchY - curY;  // positive = finger moved UP = content scrolled DOWN
-    if (delta >  12) { compact(); }
-    if (delta < -12) { expand();  }
-    lastTouchY = curY;
-    resetIdle();
-  }, { passive: true });
-
-  // ── Touching the dock itself always expands it ──
-  ['touchstart', 'pointerdown', 'mouseenter', 'focusin'].forEach(ev =>
-    dock.addEventListener(ev, () => { expand(); resetIdle(); }, { passive: true })
+  // ── Touching the dock itself always expands it back to normal ──
+  ['touchstart', 'pointerdown', 'mouseenter'].forEach(ev =>
+    dock.addEventListener(ev, expand, { passive: true })
   );
-  dock.addEventListener('mouseleave', resetIdle);
-
-  // Initial idle timer
-  resetIdle();
 }
 
 // Expose for DHANIWIN_SCROLL bridge messages
@@ -3314,12 +3309,18 @@ window._dockSetCompact = (isCompact) => {
   isCompact ? dock.classList.add('dock-compact') : dock.classList.remove('dock-compact');
 };
 
-document.addEventListener('DOMContentLoaded', () => {
+const _runDockInit = () => {
   try { initHomeHeaderAutoHide(); } catch(e) { console.warn('[HeaderAutoHide]', e); }
   try { initDockAutoCompact(); } catch(e) { console.warn('[DockCompact]', e); }
   try { updateDhaniAuthBar(); } catch(e) {}
   try { initCoffeeSupportPopup(); } catch(e) { console.warn('[CoffeePopup]', e); }
-});
+};
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _runDockInit);
+} else {
+  _runDockInit();
+}
 
 function switchMobileTab(tab) {
   ['home', 'ai', 'sim', 'web', 'pattern'].forEach(t => {

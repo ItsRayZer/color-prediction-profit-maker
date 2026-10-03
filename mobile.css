@@ -268,27 +268,46 @@ body {
   overflow: hidden;
   transition: max-height 0.4s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.25s ease, margin 0.4s ease, color 0.2s ease;
 }
-.dock-btn { transition: transform 0.15s ease, padding 0.4s cubic-bezier(0.32, 0.72, 0, 1); }
+.dock-btn { transition: transform 0.15s ease, padding 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+
+#mobileBottomDock {
+  transition: max-width 0.38s cubic-bezier(0.16, 1, 0.3, 1), 
+              bottom 0.38s cubic-bezier(0.16, 1, 0.3, 1), 
+              opacity 0.25s ease;
+}
 
 #mobileBottomDock.dock-compact {
-  max-width: 236px;
+  max-width: 220px;
   bottom: calc(8px + var(--safe-bottom));
-  opacity: 0.92;
+  opacity: 0.95;
 }
 #mobileBottomDock.dock-compact .dock-container {
-  padding: 3px 4px;
-  background-color: rgba(14, 14, 22, 0.26);
+  padding: 3px 6px;
+  background-color: rgba(14, 14, 22, 0.65);
   box-shadow:
-    0 8px 26px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.30),
-    inset 0 0 14px rgba(255, 255, 255, 0.05);
+    0 10px 32px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 0 14px rgba(255, 255, 255, 0.08);
 }
-#mobileBottomDock.dock-compact .dock-btn { padding: 8px 4px; }
+#mobileBottomDock.dock-compact .dock-btn { 
+  padding: 6px 3px; 
+}
+#mobileBottomDock.dock-compact .dock-btn i {
+  font-size: 14.5px;
+}
 #mobileBottomDock.dock-compact .dock-btn span.tab-title,
 #mobileBottomDock.dock-compact .dock-indicator {
   max-height: 0;
   opacity: 0;
   margin-top: 0;
+  transform: translateY(3px);
+  pointer-events: none;
+}
+
+body.nav-compact header.liquid-glass-header {
+  padding-top: 5px !important;
+  padding-bottom: 5px !important;
+  background: rgba(10, 10, 15, 0.65) !important;
 }
 
 /* ── Home (web) tab: top bar auto-hide; DhaniWin view always starts below our header ── */
