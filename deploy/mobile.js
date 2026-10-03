@@ -641,32 +641,28 @@ function _parseRawList(raw) {
 }
 
 async function fetchLiveHistoryFromDirectAPI(tf) {
-  // ── Source 1: Cloudflare Edge Worker (unlimited bandwidth, 100k req/day free) ──
-  try {
-    const cfUrl = `${CF_WORKER_BASE}/api/wingo?tf=${tf}&_=${Date.now()}`;
-    const cfData = await _fetchWithTimeout(cfUrl, 4000);
-    const cfList = cfData?.data || _parseRawList(cfData);
-    if (Array.isArray(cfList) && cfList.length > 0) return cfList;
-  } catch (e) {
-    // Cloudflare unavailable – fall through to direct
-  }
-
-  // ── Source 2: Direct Upstream Lottery API (ar-lottery01.com — free, CORS enabled) ──
-  try {
-    const upstreamUrl = `${TF_UPSTREAM_URLS[tf] || TF_UPSTREAM_URLS['30s']}?pageNo=1&_=${Date.now()}`;
-    const raw = await _fetchWithTimeout(upstreamUrl, 5000);
-    const list = _parseRawList(raw);
-    if (list.length > 0) return list;
-  } catch (e) {
-    // Direct API failed – try Firebase RTDB plain read as last resort
-  }
-
-  // ── Source 3: Firebase RTDB plain read (no orderBy, no index needed) ──
+  // ── Source 1: Firebase RTDB (single source of truth, 100% CORS-immune, ~50ms ultra-fast) ──
   try {
     const rtdbUrl = `${RTDB_BASE}/live_history/${tf}.json`;
-    const raw = await _fetchWithTimeout(rtdbUrl, 3000);
+    const raw = await _fetchWithTimeout(rtdbUrl, 2500);
     const list = _parseRawList(raw);
     if (list.length > 0) return list;
+  } catch (e) {}
+
+  // ── Source 2: Direct Upstream Lottery API (ar-lottery01.com) ──
+  try {
+    const upstreamUrl = `${TF_UPSTREAM_URLS[tf] || TF_UPSTREAM_URLS['30s']}?pageNo=1&_=${Date.now()}`;
+    const raw = await _fetchWithTimeout(upstreamUrl, 4000);
+    const list = _parseRawList(raw);
+    if (list.length > 0) return list;
+  } catch (e) {}
+
+  // ── Source 3: Cloudflare Edge Worker Fallback ──
+  try {
+    const cfUrl = `${CF_WORKER_BASE}/api/wingo?tf=${tf}&_=${Date.now()}`;
+    const cfData = await _fetchWithTimeout(cfUrl, 3000);
+    const cfList = cfData?.data || _parseRawList(cfData);
+    if (Array.isArray(cfList) && cfList.length > 0) return cfList;
   } catch (e) {}
 
   // ── Source 4: Pending cloud history cached locally ──
