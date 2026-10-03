@@ -44,7 +44,7 @@ console.log('Copied index.html -> deploy/index.html (source, unprocessed)');
 });
 
   // Copy individual files
-  ['terminal.html', 'dhaniwin-bridge.js', 'logo_0101.jpg', 'favicon.svg', 'mobile.html', 'mobile.css', 'mobile.js', 'settings.html', 'manifest.json', 'sw.js', '_redirects', '_headers'].forEach(file => {
+  ['terminal.html', 'dhaniwin-bridge.js', 'logo_0101.jpg', 'favicon.svg', 'mobile.html', 'mobile.css', 'mobile.js', 'settings.html', 'manifest.json', 'sw.js', '_headers'].forEach(file => {
     const src = path.join(rootDir, file);
     const dest = path.join(deployDir, file);
     if (fs.existsSync(src)) {
