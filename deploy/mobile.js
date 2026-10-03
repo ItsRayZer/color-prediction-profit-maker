@@ -4944,14 +4944,27 @@ function dismissMinimalLoader() {
 }
 window.dismissMinimalLoader = dismissMinimalLoader;
 
+function switchToPCMode() {
+  try {
+    localStorage.setItem('quant_preferred_view', 'pc');
+    sessionStorage.setItem('quant_force_pc', '1');
+  } catch(e) {}
+  window.location.href = 'index.html?mode=pc';
+}
+window.switchToPCMode = switchToPCMode;
+
+let _mobileInitCalled = false;
 function initMobileApp() {
+  if (_mobileInitCalled) return;
+  _mobileInitCalled = true;
+
   console.log('[Mobile] 01:01 Quant AI Terminal initializing...');
 
   // Initialize Web Worker Compute Engine
-  initModelWorker();
+  try { initModelWorker(); } catch(e) { console.warn('[Mobile] Worker init error:', e); }
 
   // Initialize DhaniWin Real Loss Recovery & Pre-Fill Bridge
-  initMobileDhaniWinBridge();
+  try { initMobileDhaniWinBridge(); } catch(e) { console.warn('[Mobile] Bridge init error:', e); }
 
   // Restore settings
   try {

@@ -1022,6 +1022,25 @@
           </div>
         </div>
 
+        <!-- Terminal View Mode Preference -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-indigo">
+              <i class="fa-solid fa-display"></i>
+            </div>
+            <div>
+              <div class="ios-label-primary">Default View Mode</div>
+              <div class="ios-label-secondary">Choose Mobile App or Desktop Terminal</div>
+            </div>
+          </div>
+          <div class="ios-row-right">
+            <select id="selViewMode" onchange="setViewMode(this.value)" class="ios-picker-pill">
+              <option value="mobile">Mobile App</option>
+              <option value="pc">Desktop PC</option>
+            </select>
+          </div>
+        </div>
+
       </div>
       <div class="ios-group-footer">
         Wake Lock and Keep-Alive maintain uninterrupted countdowns even when phone screen is dimmed or minimized.
@@ -1436,6 +1455,13 @@
       // Stake
       updateStakeUI();
 
+      // View mode preference
+      try {
+        const viewVal = localStorage.getItem('quant_preferred_view') || 'mobile';
+        const selView = document.getElementById('selViewMode');
+        if (selView) selView.value = viewVal;
+      } catch(e) {}
+
       // Notifications
       updateNotifTag();
 
@@ -1553,6 +1579,20 @@
     function setTimeframe(val) {
       localStorage.setItem('quant_default_tf', val);
       showToast(`Default Interval: ${val}`);
+    }
+
+    function setViewMode(val) {
+      try {
+        localStorage.setItem('quant_preferred_view', val);
+        if (val === 'pc') {
+          sessionStorage.setItem('quant_force_pc', '1');
+          showToast('Switching to Desktop Terminal...');
+          setTimeout(() => window.location.href = 'index.html?mode=pc', 500);
+        } else {
+          sessionStorage.removeItem('quant_force_pc');
+          showToast('Default View: Mobile App');
+        }
+      } catch(e) {}
     }
 
     function setInchargeMode(val) {

@@ -114,21 +114,29 @@
     </div>
   </div>
   <script>
-    // Independent failsafe: guarantees loader never loops or gets stuck
+    // Independent failsafe: guarantees loader never loops, traps, or gets stuck
     (function() {
       function hideLoader() {
         var el = document.getElementById('appleMinimalLoader');
-        if (el && el.style.display !== 'none') {
+        if (el) {
           el.style.opacity = '0';
           el.style.pointerEvents = 'none';
           setTimeout(function() {
             el.classList.add('hidden');
             el.style.display = 'none';
-          }, 300);
+          }, 250);
         }
       }
-      setTimeout(hideLoader, 1500);
-      window.addEventListener('load', function() { setTimeout(hideLoader, 300); });
+      setTimeout(hideLoader, 1200);
+      window.addEventListener('load', function() { setTimeout(hideLoader, 200); });
+      window.addEventListener('error', function(err) {
+        console.warn('[Failsafe] Handled runtime error:', err.message || err);
+        hideLoader();
+      });
+      window.addEventListener('unhandledrejection', function(err) {
+        console.warn('[Failsafe] Handled unhandled rejection:', err.reason || err);
+        hideLoader();
+      });
     })();
   </script>
 
@@ -162,7 +170,7 @@
   <header class="fixed top-0 left-0 right-0 z-50 px-3.5 py-2.5 liquid-glass-header flex items-center justify-between">
     <!-- Left: 01:01 Logo + Real World IST Clock -->
     <div class="flex items-center gap-2.5">
-      <div class="flex items-center gap-1.5 cursor-pointer" onclick="switchMobileTab('web')">
+      <div class="flex items-center gap-1.5 cursor-pointer" onclick="switchMobileTab('home')">
         <img src="logo_0101.jpg" class="h-8 w-auto object-contain rounded-md shadow-sm" alt="01:01" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
         <span style="display:none" class="text-lg font-black tracking-tight text-white">01:01</span>
       </div>
@@ -175,6 +183,9 @@
         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
         <span>LIVE</span>
       </div>
+      <button onclick="switchToPCMode()" class="w-7 h-7 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center transition active:scale-95 text-amber-300" title="Switch to Desktop / PC View">
+        <i class="fa-solid fa-desktop text-xs"></i>
+      </button>
       <button onclick="openDhaniAccountMenu()" class="w-7 h-7 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center transition active:scale-95" title="DhaniWin Account (Login / Logout)">
         <i id="headerAccountIcon" class="fa-solid fa-right-to-bracket text-xs text-sky-300"></i>
       </button>
@@ -755,7 +766,7 @@
     ══════════════════════════════════════════════════════════╗ -->
     <section id="tab-web" class="mobile-page" style="display:none; position:fixed; inset:0; bottom:0; z-index:40; padding:0; margin:0; background:#000;">
       
-      <!-- Fullscreen DhaniWin Iframe (Default: Last Selected Interval if session active, else Login/Registration) -->
+      <!-- Fullscreen DhaniWin Iframe (Loaded strictly on demand via switchMobileTab to prevent memory bloat) -->
       <iframe id="dhaniwinIframe"
         src="about:blank"
         class="w-full h-full border-0 bg-black block"
@@ -763,36 +774,14 @@
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; payment"
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads">
       </iframe>
-      <script>
-        (function() {
-          try {
-            // Only an ACTIVE session opens WinGo. 'dhaniwin_registered' just means the
-            // user has an account → show Login instead of Register. No personal credentials.
-            var isAuth = (
-              localStorage.getItem('dhaniwin_is_logged_in') === 'true' ||
-              localStorage.getItem('dhaniwin_logged_in') === '1' ||
-              localStorage.getItem('ar_token')
-            );
-            var lastTf = localStorage.getItem('dhaniwin_last_interval') || '30s';
-            var urlMap = {
-              '30s': 'https://dhaniwin44.com/WinGo/WinGo_30S',
-              '1m':  'https://dhaniwin44.com/WinGo/WinGo_1M',
-              '3m':  'https://dhaniwin44.com/WinGo/WinGo_3M',
-              '5m':  'https://dhaniwin44.com/WinGo/WinGo_5M'
-            };
-            var target;
-            if (isAuth) {
-              target = urlMap[lastTf] || urlMap['30s'];
-            } else if (localStorage.getItem('dhaniwin_registered') === '1') {
-              target = 'https://dhaniwin44.com/login';
-            } else {
-              target = 'https://dhaniwin44.com/register?inviteCode=EEJKXQN&from=app';
-            }
-            var iframe = document.getElementById('dhaniwinIframe');
-            if (iframe) iframe.src = target;
-          } catch(e) {}
-        })();
-      </script>
+
+      <!-- DhaniWin Quick Exit & Status Bar -->
+      <div id="dhaniFallbackBar" class="absolute top-3 left-3 right-3 z-50 flex items-center justify-between px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-xs">
+        <span class="text-white/60 font-mono text-[10px]">DhaniWin Webview</span>
+        <button onclick="switchMobileTab('home')" class="px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 text-[#0a84ff] font-bold text-[11px] active:scale-95 transition">
+          ← Terminal
+        </button>
+      </div>
 
       <!-- Pull handle: visible when our top bar is hidden; tap / swipe down to show it -->
       <button id="homeHeaderPullHandle" type="button" aria-label="Show top bar"></button>
