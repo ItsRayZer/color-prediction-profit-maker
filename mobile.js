@@ -339,7 +339,6 @@ function markUserLoggedIn() {
     localStorage.setItem('dhaniwin_registered', '1');
   } catch(e) {}
   if (typeof updateDhaniAuthBar === 'function') updateDhaniAuthBar();
-  if (typeof syncPassSettingsUI === 'function') syncPassSettingsUI();
 }
 window.markUserLoggedIn = markUserLoggedIn;
 
@@ -359,7 +358,6 @@ function markUserLoggedOut() {
     if (uIdEl) uIdEl.textContent = 'ID: --';
   } catch(e) {}
   if (typeof updateDhaniAuthBar === 'function') updateDhaniAuthBar();
-  if (typeof syncPassSettingsUI === 'function') syncPassSettingsUI();
 }
 window.markUserLoggedOut = markUserLoggedOut;
 
@@ -3701,17 +3699,6 @@ if (document.readyState === 'loading') {
 }
 
 function switchMobileTab(tab) {
-  // Compulsory DhaniWin Home tab: 'web' is ALWAYS 100% free and unrestricted without login.
-  // All other tabs require either DhaniWin login OR active 7-Day Pass (₹9).
-  if (tab !== 'web' && typeof canAccessAllTabs === 'function' && !canAccessAllTabs()) {
-    if (typeof openApplePremiumModal === 'function') openApplePremiumModal(tab);
-    // Keep bottom dock active indicator on 'web'
-    document.querySelectorAll('.dock-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.tab === 'web');
-    });
-    return;
-  }
-
   try { localStorage.setItem('active_mobile_tab', tab); } catch(e) {}
 
   ['home', 'ai', 'sim', 'web', 'pattern'].forEach(t => {
@@ -3856,428 +3843,9 @@ function setMobileTimeframe(tf) {
 }
 window.setMobileTimeframe = setMobileTimeframe;
 
-// ── 24A. 7-Day Guest Pass & Entitlement Engine (Compulsory Home Tab) ───────────
+// ── 24A. Buy Me a Coffee Support Modal & Razorpay Integration ─────────────────
 
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000; // 604,800,000 ms (7 days)
-const PASS_STORAGE_KEY = 'dhaniwin_pass_v1';
-const PASS_SYNC_CHANNEL = '0one_pass_sync';
 const RAZORPAY_CHECKOUT_URL = 'https://rzp.io/rzp/bFsHIaS';
-
-function getSecureTimestamp() {
-  if (typeof window !== 'undefined' && window.ServerTimeSync && typeof window.ServerTimeSync.now === 'function') {
-    return window.ServerTimeSync.now();
-  }
-  return Date.now();
-}
-window.getSecureTimestamp = getSecureTimestamp;
-
-function getStoredPass() {
-  try {
-    const raw = localStorage.getItem(PASS_STORAGE_KEY);
-    if (!raw) return null;
-    const pass = JSON.parse(raw);
-    if (!pass || typeof pass !== 'object' || !pass.expiresAt) return null;
-    return pass;
-  } catch (e) {
-    return null;
-  }
-}
-window.getStoredPass = getStoredPass;
-
-function isUserPaid() {
-  const pass = getStoredPass();
-  if (!pass) return false;
-  const now = getSecureTimestamp();
-  return typeof pass.expiresAt === 'number' && now < pass.expiresAt;
-}
-window.isUserPaid = isUserPaid;
-
-function canAccessAllTabs() {
-  return isUserLoggedIn() || isUserPaid();
-}
-window.canAccessAllTabs = canAccessAllTabs;
-
-function getPassDetails() {
-  const pass = getStoredPass();
-  const loggedIn = isUserLoggedIn();
-  const now = getSecureTimestamp();
-
-  if (!pass || !pass.expiresAt) {
-    return {
-      hasPass: false,
-      isActive: false,
-      isExpired: false,
-      isLoggedIn: loggedIn,
-      canAccessAllTabs: loggedIn,
-      remainingMs: 0,
-      remainingDays: 0,
-      remainingHours: 0,
-      remainingMinutes: 0,
-      remainingSeconds: 0,
-      countdownText: 'No Active Pass',
-      istExpiryText: 'N/A',
-      passId: null,
-      paymentId: null
-    };
-  }
-
-  const remainingMs = Math.max(0, pass.expiresAt - now);
-  const isActive = remainingMs > 0;
-  const isExpired = remainingMs <= 0;
-
-  const totalSecs = Math.floor(remainingMs / 1000);
-  const days = Math.floor(totalSecs / 86400);
-  const hours = Math.floor((totalSecs % 86400) / 3600);
-  const minutes = Math.floor((totalSecs % 3600) / 60);
-  const seconds = totalSecs % 60;
-
-  let countdownText = 'Expired';
-  if (isActive) {
-    if (days > 0) {
-      countdownText = `${days}d ${hours}h left`;
-    } else if (hours > 0) {
-      countdownText = `${hours}h ${minutes}m left`;
-    } else {
-      countdownText = `${minutes}m ${seconds}s left`;
-    }
-  }
-
-  let istExpiryText = 'Expired';
-  try {
-    istExpiryText = new Intl.DateTimeFormat('en-IN', {
-      timeZone: 'Asia/Kolkata',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    }).format(new Date(pass.expiresAt));
-  } catch (e) {
-    istExpiryText = new Date(pass.expiresAt).toLocaleString();
-  }
-
-  return {
-    hasPass: true,
-    isActive,
-    isExpired,
-    isLoggedIn: loggedIn,
-    canAccessAllTabs: loggedIn || isActive,
-    remainingMs,
-    remainingDays: days,
-    remainingHours: hours,
-    remainingMinutes: minutes,
-    remainingSeconds: seconds,
-    countdownText,
-    istExpiryText,
-    passId: pass.passId || 'PASS-UNKNOWN',
-    paymentId: pass.paymentId || 'N/A',
-    activatedAt: pass.activatedAt,
-    expiresAt: pass.expiresAt
-  };
-}
-window.getPassDetails = getPassDetails;
-
-let _pendingRestrictedTab = null;
-
-function openApplePremiumModal(targetTab) {
-  _pendingRestrictedTab = targetTab || null;
-  const modal = $('applePremiumModal');
-  if (!modal) return;
-  modal.classList.remove('opacity-0', 'pointer-events-none');
-  modal.classList.add('opacity-100', 'pointer-events-auto');
-
-  const titleEl = $('applePremiumModalTitle');
-  if (titleEl) {
-    if (targetTab === 'ai') titleEl.textContent = 'Unlock 101 AI Prediction Models';
-    else if (targetTab === 'home') titleEl.textContent = 'Unlock Live Analytics & Charts';
-    else if (targetTab === 'pattern') titleEl.textContent = 'Unlock Pattern Intelligence';
-    else titleEl.textContent = 'Unlock All AI & Analytics';
-  }
-}
-window.openApplePremiumModal = openApplePremiumModal;
-
-function closeApplePremiumModal() {
-  const modal = $('applePremiumModal');
-  if (!modal) return;
-  modal.classList.remove('opacity-100', 'pointer-events-auto');
-  modal.classList.add('opacity-0', 'pointer-events-none');
-}
-window.closeApplePremiumModal = closeApplePremiumModal;
-
-function openRazorpayPassCheckout() {
-  window.open(RAZORPAY_CHECKOUT_URL, '_blank', 'noopener,noreferrer');
-  try {
-    localStorage.setItem('dhaniwin_pending_pass', String(Date.now()));
-  } catch(e) {}
-}
-window.openRazorpayPassCheckout = openRazorpayPassCheckout;
-
-function openDhaniLoginFromModal() {
-  closeApplePremiumModal();
-  openDhaniLogin();
-}
-window.openDhaniLoginFromModal = openDhaniLoginFromModal;
-
-function toggleRestorePassDrawer() {
-  const drawer = $('restorePassDrawer');
-  if (!drawer) return;
-  drawer.classList.toggle('hidden');
-}
-window.toggleRestorePassDrawer = toggleRestorePassDrawer;
-
-function submitRestorePass() {
-  const input = $('restorePaymentIdInput');
-  const val = input ? input.value.trim() : '';
-  if (!val || val.length < 5) {
-    showToast('Please enter a valid Payment ID (pay_...)', 'error');
-    return;
-  }
-  activateSevenDayPass(val, { source: 'manual_restore' });
-  if (input) input.value = '';
-  const drawer = $('restorePassDrawer');
-  if (drawer) drawer.classList.add('hidden');
-  closeApplePremiumModal();
-  showToast('🎉 Pass Restored & Activated for 7 Days!', 'success');
-  if (typeof triggerWinConfetti === 'function') triggerWinConfetti();
-  syncPassSettingsUI();
-  if (_pendingRestrictedTab) {
-    const t = _pendingRestrictedTab;
-    _pendingRestrictedTab = null;
-    switchMobileTab(t);
-  }
-}
-window.submitRestorePass = submitRestorePass;
-
-function openRestorePassPrompt() {
-  const id = prompt('Enter your Razorpay Payment ID (from SMS/Email/UPI receipt):', 'pay_');
-  if (id && id.trim().length >= 5) {
-    activateSevenDayPass(id.trim(), { source: 'settings_restore' });
-    showToast('🎉 Pass Restored & Activated for 7 Days!', 'success');
-    if (typeof triggerWinConfetti === 'function') triggerWinConfetti();
-    syncPassSettingsUI();
-  }
-}
-window.openRestorePassPrompt = openRestorePassPrompt;
-
-function activateSevenDayPass(paymentId, options = {}) {
-  const now = getSecureTimestamp();
-  const existingPass = getStoredPass();
-  let baseTime = now;
-  if (existingPass && typeof existingPass.expiresAt === 'number' && existingPass.expiresAt > now) {
-    baseTime = existingPass.expiresAt;
-  }
-  const durationMs = options.durationMs || SEVEN_DAYS_MS;
-  const expiresAt = baseTime + durationMs;
-
-  const randSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
-  const pass = {
-    passId: 'PASS-' + randSuffix + '-' + Date.now().toString(36).slice(-4).toUpperCase(),
-    paymentId: String(paymentId || ('pay_' + Math.random().toString(36).substring(2, 10))),
-    amount: options.amount || 9,
-    currency: 'INR',
-    plan: '7_DAY_GUEST_PASS',
-    durationDays: 7,
-    activatedAt: now,
-    expiresAt: expiresAt,
-    status: 'active',
-    source: options.source || 'razorpay'
-  };
-
-  try {
-    localStorage.setItem(PASS_STORAGE_KEY, JSON.stringify(pass));
-  } catch (e) {
-    console.error('[PassManager] Failed to persist pass:', e);
-  }
-
-  // Cross-tab broadcast
-  if (typeof BroadcastChannel !== 'undefined') {
-    try {
-      const bc = new BroadcastChannel(PASS_SYNC_CHANNEL);
-      bc.postMessage({ type: 'PASS_ACTIVATED', pass });
-      bc.close();
-    } catch (e) {}
-  }
-
-  // Firebase RTDB sync
-  if (typeof firebaseRtdb !== 'undefined' && firebaseRtdb) {
-    try {
-      firebaseRtdb.ref(`guest_passes/${pass.passId}`).set({
-        ...pass,
-        clientUserAgent: navigator.userAgent || 'unknown',
-        syncedAt: Date.now()
-      }).catch(() => {});
-    } catch(e) {}
-  }
-
-  syncPassSettingsUI();
-  return pass;
-}
-window.activateSevenDayPass = activateSevenDayPass;
-
-function checkPaymentUrlOnStartup() {
-  try {
-    const search = window.location.search;
-    if (!search) return;
-    const params = new URLSearchParams(search);
-    const paymentId = params.get('razorpay_payment_id') || params.get('payment_id') || params.get('tx_id');
-    const paySuccess = params.get('pay_success') === 'true' || params.get('razorpay_payment_link_status') === 'paid';
-
-    if (paymentId || paySuccess) {
-      const finalId = paymentId || ('pay_redirect_' + Date.now().toString(36));
-      activateSevenDayPass(finalId, { source: 'razorpay_redirect' });
-
-      // Clean URL parameters without reloading
-      const cleanUrl = window.location.origin + window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
-
-      setTimeout(() => {
-        if (typeof triggerWinConfetti === 'function') triggerWinConfetti();
-        showToast('🎉 7-Day Guest Pass Activated! Unlocked for 1 Week.', 'success');
-      }, 500);
-
-      if (_pendingRestrictedTab) {
-        const target = _pendingRestrictedTab;
-        _pendingRestrictedTab = null;
-        switchMobileTab(target);
-      }
-    }
-  } catch (e) {
-    console.warn('[PassManager] Error checking payment URL on boot:', e);
-  }
-}
-window.checkPaymentUrlOnStartup = checkPaymentUrlOnStartup;
-
-function syncPassSettingsUI() {
-  const badge = $('settingsEntitlementBadge');
-  const subtext = $('settingsEntitlementSubtext');
-  const card = $('settingsPassStatusCard');
-  if (!card) return;
-
-  const loggedIn = isUserLoggedIn();
-  const paid = isUserPaid();
-  const pass = getStoredPass();
-  const now = getSecureTimestamp();
-
-  if (paid) {
-    if (badge) {
-      badge.textContent = '7-DAY PASS ACTIVE';
-      badge.className = 'text-[7.5px] font-mono px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30 font-bold uppercase';
-    }
-    if (subtext) subtext.textContent = 'Full access active without login';
-
-    const remainingMs = Math.max(0, pass.expiresAt - now);
-    const totalSecs = Math.floor(remainingMs / 1000);
-    const days = Math.floor(totalSecs / 86400);
-    const hours = Math.floor((totalSecs % 86400) / 3600);
-    const minutes = Math.floor((totalSecs % 3600) / 60);
-
-    let istDateStr = 'Active';
-    try {
-      istDateStr = new Intl.DateTimeFormat('en-IN', {
-        timeZone: 'Asia/Kolkata',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      }).format(new Date(pass.expiresAt));
-    } catch(e) {}
-
-    card.innerHTML = `
-      <div class="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-transparent border border-amber-400/35 space-y-2">
-        <div class="flex items-center justify-between">
-          <div>
-            <div class="text-[10px] font-mono font-bold text-amber-300 uppercase tracking-wider">Pass Countdown</div>
-            <div class="text-base font-black text-white font-mono">${days}d ${hours}h ${minutes}m left</div>
-          </div>
-          <div class="text-right">
-            <div class="text-[9px] font-mono text-zinc-400">Valid Until</div>
-            <div class="text-[10px] font-mono font-bold text-amber-300">${istDateStr} IST</div>
-          </div>
-        </div>
-        <div class="flex items-center justify-between pt-1 border-t border-white/[0.08] text-[9px] font-mono text-zinc-400">
-          <span>ID: ${pass.passId || 'PASS-ACTIVE'}</span>
-          <button type="button" onclick="openRazorpayPassCheckout()" class="px-2.5 py-1 rounded-lg bg-amber-400 text-black font-bold text-[9px] hover:bg-amber-300 active:scale-95 transition">
-            Renew (+7 Days ₹9)
-          </button>
-        </div>
-      </div>
-    `;
-  } else if (loggedIn) {
-    if (badge) {
-      badge.textContent = 'LOGGED IN (FREE)';
-      badge.className = 'text-[7.5px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold uppercase';
-    }
-    if (subtext) subtext.textContent = 'DhaniWin connected • 100% Free Full Access';
-
-    card.innerHTML = `
-      <div class="p-3 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-between">
-        <div>
-          <div class="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
-            <i class="fa-solid fa-circle-check text-[10px]"></i>
-            <span>DhaniWin Account Active</span>
-          </div>
-          <div class="text-[9.5px] text-zinc-400 font-mono">100% Free Forever • All 101 Models Unlocked</div>
-        </div>
-        <button type="button" onclick="openDhaniAccountMenu()" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white font-mono text-[9px] active:scale-95 transition">
-          Account
-        </button>
-      </div>
-    `;
-  } else {
-    if (badge) {
-      badge.textContent = 'GUEST (HOME ONLY)';
-      badge.className = 'text-[7.5px] font-mono px-1.5 py-0.2 rounded bg-zinc-500/20 text-zinc-300 border border-zinc-500/30 font-bold uppercase';
-    }
-    if (subtext) subtext.textContent = 'DhaniWin Home is 100% free without login';
-
-    card.innerHTML = `
-      <div class="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.08] space-y-2.5">
-        <div>
-          <div class="text-xs font-bold text-white">Analyse &amp; AI Adaptive Tabs Locked</div>
-          <div class="text-[9.5px] text-zinc-400 leading-relaxed">
-            Home is free without login. Unlock all 101 models with a 7-day pass or log in for free.
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <button type="button" onclick="openRazorpayPassCheckout()" class="py-2 px-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-400 text-black font-extrabold text-[10px] tracking-tight flex items-center justify-center gap-1 active:scale-95 transition">
-            <i class="fa-solid fa-bolt text-[9px]"></i>
-            <span>Get 7-Day Pass (₹9)</span>
-          </button>
-          <button type="button" onclick="openDhaniLogin()" class="py-2 px-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold text-[10px] tracking-tight flex items-center justify-center gap-1 active:scale-95 transition">
-            <i class="fa-solid fa-right-to-bracket text-[9px] text-sky-400"></i>
-            <span>Log In (Free)</span>
-          </button>
-        </div>
-      </div>
-    `;
-  }
-}
-window.syncPassSettingsUI = syncPassSettingsUI;
-
-// Setup Cross-Tab Pass Sync
-try {
-  if (typeof BroadcastChannel !== 'undefined') {
-    const _passSyncBc = new BroadcastChannel(PASS_SYNC_CHANNEL);
-    _passSyncBc.onmessage = (ev) => {
-      if (ev.data && ev.data.type === 'PASS_ACTIVATED') {
-        syncPassSettingsUI();
-        if (_pendingRestrictedTab) {
-          const t = _pendingRestrictedTab;
-          _pendingRestrictedTab = null;
-          switchMobileTab(t);
-        }
-      }
-    };
-  }
-  window.addEventListener('storage', (e) => {
-    if (e.key === PASS_STORAGE_KEY || e.key === 'dhaniwin_is_logged_in') {
-      syncPassSettingsUI();
-    }
-  });
-} catch(e) {}
-
-// ── 24B. Buy Me a Coffee Support Modal & Razorpay Integration ─────────────────
 
 function openRazorpayCheckout() {
   window.open(RAZORPAY_CHECKOUT_URL, '_blank', 'noopener,noreferrer');
@@ -4331,9 +3899,8 @@ function toggleMobileSettings() {
   const modal = $('mobileSettingsModal');
   if (modal) {
     modal.classList.toggle('hidden');
-    if (!modal.classList.contains('hidden')) {
-      if (typeof syncBackgroundSettingsUI === 'function') syncBackgroundSettingsUI();
-      if (typeof syncPassSettingsUI === 'function') syncPassSettingsUI();
+    if (!modal.classList.contains('hidden') && typeof syncBackgroundSettingsUI === 'function') {
+      syncBackgroundSettingsUI();
     }
   }
 }
@@ -6020,18 +5587,9 @@ function initMobileApp() {
     };
   }
 
-  // Check URL payment parameters (?razorpay_payment_id=... or ?pay_success=true)
-  checkPaymentUrlOnStartup();
-
-  // Default startup view: Home (DhaniWin Web).
-  // If user is a guest (not logged in and no active 7-day pass), ALWAYS default to 'web' (compulsory Home tab).
-  const storedTab = localStorage.getItem('active_mobile_tab') || 'web';
-  const initialTab = (storedTab !== 'web' && typeof canAccessAllTabs === 'function' && !canAccessAllTabs()) ? 'web' : storedTab;
+  // Default startup view: Home (DhaniWin Web), restoring last active tab if persisted
+  const initialTab = localStorage.getItem('active_mobile_tab') || 'web';
   switchMobileTab(initialTab);
-
-  // Sync pass entitlement in settings & set periodic countdown updater
-  syncPassSettingsUI();
-  setInterval(syncPassSettingsUI, 30000);
 
   // If user already allowed high-confidence alert or has granted permission, remove card from Analyse page
   if ((typeof Notification !== 'undefined' && Notification.permission === 'granted') || localStorage.getItem('best_time_notif_enabled') === '1') {

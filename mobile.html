@@ -964,140 +964,6 @@
   </main>
 
   <!-- ════════════════════════════════════════════════════════════
-       APPLE PREMIUM GUEST PASS MODAL (iOS 18 Liquid Glass Sheet)
-  ════════════════════════════════════════════════════════════ -->
-  <div id="applePremiumModal" class="fixed inset-0 z-[100005] bg-black/85 backdrop-blur-2xl flex flex-col justify-end sm:items-center sm:justify-center p-0 sm:p-4 transition-all duration-300 opacity-0 pointer-events-none" onclick="if(event.target===this) closeApplePremiumModal()">
-    <div class="w-full sm:max-w-[390px] bg-[#0d0d10] border-t sm:border border-white/[0.14] rounded-t-[36px] sm:rounded-[36px] overflow-hidden shadow-2xl relative flex flex-col p-5 pb-8 space-y-4 animate-scale-up select-none">
-      
-      <!-- Top Grab Bar (Mobile Sheet Handle) -->
-      <div class="w-10 h-1 bg-white/20 rounded-full mx-auto sm:hidden cursor-pointer" onclick="closeApplePremiumModal()"></div>
-
-      <!-- Close Circle Button -->
-      <button type="button" onclick="closeApplePremiumModal()" class="absolute top-4 right-4 z-30 w-8 h-8 rounded-full bg-white/[0.08] hover:bg-white/[0.16] text-zinc-400 hover:text-white border border-white/[0.1] flex items-center justify-center text-sm transition active:scale-95" title="Close">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-
-      <!-- Apple Header & Glow Badge -->
-      <div class="text-center pt-1 space-y-1.5">
-        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 border border-amber-400/40 text-amber-300 text-[10px] font-mono font-bold tracking-wide uppercase shadow-sm shadow-amber-500/10">
-          <i class="fa-brands fa-apple text-xs"></i>
-          <span>01:01 Premium Suite</span>
-        </div>
-        <h3 id="applePremiumModalTitle" class="text-lg font-extrabold text-white tracking-tight leading-tight">
-          Unlock All AI &amp; Analytics
-        </h3>
-        <p class="text-[11px] text-zinc-400 leading-relaxed max-w-[290px] mx-auto">
-          DhaniWin Home is 100% free without login. Choose how you'd like to access 101 AI Prediction Engines &amp; Candlestick Charts:
-        </p>
-      </div>
-
-      <!-- Feature Pill List -->
-      <div class="grid grid-cols-2 gap-1.5 text-[9px] font-mono text-zinc-300 py-1">
-        <div class="flex items-center gap-1.5 p-2 rounded-xl bg-white/[0.04] border border-white/[0.06]">
-          <i class="fa-solid fa-brain text-amber-400 text-xs"></i>
-          <span>101 AI Models</span>
-        </div>
-        <div class="flex items-center gap-1.5 p-2 rounded-xl bg-white/[0.04] border border-white/[0.06]">
-          <i class="fa-solid fa-chart-line text-emerald-400 text-xs"></i>
-          <span>Live Candlesticks</span>
-        </div>
-        <div class="flex items-center gap-1.5 p-2 rounded-xl bg-white/[0.04] border border-white/[0.06]">
-          <i class="fa-solid fa-shapes text-sky-400 text-xs"></i>
-          <span>Pattern Roadmaps</span>
-        </div>
-        <div class="flex items-center gap-1.5 p-2 rounded-xl bg-white/[0.04] border border-white/[0.06]">
-          <i class="fa-solid fa-bolt text-purple-400 text-xs"></i>
-          <span>Zero Delay Edge</span>
-        </div>
-      </div>
-
-      <!-- CHOICE 1: 7-Day Guest Pass (₹9) - Primary Apple Card -->
-      <div class="w-full p-3.5 rounded-2xl bg-gradient-to-b from-amber-500/15 to-transparent border border-amber-400/35 space-y-2.5 relative overflow-hidden">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="text-xl">🎟️</span>
-            <div>
-              <div class="text-xs font-black text-white flex items-center gap-1.5">
-                <span>7-Day Guest Pass</span>
-                <span class="px-1.5 py-0.5 rounded-full bg-amber-400/25 text-amber-300 text-[8px] font-mono font-bold uppercase tracking-wider">No Login Needed</span>
-              </div>
-              <p class="text-[9px] text-zinc-400">Instant 1-week full access for ₹9</p>
-            </div>
-          </div>
-          <div class="text-right">
-            <div class="text-base font-black text-amber-400 font-mono">₹9</div>
-            <div class="text-[8px] font-mono text-zinc-500">1 Week (7 Days)</div>
-          </div>
-        </div>
-
-        <button type="button" onclick="openRazorpayPassCheckout()" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 hover:from-amber-300 hover:to-orange-400 text-black font-black text-xs tracking-tight flex items-center justify-between shadow-lg shadow-amber-500/25 active:scale-[0.98] transition cursor-pointer">
-          <div class="flex items-center gap-1.5">
-            <i class="fa-solid fa-bolt text-xs"></i>
-            <span>Get 7-Day Pass — ₹9</span>
-          </div>
-          <div class="flex items-center gap-1 text-[10px] font-mono font-bold bg-black/15 px-2 py-0.5 rounded-md">
-            <span>Instant UPI / Cards</span>
-            <i class="fa-solid fa-arrow-right text-[8px]"></i>
-          </div>
-        </button>
-      </div>
-
-      <!-- CHOICE 2: Log In to DhaniWin (100% Free Forever) -->
-      <div class="w-full p-3.5 rounded-2xl bg-white/[0.04] border border-white/[0.09] space-y-2.5">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2">
-            <span class="text-xl">🔑</span>
-            <div>
-              <div class="text-xs font-black text-white flex items-center gap-1.5">
-                <span>DhaniWin Account</span>
-                <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[8px] font-mono font-bold uppercase tracking-wider">100% Free</span>
-              </div>
-              <p class="text-[9px] text-zinc-400">Log in with your existing account</p>
-            </div>
-          </div>
-          <div class="text-right">
-            <div class="text-base font-black text-emerald-400 font-mono">FREE</div>
-            <div class="text-[8px] font-mono text-zinc-500">Forever</div>
-          </div>
-        </div>
-
-        <button type="button" onclick="openDhaniLoginFromModal()" class="w-full py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold text-xs tracking-tight flex items-center justify-between active:scale-[0.98] transition cursor-pointer">
-          <div class="flex items-center gap-1.5">
-            <i class="fa-solid fa-right-to-bracket text-xs text-sky-400"></i>
-            <span>Log In to Continue Free</span>
-          </div>
-          <i class="fa-solid fa-chevron-right text-[9px] text-zinc-400"></i>
-        </button>
-      </div>
-
-      <!-- RESTORE / ENTER PAYMENT ID COLLAPSIBLE DRAWER -->
-      <div class="pt-1 text-center space-y-2">
-        <button type="button" onclick="toggleRestorePassDrawer()" class="text-[10px] text-zinc-400 hover:text-amber-300 underline underline-offset-2 transition font-mono">
-          Already paid? Restore Pass / Enter Payment ID
-        </button>
-
-        <div id="restorePassDrawer" class="hidden w-full pt-1 space-y-2">
-          <div class="flex items-center gap-1.5">
-            <input id="restorePaymentIdInput" type="text" placeholder="pay_xxxxxxxxx (from SMS/Email)" class="flex-1 bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 font-mono outline-none focus:border-amber-400 transition" />
-            <button type="button" onclick="submitRestorePass()" class="px-3.5 py-2 bg-amber-400 text-black font-black text-xs rounded-xl hover:bg-amber-300 active:scale-95 transition">
-              Activate
-            </button>
-          </div>
-          <p class="text-[8.5px] text-zinc-400 text-left">
-            💡 Paid via UPI/QR without auto-redirect? Enter your Razorpay Payment ID above to instantly activate your 7-day pass.
-          </p>
-        </div>
-      </div>
-
-      <!-- Dismiss (Stay on Home) -->
-      <button type="button" onclick="closeApplePremiumModal()" class="w-full py-2 text-center text-zinc-400 hover:text-zinc-200 text-xs font-mono transition">
-        Stay on Home (Free)
-      </button>
-
-    </div>
-  </div>
-
-  <!-- ════════════════════════════════════════════════════════════
        BUY ME A COFFEE / SUPPORT POPUP MODAL (App Open & Manual)
   ════════════════════════════════════════════════════════════ -->
   <div id="coffeeSupportModal" class="fixed inset-0 z-[100000] bg-black/85 backdrop-blur-xl flex items-center justify-center p-3.5 transition-all duration-300 opacity-0 pointer-events-none" onclick="if(event.target===this) closeCoffeeSupportModal(false)">
@@ -1173,51 +1039,58 @@
       </div>
 
       <!-- ══════════════════════════════════════════════════════════════
-           FEATURED: 🎟️ MEMBERSHIP & ACCESS ENTITLEMENT PASS
+           FEATURED: ☕ BUY ME A COFFEE / SUPPORT COMMUNITY
            ══════════════════════════════════════════════════════════════ -->
       <div class="ios-grouped-card p-4 space-y-3 border border-amber-500/35 bg-gradient-to-br from-amber-500/[0.12] via-orange-500/[0.05] to-black/60 shadow-lg shadow-amber-500/5">
         <div class="flex items-center justify-between pb-2 border-b border-white/[0.08]">
           <div class="flex items-center gap-3">
             <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-black flex items-center justify-center text-lg shadow-md shrink-0">
-              🎟️
+              ☕
             </div>
             <div>
               <div class="text-xs font-bold text-white flex items-center gap-1.5">
-                <span>Access &amp; Membership</span>
-                <span id="settingsEntitlementBadge" class="text-[7.5px] font-mono px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30 font-bold uppercase">CHECKING...</span>
+                <span>Buy Me a Coffee</span>
+                <span class="text-[7.5px] font-mono px-1.5 py-0.2 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30 font-bold uppercase">Community Funded</span>
               </div>
-              <p id="settingsEntitlementSubtext" class="text-[8.5px] text-zinc-300">101 AI Prediction Engines &amp; Analytics Entitlement</p>
+              <p class="text-[8.5px] text-zinc-300">Keep 01:01 100% free, zero ads &amp; support 24/7 server costs</p>
             </div>
           </div>
         </div>
 
-        <!-- Dynamic Access Card Display -->
-        <div id="settingsPassStatusCard" class="w-full space-y-2 pt-0.5">
-          <!-- Populated dynamically by syncPassSettingsUI() in mobile.js -->
-          <div class="p-3 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-between">
-            <div>
-              <div class="text-xs font-bold text-white" id="settingsPassStatusTitle">Loading Entitlement...</div>
-              <div class="text-[9.5px] text-zinc-400 font-mono" id="settingsPassStatusDesc">Checking active session or pass...</div>
+        <p class="text-[10.5px] text-zinc-300 leading-relaxed font-normal">
+          We operate 101 AI prediction models, 24/7 cloud sync, and real-time IST telemetry with zero subscriptions and zero ads. If you enjoy the app, consider supporting with a coffee! 💛
+        </p>
+
+        <!-- Direct Unblockable Razorpay Payment Link & Tiers inside Settings -->
+        <div id="settingsCoffeeRazorpayContainer" class="w-full space-y-2 pt-0.5">
+          <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" class="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 hover:from-amber-300 hover:to-orange-400 text-black font-extrabold text-sm tracking-tight flex items-center justify-between shadow-lg shadow-amber-500/20 transition active:scale-[0.98] border border-amber-300/40 cursor-pointer">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">☕</span>
+              <span class="font-black text-xs uppercase tracking-wider">Buy Me a Coffee</span>
             </div>
-            <div id="settingsPassActionBtnContainer"></div>
-          </div>
-        </div>
-
-        <!-- Restore / Enter Payment ID inside Settings -->
-        <div class="pt-1 flex items-center justify-between border-t border-white/[0.06] text-[8.5px] font-mono">
-          <button type="button" onclick="openRestorePassPrompt()" class="text-zinc-400 hover:text-amber-300 underline underline-offset-2 transition">
-            Restore Pass / Enter Payment ID
-          </button>
-          <span class="text-zinc-500">🔒 Secure Razorpay UPI / Cards</span>
-        </div>
-
-        <!-- Secondary Support / Buy Me a Coffee Link -->
-        <div class="pt-1 border-t border-white/[0.04] flex items-center justify-between text-[8px] font-mono text-zinc-400">
-          <span>☕ Enjoying 01:01?</span>
-          <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" class="text-amber-300/80 hover:text-amber-300 flex items-center gap-1">
-            <span>Support Community (₹18+)</span>
-            <i class="fa-solid fa-arrow-up-right-from-square text-[7.5px]"></i>
+            <div class="flex items-center gap-1 text-[10px] font-mono font-bold bg-black/15 px-2.5 py-0.5 rounded-full text-black">
+              <span>From ₹18</span>
+              <i class="fa-solid fa-arrow-up-right-from-square text-[8.5px]"></i>
+            </div>
           </a>
+
+          <!-- Quick Tiers -->
+          <div class="w-full grid grid-cols-3 gap-1.5 text-[9px] font-mono">
+            <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" class="py-1.5 px-1 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-amber-300 font-bold transition flex items-center justify-center gap-1 active:scale-95">
+              <span>☕ ₹18</span>
+            </a>
+            <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" class="py-1.5 px-1 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-amber-300 font-bold transition flex items-center justify-center gap-1 active:scale-95">
+              <span>🍛 ₹278</span>
+            </a>
+            <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" class="py-1.5 px-1 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-amber-300 font-bold transition flex items-center justify-center gap-1 active:scale-95">
+              <span>❤️ Any</span>
+            </a>
+          </div>
+
+          <div class="flex items-center justify-between pt-1 border-t border-white/[0.06] text-[8px] font-mono text-zinc-400">
+            <span>⚡ 100% Free Forever</span>
+            <span>🔒 Secure UPI / Cards / Razorpay</span>
+          </div>
         </div>
       </div>
 

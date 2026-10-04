@@ -849,47 +849,6 @@
       </div>
     </div>
 
-    <!-- SECTION: 🎟️ MEMBERSHIP & 7-DAY ACCESS PASS -->
-    <div class="setting-category" data-cat="membership pass account entitlement">
-      <div class="ios-group-title">
-        <span>Access &amp; Membership Entitlement</span>
-      </div>
-      <div class="ios-card-gold" style="margin-bottom: 16px; border-radius: 18px; padding: 14px; background: linear-gradient(135deg, rgba(255, 159, 10, 0.12), rgba(0,0,0,0.6)); border: 1px solid rgba(255, 159, 10, 0.35);">
-        <div style="display: flex; align-items: flex-start; justify-content: space-between;">
-          <div style="display: flex; align-items: center; gap: 11px;">
-            <div class="ios-squircle sq-gold" style="background: rgba(255, 159, 10, 0.2); border: 1px solid rgba(255, 159, 10, 0.4); color: #ff9f0a; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px;">
-              <i class="fa-solid fa-ticket" style="font-size: 15px;"></i>
-            </div>
-            <div>
-              <div style="font-size: 15px; font-weight: 600; color: #ffd60a; letter-spacing: -0.2px;">
-                Membership Status
-              </div>
-              <div id="settingsPageEntitlementSub" style="font-size: 11px; color: rgba(235, 235, 245, 0.6); margin-top: 1px;">
-                101 AI Prediction Engines &amp; Analytics
-              </div>
-            </div>
-          </div>
-          <span id="settingsPageEntitlementBadge" class="ios-tag-micro tag-warning">CHECKING</span>
-        </div>
-
-        <div id="settingsPagePassCardBody" style="margin: 12px 0; padding: 12px; border-radius: 14px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);">
-          <div style="font-size: 13px; font-weight: 700; color: #fff;" id="settingsPagePassTitle">Loading Pass Status...</div>
-          <div style="font-size: 11px; color: rgba(235,235,245,0.65); margin-top: 4px;" id="settingsPagePassDesc">Checking active session or pass...</div>
-        </div>
-
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" class="ios-gold-btn" style="flex: 1; min-width: 140px; margin: 0; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border-radius: 12px; background: #ff9f0a; color: #000; font-weight: bold; font-size: 12px;">
-            <i class="fa-solid fa-bolt" style="font-size: 12px;"></i>
-            <span>Get 7-Day Pass (₹9)</span>
-          </a>
-          <button type="button" onclick="restorePassInSettingsPage()" style="background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.15); flex: 1; min-width: 140px; margin: 0; padding: 10px; border-radius: 12px; font-weight: bold; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;">
-            <i class="fa-solid fa-rotate-left" style="font-size: 12px;"></i>
-            <span>Restore Pass</span>
-          </button>
-        </div>
-      </div>
-    </div>
-
     <!-- COFFEE / SUPPORTER (Apple Special Edition Dark Bronze Inset) -->
     <div class="ios-bronze-card setting-category" data-cat="supporter">
       <div style="display: flex; align-items: flex-start; justify-content: space-between;">
@@ -1735,95 +1694,7 @@
       }
     }
 
-    function syncSettingsPagePassUI() {
-      const badge = document.getElementById('settingsPageEntitlementBadge');
-      const sub = document.getElementById('settingsPageEntitlementSub');
-      const title = document.getElementById('settingsPagePassTitle');
-      const desc = document.getElementById('settingsPagePassDesc');
-      if (!title || !desc) return;
-
-      const raw = localStorage.getItem('dhaniwin_pass_v1');
-      let pass = null;
-      try { if (raw) pass = JSON.parse(raw); } catch(e) {}
-
-      const now = Date.now();
-      const isPaid = pass && pass.expiresAt && now < pass.expiresAt;
-      const isLoggedIn = localStorage.getItem('dhaniwin_is_logged_in') === 'true' || localStorage.getItem('dhaniwin_logged_in') === '1' || localStorage.getItem('ar_token');
-
-      if (isPaid) {
-        if (badge) {
-          badge.textContent = '7-DAY PASS ACTIVE';
-          badge.className = 'ios-tag-micro tag-warning';
-        }
-        if (sub) sub.textContent = '1-Week Full Access Active without Login';
-
-        const remainingMs = Math.max(0, pass.expiresAt - now);
-        const totalSecs = Math.floor(remainingMs / 1000);
-        const days = Math.floor(totalSecs / 86400);
-        const hours = Math.floor((totalSecs % 86400) / 3600);
-        const minutes = Math.floor((totalSecs % 3600) / 60);
-
-        let istStr = 'Active';
-        try {
-          istStr = new Intl.DateTimeFormat('en-IN', {
-            timeZone: 'Asia/Kolkata',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
-          }).format(new Date(pass.expiresAt));
-        } catch(e) {}
-
-        title.textContent = `Valid for ${days}d ${hours}h ${minutes}m left`;
-        desc.textContent = `Pass ID: ${pass.passId || 'PASS-ACTIVE'} • Valid until ${istStr} IST. All tabs unlocked.`;
-      } else if (isLoggedIn) {
-        if (badge) {
-          badge.textContent = 'LOGGED IN';
-          badge.className = 'ios-tag-micro tag-active';
-        }
-        if (sub) sub.textContent = 'DhaniWin Account Connected';
-        title.textContent = '100% Free Full Access Active';
-        desc.textContent = 'All 101 AI Prediction Models, Live Candlesticks, and Patterns are fully unlocked.';
-      } else {
-        if (badge) {
-          badge.textContent = 'GUEST';
-          badge.className = 'ios-tag-micro';
-        }
-        if (sub) sub.textContent = 'Home Tab Only';
-        title.textContent = 'Analyse & AI Adaptive Tabs Locked';
-        desc.textContent = 'Home is free without login. Get a 7-day pass for ₹9 or log in to continue free.';
-      }
-    }
-
-    function restorePassInSettingsPage() {
-      const id = prompt('Enter your Razorpay Payment ID (from SMS/Email/UPI):', 'pay_');
-      if (id && id.trim().length >= 5) {
-        const now = Date.now();
-        const expiresAt = now + (7 * 24 * 60 * 60 * 1000);
-        const pass = {
-          passId: 'PASS-' + Math.random().toString(36).substring(2, 6).toUpperCase() + '-' + Date.now().toString(36).slice(-4).toUpperCase(),
-          paymentId: id.trim(),
-          amount: 9,
-          currency: 'INR',
-          plan: '7_DAY_GUEST_PASS',
-          durationDays: 7,
-          activatedAt: now,
-          expiresAt: expiresAt,
-          status: 'active',
-          source: 'settings_page_restore'
-        };
-        localStorage.setItem('dhaniwin_pass_v1', JSON.stringify(pass));
-        showToast('🎉 7-Day Pass Restored Successfully!');
-        syncSettingsPagePassUI();
-      }
-    }
-
     function initSettings() {
-      // Entitlement & Pass
-      syncSettingsPagePassUI();
-      setInterval(syncSettingsPagePassUI, 15000);
-
       // Sound
       const soundVal = localStorage.getItem('quant_sound') !== '0';
       const swSound = document.getElementById('swSoundEffects');
