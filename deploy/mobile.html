@@ -964,30 +964,30 @@
   </main>
 
   <!-- ════════════════════════════════════════════════════════════
-       BUY ME A COFFEE / SUPPORT POPUP MODAL (App Open & Manual)
+       BUY ME A COFFEE / SUPPORT POPUP MODAL (Compact & Daily)
   ════════════════════════════════════════════════════════════ -->
-  <div id="coffeeSupportModal" class="fixed inset-0 z-[100000] bg-black/85 backdrop-blur-xl flex items-center justify-center p-3.5 transition-all duration-300 opacity-0 pointer-events-none" onclick="if(event.target===this) closeCoffeeSupportModal(false)">
-    <div class="w-full max-w-[340px] bg-[#0c0c0e] border border-white/[0.18] rounded-[28px] overflow-hidden shadow-2xl relative flex flex-col items-center animate-scale-up select-none cursor-pointer group" onclick="openRazorpayCheckout(); closeCoffeeSupportModal(true);">
+  <div id="coffeeSupportModal" class="fixed inset-0 z-[100000] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4 transition-all duration-300 opacity-0 pointer-events-none" onclick="if(event.target===this) closeCoffeeSupportModal(false)">
+    <div class="w-full max-w-[290px] bg-[#0c0c0e] border border-white/[0.18] rounded-[24px] overflow-hidden shadow-2xl relative flex flex-col items-center animate-scale-up select-none cursor-pointer group" onclick="openRazorpayCheckout(); closeCoffeeSupportModal(true);">
       <!-- Close Button (Top-Right) -->
-      <button onclick="event.stopPropagation(); closeCoffeeSupportModal(false);" class="absolute top-3 right-3 z-30 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 text-white/80 hover:text-white border border-white/20 flex items-center justify-center text-sm transition active:scale-95 shadow-lg" title="Close">
+      <button onclick="event.stopPropagation(); closeCoffeeSupportModal(false);" class="absolute top-2.5 right-2.5 z-30 w-7 h-7 rounded-full bg-black/70 hover:bg-black/90 text-white/80 hover:text-white border border-white/25 flex items-center justify-center text-xs transition active:scale-95 shadow-md" title="Close">
         <i class="fa-solid fa-xmark"></i>
       </button>
 
-      <!-- Luxury 01:01 Coffee Card Image (Touching anywhere opens Razorpay checkout) -->
-      <div class="relative w-full">
-        <img src="coffee_card.jpg" alt="01:01 Buy Me a Coffee" class="w-full h-auto object-cover block transition duration-300 group-hover:scale-[1.01]" onerror="this.onerror=null; this.src='logo_0101.jpg'">
+      <!-- Compact 01:01 Coffee Card Image (Touching anywhere opens Razorpay checkout) -->
+      <div class="relative w-full flex items-center justify-center bg-black/90 overflow-hidden">
+        <img src="coffee_card.jpg" alt="01:01 Buy Me a Coffee" class="w-full max-h-[290px] object-contain block transition duration-300 group-hover:scale-[1.01]" onerror="this.onerror=null; this.src='logo_0101.jpg'">
       </div>
 
       <!-- Modal Bottom Actions -->
-      <div class="w-full p-3.5 bg-black/95 border-t border-white/[0.08] flex flex-col items-center gap-2">
-        <button onclick="openRazorpayCheckout(); closeCoffeeSupportModal(true);" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#e7b878] via-[#f7d69e] to-[#d69f5c] hover:brightness-110 text-black font-black text-xs tracking-wide shadow-lg shadow-amber-500/20 active:scale-[0.98] transition flex items-center justify-center gap-2">
-          <span>☕ Buy me a coffee</span>
-          <i class="fa-solid fa-chevron-right text-[10px]"></i>
+      <div class="w-full p-3 bg-[#0a0a0c] border-t border-white/[0.08] flex flex-col items-center gap-1.5">
+        <button onclick="openRazorpayCheckout(); closeCoffeeSupportModal(true);" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#e7b878] via-[#f7d69e] to-[#d69f5c] hover:brightness-110 text-black font-black text-xs tracking-tight shadow-md shadow-amber-500/20 active:scale-[0.98] transition flex items-center justify-center gap-1.5">
+          <span>☕ Buy Me a Coffee</span>
+          <i class="fa-solid fa-arrow-up-right-from-square text-[9px] opacity-75"></i>
         </button>
-        <div class="w-full flex items-center justify-between text-[10px] text-zinc-400 px-1 pt-0.5">
+        <div class="w-full flex items-center justify-between text-[9.5px] text-zinc-400 px-1 pt-0.5 font-mono">
           <button onclick="event.stopPropagation(); closeCoffeeSupportModal(false);" class="hover:text-white transition">Maybe Later</button>
           <button onclick="event.stopPropagation(); dismissCoffeeSupportModalToday();" class="hover:text-amber-300 transition flex items-center gap-1">
-            <i class="fa-regular fa-clock text-[9px]"></i>
+            <i class="fa-regular fa-clock text-[8.5px]"></i>
             <span>Don't show today</span>
           </button>
         </div>

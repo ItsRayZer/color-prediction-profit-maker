@@ -3871,6 +3871,7 @@ window.closeCoffeeSupportModal = closeCoffeeSupportModal;
 function dismissCoffeeSupportModalToday() {
   try {
     const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+    localStorage.setItem('coffee_last_shown_date', today);
     localStorage.setItem('coffee_dismiss_date', today);
     showToast('Preference saved • Thank you for your support!', 'info');
   } catch(e) {}
@@ -3880,12 +3881,15 @@ window.dismissCoffeeSupportModalToday = dismissCoffeeSupportModalToday;
 
 function initCoffeeSupportPopup() {
   try {
-    const today = new Date().toLocaleDateString('en-CA');
-    const dismissedDate = localStorage.getItem('coffee_dismiss_date');
-    if (dismissedDate === today) {
-      return; // User dismissed for today
+    const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+    const lastShown = localStorage.getItem('coffee_last_shown_date') || localStorage.getItem('coffee_dismiss_date');
+    if (lastShown === today) {
+      return; // Already shown today
     }
-    // Launch popup after smooth 2.5s delay on initial app open
+    // Mark today as shown so it appears once daily
+    localStorage.setItem('coffee_last_shown_date', today);
+
+    // Launch popup after smooth 2.5s delay on first visit of the day
     setTimeout(() => {
       openCoffeeSupportModal();
     }, 2500);
