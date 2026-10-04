@@ -4077,14 +4077,8 @@ window.syncCoffeeSettingsUI = syncCoffeeSettingsUI;
 // ── 24B. Settings Panel ────────────────────────────────────────────────────────
 
 function toggleMobileSettings() {
-  const modal = $('mobileSettingsModal');
-  if (modal) {
-    modal.classList.toggle('hidden');
-    if (!modal.classList.contains('hidden')) {
-      if (typeof syncBackgroundSettingsUI === 'function') syncBackgroundSettingsUI();
-      if (typeof syncCoffeeSettingsUI === 'function') syncCoffeeSettingsUI();
-    }
-  }
+  // Full-screen settings page only (half-sheet modal removed)
+  window.location.href = 'settings.html';
 }
 window.toggleMobileSettings = toggleMobileSettings;
 
