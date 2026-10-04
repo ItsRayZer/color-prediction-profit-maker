@@ -315,9 +315,25 @@ function isUserLoggedIn() {
 }
 window.isUserLoggedIn = isUserLoggedIn;
 
+let _authGracePeriodUntil = 0;
+
+function isAuthGracePeriodActive() {
+  const now = Date.now();
+  if (now < _authGracePeriodUntil) return true;
+  try {
+    const raw = sessionStorage.getItem('dhaniwin_auth_grace_until');
+    if (raw && now < Number(raw)) return true;
+  } catch(e) {}
+  return false;
+}
+window.isAuthGracePeriodActive = isAuthGracePeriodActive;
+
 // Mark login in all localStorage keys at once
 function markUserLoggedIn() {
+  const until = Date.now() + 15000; // 15-second protected grace period post-login
+  _authGracePeriodUntil = until;
   try {
+    sessionStorage.setItem('dhaniwin_auth_grace_until', String(until));
     localStorage.setItem('dhaniwin_is_logged_in', 'true');
     localStorage.setItem('dhaniwin_logged_in', '1');
     localStorage.setItem('dhaniwin_registered', '1');
@@ -372,8 +388,18 @@ function getAudioElement(type) {
     if (typeof Audio === 'undefined') return null;
     const isWin = type === 'win';
     const key = isWin ? 'win' : 'loss';
-    const src = isWin ? 'sounds/win_siu.ogg' : 'sounds/loss_brhh.ogg';
     if (!_soundPool[key]) {
+      let canPlayOgg = false;
+      try {
+        const testAudio = document.createElement('audio');
+        canPlayOgg = !!(testAudio.canPlayType && testAudio.canPlayType('audio/ogg; codecs="vorbis"').replace(/no/, ''));
+      } catch(e) {}
+
+      // Prioritize OGG where supported, otherwise use WAV for universal iOS Safari / Android support
+      const src = isWin 
+        ? (canPlayOgg ? 'sounds/win_siu.ogg' : 'sounds/win_siu.wav')
+        : (canPlayOgg ? 'sounds/loss_brhh.ogg' : 'sounds/loss_brhh.wav');
+
       const audio = new Audio(src);
       audio.preload = 'auto';
       _soundPool[key] = audio;
@@ -384,12 +410,19 @@ function getAudioElement(type) {
   }
 }
 
-// User interaction unlocker for mobile browser autoplay policies
+// User interaction unlocker for mobile browser autoplay policies (Android, iOS Safari, PWA)
 let _audioUnlocked = false;
 function unlockAudioOnInteraction() {
   if (_audioUnlocked) return;
   _audioUnlocked = true;
   try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) {
+      if (!window._sharedAudioCtx) window._sharedAudioCtx = new AudioCtx();
+      if (window._sharedAudioCtx.state === 'suspended') {
+        window._sharedAudioCtx.resume().catch(() => {});
+      }
+    }
     const w = getAudioElement('win');
     const l = getAudioElement('loss');
     if (w) w.load();
@@ -399,39 +432,100 @@ function unlockAudioOnInteraction() {
 if (typeof window !== 'undefined') {
   window.addEventListener('click', unlockAudioOnInteraction, { once: true, passive: true });
   window.addEventListener('touchstart', unlockAudioOnInteraction, { once: true, passive: true });
+  window.addEventListener('pointerdown', unlockAudioOnInteraction, { once: true, passive: true });
 }
 
 function playSynthFallback(type) {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    if (!window._sharedAudioCtx) {
+      window._sharedAudioCtx = new AudioCtx();
+    }
+    const ctx = window._sharedAudioCtx;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+
     if (type === 'win') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.15);
-      gain.gain.setValueAtTime(0.25, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.4);
+      // Suii Celebration Fanfare + Exuberant Vocal Glissando
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc1.type = 'sine';
+      osc2.type = 'triangle';
+
+      const t0 = ctx.currentTime;
+      osc1.frequency.setValueAtTime(523.25, t0);        // C5
+      osc1.frequency.setValueAtTime(659.25, t0 + 0.12); // E5
+      osc1.frequency.setValueAtTime(783.99, t0 + 0.24); // G5
+      osc1.frequency.exponentialRampToValueAtTime(1320, t0 + 0.55); // High SUII glide!
+
+      osc2.frequency.setValueAtTime(261.63, t0);
+      osc2.frequency.exponentialRampToValueAtTime(660, t0 + 0.55);
+
+      gain.gain.setValueAtTime(0.001, t0);
+      gain.gain.linearRampToValueAtTime(0.35, t0 + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.75);
+
+      osc1.start(t0);
+      osc2.start(t0);
+      osc1.stop(t0 + 0.75);
+      osc2.stop(t0 + 0.75);
     } else {
+      // Bruh Low Resonant Comic Vocal Drop
+      const osc = ctx.createOscillator();
+      const subOsc = ctx.createOscillator();
+      const filter = ctx.createBiquadFilter();
+      const gain = ctx.createGain();
+
+      osc.connect(filter);
+      subOsc.connect(gain);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
       osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(220, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(110, ctx.currentTime + 0.2);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.35);
+      subOsc.type = 'sine';
+
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(650, ctx.currentTime);
+      filter.Q.setValueAtTime(3.0, ctx.currentTime);
+
+      const t0 = ctx.currentTime;
+      osc.frequency.setValueAtTime(160, t0);
+      osc.frequency.exponentialRampToValueAtTime(65, t0 + 0.45); // Comic drop to 65Hz
+
+      subOsc.frequency.setValueAtTime(80, t0);
+      subOsc.frequency.exponentialRampToValueAtTime(45, t0 + 0.45);
+
+      gain.gain.setValueAtTime(0.001, t0);
+      gain.gain.linearRampToValueAtTime(0.35, t0 + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.55);
+
+      osc.start(t0);
+      subOsc.start(t0);
+      osc.stop(t0 + 0.55);
+      subOsc.stop(t0 + 0.55);
     }
   } catch(e) {}
 }
+
+let _pendingBgSound = null;
 
 function playSoundEffect(type, force = false) {
   // CRITICAL REQUIREMENT 1: Only 'win' and 'loss' have associated sounds. Ignore 'click' or any other type completely!
   if (type !== 'win' && type !== 'loss') return;
   if (!MobileState.soundEnabled && !force) return;
+
+  // Background audio throttling: suppress continuous chimes when backgrounded; queue at most a single chime
+  if (!force && typeof document !== 'undefined' && document.hidden) {
+    _pendingBgSound = type;
+    return;
+  }
 
   const now = Date.now();
   // Concurrency protection - never play win/loss sounds more than 1 at a time (min 1500ms gap unless forced)
@@ -522,6 +616,28 @@ window.computeRTState = computeRTState;
 
 let _istClockInterval = null;
 
+function updateOrbCountdownRing(secsLeft, secsTotal) {
+  const ring = document.getElementById('orbTimerRing');
+  if (!ring) return;
+  const total = secsTotal > 0 ? secsTotal : 30;
+  const pct = Math.max(0, Math.min(1, secsLeft / total));
+  const circumference = 188.5;
+  const offset = circumference * (1 - pct);
+  ring.style.strokeDashoffset = offset.toFixed(2);
+
+  if (secsLeft > 10) {
+    ring.style.stroke = '#10b981'; // emerald green
+    ring.style.filter = 'drop-shadow(0 0 4px rgba(16, 185, 129, 0.45))';
+  } else if (secsLeft >= 6) {
+    ring.style.stroke = '#f59e0b'; // amber
+    ring.style.filter = 'drop-shadow(0 0 6px rgba(245, 158, 11, 0.65))';
+  } else {
+    ring.style.stroke = '#ef4444'; // glowing neon red
+    ring.style.filter = 'drop-shadow(0 0 10px rgba(239, 68, 68, 0.95))';
+  }
+}
+window.updateOrbCountdownRing = updateOrbCountdownRing;
+
 function updateISTClock() {
   const now = new Date();
   // IST = UTC + 5:30
@@ -536,6 +652,9 @@ function updateISTClock() {
 
   const tf = MobileState.timeframe;
   const { periodStr, secsLeft, secsTotal } = computeRTState(tf);
+
+  // Floating Assistant Orb Dynamic Countdown Ring
+  updateOrbCountdownRing(secsLeft, secsTotal);
 
   // Hero card
   const periodEl = $('heroPeriodNum');
@@ -609,12 +728,56 @@ window.clearBoundaryRetries = clearBoundaryRetries;
 
 const CF_WORKER_BASE = 'https://wingo-edge-sync.itsrayzer.workers.dev';
 
-const TF_UPSTREAM_URLS = {
+const DEFAULT_TF_UPSTREAM_URLS = {
   '30s': 'https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json',
   '1m':  'https://draw.ar-lottery01.com/WinGo/WinGo_1M/GetHistoryIssuePage.json',
   '3m':  'https://draw.ar-lottery01.com/WinGo/WinGo_3M/GetHistoryIssuePage.json',
   '5m':  'https://draw.ar-lottery01.com/WinGo/WinGo_5M/GetHistoryIssuePage.json'
 };
+
+function getApiEndpoint(tf) {
+  try {
+    const raw = localStorage.getItem('quant_custom_api_endpoints');
+    if (raw) {
+      const endpoints = JSON.parse(raw);
+      if (endpoints && endpoints[tf] && typeof endpoints[tf] === 'string' && endpoints[tf].trim().length > 0) {
+        return endpoints[tf].trim();
+      }
+    }
+  } catch(e) {}
+  return DEFAULT_TF_UPSTREAM_URLS[tf] || DEFAULT_TF_UPSTREAM_URLS['30s'];
+}
+window.getApiEndpoint = getApiEndpoint;
+
+function setCustomApiEndpoint(tf, url) {
+  try {
+    let endpoints = {};
+    const raw = localStorage.getItem('quant_custom_api_endpoints');
+    if (raw) endpoints = JSON.parse(raw) || {};
+    endpoints[tf] = (url || '').trim();
+    localStorage.setItem('quant_custom_api_endpoints', JSON.stringify(endpoints));
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+window.setCustomApiEndpoint = setCustomApiEndpoint;
+
+function restoreDefaultApiEndpoints() {
+  try {
+    localStorage.removeItem('quant_custom_api_endpoints');
+  } catch(e) {}
+}
+window.restoreDefaultApiEndpoints = restoreDefaultApiEndpoints;
+
+const TF_UPSTREAM_URLS = new Proxy(DEFAULT_TF_UPSTREAM_URLS, {
+  get(target, prop) {
+    if (typeof prop === 'string' && ['30s', '1m', '3m', '5m'].includes(prop)) {
+      return getApiEndpoint(prop);
+    }
+    return target[prop];
+  }
+});
 
 async function _fetchWithTimeout(url, timeoutMs = 5000, opts = {}) {
   const ctrl = new AbortController();
@@ -1865,18 +2028,58 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
     }
   }
 
-  // Resolve Mobile DhaniWin Loss Recovery Martingale Progression
+  // Resolve Mobile DhaniWin Loss Recovery Martingale Progression & Max 3-Loss Circuit Breaker
   if (hasAuthenticPrediction && tf === MobileState.timeframe && window.MobileBridgeState) {
+    let isFreshTrip = false;
     if (isWin) {
       MobileBridgeState.wins += 1;
+      MobileBridgeState.consecutiveLosses = 0;
       const profit = MobileBridgeState.currentStake * 0.96;
       MobileBridgeState.sessionPnl += profit;
       MobileBridgeState.currentLevel = 0; // Win: Reset to Base ₹2
     } else if (isWin === false) {
       MobileBridgeState.losses += 1;
+      MobileBridgeState.consecutiveLosses = (MobileBridgeState.consecutiveLosses || 0) + 1;
       MobileBridgeState.sessionPnl -= MobileBridgeState.currentStake;
-      MobileBridgeState.currentLevel += 1; // Loss: Advance recovery tier
+
+      if (MobileBridgeState.consecutiveLosses >= 3) {
+        // 🛡️ TRIP MAX 3-LOSS CIRCUIT BREAKER
+        MobileBridgeState.circuitBreakerActive = true;
+        MobileBridgeState.circuitBreakerPauseRounds = 2; // Pause betting for 2 rounds
+        MobileBridgeState.currentLevel = 0; // Reset Martingale level
+        MobileBridgeState.currentStake = MobileBridgeState.baseStake || 2; // Reset stake to base (₹2)
+        MobileBridgeState.consecutiveLosses = 0;
+        isFreshTrip = true;
+
+        // Re-evaluate active champion model
+        if (typeof determineOptimalArenaInChargeModel === 'function' && Array.isArray(window.ARENA_CANONICAL_MODELS)) {
+          const reEval = determineOptimalArenaInChargeModel(window.ARENA_CANONICAL_MODELS, null, true);
+          if (reEval?.model) {
+            MobileState.activeChampionModel = reEval.model;
+            if (typeof updatePredictionSourceUI === 'function') updatePredictionSourceUI();
+          }
+        }
+        showToast('🛡️ 3-Loss Circuit Breaker Engaged! Betting paused for 2 rounds. Stake reset to ₹2.', 'warn');
+      } else {
+        MobileBridgeState.currentLevel += 1; // Loss: Advance recovery tier
+      }
     }
+
+    // Handle cool-off countdown on subsequent rounds
+    if (MobileBridgeState.circuitBreakerPauseRounds > 0 && !isFreshTrip) {
+      MobileBridgeState.circuitBreakerPauseRounds--;
+      if (MobileBridgeState.circuitBreakerPauseRounds === 0) {
+        MobileBridgeState.circuitBreakerActive = false;
+        showToast('✅ Circuit Breaker cool-off complete. Betting resumed.', 'info');
+      }
+    }
+
+    // Remove auto-shake on round settlement
+    const prepBtn = $('mobileBridgeToggleBtn');
+    if (prepBtn) prepBtn.classList.remove('auto-bet-shake');
+    const targetDisplay = $('mobileWebTargetDisplay');
+    if (targetDisplay) targetDisplay.classList.remove('auto-bet-shake');
+
     if (typeof calculateAndRenderMobileStake === 'function') {
       calculateAndRenderMobileStake();
     }
@@ -2095,6 +2298,28 @@ function updateIndividualModelSettlement(tf, periodStr, number, size, color, uni
     }
   });
 
+  const isUserReset = !!localStorage.getItem(`quant_user_ai_reset_${tf}`);
+  if (isUserReset) {
+    const sessionMap = {};
+    models.forEach(m => {
+      const w = m.wins || 0;
+      const l = m.losses || 0;
+      const tot = w + l;
+      sessionMap[m.name] = {
+        wins: w,
+        losses: l,
+        totalEvaluated: tot,
+        winRate: tot > 0 ? Number((w / tot).toFixed(4)) : 0,
+        streak: m.streak || 0,
+        bestStreak: m.bestStreak || 0,
+        historyPath: (m.historyPath || []).slice(0, 10)
+      };
+    });
+    try {
+      localStorage.setItem(`quant_user_model_stats_${tf}`, JSON.stringify(sessionMap));
+    } catch(e) {}
+  }
+
   // Auto mode: pass leadership to top-ranking model
   if (MobileState.autoMode !== false) {
     const cloudState = MobileState.cloudUniversalState[tf];
@@ -2220,6 +2445,42 @@ function _buildFallbackCatalog() {
 
 function getEffectiveModelList(tf) {
   tf = tf || MobileState.timeframe;
+  const isUserReset = !!localStorage.getItem(`quant_user_ai_reset_${tf}`);
+
+  // 1. If User Session Reset is active -> strictly return isolated session model stats (starting at 0%)
+  if (isUserReset) {
+    const models = getCanonicalModelsForTf(tf);
+    let sessionMap = null;
+    try {
+      const raw = localStorage.getItem(`quant_user_model_stats_${tf}`);
+      if (raw) sessionMap = JSON.parse(raw);
+    } catch(e) {}
+
+    return models.map(localM => {
+      const s = sessionMap ? (sessionMap[localM.name] || sessionMap[localM.id]) : null;
+      const wins = s ? Number(s.wins || 0) : 0;
+      const losses = s ? Number(s.losses || 0) : 0;
+      const totalEvaluated = wins + losses;
+      const winRate = totalEvaluated > 0 ? Number((wins / totalEvaluated).toFixed(4)) : 0;
+      const streak = s ? Number(s.streak || 0) : 0;
+      const bestStreak = s ? Number(s.bestStreak || 0) : 0;
+      const historyPath = s ? (s.historyPath || []) : [];
+
+      return {
+        ...localM,
+        wins,
+        losses,
+        totalEvaluated,
+        winRate,
+        winRatePct: `${(winRate * 100).toFixed(1)}%`,
+        streak,
+        bestStreak,
+        historyPath
+      };
+    });
+  }
+
+  // 2. Global Benchmark Mode -> return full all-time worker or cloud ratings
   const isLocalSource = (MobileState.inchargeConfig?.predictionSource || 'LOCAL') === 'LOCAL';
   const workerStats = MobileState.workerStateByTf[tf]?.allModelStats;
 
@@ -2227,34 +2488,9 @@ function getEffectiveModelList(tf) {
     return workerStats;
   }
 
-  const isUserReset = !!localStorage.getItem(`quant_user_ai_reset_${tf}`);
   const models = getCanonicalModelsForTf(tf);
   const cloudState = MobileState.cloudUniversalState[tf];
   const cloudModels = cloudState?.leaderboard || cloudState?.modelsSummary || [];
-
-  if (isUserReset) {
-    // Load persisted session stats
-    try {
-      const raw = localStorage.getItem(`quant_user_model_stats_${tf}`);
-      if (raw) {
-        const stored = JSON.parse(raw);
-        models.forEach(m => {
-          const s = stored[m.name] || stored[m.id];
-          if (s) {
-            m.wins = Number(s.wins || 0);
-            m.losses = Number(s.losses || 0);
-            m.totalEvaluated = m.wins + m.losses;
-            m.winRate = m.totalEvaluated > 0 ? m.wins / m.totalEvaluated : 0;
-            m.winRatePct = `${(m.winRate * 100).toFixed(1)}%`;
-            m.streak = Number(s.streak || 0);
-            m.bestStreak = Number(s.bestStreak || 0);
-            m.historyPath = s.historyPath || [];
-          }
-        });
-      }
-    } catch(e) {}
-    return models;
-  }
 
   // Merge cloud leaderboard stats if available
   if (Array.isArray(cloudModels) && cloudModels.length > 0) {
@@ -2304,10 +2540,23 @@ window.filterModelRoster = filterModelRoster;
 
 function resetUserAIModelsWinRate() {
   const tf = MobileState.timeframe;
-  const period = computeRTState(tf).periodStr;
+  const period = (typeof computeRTState === 'function') ? computeRTState(tf).periodStr : String(Date.now());
   localStorage.setItem(`quant_user_ai_reset_${tf}`, period);
-  localStorage.removeItem(`quant_user_model_stats_${tf}`);
+  localStorage.setItem(`quant_user_model_stats_${tf}`, JSON.stringify({}));
   if (MobileState.modelPools) delete MobileState.modelPools[tf];
+
+  if (MobileState.workerStateByTf && MobileState.workerStateByTf[tf]?.allModelStats) {
+    MobileState.workerStateByTf[tf].allModelStats.forEach(m => {
+      m.wins = 0;
+      m.losses = 0;
+      m.totalEvaluated = 0;
+      m.winRate = 0;
+      m.winRatePct = '0.0%';
+      m.streak = 0;
+      m.bestStreak = 0;
+      m.historyPath = [];
+    });
+  }
 
   if (modelWorker) {
     modelWorker.postMessage({
@@ -2318,7 +2567,7 @@ function resetUserAIModelsWinRate() {
 
   renderModelRosterUI();
   renderAuthoritativeAIPrediction(MobileState.historyByTf[tf] || []);
-  showToast('Model session win rates reset to 0%. All-time cloud benchmark preserved.', 'success');
+  showToast('✓ AI Model session win rates reset to 0%. Evaluating live from now.', 'success');
 }
 window.resetUserAIModelsWinRate = resetUserAIModelsWinRate;
 
@@ -2329,6 +2578,13 @@ function restoreGlobalAIStats() {
   if (MobileState.modelPools) delete MobileState.modelPools[tf];
 
   if (modelWorker) {
+    const hist = MobileState.historyByTf[tf] || [];
+    if (hist.length > 0) {
+      modelWorker.postMessage({
+        type: 'INIT_24H_HISTORY',
+        data: { timeframe: tf, history: hist, config: MobileState.inchargeConfig }
+      });
+    }
     modelWorker.postMessage({
       type: 'SET_CONFIG',
       data: { config: { ...MobileState.inchargeConfig, mode: 'WINNING_STREAK_OVERRIDE' }, timeframe: tf }
@@ -2337,7 +2593,7 @@ function restoreGlobalAIStats() {
 
   renderModelRosterUI();
   renderAuthoritativeAIPrediction(MobileState.historyByTf[tf] || []);
-  showToast('Restored global cloud model leaderboard.', 'success');
+  showToast('👑 Restored All-Time Global Benchmark Leaderboard.', 'success');
 }
 window.restoreGlobalAIStats = restoreGlobalAIStats;
 
@@ -2346,7 +2602,25 @@ function renderModelRosterUI() {
   const isUserReset = !!localStorage.getItem(`quant_user_ai_reset_${tf}`);
 
   const restoreBtn = $('restoreGlobalAIBtn');
-  if (restoreBtn) restoreBtn.classList.toggle('hidden', !isUserReset);
+  const resetBtn = $('resetAIWinRateBtn');
+
+  if (restoreBtn && resetBtn) {
+    restoreBtn.classList.remove('hidden');
+    resetBtn.classList.remove('hidden');
+    if (isUserReset) {
+      resetBtn.className = 'px-2 py-0.5 rounded-lg text-[8px] font-mono font-bold transition flex items-center gap-1 bg-rose-500/25 text-rose-200 border border-rose-400/50 shadow-sm';
+      resetBtn.innerHTML = '<i class="fa-solid fa-check text-[7px]"></i> Session 0%';
+
+      restoreBtn.className = 'px-2 py-0.5 rounded-lg text-[8px] font-mono font-bold transition flex items-center gap-1 text-zinc-400 hover:text-purple-300 border border-transparent';
+      restoreBtn.innerHTML = '<i class="fa-solid fa-earth-americas text-[7px]"></i> Global';
+    } else {
+      restoreBtn.className = 'px-2 py-0.5 rounded-lg text-[8px] font-mono font-bold transition flex items-center gap-1 bg-purple-500/25 text-purple-200 border border-purple-400/50 shadow-sm';
+      restoreBtn.innerHTML = '<i class="fa-solid fa-check text-[7px]"></i> Global';
+
+      resetBtn.className = 'px-2 py-0.5 rounded-lg text-[8px] font-mono font-bold transition flex items-center gap-1 text-zinc-400 hover:text-rose-300 border border-transparent';
+      resetBtn.innerHTML = '<i class="fa-solid fa-rotate-left text-[7px]"></i> Reset 0%';
+    }
+  }
 
   const allModels = getEffectiveModelList(tf);
 
@@ -2356,7 +2630,66 @@ function renderModelRosterUI() {
     return 0;
   };
 
+  const inchargeMode = MobileState.inchargeConfig?.mode || 'WINNING_STREAK_OVERRIDE';
+  const minStreak = Number(MobileState.inchargeConfig?.minStreak || 3);
+
+  const getLastNWinRate = (m, n) => {
+    const p = (m.historyPath || []).slice(0, n);
+    if (p.length === 0) return 0;
+    return p.filter(x => x.won).length / p.length;
+  };
+
   const sorted = [...allModels].sort((a, b) => {
+    if (inchargeMode === 'LAST_10_WIN_RATE') {
+      const wrA = getLastNWinRate(a, 10);
+      const wrB = getLastNWinRate(b, 10);
+      if (wrB !== wrA) return wrB - wrA;
+      const sDiff = Number(b.streak || 0) - Number(a.streak || 0);
+      if (sDiff !== 0) return sDiff;
+      return getWinRate(b) - getWinRate(a);
+    }
+    if (inchargeMode === 'LAST_20_WIN_RATE') {
+      const wrA = getLastNWinRate(a, 20);
+      const wrB = getLastNWinRate(b, 20);
+      if (wrB !== wrA) return wrB - wrA;
+      const sDiff = Number(b.streak || 0) - Number(a.streak || 0);
+      if (sDiff !== 0) return sDiff;
+      return getWinRate(b) - getWinRate(a);
+    }
+    if (inchargeMode === 'HIGHEST_STREAK') {
+      const sDiff = Number(b.streak || 0) - Number(a.streak || 0);
+      if (sDiff !== 0) return sDiff;
+      return getWinRate(b) - getWinRate(a);
+    }
+    if (inchargeMode === 'SESSION_WIN_RATE') {
+      const wrA = a.sessionWinRate !== undefined ? Number(a.sessionWinRate) : getWinRate(a);
+      const wrB = b.sessionWinRate !== undefined ? Number(b.sessionWinRate) : getWinRate(b);
+      if (wrB !== wrA) return wrB - wrA;
+      return (Number(b.streak || 0)) - (Number(a.streak || 0));
+    }
+    if (inchargeMode === 'SESSION_STREAK_OVERRIDE') {
+      const sA = Number(a.sessionStreak !== undefined ? a.sessionStreak : a.streak || 0);
+      const sB = Number(b.sessionStreak !== undefined ? b.sessionStreak : b.streak || 0);
+      const elA = sA >= minStreak;
+      const elB = sB >= minStreak;
+      if (elA && !elB) return -1;
+      if (!elA && elB) return 1;
+      if (elA && elB && sB !== sA) return sB - sA;
+      return getWinRate(b) - getWinRate(a);
+    }
+    if (inchargeMode === 'WINNING_STREAK_OVERRIDE') {
+      const sA = Number(a.streak || 0);
+      const sB = Number(b.streak || 0);
+      const elA = sA >= minStreak;
+      const elB = sB >= minStreak;
+      if (elA && !elB) return -1;
+      if (!elA && elB) return 1;
+      if (elA && elB && sB !== sA) return sB - sA;
+      const wrDiff = getWinRate(b) - getWinRate(a);
+      if (wrDiff !== 0) return wrDiff;
+      return (b.totalEvaluated || 0) - (a.totalEvaluated || 0);
+    }
+    // Default / OVERALL_WIN_RATE
     const wrDiff = getWinRate(b) - getWinRate(a);
     if (wrDiff !== 0) return wrDiff;
     const evDiff = (b.totalEvaluated || 0) - (a.totalEvaluated || 0);
@@ -2369,6 +2702,8 @@ function renderModelRosterUI() {
   if (MobileState.autoMode !== false && sorted.length > 0) {
     if (isUserReset) {
       effectiveInCharge = sorted[0].name;
+    } else if (MobileState.inchargeConfig?.predictionSource === 'LOCAL' && MobileState.workerStateByTf[tf]?.activeIncharge?.model?.name) {
+      effectiveInCharge = MobileState.workerStateByTf[tf].activeIncharge.model.name;
     } else {
       const cloudState = MobileState.cloudUniversalState[tf];
       effectiveInCharge = cloudState?.inChargeModel || sorted[0].name;
@@ -2415,9 +2750,21 @@ function renderModelRosterUI() {
 
     const champDesc = $('aiChampionDesc');
     if (champDesc) {
-      champDesc.textContent = isUserReset
-        ? `Leading session model (${champModel.winRatePct || '0.0%'} WR · ${champModel.wins || 0}W / ${champModel.losses || 0}L)`
-        : (champModel.desc || `Leading model (+${champModel.streak || 0}W streak)`);
+      if (inchargeMode === 'LAST_10_WIN_RATE') {
+        const p = (champModel.historyPath || []).slice(0, 10);
+        const lwr = p.length > 0 ? ((p.filter(x => x.won).length / p.length) * 100).toFixed(0) : '0';
+        champDesc.textContent = `⚡ Last 10 Champion (${lwr}% WR in last 10)`;
+      } else if (inchargeMode === 'LAST_20_WIN_RATE') {
+        const p = (champModel.historyPath || []).slice(0, 20);
+        const lwr = p.length > 0 ? ((p.filter(x => x.won).length / p.length) * 100).toFixed(0) : '0';
+        champDesc.textContent = `📊 Last 20 Champion (${lwr}% WR in last 20)`;
+      } else if (inchargeMode === 'HIGHEST_STREAK') {
+        champDesc.textContent = `🔥 Streak Leader (+${champModel.streak || 0}W streak)`;
+      } else {
+        champDesc.textContent = isUserReset
+          ? `Leading session model (${champModel.winRatePct || '0.0%'} WR · ${champModel.wins || 0}W / ${champModel.losses || 0}L)`
+          : (champModel.desc || `Leading model (+${champModel.streak || 0}W streak)`);
+      }
     }
   }
 
@@ -2479,11 +2826,14 @@ function renderModelRosterUI() {
       ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
       : 'bg-rose-500/15 text-rose-300 border border-rose-500/30';
 
-    const dotsHtml = (a.historyPath || []).slice(0, 5).map(h =>
-      h.won === true
-        ? '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>'
-        : '<span class="w-1.5 h-1.5 rounded-full bg-rose-400 inline-block"></span>'
-    ).join('');
+    const dots = (a.historyPath || []).slice(0, 5);
+    const dotsHtml = Array.from({ length: 5 }, (_, i) => {
+      const h = dots[i];
+      if (!h) return '<span class="w-1.5 h-1.5 rounded-full bg-white/10 inline-block"></span>';
+      return h.won === true
+        ? '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block shadow-[0_0_4px_rgba(52,211,153,0.5)]"></span>'
+        : '<span class="w-1.5 h-1.5 rounded-full bg-rose-400 inline-block shadow-[0_0_4px_rgba(244,63,94,0.5)]"></span>';
+    }).join('');
 
     const cardClass = isLead
       ? 'p-2.5 rounded-2xl bg-black/60 border border-emerald-500/40 shadow-[0_0_16px_rgba(52,211,153,0.12)]'
@@ -3157,6 +3507,10 @@ function getDhaniEntryUrl() {
 window.getDhaniEntryUrl = getDhaniEntryUrl;
 
 function handleDhaniSessionExpired(reason) {
+  if (Date.now() < _authGracePeriodUntil) {
+    console.log('[Auth Guard] Blocked false session-out event during post-login grace period:', reason);
+    return;
+  }
   markUserLoggedOut();
   setMobileBridgeStatus(false, reason || 'Session Expired • Please Login');
   showToast('⚠️ Session expired. Please log in again.', 'warn');
@@ -3273,8 +3627,15 @@ function initDockAutoCompact() {
     document.body.classList.remove('nav-compact');
   };
 
-  // ── Window scroll: scrolling down = compact, scrolling up = back to normal ──
+  // ── Window scroll: scrolling down = compact on Home tab (or all tabs if configured) ──
   window.addEventListener('scroll', () => {
+    const onWeb = document.getElementById('tab-web')?.style.display !== 'none';
+    const allowAll = localStorage.getItem('dock_compact_all_tabs') === '1';
+    if (!onWeb && !allowAll) {
+      expand();
+      return;
+    }
+
     const y = window.scrollY;
 
     // At top of the screen: always restore full normal menu
@@ -3294,6 +3655,21 @@ function initDockAutoCompact() {
     }
 
     lastScrollY = y;
+  }, { passive: true });
+
+  // ── Tap outside bottom dock on Home tab compacts dock ──
+  document.addEventListener('pointerdown', (e) => {
+    const onWeb = document.getElementById('tab-web')?.style.display !== 'none';
+    const allowAll = localStorage.getItem('dock_compact_all_tabs') === '1';
+    if (!onWeb && !allowAll) return;
+    const dockEl = document.getElementById('mobileBottomDock');
+    if (!dockEl) return;
+    if (dockEl.contains(e.target)) return;
+    const orb = document.getElementById('dhaniwinFloatingOrb');
+    if (orb && orb.contains(e.target)) return;
+    const modal = document.getElementById('dhaniwinAssistantModal');
+    if (modal && !modal.classList.contains('hidden') && modal.contains(e.target)) return;
+    compact();
   }, { passive: true });
 
   // ── Touching the dock itself always expands it back to normal ──
@@ -3323,6 +3699,8 @@ if (document.readyState === 'loading') {
 }
 
 function switchMobileTab(tab) {
+  try { localStorage.setItem('active_mobile_tab', tab); } catch(e) {}
+
   ['home', 'ai', 'sim', 'web', 'pattern'].forEach(t => {
     const section = $(`tab-${t}`);
     if (section) section.style.display = t === tab ? 'block' : 'none';
@@ -3332,6 +3710,15 @@ function switchMobileTab(tab) {
     const isActive = btn.dataset.tab === tab;
     btn.classList.toggle('active', isActive);
   });
+
+  // Non-home tabs stay full size unless configured in settings
+  if (tab !== 'web' && localStorage.getItem('dock_compact_all_tabs') !== '1') {
+    const dock = document.getElementById('mobileBottomDock');
+    if (dock) {
+      dock.classList.remove('dock-compact');
+      document.body.classList.remove('nav-compact');
+    }
+  }
 
   // Header auto-hide applies only to the Home (web) tab
   if (tab !== 'web') document.body.classList.remove('home-header-hidden');
@@ -3441,14 +3828,11 @@ function setMobileTimeframe(tf) {
     }
   });
 
-  // Auto-route DhaniWin web view to matching interval if user is logged in/registered
-  const isAuth = isUserLoggedIn();
-  if (isAuth) {
-    const iframe = $('dhaniwinIframe');
-    const targetUrl = DHANIWIN_INTERVAL_URLS[tf] || DHANIWIN_INTERVAL_URLS['30s'];
-    if (iframe && iframe.src && !iframe.src.toLowerCase().includes(targetUrl.toLowerCase())) {
-      loadMobileWebUrl(targetUrl);
-    }
+  // Synchronously route DhaniWin web view to matching interval
+  const iframe = $('dhaniwinIframe');
+  const targetUrl = DHANIWIN_INTERVAL_URLS[tf] || DHANIWIN_INTERVAL_URLS['30s'];
+  if (iframe && (!iframe.src || !iframe.src.toLowerCase().includes(targetUrl.toLowerCase()))) {
+    loadMobileWebUrl(targetUrl);
   }
 
   if (typeof postMobileBridge === 'function') {
@@ -3696,13 +4080,21 @@ function updateWakeLockUI() {
 // Auto re-acquire Screen Wake Lock when tab becomes visible again
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', async () => {
-    if (document.visibilityState === 'visible' && MobileState.wakeLockEnabled && !_screenWakeLock) {
-      await requestScreenWakeLock();
-    }
-    // Also unlock audio if needed
-    if (document.visibilityState === 'visible' && MobileState.bgKeepAliveEnabled) {
-      if (_bgAudioCtx && _bgAudioCtx.state === 'suspended') {
-        try { _bgAudioCtx.resume(); } catch(e) {}
+    if (document.visibilityState === 'visible') {
+      if (MobileState.wakeLockEnabled && !_screenWakeLock) {
+        await requestScreenWakeLock();
+      }
+      // Also unlock audio if needed
+      if (MobileState.bgKeepAliveEnabled) {
+        if (_bgAudioCtx && _bgAudioCtx.state === 'suspended') {
+          try { _bgAudioCtx.resume(); } catch(e) {}
+        }
+      }
+      // Background audio throttling: play at most a single pending chime on refocus
+      if (_pendingBgSound) {
+        const soundToPlay = _pendingBgSound;
+        _pendingBgSound = null;
+        playSoundEffect(soundToPlay, true);
       }
     }
   });
@@ -4069,6 +4461,9 @@ const MobileBridgeState = {
   totalBets: 0,
   wins: 0,
   losses: 0,
+  consecutiveLosses: 0,
+  circuitBreakerActive: false,
+  circuitBreakerPauseRounds: 0,
   userId: null,
   authToken: null
 };
@@ -4133,15 +4528,17 @@ function initMobileDhaniWinBridge() {
         _sessionOutCount = 0;
         _iframeWasOnWinGo = true;
       } else if (isAuthPage && _iframeWasOnWinGo) {
-        // Was on WinGo, now redirected to auth page — count as session-out
+        // Do not expire if within post-login grace period
+        if (Date.now() < _authGracePeriodUntil) {
+          _sessionOutCount = 0;
+          return;
+        }
         _sessionOutCount++;
-        if (_sessionOutCount >= 2) {
+        if (_sessionOutCount >= 4) {
           // Confirmed session expired
           _sessionOutCount = 0;
           _iframeWasOnWinGo = false;
-          markUserLoggedOut();
-          setMobileBridgeStatus(false, 'Session Expired • Please Login');
-          showToast('⚠️ Session expired. Please log in again.', 'warn');
+          handleDhaniSessionExpired('Session Expired • Please Login');
           console.log('[Mobile Bridge] Session-out confirmed from iframe URL redirect.');
         }
       } else {
@@ -4153,6 +4550,8 @@ function initMobileDhaniWinBridge() {
 
 
 
+let _syncLogoutCount = 0;
+
 function handleMobileBridgeMessage(msg) {
   if (!msg || typeof msg !== 'object') return;
   if (msg.type === 'DHANIWIN_BRIDGE_HANDSHAKE' || msg.type === 'DHANIWIN_BRIDGE_HEARTBEAT') {
@@ -4163,16 +4562,28 @@ function handleMobileBridgeMessage(msg) {
   } else if (msg.type === 'DHANIWIN_BET_CONFIRMATION') {
     setMobileBridgeStatus(true, `Confirmed: ${msg.target} ₹${msg.stake}`);
     MobileBridgeState.totalBets += 1;
+    const prepBtn = $('mobileBridgeToggleBtn');
+    if (prepBtn) prepBtn.classList.remove('auto-bet-shake');
+    const targetDisplay = $('mobileWebTargetDisplay');
+    if (targetDisplay) targetDisplay.classList.remove('auto-bet-shake');
     renderMobileWalletStats();
   } else if (msg.type === 'DHANIWIN_BET_PREPARED') {
     MobileBridgeState.lastPeriodDispatched = String(msg.period || MobileBridgeState.lastPeriodDispatched || '');
     MobileBridgeState.retryAttemptedPeriod = null;
     setMobileBridgeStatus(true, `Ready: ${msg.target} ₹${msg.stake} • Tap Bet`);
+    const prepBtn = $('mobileBridgeToggleBtn');
+    if (prepBtn) prepBtn.classList.add('auto-bet-shake');
+    const targetDisplay = $('mobileWebTargetDisplay');
+    if (targetDisplay) targetDisplay.classList.add('auto-bet-shake');
   } else if (msg.type === 'DHANIWIN_BET_PREP_FAILED') {
     const failedPeriod = String(msg.period || '');
     if (failedPeriod === String(MobileBridgeState.lastPeriodDispatched || '')) {
       MobileBridgeState.lastPeriodDispatched = null;
     }
+    const prepBtn = $('mobileBridgeToggleBtn');
+    if (prepBtn) prepBtn.classList.remove('auto-bet-shake');
+    const targetDisplay = $('mobileWebTargetDisplay');
+    if (targetDisplay) targetDisplay.classList.remove('auto-bet-shake');
     setMobileBridgeStatus(false, msg.reason || 'Selection failed • Retry available');
     const activePeriod = String(MobileState.activePrediction?.period || '');
     if (MobileBridgeState.enabled && failedPeriod && failedPeriod === activePeriod && MobileBridgeState.retryAttemptedPeriod !== failedPeriod) {
@@ -4182,8 +4593,8 @@ function handleMobileBridgeMessage(msg) {
       }, 700);
     }
   } else if (msg.type === 'DHANIWIN_SESSION_OUT') {
-    // The bridge runs INSIDE the DhaniWin page, so its reported URL is authoritative.
-    // (Our iframe.src is cross-origin and never reflects DhaniWin's internal redirect.)
+    // Suppress during post-login transition
+    if (isAuthGracePeriodActive()) return;
     handleDhaniSessionExpired('Session Expired • Please Login');
   } else if (msg.type === 'DHANIWIN_SCROLL') {
     // Bridge convention: msg.direction='up' = content moved upward = user scrolled DOWN
@@ -4195,8 +4606,10 @@ function handleMobileBridgeMessage(msg) {
     setHomeHeaderHidden(userScrolledDown);
     if (typeof window._dockSetCompact === 'function') window._dockSetCompact(userScrolledDown);
   } else if (msg.type === 'DHANIWIN_AUTH_SUCCESS' || msg.type === 'DHANIWIN_LOGIN_DETECTED') {
-    // Mark logged in via ALL keys
+    // Mark logged in via ALL keys and set 15s grace period
     markUserLoggedIn();
+    _authGracePeriodUntil = Date.now() + 15000;
+    _syncLogoutCount = 0;
     setMobileBridgeStatus(true, 'Login Verified ✓');
     showToast('🎉 Login Confirmed! Opening your WinGo interval...', 'success');
     // ISSUE 3 FIX: Load the user's LAST selected interval immediately
@@ -4214,10 +4627,18 @@ function handleMobileBridgeMessage(msg) {
       if (balEl) balEl.textContent = '₹' + MobileBridgeState.userBalance.toFixed(2);
     }
     if (msg.isLoggedIn) {
+      _syncLogoutCount = 0;
       markUserLoggedIn();
     } else if (msg.isLoggedIn === false && msg.url && (msg.url.toLowerCase().includes('/login') || msg.url.toLowerCase().includes('/register'))) {
-      // msg.url comes from the bridge inside DhaniWin → authoritative.
-      if (isUserLoggedIn()) handleDhaniSessionExpired('Session Expired');
+      if (Date.now() >= _authGracePeriodUntil && isUserLoggedIn()) {
+        _syncLogoutCount = (_syncLogoutCount || 0) + 1;
+        if (_syncLogoutCount >= 3) {
+          _syncLogoutCount = 0;
+          handleDhaniSessionExpired('Session Expired');
+        }
+      }
+    } else {
+      _syncLogoutCount = 0;
     }
     if (msg.token) {
       markUserLoggedIn();
@@ -4238,8 +4659,28 @@ function handleMobileBridgeMessage(msg) {
       }
     }
     setMobileBridgeStatus(true);
-
+  } else if (msg.type === 'INCHARGE_MODE_CHANGED' && msg.mode) {
+    if (typeof setInchargeMode === 'function') {
+      setInchargeMode(msg.mode);
+    }
   }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'quant_incharge_settings' && e.newValue) {
+      try {
+        const cfg = JSON.parse(e.newValue);
+        if (cfg && cfg.mode && typeof setInchargeMode === 'function') {
+          setInchargeMode(cfg.mode);
+        }
+      } catch(err) {}
+    } else if (e.key === 'quant_sound') {
+      MobileState.soundEnabled = e.newValue !== '0';
+      const soundCb = $('settingSoundEffects');
+      if (soundCb) soundCb.checked = MobileState.soundEnabled;
+    }
+  });
 }
 
 function setMobileBridgeStatus(connected, label) {
@@ -4391,6 +4832,12 @@ window.toggleMobileRealAutoBet = toggleMobileRealAutoBet;
 window.toggleRealAutoBet = toggleMobileRealAutoBet;
 
 function dispatchMobileBetOrder(targetOverride) {
+  // Check if 3-Loss Circuit Breaker is active / cool-off pause in progress
+  if (MobileBridgeState.circuitBreakerPauseRounds > 0) {
+    setMobileBridgeStatus(false, `🛡️ Circuit Breaker: Paused (${MobileBridgeState.circuitBreakerPauseRounds}R left)`);
+    return;
+  }
+
   // Check if Stop Loss or Take Profit bounds were hit
   if (MobileBridgeState.sessionPnl >= MobileBridgeState.takeProfit) {
     toggleMobileRealAutoBet(false);
@@ -4585,7 +5032,9 @@ function triggerAppleMoneyRain(profit, streak) {
 
   // Generate particles: realistic falling dollar bills (65%) and gold spinning coins (35%)
   const particles = [];
-  const numParticles = Math.min(36, Math.max(16, Math.floor(width / 11)));
+  const streakCount = Math.max(1, Number(streak) || 1);
+  const baseCount = Math.min(36, Math.max(16, Math.floor(width / 11)));
+  const numParticles = Math.min(120, Math.floor(baseCount + (streakCount - 1) * 8));
 
   for (let i = 0; i < numParticles; i++) {
     particles.push({
@@ -5138,8 +5587,9 @@ function initMobileApp() {
     };
   }
 
-  // Default startup view: Home (Analyse / Quant Terminal)
-  switchMobileTab('home');
+  // Default startup view: Home (DhaniWin Web), restoring last active tab if persisted
+  const initialTab = localStorage.getItem('active_mobile_tab') || 'web';
+  switchMobileTab(initialTab);
 
   // If user already allowed high-confidence alert or has granted permission, remove card from Analyse page
   if ((typeof Notification !== 'undefined' && Notification.permission === 'granted') || localStorage.getItem('best_time_notif_enabled') === '1') {

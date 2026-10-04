@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Settings — 01:01 Quant Terminal</title>
+  <title>Settings — 01:01 Quant Terminal (Universal Android &amp; iOS)</title>
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -188,7 +188,7 @@
       box-shadow: 0 0 8px rgba(52, 199, 89, 0.7);
     }
 
-    /* SEARCH BAR (Cupertino Native Glass) */
+    /* SEARCH BAR (Liquid Frosted Glass) */
     .ios-search-shell {
       margin: 8px 16px 18px 16px;
       position: relative;
@@ -196,30 +196,31 @@
 
     .ios-search-input {
       width: 100%;
-      height: 38px;
-      background: rgba(118, 118, 128, 0.22);
-      border-radius: 11px;
-      border: 0.5px solid rgba(255, 255, 255, 0.08);
-      padding: 0 34px 0 34px;
+      height: 40px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.04) 50%, rgba(255, 255, 255, 0.07) 100%);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      padding: 0 34px 0 36px;
       font-size: 15px;
       font-weight: 400;
       letter-spacing: -0.2px;
       color: #ffffff;
       outline: none;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      backdrop-filter: blur(24px) saturate(200%);
+      -webkit-backdrop-filter: blur(24px) saturate(200%);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     .ios-search-input::placeholder {
-      color: var(--apple-gray);
+      color: rgba(235, 235, 245, 0.6);
       font-weight: 400;
     }
 
     .ios-search-input:focus {
-      background: rgba(118, 118, 128, 0.32);
-      border-color: rgba(10, 132, 255, 0.45);
-      box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.15);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.06) 50%, rgba(255, 255, 255, 0.10) 100%);
+      border-color: rgba(255, 255, 255, 0.35);
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45), 0 0 0 3px rgba(10, 132, 255, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.5);
     }
 
     .ios-search-glyph {
@@ -326,6 +327,74 @@
 
     .ios-row-flush:not(:last-child)::after {
       left: 16px;
+    }
+
+    .ios-row-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 12px 16px;
+      position: relative;
+    }
+    .ios-row-stack:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 16px;
+      right: 0;
+      height: 0.5px;
+      background-color: var(--ios-separator);
+    }
+    .ios-endpoint-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .ios-endpoint-input {
+      width: 100%;
+      height: 36px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 9px;
+      padding: 0 10px;
+      font-family: ui-monospace, monospace;
+      font-size: 11.5px;
+      color: #ffffff;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+    .ios-endpoint-input:focus {
+      background: rgba(255, 255, 255, 0.10);
+      border-color: rgba(10, 132, 255, 0.5);
+      box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.2);
+    }
+    .ios-action-btn {
+      padding: 7px 14px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+    .ios-action-btn.primary {
+      background: #0a84ff;
+      color: #ffffff;
+    }
+    .ios-action-btn.primary:active {
+      background: #0071e3;
+      transform: scale(0.97);
+    }
+    .ios-action-btn.secondary {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+    }
+    .ios-action-btn.secondary:active {
+      background: rgba(255, 255, 255, 0.18);
+      transform: scale(0.97);
     }
 
     .ios-row-left {
@@ -743,7 +812,7 @@
       <h1 class="ios-large-title">Settings</h1>
       <div class="ios-subtitle-pill">
         <span class="status-dot-active"></span>
-        <span>01:01 Quant Terminal • Real-Time Engine Active</span>
+        <span>01:01 Quant Terminal • AMOLED Minimalist (Android &amp; iOS)</span>
       </div>
     </div>
 
@@ -862,6 +931,64 @@
       </div>
       <div class="ios-group-footer">
         Upstream results are polled directly with low-latency round-trip time (RTT) estimation to ensure zero-delay countdown settlement.
+      </div>
+    </div>
+
+    <!-- SECTION: CUSTOM API ENDPOINTS -->
+    <div class="setting-category" data-cat="api endpoint network upstream sync">
+      <div class="ios-group-title">
+        <span>Custom API Endpoints (WinGo Intervals)</span>
+        <span class="ios-tag-micro tag-neutral">HTTP JSON</span>
+      </div>
+      <div class="ios-inset-group">
+        <!-- 30s Endpoint -->
+        <div class="ios-row-stack">
+          <div class="ios-endpoint-header">
+            <span class="ios-label-primary">30s Interval Endpoint</span>
+            <span id="badgeEndpoint30s" class="ios-tag-micro tag-neutral">LOCKED DEFAULT</span>
+          </div>
+          <input type="url" id="endpointInput30s" class="ios-endpoint-input" placeholder="https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json" oninput="handleEndpointChange('30s', this.value)">
+        </div>
+
+        <!-- 1m Endpoint -->
+        <div class="ios-row-stack">
+          <div class="ios-endpoint-header">
+            <span class="ios-label-primary">1m Interval Endpoint</span>
+            <span id="badgeEndpoint1m" class="ios-tag-micro tag-neutral">LOCKED DEFAULT</span>
+          </div>
+          <input type="url" id="endpointInput1m" class="ios-endpoint-input" placeholder="https://draw.ar-lottery01.com/WinGo/WinGo_1M/GetHistoryIssuePage.json" oninput="handleEndpointChange('1m', this.value)">
+        </div>
+
+        <!-- 3m Endpoint -->
+        <div class="ios-row-stack">
+          <div class="ios-endpoint-header">
+            <span class="ios-label-primary">3m Interval Endpoint</span>
+            <span id="badgeEndpoint3m" class="ios-tag-micro tag-neutral">LOCKED DEFAULT</span>
+          </div>
+          <input type="url" id="endpointInput3m" class="ios-endpoint-input" placeholder="https://draw.ar-lottery01.com/WinGo/WinGo_3M/GetHistoryIssuePage.json" oninput="handleEndpointChange('3m', this.value)">
+        </div>
+
+        <!-- 5m Endpoint -->
+        <div class="ios-row-stack">
+          <div class="ios-endpoint-header">
+            <span class="ios-label-primary">5m Interval Endpoint</span>
+            <span id="badgeEndpoint5m" class="ios-tag-micro tag-neutral">LOCKED DEFAULT</span>
+          </div>
+          <input type="url" id="endpointInput5m" class="ios-endpoint-input" placeholder="https://draw.ar-lottery01.com/WinGo/WinGo_5M/GetHistoryIssuePage.json" oninput="handleEndpointChange('5m', this.value)">
+        </div>
+
+        <!-- Action Row -->
+        <div class="ios-row" style="justify-content: flex-end; gap: 8px;">
+          <button type="button" onclick="saveCustomEndpoints()" class="ios-action-btn primary">
+            <i class="fa-solid fa-check"></i> Save Custom Endpoints
+          </button>
+          <button type="button" onclick="restoreDefaultEndpointsUI()" class="ios-action-btn secondary">
+            <i class="fa-solid fa-rotate-left"></i> Restore Defaults
+          </button>
+        </div>
+      </div>
+      <div class="ios-group-footer">
+        Specify custom mirror endpoints for 30s, 1m, 3m, or 5m WinGo draw data. Locked default protection guarantees seamless fallback if left blank or reset.
       </div>
     </div>
 
@@ -1082,10 +1209,15 @@
             </div>
           </div>
           <div class="ios-row-right">
-            <select id="selInchargeMode" onchange="setInchargeMode(this.value)" class="ios-picker-pill" style="max-width: 140px; text-overflow: ellipsis;">
-              <option value="WINNING_STREAK_OVERRIDE">Streak Leader</option>
-              <option value="CONSENSUS_WEIGHTED">Consensus</option>
-              <option value="ACCURACY_LEADER">Top Accuracy</option>
+            <select id="selInchargeMode" onchange="setInchargeMode(this.value)" class="ios-picker-pill" style="max-width: 170px; text-overflow: ellipsis;">
+              <option value="WINNING_STREAK_OVERRIDE">🔥 Winning Streak Override</option>
+              <option value="LAST_10_WIN_RATE">⚡ Last 10 Rounds WR</option>
+              <option value="LAST_20_WIN_RATE">📊 Last 20 Rounds WR</option>
+              <option value="HIGHEST_STREAK">🚀 Highest Active Streak</option>
+              <option value="OVERALL_WIN_RATE">👑 Overall Win Rate</option>
+              <option value="SESSION_WIN_RATE">🎯 Session Win Rate</option>
+              <option value="SESSION_STREAK_OVERRIDE">⚡ Session Streak Override</option>
+              <option value="UCB_RANKING">🎲 UCB-MAB Bandit</option>
             </select>
           </div>
         </div>
@@ -1183,6 +1315,69 @@
       </div>
       <div class="ios-group-footer">
         Direct URL schemes open native iOS Settings sub-menus when using iPhone, iPad, or Safari Web Apps.
+      </div>
+    </div>
+
+    <!-- SECTION: ANDROID SYSTEM INTENTS & BATTERY GUIDANCE -->
+    <div class="setting-category" data-cat="android battery notifications intent permissions shortcuts">
+      <div class="ios-group-title">
+        <span>Android System Shortcuts &amp; Battery Guidance</span>
+        <span class="ios-tag-micro tag-active">ANDROID INTENTS</span>
+      </div>
+      <div class="ios-inset-group">
+        <!-- Android Battery Optimization Intent -->
+        <div class="ios-row interactive" onclick="launchAndroidBatterySettings()" style="cursor: pointer;">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-green">
+              <i class="fa-solid fa-battery-half"></i>
+            </div>
+            <div>
+              <div class="ios-label-primary">Android Battery Optimization</div>
+              <div class="ios-label-secondary">Launch Ignore Battery Optimizations intent</div>
+            </div>
+          </div>
+          <div class="ios-row-right">
+            <span class="ios-scheme-badge">intent</span>
+            <i class="fa-solid fa-arrow-up-right-from-square ios-chevron" style="font-size: 11px;"></i>
+          </div>
+        </div>
+
+        <!-- Android App Notification Settings Intent -->
+        <div class="ios-row interactive" onclick="launchAndroidNotificationSettings()" style="cursor: pointer;">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-blue">
+              <i class="fa-solid fa-bell"></i>
+            </div>
+            <div>
+              <div class="ios-label-primary">Android Notification Settings</div>
+              <div class="ios-label-secondary">Launch App Notification Permissions intent</div>
+            </div>
+          </div>
+          <div class="ios-row-right">
+            <span class="ios-scheme-badge">intent</span>
+            <i class="fa-solid fa-arrow-up-right-from-square ios-chevron" style="font-size: 11px;"></i>
+          </div>
+        </div>
+
+        <!-- Battery Optimization Interactive Guide -->
+        <div class="ios-row interactive" onclick="openBatteryGuideModal()" style="cursor: pointer;">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-orange">
+              <i class="fa-solid fa-book-open"></i>
+            </div>
+            <div>
+              <div class="ios-label-primary">Device Optimization Guide</div>
+              <div class="ios-label-secondary">Step-by-step instructions for MIUI, One UI, ColorOS</div>
+            </div>
+          </div>
+          <div class="ios-row-right">
+            <span class="ios-value-label">View Guide</span>
+            <i class="fa-solid fa-chevron-right ios-chevron"></i>
+          </div>
+        </div>
+      </div>
+      <div class="ios-group-footer">
+        Direct Android intent launchers open native OS battery optimization and notification panels in Android Chrome, WebView, or PWA mode.
       </div>
     </div>
 
@@ -1379,11 +1574,79 @@
   </div>
 
   <script>
-    // Audio engine for direct instant sound test in settings
-    const audioPool = {
-      win: new Audio('sounds/win_siu.ogg'),
-      loss: new Audio('sounds/loss_brhh.ogg')
-    };
+    // Audio engine for direct instant sound test in settings (Universal Android & iOS)
+    function getAudioSrc(type) {
+      const isWin = type === 'win';
+      let canPlayOgg = false;
+      try {
+        const testAudio = document.createElement('audio');
+        canPlayOgg = !!(testAudio.canPlayType && testAudio.canPlayType('audio/ogg; codecs="vorbis"').replace(/no/, ''));
+      } catch(e) {}
+      return isWin 
+        ? (canPlayOgg ? 'sounds/win_siu.ogg' : 'sounds/win_siu.wav')
+        : (canPlayOgg ? 'sounds/loss_brhh.ogg' : 'sounds/loss_brhh.wav');
+    }
+
+    function playSynthFallback(type) {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        if (!window._sharedAudioCtx) window._sharedAudioCtx = new AudioCtx();
+        const ctx = window._sharedAudioCtx;
+        if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+
+        if (type === 'win') {
+          const osc1 = ctx.createOscillator();
+          const osc2 = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc1.connect(gain);
+          osc2.connect(gain);
+          gain.connect(ctx.destination);
+          osc1.type = 'sine';
+          osc2.type = 'triangle';
+          const t0 = ctx.currentTime;
+          osc1.frequency.setValueAtTime(523.25, t0);
+          osc1.frequency.setValueAtTime(659.25, t0 + 0.12);
+          osc1.frequency.setValueAtTime(783.99, t0 + 0.24);
+          osc1.frequency.exponentialRampToValueAtTime(1320, t0 + 0.55);
+          osc2.frequency.setValueAtTime(261.63, t0);
+          osc2.frequency.exponentialRampToValueAtTime(660, t0 + 0.55);
+          gain.gain.setValueAtTime(0.001, t0);
+          gain.gain.linearRampToValueAtTime(0.35, t0 + 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.75);
+          osc1.start(t0);
+          osc2.start(t0);
+          osc1.stop(t0 + 0.75);
+          osc2.stop(t0 + 0.75);
+        } else {
+          const osc = ctx.createOscillator();
+          const subOsc = ctx.createOscillator();
+          const filter = ctx.createBiquadFilter();
+          const gain = ctx.createGain();
+          osc.connect(filter);
+          subOsc.connect(gain);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = 'sawtooth';
+          subOsc.type = 'sine';
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(650, ctx.currentTime);
+          filter.Q.setValueAtTime(3.0, ctx.currentTime);
+          const t0 = ctx.currentTime;
+          osc.frequency.setValueAtTime(160, t0);
+          osc.frequency.exponentialRampToValueAtTime(65, t0 + 0.45);
+          subOsc.frequency.setValueAtTime(80, t0);
+          subOsc.frequency.exponentialRampToValueAtTime(45, t0 + 0.45);
+          gain.gain.setValueAtTime(0.001, t0);
+          gain.gain.linearRampToValueAtTime(0.35, t0 + 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.55);
+          osc.start(t0);
+          subOsc.start(t0);
+          osc.stop(t0 + 0.55);
+          subOsc.stop(t0 + 0.55);
+        }
+      } catch(e) {}
+    }
 
     function showToast(msg, isSuccess = true) {
       const toast = document.getElementById('appleToast');
@@ -1404,18 +1667,30 @@
 
     function playTestAudio(type) {
       try {
-        const audio = audioPool[type];
-        if (audio) {
-          audio.pause();
-          audio.currentTime = 0;
-          audio.play().then(() => {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          if (!window._sharedAudioCtx) window._sharedAudioCtx = new AudioCtx();
+          if (window._sharedAudioCtx.state === 'suspended') window._sharedAudioCtx.resume().catch(() => {});
+        }
+
+        const src = getAudioSrc(type);
+        const audio = new Audio(src);
+        audio.preload = 'auto';
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
             showToast(`Playing ${type === 'win' ? 'Suii (Win)' : 'Bruh (Loss)'}`);
           }).catch(err => {
-            showToast('Tap screen once to enable audio', false);
+            playSynthFallback(type);
+            showToast(`Playing ${type === 'win' ? 'Suii (Win)' : 'Bruh (Loss)'}`);
           });
+        } else {
+          playSynthFallback(type);
+          showToast(`Playing ${type === 'win' ? 'Suii (Win)' : 'Bruh (Loss)'}`);
         }
       } catch (e) {
-        showToast('Audio playback error', false);
+        playSynthFallback(type);
+        showToast(`Playing ${type === 'win' ? 'Suii (Win)' : 'Bruh (Loss)'}`);
       }
     }
 
@@ -1464,6 +1739,9 @@
 
       // Notifications
       updateNotifTag();
+
+      // Custom Endpoints
+      loadCustomEndpointsUI();
 
       // Scroll listener for large title collapse
       window.addEventListener('scroll', handleNavbarScroll, { passive: true });
@@ -1600,6 +1878,10 @@
       try { cfg = JSON.parse(localStorage.getItem('quant_incharge_settings') || '{}'); } catch(e) {}
       cfg.mode = val;
       localStorage.setItem('quant_incharge_settings', JSON.stringify(cfg));
+      try {
+        const channel = new BroadcastChannel('dhaniwin_quant_channel');
+        channel.postMessage({ type: 'INCHARGE_MODE_CHANGED', mode: val, config: cfg });
+      } catch(e) {}
       showToast(`In-Charge Mode: ${val}`);
     }
 
@@ -1628,6 +1910,115 @@
         });
       } else {
         showToast('Storage is managed by browser');
+      }
+    }
+
+    const DEFAULT_TF_UPSTREAM_URLS = {
+      '30s': 'https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json',
+      '1m':  'https://draw.ar-lottery01.com/WinGo/WinGo_1M/GetHistoryIssuePage.json',
+      '3m':  'https://draw.ar-lottery01.com/WinGo/WinGo_3M/GetHistoryIssuePage.json',
+      '5m':  'https://draw.ar-lottery01.com/WinGo/WinGo_5M/GetHistoryIssuePage.json'
+    };
+
+    function loadCustomEndpointsUI() {
+      let custom = {};
+      try {
+        const raw = localStorage.getItem('quant_custom_api_endpoints');
+        if (raw) custom = JSON.parse(raw) || {};
+      } catch (e) {}
+
+      ['30s', '1m', '3m', '5m'].forEach(tf => {
+        const input = document.getElementById(`endpointInput${tf}`);
+        const badge = document.getElementById(`badgeEndpoint${tf}`);
+        const val = custom[tf] || '';
+        if (input) input.value = val;
+        if (badge) {
+          if (val && val.trim().length > 0 && val.trim() !== DEFAULT_TF_UPSTREAM_URLS[tf]) {
+            badge.textContent = 'CUSTOM';
+            badge.className = 'ios-tag-micro tag-active';
+          } else {
+            badge.textContent = 'LOCKED DEFAULT';
+            badge.className = 'ios-tag-micro tag-neutral';
+          }
+        }
+      });
+    }
+
+    function handleEndpointChange(tf, val) {
+      const badge = document.getElementById(`badgeEndpoint${tf}`);
+      if (!badge) return;
+      const trimmed = (val || '').trim();
+      if (trimmed.length > 0 && trimmed !== DEFAULT_TF_UPSTREAM_URLS[tf]) {
+        badge.textContent = 'CUSTOM';
+        badge.className = 'ios-tag-micro tag-active';
+      } else {
+        badge.textContent = 'LOCKED DEFAULT';
+        badge.className = 'ios-tag-micro tag-neutral';
+      }
+    }
+
+    function saveCustomEndpoints() {
+      const endpoints = {};
+      let hasCustom = false;
+      ['30s', '1m', '3m', '5m'].forEach(tf => {
+        const input = document.getElementById(`endpointInput${tf}`);
+        const val = input ? input.value.trim() : '';
+        if (val && val !== DEFAULT_TF_UPSTREAM_URLS[tf]) {
+          endpoints[tf] = val;
+          hasCustom = true;
+        }
+      });
+
+      try {
+        if (hasCustom) {
+          localStorage.setItem('quant_custom_api_endpoints', JSON.stringify(endpoints));
+        } else {
+          localStorage.removeItem('quant_custom_api_endpoints');
+        }
+        loadCustomEndpointsUI();
+        showToast('Custom endpoints saved successfully!');
+      } catch (e) {
+        showToast('Failed to save endpoints', false);
+      }
+    }
+
+    function restoreDefaultEndpointsUI() {
+      try {
+        localStorage.removeItem('quant_custom_api_endpoints');
+        loadCustomEndpointsUI();
+        showToast('Default endpoints restored');
+      } catch (e) {
+        showToast('Failed to reset endpoints', false);
+      }
+    }
+
+    function launchAndroidBatterySettings() {
+      try {
+        const intentUrl = 'intent:#Intent;action=android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS;end';
+        const win = window.open(intentUrl, '_blank');
+        if (!win || win.closed) {
+          window.location.href = intentUrl;
+        }
+        showToast('Launching Android Battery Settings...');
+      } catch (e) {
+        openBatteryGuideModal();
+      }
+    }
+
+    function launchAndroidNotificationSettings() {
+      try {
+        const intentUrl = 'intent:#Intent;action=android.settings.APP_NOTIFICATION_SETTINGS;end';
+        const win = window.open(intentUrl, '_blank');
+        if (!win || win.closed) {
+          window.location.href = intentUrl;
+        }
+        showToast('Launching Android Notification Settings...');
+      } catch (e) {
+        if (typeof Notification !== 'undefined') {
+          Notification.requestPermission().then(updateNotifTag);
+        } else {
+          showToast('Notification settings unavailable', false);
+        }
       }
     }
 

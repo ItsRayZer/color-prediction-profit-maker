@@ -24,6 +24,8 @@
   let configuredMaxStake = 64;
   let hasAppBetSettings = false;
 
+  let _justLoggedInGrace = 0;
+
   // Intercept fetch & XHR to catch login/register responses instantly
   (function hookNetworkAuth() {
     try {
@@ -38,6 +40,9 @@
               clone.json().then(data => {
                 if (data && (data.code === 0 || data.success || data.token || data.data?.token)) {
                   console.log('[Quant AI Bridge] 🎉 Auth API Success Detected!');
+                  _justLoggedInGrace = Date.now() + 15000;
+                  try { sessionStorage.setItem('dhaniwin_auth_grace_until', String(_justLoggedInGrace)); } catch(e) {}
+                  _wasLoggedInBefore = true;
                   notifyApp({ type: 'DHANIWIN_AUTH_SUCCESS', data });
                   setTimeout(autoOpenWinGo, 600);
                 }
@@ -57,7 +62,11 @@
       hud = document.createElement('div');
       hud.id = 'quant-ai-hud';
       hud.style.cssText = 'position:fixed;bottom:75px;left:12px;right:12px;z-index:999999;background:rgba(12,8,25,0.96);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1.5px solid #10b981;border-radius:16px;padding:8px 14px;font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:#fff;font-size:11px;font-weight:bold;box-shadow:0 12px 36px rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:space-between;pointer-events:none;transition:all 0.3s ease;';
-      document.body.appendChild(hud);
+      const style = document.createElement('style');
+      style.textContent = `@keyframes autoBetShake { 0%, 100% { transform: scale(1.04) translateX(0); } 20%, 60% { transform: scale(1.05) translateX(-4px); } 40%, 80% { transform: scale(1.05) translateX(4px); } }`;
+      if (document.head) document.head.appendChild(style);
+      else if (document.body) document.body.appendChild(style);
+      if (document.body) document.body.appendChild(hud);
     }
     const colorHex = color === 'amber' ? '#f59e0b' : color === 'rose' ? '#f43f5e' : '#10b981';
     hud.style.borderColor = colorHex;
@@ -85,6 +94,7 @@
   // Handshake & Heartbeat
   notifyApp({ type: 'DHANIWIN_BRIDGE_HANDSHAKE', status: 'READY', url: window.location.href });
   updateFloatingHud('Bridge Active • Ready for Signals', 'emerald');
+  window.addEventListener('pointerdown', () => notifyApp({ type: 'DHANIWIN_PAGE_TAP' }), { passive: true });
   setInterval(() => {
     notifyApp({ type: 'DHANIWIN_BRIDGE_HEARTBEAT', timestamp: Date.now() });
   }, 2000);
@@ -285,6 +295,8 @@
 
     if (isLoggedIn && !_wasLoggedInBefore) {
       _wasLoggedInBefore = true;
+      _justLoggedInGrace = Date.now() + 15000;
+      try { sessionStorage.setItem('dhaniwin_auth_grace_until', String(_justLoggedInGrace)); } catch(e) {}
       notifyApp({
         type: 'DHANIWIN_LOGIN_DETECTED',
         loggedIn: true,
@@ -292,6 +304,13 @@
         timestamp: Date.now()
       });
     } else if (isAuthPage && _wasLoggedInBefore) {
+      // Do not fire session-out during post-login transition or if token is present
+      let storedGrace = 0;
+      try { storedGrace = Number(sessionStorage.getItem('dhaniwin_auth_grace_until')) || 0; } catch(e) {}
+      const effectiveGrace = Math.max(_justLoggedInGrace, storedGrace);
+      if (Date.now() < effectiveGrace || token) {
+        return;
+      }
       _wasLoggedInBefore = false;
       notifyApp({
         type: 'DHANIWIN_SESSION_OUT',
@@ -638,6 +657,8 @@
         if (order.manualConfirm === true) {
           confirmBtn.style.outline = '3px solid #10b981';
           confirmBtn.style.boxShadow = '0 0 32px rgba(16, 185, 129, 0.95)';
+          confirmBtn.style.animation = 'autoBetShake 0.65s ease-in-out infinite';
+          confirmBtn.classList.add('auto-bet-shake');
           confirmBtn.style.transform = 'scale(1.04)';
           confirmBtn.style.transition = 'all 0.25s ease';
           updateFloatingHud(`👉 TAP BET NOW: ${target} ₹${stake}`, 'emerald');

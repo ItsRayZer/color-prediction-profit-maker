@@ -329,6 +329,47 @@ describe('DhaniWin Auto Target & Stake Selection Engine', () => {
     assert.strictEqual(isOpen, false, 'Round is open when >= 5s');
   });
 
+  it('8. Adds auto-bet-shake class and animation to confirm button during manual confirmation preparation', async () => {
+    // Setup target button
+    const betBox = new MockElement('div', 'bet-con');
+    const greenBtn = new MockElement('button', 'btn-green');
+    greenBtn.innerText = 'Green';
+    betBox.appendChild(greenBtn);
+    document.body.appendChild(betBox);
+
+    // Setup popup and confirm button
+    const popup = new MockElement('div', 'van-popup van-popup--bottom');
+    const stepperInput = new MockElement('input', 'van-stepper__input');
+    stepperInput.value = '2';
+    popup.appendChild(stepperInput);
+
+    const confirmBtn = new MockElement('button', 'van-button van-button--danger');
+    confirmBtn.innerText = 'Confirm';
+    popup.appendChild(confirmBtn);
+    document.body.appendChild(popup);
+
+    // Mock setTimeout so the inner highlight timer fires synchronously
+    const savedTimeout = globalThis.setTimeout;
+    globalThis.setTimeout = (fn) => {
+      if (typeof fn === 'function') fn();
+      return 1;
+    };
+
+    try {
+      await bridgeAutomation.executeRealBet({
+        period: '202610041234',
+        target: 'GREEN',
+        stake: 2,
+        manualConfirm: true
+      });
+
+      assert.ok(confirmBtn.classList.contains('auto-bet-shake'), 'confirmBtn must have auto-bet-shake class');
+      assert.ok(confirmBtn.style.animation && confirmBtn.style.animation.includes('autoBetShake'), 'confirmBtn must have shake animation style');
+    } finally {
+      globalThis.setTimeout = savedTimeout;
+    }
+  });
+
   after(() => {
     setTimeout(() => {
       process.exit(0);

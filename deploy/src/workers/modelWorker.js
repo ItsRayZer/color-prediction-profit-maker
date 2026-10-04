@@ -23,6 +23,9 @@ const INCHARGE_MODES = {
   WINNING_STREAK_OVERRIDE: 'WINNING_STREAK_OVERRIDE',
   SESSION_WIN_RATE: 'SESSION_WIN_RATE',
   SESSION_STREAK_OVERRIDE: 'SESSION_STREAK_OVERRIDE',
+  LAST_10_WIN_RATE: 'LAST_10_WIN_RATE',
+  LAST_20_WIN_RATE: 'LAST_20_WIN_RATE',
+  HIGHEST_STREAK: 'HIGHEST_STREAK',
   UCB_RANKING: 'UCB_RANKING'
 };
 
@@ -63,6 +66,16 @@ class WorkerInchargeEngine {
 
   rankModels(models, metricType = 'overall') {
     const getWinRate = m => {
+      if (metricType === 'last10') {
+        const p = (m.historyPath || []).slice(0, 10);
+        if (p.length === 0) return 0;
+        return p.filter(x => x.won).length / p.length;
+      }
+      if (metricType === 'last20') {
+        const p = (m.historyPath || []).slice(0, 20);
+        if (p.length === 0) return 0;
+        return p.filter(x => x.won).length / p.length;
+      }
       if (metricType === 'session' && m.sessionWinRate !== undefined) return Number(m.sessionWinRate);
       if (m.winRate !== undefined) return Number(m.winRate);
       if (m.winRatePct) return parseFloat(m.winRatePct) / 100;
@@ -121,6 +134,47 @@ class WorkerInchargeEngine {
     }
 
     const mode = this.config.mode || INCHARGE_MODES.WINNING_STREAK_OVERRIDE;
+
+    if (mode === 'LAST_10_WIN_RATE') {
+      const ranked = this.rankModels(models, 'last10');
+      const champ = ranked[0] || models[0];
+      const p = (champ.historyPath || []).slice(0, 10);
+      const wr = p.length > 0 ? ((p.filter(x => x.won).length / p.length) * 100).toFixed(0) : '0';
+      this.state = 'NORMAL';
+      return {
+        model: champ,
+        mode,
+        state: this.state,
+        reason: `⚡ Last 10 Champion: ${champ.name} (${wr}% in last 10)`
+      };
+    }
+
+    if (mode === 'LAST_20_WIN_RATE') {
+      const ranked = this.rankModels(models, 'last20');
+      const champ = ranked[0] || models[0];
+      const p = (champ.historyPath || []).slice(0, 20);
+      const wr = p.length > 0 ? ((p.filter(x => x.won).length / p.length) * 100).toFixed(0) : '0';
+      this.state = 'NORMAL';
+      return {
+        model: champ,
+        mode,
+        state: this.state,
+        reason: `📊 Last 20 Champion: ${champ.name} (${wr}% in last 20)`
+      };
+    }
+
+    if (mode === 'HIGHEST_STREAK') {
+      const sortedByStreak = [...models].sort((a, b) => (Number(b.streak || 0)) - (Number(a.streak || 0)));
+      const champ = sortedByStreak[0] || models[0];
+      this.state = 'NORMAL';
+      return {
+        model: champ,
+        mode,
+        state: this.state,
+        reason: `🔥 Streak Leader: ${champ.name} (+${champ.streak || 0}W)`
+      };
+    }
+
     const isSessionMode = mode === INCHARGE_MODES.SESSION_WIN_RATE || mode === INCHARGE_MODES.SESSION_STREAK_OVERRIDE;
     const isStreakEnabled = mode === INCHARGE_MODES.WINNING_STREAK_OVERRIDE || mode === INCHARGE_MODES.SESSION_STREAK_OVERRIDE;
 
@@ -336,6 +390,10 @@ function processHistoryReplay(tf, rawHistory, config) {
             }
             model.winRate = model.totalEvaluated > 0 ? model.wins / model.totalEvaluated : 0;
             model.winRatePct = `${(model.winRate * 100).toFixed(1)}%`;
+
+            if (!model.historyPath) model.historyPath = [];
+            model.historyPath.unshift({ period: currentRound.period, won: isWin, predTarget: model.predTarget });
+            if (model.historyPath.length > 20) model.historyPath.pop();
           }
         }
       }
@@ -422,6 +480,21 @@ function processNewRound(tf, round) {
         }
         model.winRate = model.totalEvaluated > 0 ? model.wins / model.totalEvaluated : 0;
         model.winRatePct = `${(model.winRate * 100).toFixed(1)}%`;
+
+        if (!model.historyPath) model.historyPath = [];
+        model.historyPath.unshift({ period: round.period, won: isWin, predTarget: model.predTarget });
+        if (model.historyPath.length > 20) model.historyPath.pop();
+
+        if (isWin) {
+          model.dopamine = Math.min(1.0, (model.dopamine || 0.5) + 0.12);
+          model.lossPain = Math.max(0.0, (model.lossPain || 0) * 0.4);
+        } else {
+          // If model is wrong 5+ times consecutively, trigger fly neuron pain penalty
+          if (Math.abs(model.streak || 0) >= 5) {
+            model.lossPain = Math.min(1.0, (model.lossPain || 0) + 0.35 + (Math.abs(model.streak) - 5) * 0.15);
+            model.dopamine = Math.max(0.05, (model.dopamine || 0.5) * 0.3);
+          }
+        }
 
         // User Session Isolated Stats
         model.sessionEvaluated = (model.sessionEvaluated || 0) + 1;

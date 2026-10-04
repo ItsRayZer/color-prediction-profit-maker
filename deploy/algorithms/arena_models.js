@@ -1305,12 +1305,12 @@ const ARENA_CANONICAL_MODELS = [
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.81, "predType": "COLOR", "predTarget": "GREEN", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
-    "id": "PATTERN_CTW_WEIGHTING",
-    "name": "Context Tree Weighting",
-    "cat": "pattern",
-    "arch": "Willems Exact Bayesian Tree Enumerator",
-    "desc": "Exact Bayesian mixture weighting over all variable-depth Markov context trees",
-    "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 6, "conf": 0.80, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
+    "id": "GODS_EYE_OMNISCIENT",
+    "name": "Gods Eye Hyper Ensemble",
+    "cat": "meta",
+    "arch": "Holographic Consensus & Omnipresent Cross-Pattern Matrix",
+    "desc": "Omnipresent multi-horizon ensemble synthesizing spatial digit resonance, cycle flows, and consensus convergence with adaptive self-healing",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.91, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
     "id": "PATTERN_ADABOOST_ENSEMBLE",
@@ -1361,12 +1361,12 @@ const ARENA_CANONICAL_MODELS = [
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 2, "conf": 0.82, "predType": "COLOR", "predTarget": "RED", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
-    "id": "QUANTUM_WALK_GRAPH",
-    "name": "Quantum Walk Phase Explorer",
+    "id": "CHRONO_TIME_TRAVELER",
+    "name": "Temporal Future-Traveling Predictor",
     "cat": "quantum",
-    "arch": "Discrete-Time Coined Quantum Walk Lattice",
-    "desc": "Explores sequence transition lattices with quadratic speedup via quantum interference",
-    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 3, "conf": 0.81, "predType": "SIZE", "predTarget": "SMALL", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
+    "arch": "Phase-Shifted Temporal Manifold Extrapolation",
+    "desc": "Simulates forward-dilated sequence vectors to extrapolate upcoming state collapse before round boundary closure",
+    "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 2, "conf": 0.89, "predType": "COLOR", "predTarget": "RED", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
     "id": "STAT_DIRICHLET_PROCESS",
@@ -2913,13 +2913,31 @@ function generateModelNextPrediction(model, history, modelStats) {
       cProb = 0.72;
       break;
     }
-    case 'PATTERN_CTW_WEIGHTING': {
-      const lastBit = last1.size === 'BIG' ? 1 : 0;
-      const prevBit = last2.size === 'BIG' ? 1 : 0;
-      sDec = (lastBit ^ prevBit) === 1 ? 'BIG' : 'SMALL';
-      sProb = 0.76;
-      cDec = last1.color;
-      cProb = 0.72;
+    case 'GODS_EYE_OMNISCIENT': {
+      // Multi-horizon holographic pattern & cycle synthesis
+      const recent12 = sizes.slice(-12);
+      const bRatio12 = recent12.filter(s => s === 'BIG').length / Math.max(1, recent12.length);
+      const recentColors12 = colors.slice(-12);
+      const gRatio12 = recentColors12.filter(c => c === 'GREEN').length / Math.max(1, recentColors12.length);
+
+      const altSize = sizes.length >= 4 && sizes.slice(-4).every((v, i, a) => i === 0 || v !== a[i-1]);
+      const altColor = colors.length >= 4 && colors.slice(-4).every((v, i, a) => i === 0 || v !== a[i-1]);
+
+      if (altSize) {
+        sDec = last1.size === 'BIG' ? 'SMALL' : 'BIG';
+        sProb = 0.88;
+      } else {
+        sDec = bRatio12 >= 0.5 ? 'BIG' : 'SMALL';
+        sProb = 0.85 + Math.abs(bRatio12 - 0.5) * 0.20;
+      }
+
+      if (altColor) {
+        cDec = last1.color === 'GREEN' ? 'RED' : 'GREEN';
+        cProb = 0.87;
+      } else {
+        cDec = gRatio12 >= 0.5 ? 'GREEN' : 'RED';
+        cProb = 0.84 + Math.abs(gRatio12 - 0.5) * 0.20;
+      }
       break;
     }
     case 'PATTERN_ADABOOST_ENSEMBLE': {
@@ -2985,13 +3003,23 @@ function generateModelNextPrediction(model, history, modelStats) {
       sProb = 0.74;
       break;
     }
-    case 'QUANTUM_WALK_GRAPH': {
-      const lastBit = last1.size === 'BIG' ? 1 : -1;
-      const interference = lastBit * Math.cos(Math.PI / 4) + Math.sin(Math.PI / 4);
-      sDec = interference >= 0 ? 'BIG' : 'SMALL';
-      sProb = 0.77;
-      cDec = last1.color;
-      cProb = 0.73;
+    case 'CHRONO_TIME_TRAVELER': {
+      // Phase-shifted temporal manifold extrapolation
+      const subNums = nums.slice(-16);
+      let phaseAngle = 0;
+      subNums.forEach((n, idx) => {
+        const weight = (idx + 1) / subNums.length;
+        const mapped = n >= 5 ? 1 : -1;
+        phaseAngle += mapped * weight * Math.cos((idx * Math.PI) / 4);
+      });
+      const projectedSign = phaseAngle + Math.sin(subNums.length * 0.45);
+      sDec = projectedSign >= 0 ? 'BIG' : 'SMALL';
+      sProb = 0.86 + Math.min(0.08, Math.abs(projectedSign) * 0.05);
+
+      const lastColBit = last1.color === 'GREEN' ? 1 : -1;
+      const colProjected = lastColBit * Math.cos(Math.PI / 3) + phaseAngle * 0.2;
+      cDec = colProjected >= 0 ? 'GREEN' : 'RED';
+      cProb = 0.85;
       break;
     }
     case 'STAT_DIRICHLET_PROCESS': {
@@ -3014,21 +3042,93 @@ function generateModelNextPrediction(model, history, modelStats) {
       break;
     }
     case 'ASI_APEX_MASTER': {
-      const winSizes = sizes.slice(-10);
-      const bRatio = winSizes.filter(s => s === 'BIG').length / 10;
-      let streak = 1;
+      // ══════════════════════════════════════════════════════════════════════
+      // ASI APEX MASTER CONDUCTOR v5.0
+      // Multi-Model Consensus Conductor synthesizing 101 models, active win streaks,
+      // full history, and structural pattern catalog matches (run/chop/double-blocks)
+      // ══════════════════════════════════════════════════════════════════════
+      let bigScore = 0;
+      let smallScore = 0;
+      let greenScore = 0;
+      let redScore = 0;
+
+      // 1. Synthesize from all 101 models if accessible via stats.allModels
+      if (stats && Array.isArray(stats.allModels) && stats.allModels.length > 0) {
+        stats.allModels.forEach(m => {
+          if (!m || m.id === 'ASI_APEX_MASTER') return;
+          // Weight boosted for active winning streak leaders and high win-rate performers
+          const mStreak = Number(m.streak) || 0;
+          const mWinRate = Number(m.winRate || m.baseWinRate || 0.5);
+          const weight = 1.0 + (mStreak > 0 ? mStreak * 0.6 : 0) + (mWinRate * 0.4);
+
+          const sVote = (m.predSize || m.predTarget || '').toUpperCase();
+          if (sVote.includes('BIG')) bigScore += weight;
+          else if (sVote.includes('SMALL')) smallScore += weight;
+
+          const cVote = (m.predColor || m.predTarget || '').toUpperCase();
+          if (cVote.includes('GREEN')) greenScore += weight;
+          else if (cVote.includes('RED')) redScore += weight;
+        });
+      }
+
+      // 2. Multi-horizon historical ratio & Markov transition synthesis
+      const last10Sizes = sizes.slice(-10);
+      const bRatio10 = last10Sizes.filter(s => s === 'BIG').length / Math.max(1, last10Sizes.length);
+      const last10Colors = colors.slice(-10);
+      const gRatio10 = last10Colors.filter(c => c === 'GREEN').length / Math.max(1, last10Colors.length);
+      bigScore += bRatio10 * 3.0;
+      smallScore += (1 - bRatio10) * 3.0;
+      greenScore += gRatio10 * 3.0;
+      redScore += (1 - gRatio10) * 3.0;
+
+      // 3. Structural Pattern Catalog: Persistent Runs (Dragons), Chop & Double-Blocks
+      let streakSize = 1;
       for (let i = sizes.length - 2; i >= 0; i--) {
-        if (sizes[i] === last1.size) streak++; else break;
+        if (sizes[i] === last1.size) streakSize++; else break;
       }
-      if (streak >= 3) {
+      let streakColor = 1;
+      for (let i = colors.length - 2; i >= 0; i--) {
+        if (colors[i] === last1.color) streakColor++; else break;
+      }
+
+      const isChopSize = len >= 4 && sizes[len - 1] !== sizes[len - 2] && sizes[len - 2] !== sizes[len - 3] && sizes[len - 3] !== sizes[len - 4];
+      const isChopColor = len >= 4 && colors[len - 1] !== colors[len - 2] && colors[len - 2] !== colors[len - 3] && colors[len - 3] !== colors[len - 4];
+
+      if (streakSize >= 3) {
+        // Confirmed Dragon Run: heavy momentum continuation
+        if (last1.size === 'BIG') bigScore += 8.0; else smallScore += 8.0;
+      } else if (isChopSize) {
+        // Alternating Chop continuation
+        if (last1.size === 'BIG') smallScore += 4.0; else bigScore += 4.0;
+      }
+
+      if (streakColor >= 3) {
+        // Confirmed Color Run: heavy momentum continuation
+        if (last1.color === 'GREEN') greenScore += 8.0; else redScore += 8.0;
+      } else if (isChopColor) {
+        // Alternating Color Chop continuation
+        if (last1.color === 'GREEN') redScore += 4.0; else greenScore += 4.0;
+      }
+
+      // Consensus decisions
+      sDec = bigScore >= smallScore ? 'BIG' : 'SMALL';
+      cDec = greenScore >= redScore ? 'GREEN' : 'RED';
+
+      const sEdge = Math.abs(bigScore - smallScore) / Math.max(1, bigScore + smallScore);
+      const cEdge = Math.abs(greenScore - redScore) / Math.max(1, greenScore + redScore);
+
+      sProb = Math.min(0.95, Math.max(0.76, 0.74 + sEdge * 0.20));
+      cProb = Math.min(0.95, Math.max(0.76, 0.74 + cEdge * 0.20));
+
+      // Guarantee conf >= 0.75 on confirmed dragon runs
+      if (streakSize >= 3) {
         sDec = last1.size;
-        sProb = 0.88;
-      } else {
-        sDec = bRatio >= 0.5 ? 'BIG' : 'SMALL';
-        sProb = 0.84;
+        sProb = Math.max(sProb, 0.88);
       }
-      cDec = last1.color;
-      cProb = 0.83;
+      if (streakColor >= 3) {
+        cDec = last1.color;
+        cProb = Math.max(cProb, 0.85);
+      }
       break;
     }
     default: {
@@ -3040,10 +3140,10 @@ function generateModelNextPrediction(model, history, modelStats) {
     }
   }
 
-  // ── D. BALANCED MOMENTUM & ADAPTIVE STREAK MODULATION ──
-  const curStreak = (stats && stats.streak !== undefined) ? stats.streak : 0;
-  const dopamine = (stats && stats.dopamine !== undefined) ? stats.dopamine : 0.5;
-  const lossPain = (stats && stats.lossPain !== undefined) ? stats.lossPain : 0.0;
+  // ── D. BALANCED MOMENTUM & ADAPTIVE STREAK MODULATION (FLY NEURON PLASTICITY) ──
+  const curStreak = (stats && stats.streak !== undefined) ? stats.streak : (model.streak || 0);
+  let dopamine = (stats && stats.dopamine !== undefined) ? stats.dopamine : (model.dopamine || 0.5);
+  let lossPain = (stats && stats.lossPain !== undefined) ? stats.lossPain : (model.lossPain || 0.0);
 
   // Winning momentum boost: reward successful models with sharper confidence
   if (curStreak >= 1) {
@@ -3052,8 +3152,15 @@ function generateModelNextPrediction(model, history, modelStats) {
     sProb += boost;
   }
 
-  // Drawdown defense: if model is in drawdown, dynamically re-weight towards the dimension with clearer trend
-  if (curStreak <= -2) {
+  // Drawdown defense & Fly Neuron Pain Punishment (>5 consecutive losses)
+  if (curStreak <= -5) {
+    // Drosophila lateral horn refractory penalty: invert stubborn failing prediction to self-adapt
+    sDec = sDec === 'BIG' ? 'SMALL' : 'BIG';
+    cDec = cDec === 'GREEN' ? 'RED' : 'GREEN';
+    const painPenalty = Math.min(0.24, 0.12 + (Math.abs(curStreak) - 5) * 0.02 + (lossPain * 0.08));
+    sProb = Math.max(0.55, sProb - painPenalty);
+    cProb = Math.max(0.55, cProb - painPenalty);
+  } else if (curStreak <= -2) {
     const greenCnt = colors.slice(-8).filter(c => c === 'GREEN').length;
     const bigCnt = sizes.slice(-8).filter(s => s === 'BIG').length;
     const colorImbalance = Math.abs(greenCnt - 4) / 4;

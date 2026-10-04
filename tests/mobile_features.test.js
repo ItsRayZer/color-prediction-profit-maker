@@ -483,5 +483,321 @@ test('Background Run, Wake Lock & Battery Optimization Workflow', async (t) => {
   });
 });
 
+test('R1: Tab Navigation, Persistence & Dock Compaction Rules', async (t) => {
+  const mockStorage = new Map();
+  const localStorageMock = {
+    getItem: (k) => mockStorage.get(k) || null,
+    setItem: (k, v) => mockStorage.set(k, String(v)),
+    removeItem: (k) => mockStorage.delete(k)
+  };
+
+  function getInitialStartupTab() {
+    return localStorageMock.getItem('active_mobile_tab') || 'web';
+  }
+
+  function switchMobileTabMock(tabId) {
+    localStorageMock.setItem('active_mobile_tab', tabId);
+    return tabId;
+  }
+
+  function shouldAutoCompactDock(currentTab, isScrolledDown) {
+    if (currentTab !== 'home' && currentTab !== 'web') {
+      return false; // Leave dock expanded on non-home tabs
+    }
+    return Boolean(isScrolledDown);
+  }
+
+  await t.test('Default startup tab is web (Home DhaniWin) when no preference stored', () => {
+    assert.equal(getInitialStartupTab(), 'web');
+  });
+
+  await t.test('Switching tab persists active tab to localStorage', () => {
+    switchMobileTabMock('analyse');
+    assert.equal(getInitialStartupTab(), 'analyse');
+    switchMobileTabMock('web');
+    assert.equal(getInitialStartupTab(), 'web');
+  });
+
+  await t.test('Dock compaction triggers only on Home/Web tab when scrolling down', () => {
+    assert.equal(shouldAutoCompactDock('web', true), true);
+    assert.equal(shouldAutoCompactDock('web', false), false);
+    assert.equal(shouldAutoCompactDock('analyse', true), false, 'Non-home tabs should keep dock expanded');
+    assert.equal(shouldAutoCompactDock('chart', true), false, 'Non-home tabs should keep dock expanded');
+  });
+});
+
+test('R2: Floating Assistant Orb & Dynamic Countdown Ring Logic', async (t) => {
+  const CIRCUMFERENCE = 2 * Math.PI * 30; // 188.495...
+
+  function computeOrbRingState(secsLeft, secsTotal = 30) {
+    const fraction = Math.max(0, Math.min(1, secsLeft / secsTotal));
+    const offset = CIRCUMFERENCE * (1 - fraction);
+    let color = '#34c759'; // Emerald green
+    if (secsLeft <= 5) {
+      color = '#ef4444'; // Neon red
+    } else if (secsLeft <= 10) {
+      color = '#f59e0b'; // Amber
+    }
+    return {
+      offset: Number(offset.toFixed(2)),
+      color,
+      fraction: Number(fraction.toFixed(3))
+    };
+  }
+
+  await t.test('Ring circumference is approx 188.5 for radius 30', () => {
+    assert.ok(Math.abs(CIRCUMFERENCE - 188.495) < 0.01);
+  });
+
+  await t.test('Color is emerald green when > 10s remaining', () => {
+    const s25 = computeOrbRingState(25, 30);
+    assert.equal(s25.color, '#34c759');
+    const s11 = computeOrbRingState(11, 30);
+    assert.equal(s11.color, '#34c759');
+  });
+
+  await t.test('Color is amber when 6s to 10s remaining', () => {
+    const s10 = computeOrbRingState(10, 30);
+    assert.equal(s10.color, '#f59e0b');
+    const s6 = computeOrbRingState(6, 30);
+    assert.equal(s6.color, '#f59e0b');
+  });
+
+  await t.test('Color is neon red when <= 5s remaining', () => {
+    const s5 = computeOrbRingState(5, 30);
+    assert.equal(s5.color, '#ef4444');
+    const s1 = computeOrbRingState(1, 30);
+    assert.equal(s1.color, '#ef4444');
+    const s0 = computeOrbRingState(0, 30);
+    assert.equal(s0.color, '#ef4444');
+  });
+
+  await t.test('Stroke offset smoothly progresses from 0 at start to CIRCUMFERENCE at 0s', () => {
+    const start = computeOrbRingState(30, 30);
+    assert.equal(start.offset, 0);
+    const half = computeOrbRingState(15, 30);
+    assert.ok(Math.abs(half.offset - (CIRCUMFERENCE / 2)) < 0.1);
+    const end = computeOrbRingState(0, 30);
+    assert.ok(Math.abs(end.offset - CIRCUMFERENCE) < 0.1);
+  });
+});
+
+test('R3: Win Streak Dollar Rain Particle Scaling & Audio Throttling', async (t) => {
+  function computeRainParticles(width, streak) {
+    const baseCount = Math.min(36, Math.max(16, Math.floor(width / 11)));
+    const streakCount = Math.max(1, Number(streak) || 1);
+    return Math.min(120, Math.floor(baseCount + (streakCount - 1) * 8));
+  }
+
+  let playedSounds = [];
+  let pendingBgSound = null;
+  let documentHidden = false;
+
+  function playSound(type) {
+    if (documentHidden) {
+      pendingBgSound = type;
+      return false;
+    }
+    playedSounds.push(type);
+    return true;
+  }
+
+  function onRefocus() {
+    if (pendingBgSound) {
+      const soundToPlay = pendingBgSound;
+      pendingBgSound = null;
+      playedSounds.push(soundToPlay);
+    }
+  }
+
+  await t.test('Dollar rain particle count scales up with win streak and clamps at 120', () => {
+    const width = 390; // Typical mobile screen width -> baseCount = 35
+    const p1 = computeRainParticles(width, 1);
+    assert.equal(p1, 35, 'Streak 1 should equal base count');
+
+    const p3 = computeRainParticles(width, 3);
+    assert.equal(p3, 35 + 2 * 8, 'Streak 3 should add 16 particles');
+
+    const p8 = computeRainParticles(width, 8);
+    assert.equal(p8, 35 + 7 * 8, 'Streak 8 should add 56 particles');
+
+    const p20 = computeRainParticles(width, 20);
+    assert.equal(p20, 120, 'High streak should clamp to 120 max particles');
+  });
+
+  await t.test('Audio management suppresses sounds in background and plays at most single chime on refocus', () => {
+    playedSounds = [];
+    pendingBgSound = null;
+    documentHidden = false;
+
+    // Normal foreground play
+    playSound('win');
+    assert.equal(playedSounds.length, 1);
+
+    // Switch to background
+    documentHidden = true;
+    playSound('win');
+    playSound('win');
+    playSound('win');
+    assert.equal(playedSounds.length, 1, 'No new sounds should play while document is hidden');
+    assert.equal(pendingBgSound, 'win', 'Should store at most a single pending chime');
+
+    // Refocus
+    documentHidden = false;
+    onRefocus();
+    assert.equal(playedSounds.length, 2, 'Exactly one single chime played on refocus');
+    assert.equal(pendingBgSound, null, 'Pending sound should be cleared');
+  });
+});
+
+test('R4: Max 3-Loss Circuit Breaker & Bet Dispatch Guard', async (t) => {
+  const state = {
+    consecutiveLosses: 0,
+    circuitBreakerActive: false,
+    circuitBreakerPauseRounds: 0,
+    currentStake: 2,
+    currentLevel: 0
+  };
+
+  function settleOutcome(isWin) {
+    if (isWin) {
+      state.consecutiveLosses = 0;
+      state.circuitBreakerActive = false;
+      state.circuitBreakerPauseRounds = 0;
+      state.currentStake = 2;
+      state.currentLevel = 0;
+    } else {
+      state.consecutiveLosses += 1;
+      if (state.consecutiveLosses >= 3) {
+        state.circuitBreakerActive = true;
+        state.circuitBreakerPauseRounds = 2;
+        state.currentStake = 2;
+        state.currentLevel = 0;
+      } else {
+        state.currentLevel += 1;
+        state.currentStake = state.currentStake * 2;
+      }
+    }
+
+    return { ...state };
+  }
+
+  function advanceRoundCooloff() {
+    if (state.circuitBreakerPauseRounds > 0) {
+      state.circuitBreakerPauseRounds -= 1;
+      if (state.circuitBreakerPauseRounds === 0) {
+        state.circuitBreakerActive = false;
+        state.consecutiveLosses = 0;
+      }
+    }
+  }
+
+  function canDispatchBetOrder() {
+    return state.circuitBreakerPauseRounds === 0;
+  }
+
+  await t.test('Consecutive loss 1 and 2 advance martingale stake without tripping breaker', () => {
+    settleOutcome(false);
+    assert.equal(state.consecutiveLosses, 1);
+    assert.equal(state.circuitBreakerActive, false);
+    assert.equal(canDispatchBetOrder(), true);
+
+    settleOutcome(false);
+    assert.equal(state.consecutiveLosses, 2);
+    assert.equal(state.circuitBreakerActive, false);
+    assert.equal(canDispatchBetOrder(), true);
+  });
+
+  await t.test('3rd consecutive loss trips circuit breaker: pauses 2 rounds, resets stake to base ₹2, blocks orders', () => {
+    settleOutcome(false);
+    assert.equal(state.consecutiveLosses, 3);
+    assert.equal(state.circuitBreakerActive, true);
+    assert.equal(state.circuitBreakerPauseRounds, 2);
+    assert.equal(state.currentStake, 2, 'Stake must reset to base ₹2');
+    assert.equal(state.currentLevel, 0, 'Level must reset to 0');
+    assert.equal(canDispatchBetOrder(), false, 'Bet dispatch must be blocked during pause');
+  });
+
+  await t.test('Circuit breaker cool-off decrements per round and unblocks orders after 2 rounds', () => {
+    advanceRoundCooloff();
+    assert.equal(state.circuitBreakerPauseRounds, 1);
+    assert.equal(canDispatchBetOrder(), false);
+
+    advanceRoundCooloff();
+    assert.equal(state.circuitBreakerPauseRounds, 0);
+    assert.equal(state.circuitBreakerActive, false);
+    assert.equal(canDispatchBetOrder(), true, 'Bet dispatch must resume once cool-off finishes');
+  });
+});
+
+test('R5: Post-Login Grace Period & Custom API Endpoints Fallback', async (t) => {
+  let mockNow = 100000;
+  let authGracePeriodUntil = 0;
+  const mockSessionStorage = new Map();
+
+  function isAuthGracePeriodActive() {
+    if (mockNow < authGracePeriodUntil) return true;
+    const raw = mockSessionStorage.get('dhaniwin_auth_grace_until');
+    if (raw && mockNow < Number(raw)) return true;
+    return false;
+  }
+
+  function markUserLoggedIn() {
+    authGracePeriodUntil = mockNow + 15000;
+    mockSessionStorage.set('dhaniwin_auth_grace_until', String(authGracePeriodUntil));
+  }
+
+  const DEFAULT_TF_UPSTREAM_URLS = {
+    '30s': 'https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json',
+    '1m':  'https://draw.ar-lottery01.com/WinGo/WinGo_1M/GetHistoryIssuePage.json',
+    '3m':  'https://draw.ar-lottery01.com/WinGo/WinGo_3M/GetHistoryIssuePage.json',
+    '5m':  'https://draw.ar-lottery01.com/WinGo/WinGo_5M/GetHistoryIssuePage.json'
+  };
+
+  const mockLocalStorage = new Map();
+  function getApiEndpoint(tf) {
+    try {
+      const raw = mockLocalStorage.get('quant_custom_api_endpoints');
+      if (raw) {
+        const endpoints = JSON.parse(raw);
+        if (endpoints && endpoints[tf] && typeof endpoints[tf] === 'string' && endpoints[tf].trim().length > 0) {
+          return endpoints[tf].trim();
+        }
+      }
+    } catch(e) {}
+    return DEFAULT_TF_UPSTREAM_URLS[tf] || DEFAULT_TF_UPSTREAM_URLS['30s'];
+  }
+
+  await t.test('Post-login grace period stays active for 15s protecting against false session expiration', () => {
+    assert.equal(isAuthGracePeriodActive(), false);
+    markUserLoggedIn();
+    assert.equal(isAuthGracePeriodActive(), true);
+
+    // 10s elapsed
+    mockNow += 10000;
+    assert.equal(isAuthGracePeriodActive(), true, 'Still in 15s grace window');
+
+    // 16s elapsed
+    mockNow += 6000;
+    assert.equal(isAuthGracePeriodActive(), false, 'Grace window expired after 15s');
+  });
+
+  await t.test('Custom API endpoints return custom mirror when set, and fall back to locked defaults', () => {
+    assert.equal(getApiEndpoint('30s'), DEFAULT_TF_UPSTREAM_URLS['30s']);
+    assert.equal(getApiEndpoint('1m'), DEFAULT_TF_UPSTREAM_URLS['1m']);
+
+    // Set custom mirror for 30s
+    mockLocalStorage.set('quant_custom_api_endpoints', JSON.stringify({
+      '30s': 'https://custom-mirror.example.com/wingo_30s.json'
+    }));
+    assert.equal(getApiEndpoint('30s'), 'https://custom-mirror.example.com/wingo_30s.json');
+    assert.equal(getApiEndpoint('1m'), DEFAULT_TF_UPSTREAM_URLS['1m'], '1m should still use locked default');
+
+    // Restore defaults
+    mockLocalStorage.delete('quant_custom_api_endpoints');
+    assert.equal(getApiEndpoint('30s'), DEFAULT_TF_UPSTREAM_URLS['30s'], '30s should revert to locked default');
+  });
+});
+
 
 

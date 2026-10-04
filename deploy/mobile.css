@@ -76,14 +76,25 @@ body {
   border-radius: inherit;
 }
 
-/* ── Apple Liquid Glass Header Bar (Seamless / No Line) ── */
+/* ── Apple Liquid Glass Header Bar (Seamless Downward Blend / No Line) ── */
 .liquid-glass-header {
-  background: rgba(10, 10, 15, 0.42) !important;
-  backdrop-filter: blur(28px) saturate(210%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(210%) !important;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.45) 55%, transparent 100%) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  -webkit-mask-image: linear-gradient(to bottom, black 65%, transparent 100%) !important;
+  mask-image: linear-gradient(to bottom, black 65%, transparent 100%) !important;
   border: none !important;
   border-bottom: none !important;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.28) !important;
+  box-shadow: none !important;
+}
+
+@keyframes autoBetShake {
+  0%, 100% { transform: scale(1.04) translateX(0); }
+  20%, 60% { transform: scale(1.05) translateX(-4px); }
+  40%, 80% { transform: scale(1.05) translateX(4px); }
+}
+.auto-bet-shake {
+  animation: autoBetShake 0.65s ease-in-out infinite !important;
 }
 
 /* ── Fullscreen Immersive Win Animation ── */
@@ -307,7 +318,9 @@ body {
 body.nav-compact header.liquid-glass-header {
   padding-top: 5px !important;
   padding-bottom: 5px !important;
-  background: rgba(10, 10, 15, 0.65) !important;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.88) 0%, rgba(0, 0, 0, 0.5) 60%, transparent 100%) !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 
 /* ── Home (web) tab: top bar auto-hide; DhaniWin view always starts below our header ── */

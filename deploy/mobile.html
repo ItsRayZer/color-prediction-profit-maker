@@ -183,15 +183,12 @@
         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
         <span>LIVE</span>
       </div>
-      <button onclick="switchToPCMode()" class="w-7 h-7 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center transition active:scale-95 text-amber-300" title="Switch to Desktop / PC View">
-        <i class="fa-solid fa-desktop text-xs"></i>
-      </button>
       <button onclick="openDhaniAccountMenu()" class="w-7 h-7 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center transition active:scale-95" title="DhaniWin Account (Login / Logout)">
         <i id="headerAccountIcon" class="fa-solid fa-right-to-bracket text-xs text-sky-300"></i>
       </button>
-      <a href="settings.html" class="w-7 h-7 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-white/70 flex items-center justify-center transition active:scale-95" title="Settings (Apple iOS 18)">
+      <button type="button" onclick="toggleMobileSettings()" id="headerSettingsBtn" class="w-7 h-7 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-white/70 flex items-center justify-center transition active:scale-95" title="Settings (AMOLED Minimalist • Universal)">
         <i class="fa-solid fa-gear text-xs"></i>
-      </a>
+      </button>
     </div>
   </header>
 
@@ -663,12 +660,12 @@
             <span class="text-[10px] font-black uppercase tracking-wider text-white">Algorithm Leaderboard (101 Models)</span>
             <span id="algoCountTag" class="text-[8px] font-mono text-zinc-400">101 Models</span>
           </div>
-          <div class="flex items-center gap-1">
-            <button id="resetAIWinRateBtn" onclick="resetUserAIModelsWinRate()" class="px-2 py-0.5 rounded-lg text-[8px] font-mono font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 active:scale-95 transition flex items-center gap-1" title="Reset all 101 model win rates to 0% for your personal session">
-              <i class="fa-solid fa-arrows-rotate text-[7px]"></i> Reset 0%
+          <div class="flex items-center gap-1 bg-black/40 p-0.5 rounded-xl border border-white/[0.08]">
+            <button id="restoreGlobalAIBtn" type="button" onclick="restoreGlobalAIStats()" class="px-2 py-0.5 rounded-lg text-[8px] font-mono font-bold transition flex items-center gap-1 bg-purple-500/25 text-purple-200 border border-purple-400/50 shadow-sm" title="Show all-time global cloud ratings">
+              <i class="fa-solid fa-earth-americas text-[7px]"></i> Global
             </button>
-            <button id="restoreGlobalAIBtn" onclick="restoreGlobalAIStats()" class="hidden px-1.5 py-0.5 rounded-lg text-[8px] font-mono font-bold bg-purple-500/15 text-purple-300 border border-purple-500/30 hover:bg-purple-500/25 active:scale-95 transition" title="Restore global cloud ratings">
-              Global
+            <button id="resetAIWinRateBtn" type="button" onclick="resetUserAIModelsWinRate()" class="px-2 py-0.5 rounded-lg text-[8px] font-mono font-bold transition flex items-center gap-1 text-zinc-400 hover:text-rose-300 border border-transparent" title="Reset all model win rates to 0% for your personal session">
+              <i class="fa-solid fa-rotate-left text-[7px]"></i> Reset 0%
             </button>
           </div>
         </div>
@@ -775,14 +772,6 @@
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads">
       </iframe>
 
-      <!-- DhaniWin Quick Exit & Status Bar -->
-      <div id="dhaniFallbackBar" class="absolute top-3 left-3 right-3 z-50 flex items-center justify-between px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-xs">
-        <span class="text-white/60 font-mono text-[10px]">DhaniWin Webview</span>
-        <button onclick="switchMobileTab('home')" class="px-2.5 py-0.5 rounded-full bg-white/10 hover:bg-white/20 text-[#0a84ff] font-bold text-[11px] active:scale-95 transition">
-          ← Terminal
-        </button>
-      </div>
-
       <!-- Pull handle: visible when our top bar is hidden; tap / swipe down to show it -->
       <button id="homeHeaderPullHandle" type="button" aria-label="Show top bar"></button>
 
@@ -796,15 +785,21 @@
         <button type="button" onclick="dismissDhaniAuthBar()" class="auth-btn auth-btn-ghost" title="Hide"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
-
-      <!-- Floating Circle Assistant (AssistiveTouch Orb) -->
+      <!-- Floating Circle Assistant (AssistiveTouch Orb with Radial Clock Timer Ring) -->
       <div id="dhaniwinFloatingOrb"
         class="fixed select-none cursor-pointer transition-transform active:scale-90 touch-none"
-        style="bottom: 90px; right: 16px; width: 56px; height: 56px; z-index: 99998; display: block;"
-        title="DhaniWin Quant AI Assistant">
-        <!-- Outer Glowing Pulsing Ring -->
-        <div id="floatingOrbRing" class="absolute inset-0 rounded-full bg-gradient-to-tr from-amber-500 via-emerald-500 to-indigo-500 p-[2px] shadow-[0_4px_24px_rgba(16,185,129,0.55)]">
-          <div class="w-full h-full rounded-full bg-black/90 backdrop-blur-md flex flex-col items-center justify-center text-center">
+        style="bottom: 90px; right: 16px; width: 60px; height: 60px; z-index: 99998; display: block;"
+        title="01:01 Quant AI Assistant">
+        
+        <!-- Clock-Like Radial SVG Countdown Ring -->
+        <svg class="absolute -inset-[3px] w-[66px] h-[66px] -rotate-90 pointer-events-none" viewBox="0 0 66 66">
+          <circle cx="33" cy="33" r="30" stroke="rgba(255, 255, 255, 0.1)" stroke-width="2.5" fill="none" />
+          <circle id="orbTimerRing" cx="33" cy="33" r="30" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" fill="none" stroke-dasharray="188.5" stroke-dashoffset="0" style="transition: stroke-dashoffset 0.25s linear, stroke 0.3s ease, filter 0.3s ease;" />
+        </svg>
+
+        <!-- Outer Glowing Pulsing Ring & Inner Ball -->
+        <div id="floatingOrbRing" class="absolute inset-[3px] rounded-full bg-gradient-to-tr from-amber-500 via-emerald-500 to-indigo-500 p-[2px] shadow-[0_4px_24px_rgba(16,185,129,0.45)]">
+          <div class="w-full h-full rounded-full bg-black/95 backdrop-blur-md flex flex-col items-center justify-center text-center">
             <span id="floatingOrbIcon" class="text-xs leading-none">🎯</span>
             <span id="floatingOrbTarget" class="text-[8.5px] font-black font-mono text-amber-300 leading-tight">BIG</span>
             <span id="floatingOrbStake" class="text-[7.5px] font-bold font-mono text-emerald-400 leading-none">₹2</span>
@@ -822,17 +817,21 @@
           <!-- Top Grab Bar -->
           <div class="w-10 h-1 bg-white/20 rounded-full mx-auto cursor-pointer" onclick="toggleDhaniwinAssistantModal(false)"></div>
 
-          <!-- 1. Minimal Header: Real Scraped Balance + Sync & Close -->
+          <!-- 1. Minimal Header: Real Scraped Balance & Live Profit -->
           <div class="flex items-center justify-between pb-2 border-b border-white/[0.08]">
-            <div class="flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <div class="flex items-center gap-3">
               <div class="flex flex-col">
-                <span class="text-[8px] font-mono text-zinc-400 uppercase tracking-wider">Real Scraped Balance</span>
-                <span id="mobileWebBalance" class="text-base font-black font-mono text-white">₹0.00</span>
+                <span class="text-[7.5px] font-mono text-zinc-400 uppercase tracking-wider">Live Balance</span>
+                <span id="mobileWebBalance" class="text-sm font-black font-mono text-white">₹0.00</span>
+              </div>
+              <div class="h-6 w-[1px] bg-white/10"></div>
+              <div class="flex flex-col">
+                <span class="text-[7.5px] font-mono text-zinc-400 uppercase tracking-wider">Session Profit</span>
+                <span id="mobileWebSessionPnl" class="text-sm font-black font-mono text-emerald-400">+₹0.00</span>
               </div>
             </div>
             <div class="flex items-center gap-1.5">
-              <button onclick="syncMobileUserWallet()" class="px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/15 text-zinc-200 font-mono text-[9px] flex items-center gap-1 active:scale-95 transition">
+              <button onclick="syncMobileUserWallet()" class="px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/15 text-zinc-200 font-mono text-[8.5px] flex items-center gap-1 active:scale-95 transition">
                 <i class="fa-solid fa-arrows-rotate text-[8px]"></i> Sync
               </button>
               <button onclick="toggleDhaniwinAssistantModal(false)" class="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-zinc-300 flex items-center justify-center text-xs">
@@ -882,7 +881,7 @@
             </div>
           </div>
 
-          <!-- 5. 1-Tap Base Bet Quick Set Chips & Recovery Stake Display -->
+          <!-- 5. 1-Tap Base Bet Quick Set Chips & Next Stake Display -->
           <div class="p-2.5 rounded-2xl bg-black/40 border border-white/[0.08] space-y-2">
             <div class="flex items-center justify-between text-[8.5px] font-mono">
               <span class="text-zinc-300 font-bold">1-TAP BASE BET (₹):</span>
@@ -898,7 +897,7 @@
             </div>
           </div>
 
-          <!-- 6. Loss Limit / Stop-Bet Reminder -->
+          <!-- 6. Stop Loss Protection -->
           <div class="p-2.5 rounded-2xl bg-black/40 border border-white/[0.08] flex items-center justify-between gap-2">
             <div class="flex items-center gap-1.5 text-[8.5px] font-mono text-zinc-300">
               <i class="fa-solid fa-shield-halved text-rose-400"></i>
@@ -910,44 +909,31 @@
             </div>
           </div>
 
-          <!-- 7. Action Controls: Prep BIG, Prep SMALL, Auto-Prep Toggle -->
-          <div class="flex items-center gap-2">
-            <button onclick="mobileQuickOpenTarget('BIG')" class="flex-1 py-2 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 border border-sky-500/40 text-[9.5px] font-black active:scale-95 transition">
-              PREP BIG
-            </button>
-            <button onclick="mobileQuickOpenTarget('SMALL')" class="flex-1 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-[9.5px] font-black active:scale-95 transition">
-              PREP SMALL
-            </button>
-          </div>
-
-          <!-- Main Auto-Prep Toggle Button -->
-          <button id="mobileBridgeToggleBtn" onclick="toggleMobileRealAutoBet()" class="w-full py-2.5 rounded-xl font-mono text-[10px] font-black bg-emerald-500/25 hover:bg-emerald-500/35 text-emerald-300 border border-emerald-500/50 active:scale-95 transition shadow flex items-center justify-center gap-2">
-            <span id="mobileBridgeDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span id="mobileBridgeStatusLabel">▶ ACTIVATE AUTO-PREP</span>
+          <!-- 7. Main Auto-Prep Activation Toggle -->
+          <button id="mobileBridgeToggleBtn" onclick="toggleMobileRealAutoBet()" class="w-full py-3 rounded-2xl font-mono text-xs font-black bg-emerald-500/25 hover:bg-emerald-500/35 text-emerald-300 border border-emerald-500/50 active:scale-95 transition shadow-lg flex items-center justify-center gap-2">
+            <span id="mobileBridgeDot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span id="mobileBridgeStatusLabel">▶ ACTIVATE AUTO-PREP &amp; AUTO-SHAKE</span>
           </button>
 
-          <!-- Utilities Bar (Reload, WinGo 30s, Full View, Script, Open Tab) -->
-          <div class="grid grid-cols-5 gap-1 pt-1 border-t border-white/[0.06] text-[8px] font-mono">
-            <button onclick="reloadWebIframe()" class="py-1 rounded bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 text-center">
+          <!-- Utilities Bar (Reload, WinGo, Full View, Script) -->
+          <div class="grid grid-cols-4 gap-1.5 pt-1 border-t border-white/[0.06] text-[8.5px] font-mono">
+            <button onclick="reloadWebIframe()" class="py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 text-center active:scale-95 transition">
               🔄 Reload
             </button>
-            <button onclick="loadMobileWebUrl('https://dhaniwin44.com/WinGo/WinGo_30S')" class="py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold text-center">
+            <button onclick="loadMobileWebUrl('https://dhaniwin44.com/WinGo/WinGo_30S')" class="py-1.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold text-center active:scale-95 transition">
               🎮 WinGo
             </button>
-            <button onclick="toggleDhaniWinTrueFullscreen()" id="btnTrueFullscreenToggle" class="py-1 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold text-center">
+            <button onclick="toggleDhaniWinTrueFullscreen()" id="btnTrueFullscreenToggle" class="py-1.5 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold text-center active:scale-95 transition">
               📺 Full View
             </button>
-            <button onclick="copyMobileBridgeScript()" class="py-1 rounded bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-bold text-center">
+            <button onclick="copyMobileBridgeScript()" class="py-1.5 rounded-xl bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-bold text-center active:scale-95 transition">
               📋 Script
             </button>
-            <a id="mobileWebExternalTabLink" href="https://dhaniwin44.com/WinGo/WinGo_30S" target="_blank" rel="noopener noreferrer" onclick="openMobileBridgeTab(event)" class="py-1 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 font-bold text-center flex items-center justify-center">
-              ↗ Tab
-            </a>
           </div>
 
-          <!-- Disclaimer / Instruction -->
+          <!-- Disclaimer / Safety Assurance -->
           <p class="text-[7.5px] font-mono text-zinc-500 text-center">
-            🔒 Auto-prep opens sheet & sets stake. Bet confirmation is strictly manual by user.
+            🔒 Auto-prep opens sheet &amp; sets stake. Final confirmation remains strictly manual.
           </p>
 
         </div>
@@ -978,82 +964,33 @@
   </main>
 
   <!-- ════════════════════════════════════════════════════════════
-       BUY ME A COFFEE / SUPPORT POPUP MODAL (App Open)
+       BUY ME A COFFEE / SUPPORT POPUP MODAL (App Open & Manual)
   ════════════════════════════════════════════════════════════ -->
-  <div id="coffeeSupportModal" class="fixed inset-0 z-[100000] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4 transition-all duration-300 opacity-0 pointer-events-none" onclick="if(event.target===this) closeCoffeeSupportModal(false)">
-    <div class="w-full max-w-[340px] bg-[#161618]/95 border border-white/[0.14] rounded-[30px] p-6 shadow-2xl relative text-center flex flex-col items-center gap-3.5 animate-scale-up" onclick="event.stopPropagation()">
-      <!-- Close Button -->
-      <button onclick="closeCoffeeSupportModal(false)" class="absolute top-3.5 right-3.5 w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white flex items-center justify-center text-xs transition active:scale-95" title="Close">
+  <div id="coffeeSupportModal" class="fixed inset-0 z-[100000] bg-black/85 backdrop-blur-xl flex items-center justify-center p-3.5 transition-all duration-300 opacity-0 pointer-events-none" onclick="if(event.target===this) closeCoffeeSupportModal(false)">
+    <div class="w-full max-w-[340px] bg-[#0c0c0e] border border-white/[0.18] rounded-[28px] overflow-hidden shadow-2xl relative flex flex-col items-center animate-scale-up select-none cursor-pointer group" onclick="openRazorpayCheckout(); closeCoffeeSupportModal(true);">
+      <!-- Close Button (Top-Right) -->
+      <button onclick="event.stopPropagation(); closeCoffeeSupportModal(false);" class="absolute top-3 right-3 z-30 w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 text-white/80 hover:text-white border border-white/20 flex items-center justify-center text-sm transition active:scale-95 shadow-lg" title="Close">
         <i class="fa-solid fa-xmark"></i>
       </button>
 
-      <!-- Coffee Cup Hero Badge -->
-      <div class="relative mt-1">
-        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400/25 to-orange-500/20 border border-amber-400/35 flex items-center justify-center text-2xl shadow-lg shadow-amber-500/20 text-amber-300 animate-bounce-subtle">
-          ☕
-        </div>
-        <span class="absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-full bg-amber-500 text-[8px] font-black font-mono text-black uppercase tracking-wider shadow">AI</span>
+      <!-- Luxury 01:01 Coffee Card Image (Touching anywhere opens Razorpay checkout) -->
+      <div class="relative w-full">
+        <img src="coffee_card.jpg" alt="01:01 Buy Me a Coffee" class="w-full h-auto object-cover block transition duration-300 group-hover:scale-[1.01]" onerror="this.onerror=null; this.src='logo_0101.jpg'">
       </div>
 
-      <!-- Title & Value Prop -->
-      <div class="space-y-1">
-        <h3 class="text-base font-black tracking-tight text-white">Buy Me a Coffee</h3>
-        <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[9px] font-mono font-bold">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span>100% FREE &amp; ZERO ADS</span>
-        </div>
-      </div>
-
-      <p class="text-[11px] text-zinc-300 leading-relaxed font-normal px-1">
-        We operate 101 AI prediction algorithms, live IST sync, and 24/7 cloud sync completely free and ad-free. If 01:01 helps your analysis, consider buying a coffee to keep server &amp; compute running! 💛
-      </p>
-
-      <!-- Direct Unblockable Razorpay Payment Button (Guaranteed Zero Blank/Bad Request Errors) -->
-      <div id="coffeeModalRazorpayContainer" class="w-full space-y-2 pt-1">
-        <a href="https://pages.razorpay.com/pl_TjTtX1mh764PQS/view" target="_blank" rel="noopener noreferrer" onclick="closeCoffeeSupportModal(true)" class="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 hover:from-amber-300 hover:to-orange-400 text-black font-extrabold text-sm tracking-tight flex items-center justify-between shadow-lg shadow-amber-500/25 transition active:scale-[0.98] border border-amber-300/40 cursor-pointer">
-          <div class="flex items-center gap-2">
-            <span class="text-lg">☕</span>
-            <span class="font-black text-xs uppercase tracking-wider">Buy Me a Coffee</span>
-          </div>
-          <div class="flex items-center gap-1 text-[10px] font-mono font-bold bg-black/15 px-2.5 py-0.5 rounded-full text-black">
-            <span>From ₹18</span>
-            <i class="fa-solid fa-arrow-up-right-from-square text-[8.5px]"></i>
-          </div>
-        </a>
-
-        <!-- Quick Tiers -->
-        <div class="w-full grid grid-cols-3 gap-1.5 text-[9px] font-mono">
-          <a href="https://pages.razorpay.com/pl_TjTtX1mh764PQS/view" target="_blank" rel="noopener noreferrer" onclick="closeCoffeeSupportModal(true)" class="py-1.5 px-1 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-amber-300 font-bold transition flex items-center justify-center gap-1 active:scale-95">
-            <span>☕ ₹18</span>
-          </a>
-          <a href="https://pages.razorpay.com/pl_TjTtX1mh764PQS/view" target="_blank" rel="noopener noreferrer" onclick="closeCoffeeSupportModal(true)" class="py-1.5 px-1 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-amber-300 font-bold transition flex items-center justify-center gap-1 active:scale-95">
-            <span>🍛 ₹278</span>
-          </a>
-          <a href="https://pages.razorpay.com/pl_TjTtX1mh764PQS/view" target="_blank" rel="noopener noreferrer" onclick="closeCoffeeSupportModal(true)" class="py-1.5 px-1 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-amber-300 font-bold transition flex items-center justify-center gap-1 active:scale-95">
-            <span>❤️ Any</span>
-          </a>
-        </div>
-
-        <div class="text-[8px] font-mono text-zinc-400 text-center flex items-center justify-center gap-2 pt-0.5">
-          <span>🔒 Google Pay</span>
-          <span>•</span>
-          <span>PhonePe</span>
-          <span>•</span>
-          <span>Paytm</span>
-          <span>•</span>
-          <span>Cards</span>
-        </div>
-      </div>
-
-      <!-- Footer Buttons -->
-      <div class="w-full pt-2 border-t border-white/[0.08] flex flex-col items-center gap-2">
-        <button onclick="closeCoffeeSupportModal(false)" class="w-full py-2.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.14] text-zinc-300 hover:text-white font-medium text-xs tracking-tight transition active:scale-[0.98]">
-          Maybe Later
+      <!-- Modal Bottom Actions -->
+      <div class="w-full p-3.5 bg-black/95 border-t border-white/[0.08] flex flex-col items-center gap-2">
+        <button onclick="openRazorpayCheckout(); closeCoffeeSupportModal(true);" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#e7b878] via-[#f7d69e] to-[#d69f5c] hover:brightness-110 text-black font-black text-xs tracking-wide shadow-lg shadow-amber-500/20 active:scale-[0.98] transition flex items-center justify-center gap-2">
+          <span>☕ Buy me a coffee</span>
+          <i class="fa-solid fa-chevron-right text-[10px]"></i>
         </button>
-        <button onclick="dismissCoffeeSupportModalToday()" class="text-[10px] text-zinc-400 hover:text-amber-300 transition flex items-center gap-1.5 py-1">
-          <i class="fa-regular fa-clock text-[9px]"></i>
-          <span>Don't show this again today</span>
-        </button>
+        <div class="w-full flex items-center justify-between text-[10px] text-zinc-400 px-1 pt-0.5">
+          <button onclick="event.stopPropagation(); closeCoffeeSupportModal(false);" class="hover:text-white transition">Maybe Later</button>
+          <button onclick="event.stopPropagation(); dismissCoffeeSupportModalToday();" class="hover:text-amber-300 transition flex items-center gap-1">
+            <i class="fa-regular fa-clock text-[9px]"></i>
+            <span>Don't show today</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -1071,7 +1008,7 @@
       <div class="flex items-center justify-between pb-1">
         <div>
           <h2 class="text-xl font-bold tracking-tight text-white">Settings</h2>
-          <p class="text-[9.5px] font-mono text-zinc-400">01:01 Quant Terminal • iOS 18 Design</p>
+          <p class="text-[9.5px] font-mono text-zinc-400">01:01 Quant Terminal • AMOLED Minimalist (Android &amp; iOS)</p>
         </div>
         <div class="flex items-center gap-2">
           <a href="settings.html" class="px-3 py-1.5 rounded-full bg-blue-500/20 text-[#0a84ff] border border-blue-500/30 font-bold text-xs flex items-center gap-1 active:scale-95 transition">
@@ -1214,6 +1151,9 @@
           </label>
           <select id="inchargeModeSelect" onchange="setInchargeMode(this.value)" class="w-full px-2.5 py-1.5 rounded-xl bg-black/60 border border-white/[0.12] text-xs font-mono text-white focus:outline-none focus:border-amber-400">
             <option value="WINNING_STREAK_OVERRIDE">🔥 Winning Streak Override (Base WR + Streak Lead)</option>
+            <option value="LAST_10_WIN_RATE">⚡ Last 10 Rounds Win Rate (Hot Hand Momentum)</option>
+            <option value="LAST_20_WIN_RATE">📊 Last 20 Rounds Win Rate (Recent Consistency)</option>
+            <option value="HIGHEST_STREAK">🚀 Highest Active Win Streak (Pure Streak Leader)</option>
             <option value="OVERALL_WIN_RATE">👑 Overall Win Rate (Server All-Time Benchmark)</option>
             <option value="SESSION_WIN_RATE">🎯 Session Win Rate (User Session Isolated)</option>
             <option value="SESSION_STREAK_OVERRIDE">⚡ Session Streak Override (Session WR + Streak Lead)</option>
@@ -1583,7 +1523,7 @@
       <div class="space-y-2 pt-1">
         <button type="button" onclick="allowBackgroundRunAll(true)" class="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-black font-black text-xs tracking-wide shadow-lg shadow-emerald-500/30 active:scale-[0.98] transition flex items-center justify-center gap-2">
           <i class="fa-solid fa-bolt"></i>
-          <span>Enable All &amp; Open iOS Settings</span>
+          <span>Enable All &amp; Open Device Settings</span>
           <i class="fa-solid fa-chevron-right text-[10px]"></i>
         </button>
 
@@ -1685,7 +1625,7 @@
     <div class="dock-container">
       
       <!-- 1. Home Tab (DhaniWin Web) -->
-      <button type="button" onclick="switchMobileTab('web')" class="dock-btn" data-tab="web">
+      <button type="button" onclick="switchMobileTab('web')" class="dock-btn active" data-tab="web">
         <div class="dock-btn-pill"></div>
         <i class="fa-solid fa-gamepad"></i>
         <span class="tab-title">Home</span>
@@ -1693,7 +1633,7 @@
       </button>
 
       <!-- 2. Analyse Tab (Charts, Ball Roads, Frequencies) -->
-      <button type="button" onclick="switchMobileTab('home')" class="dock-btn active" data-tab="home">
+      <button type="button" onclick="switchMobileTab('home')" class="dock-btn" data-tab="home">
         <div class="dock-btn-pill"></div>
         <i class="fa-solid fa-chart-line"></i>
         <span class="tab-title">Analyse</span>
