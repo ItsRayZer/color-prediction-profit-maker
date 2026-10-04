@@ -652,7 +652,7 @@
 
   // -- ABSOLUTE 4-LOSS PREVENTION FORTRESS SHIELD ----------------------------
   function enforceLossPreventionShield(hist, lossStreak, candidateTarget, v5Ensemble, houseAdversary, neuralNet) {
-    if (lossStreak < 3) {
+    if (lossStreak < 2) {
       return {
         target: candidateTarget,
         isShieldActive: false,
@@ -719,10 +719,11 @@
       strategy = `2-Gram Empirical Attractor [${key}→${shieldTarget}]`;
     }
 
+    const shieldPrefix = lossStreak >= 3 ? '🛡️ FORTRESS CRITICAL 3-LOSS CIRCUIT BREAKER' : '🛡️ PRE-EMPTIVE RECOVERY SHIELD (Stage 2)';
     return {
       target: shieldTarget,
       isShieldActive: true,
-      shieldReason: `🛡️ FORTRESS 4-LOSS PREVENTION SHIELD: ${strategy}`
+      shieldReason: `${shieldPrefix}: ${strategy}`
     };
   }
 
@@ -1102,6 +1103,7 @@
     // Loss recovery (Controlled Soft Martingale)
     if (lossStreak === 1) fraction *= 1.20;
     else if (lossStreak === 2) fraction *= 1.50;
+    else if (lossStreak >= 3) fraction = 0.01; // Strict Hard-Cap: No compounding stake beyond 3 losses
 
     // Trend modifiers
     if (balanceTrend === 1)  fraction *= 1.10; // Rising balance

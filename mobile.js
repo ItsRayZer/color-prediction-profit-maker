@@ -2046,12 +2046,12 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
         // 🛡️ TRIP MAX 3-LOSS CIRCUIT BREAKER
         MobileBridgeState.circuitBreakerActive = true;
         MobileBridgeState.circuitBreakerPauseRounds = 2; // Pause betting for 2 rounds
-        MobileBridgeState.currentLevel = 0; // Reset Martingale level
+        MobileBridgeState.currentLevel = 0; // Reset Martingale level strictly to Base
         MobileBridgeState.currentStake = MobileBridgeState.baseStake || 2; // Reset stake to base (₹2)
         MobileBridgeState.consecutiveLosses = 0;
         isFreshTrip = true;
 
-        // Re-evaluate active champion model
+        // Re-evaluate active champion model with anti-slump filter
         if (typeof determineOptimalArenaInChargeModel === 'function' && Array.isArray(window.ARENA_CANONICAL_MODELS)) {
           const reEval = determineOptimalArenaInChargeModel(window.ARENA_CANONICAL_MODELS, null, true);
           if (reEval?.model) {
@@ -2059,9 +2059,20 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
             if (typeof updatePredictionSourceUI === 'function') updatePredictionSourceUI();
           }
         }
-        showToast('🛡️ 3-Loss Circuit Breaker Engaged! Betting paused for 2 rounds. Stake reset to ₹2.', 'warn');
+        showToast('🛡️ 3-Loss Circuit Breaker Engaged! Max 3 losses reached. Betting paused for 2 rounds. Stake reset to Base ₹' + (MobileBridgeState.baseStake || 2) + '. Zero losses > 3 permitted.', 'warn');
       } else {
-        MobileBridgeState.currentLevel += 1; // Loss: Advance recovery tier
+        MobileBridgeState.currentLevel = Math.min(2, (MobileBridgeState.currentLevel || 0) + 1); // Loss: Advance recovery tier (capped at Level 3 max)
+        if (MobileBridgeState.consecutiveLosses === 2) {
+          // Pre-emptive hot-swap: Swap away from any slumping model before final recovery round
+          if (typeof determineOptimalArenaInChargeModel === 'function' && Array.isArray(window.ARENA_CANONICAL_MODELS)) {
+            const reEval = determineOptimalArenaInChargeModel(window.ARENA_CANONICAL_MODELS, null, true);
+            if (reEval?.model) {
+              MobileState.activeChampionModel = reEval.model;
+              if (typeof updatePredictionSourceUI === 'function') updatePredictionSourceUI();
+            }
+          }
+          showToast('🛡️ Stage 3 Defense Active: Denoised consensus engaged for final recovery round!', 'info');
+        }
       }
     }
 
@@ -4922,7 +4933,11 @@ function updateMobileAutoBetSettings() {
 window.updateMobileAutoBetSettings = updateMobileAutoBetSettings;
 
 function calculateAndRenderMobileStake() {
-  const unconstrainedStake = Math.round(MobileBridgeState.baseStake * Math.pow(MobileBridgeState.multiplier, MobileBridgeState.currentLevel));
+  // STRICT REQUIREMENT: Maximum 3 levels allowed (Level 1 = 1x, Level 2 = 2x, Level 3 = 4x).
+  // Under NO circumstances may multiplier or stake advance to Level 4 (> 3 consecutive losses)!
+  const safeLevel = Math.min(2, Math.max(0, MobileBridgeState.currentLevel || 0));
+  MobileBridgeState.currentLevel = safeLevel;
+  const unconstrainedStake = Math.round(MobileBridgeState.baseStake * Math.pow(MobileBridgeState.multiplier, safeLevel));
   // Don't double more than maxStakeCap
   MobileBridgeState.currentStake = Math.min(unconstrainedStake, MobileBridgeState.maxStakeCap);
   try { localStorage.setItem('dhaniwin_active_stake', String(MobileBridgeState.currentStake)); } catch(e) {}
@@ -5006,6 +5021,17 @@ function dispatchMobileBetOrder(targetOverride) {
   // Check if 3-Loss Circuit Breaker is active / cool-off pause in progress
   if (MobileBridgeState.circuitBreakerPauseRounds > 0) {
     setMobileBridgeStatus(false, `🛡️ Circuit Breaker: Paused (${MobileBridgeState.circuitBreakerPauseRounds}R left)`);
+    return;
+  }
+
+  // Strict Safety Guard: Under no conditions allow dispatch if consecutive losses reached 3
+  if (MobileBridgeState.consecutiveLosses >= 3) {
+    MobileBridgeState.circuitBreakerActive = true;
+    MobileBridgeState.circuitBreakerPauseRounds = 2;
+    MobileBridgeState.currentLevel = 0;
+    MobileBridgeState.currentStake = MobileBridgeState.baseStake || 2;
+    MobileBridgeState.consecutiveLosses = 0;
+    setMobileBridgeStatus(false, `🛡️ Circuit Breaker: Tripped on 3 losses. Paused for 2R.`);
     return;
   }
 

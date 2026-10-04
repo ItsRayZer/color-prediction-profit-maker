@@ -16927,8 +16927,15 @@ const SimBot = (() => {
       const lStreak   = Math.abs(s.curStreak);
       if (lStreak > (s.maxLossStreak || 0)) s.maxLossStreak = lStreak;
       s.lossChain++;
-      s.curBet        = betPlaced * 2;  // double for recovery
-      if (tf === activeTf && $id('simDisplayStatus')) $id('simDisplayStatus').textContent = `❌ LOSS — Next bet ₹${s.curBet.toFixed(2)}`;
+      if (s.lossChain >= 3) {
+        // Strict Hard-Stop: Max 3 losses reached, reset to base
+        s.lossChain = 0;
+        s.curBet = s.baseBet;
+        if (tf === activeTf && $id('simDisplayStatus')) $id('simDisplayStatus').textContent = `🛡️ 3-LOSS BREAKER: Reset to base ₹${s.curBet.toFixed(2)}`;
+      } else {
+        s.curBet = betPlaced * 2;  // double for recovery (max level 3)
+        if (tf === activeTf && $id('simDisplayStatus')) $id('simDisplayStatus').textContent = `❌ LOSS — Next bet ₹${s.curBet.toFixed(2)}`;
+      }
     }
 
     s.pendingBet = null;

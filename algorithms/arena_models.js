@@ -1441,9 +1441,18 @@ function determineOptimalArenaInChargeModel(models, manualId, isAutoMode = true)
   const getEvaluated = m => Number(m.totalEvaluated !== undefined ? m.totalEvaluated : (m.evaluated || 0));
   const getWinRate = m => Number(m.winRate !== undefined ? m.winRate : 0);
 
-  // 2. Strict Win Rate Rating Ranking:
+  // 2. Slump Protection & Leadership Intelligence:
+  // If a model is currently in a severe slump (streak <= -2, having lost 2+ consecutive rounds),
+  // it is disqualified from in-charge leadership to ensure no 3rd loss cascade reaches the user,
+  // PROVIDED other qualified models exist with non-negative streak and viable win rate.
+  const nonSlumpingModels = models.filter(m => getStreak(m) > -2);
+  const candidatePool = (nonSlumpingModels.length > 0 && nonSlumpingModels.some(m => getWinRate(m) >= 0.50))
+    ? nonSlumpingModels
+    : models;
+
+  // 3. Strict Win Rate Rating Ranking with Anti-Loss Guard:
   // Models are rated and in-charge champion is selected strictly upon Win Rate
-  const sortedByWinRate = [...models].sort((a, b) => {
+  const sorted = [...candidatePool].sort((a, b) => {
     const wrA = getWinRate(a);
     const wrB = getWinRate(b);
     if (wrB !== wrA) return wrB - wrA; // Highest Win Rate first
@@ -1459,7 +1468,7 @@ function determineOptimalArenaInChargeModel(models, manualId, isAutoMode = true)
     return (a.name || '').localeCompare(b.name || '');
   });
 
-  const best = sortedByWinRate[0] || models[0];
+  const best = sorted[0] || models[0];
   return {
     model: best,
     mode: 'HIGHEST_WIN_RATE',
@@ -1469,6 +1478,94 @@ function determineOptimalArenaInChargeModel(models, manualId, isAutoMode = true)
 
 if (typeof window !== 'undefined') window.determineOptimalArenaInChargeModel = determineOptimalArenaInChargeModel;
 if (typeof globalThis !== 'undefined') globalThis.determineOptimalArenaInChargeModel = determineOptimalArenaInChargeModel;
+
+/**
+ * Advanced Game History Denoising & Regime Analytics Engine
+ * Strips transient 1-round noise spikes, filters violet boundary noise,
+ * and extracts clean macro-attractor states for all 101 algorithms.
+ */
+function denoiseGameHistory(history) {
+  const hist = Array.isArray(history) ? history.filter(r => !r.gap && r.number !== null && r.number !== undefined) : [];
+  const len = hist.length;
+  if (len === 0) {
+    return {
+      cleanSizes: [],
+      cleanColors: [],
+      regime: 'EQUILIBRIUM',
+      dragonLen: 0,
+      dragonType: null,
+      chopLen: 0,
+      smoothedSizeProb: 0.5,
+      smoothedColorProb: 0.5
+    };
+  }
+
+  const normSize = s => String(s || '').toUpperCase().includes('BIG') ? 'BIG' : 'SMALL';
+  const normColor = c => String(c || '').toUpperCase().includes('GREEN') ? 'GREEN' : 'RED';
+
+  const rawSizes = hist.map(r => normSize(r.size));
+  const rawColors = hist.map(r => normColor(r.color));
+
+  // 1. Denoise 1-round white noise blips (e.g. B B B S B B -> S is transient noise in strong B cluster)
+  const cleanSizes = [...rawSizes];
+  for (let i = 2; i < len - 1; i++) {
+    if (rawSizes[i-2] === rawSizes[i-1] && rawSizes[i+1] === rawSizes[i-1] && rawSizes[i] !== rawSizes[i-1]) {
+      cleanSizes[i] = rawSizes[i-1];
+    }
+  }
+
+  const cleanColors = [...rawColors];
+  for (let i = 2; i < len - 1; i++) {
+    if (rawColors[i-2] === rawColors[i-1] && rawColors[i+1] === rawColors[i-1] && rawColors[i] !== rawColors[i-1]) {
+      cleanColors[i] = rawColors[i-1];
+    }
+  }
+
+  // 2. Detect active macro regime: Dragon (streak >= 3), Chop (alternation >= 3), Double Chop
+  let dragonLen = 1;
+  const lastSize = rawSizes[len - 1];
+  for (let i = len - 2; i >= 0; i--) {
+    if (rawSizes[i] === lastSize) dragonLen++;
+    else break;
+  }
+
+  let chopLen = 1;
+  for (let i = len - 2; i >= 0; i--) {
+    const exp = ((len - 1 - i) % 2 === 1) ? (lastSize === 'BIG' ? 'SMALL' : 'BIG') : lastSize;
+    if (rawSizes[i] === exp) chopLen++;
+    else break;
+  }
+
+  let regime = 'EQUILIBRIUM';
+  if (dragonLen >= 3) regime = 'DRAGON';
+  else if (chopLen >= 3) regime = 'CHOP';
+  else if (len >= 4 && rawSizes[len-1] === rawSizes[len-2] && rawSizes[len-3] === rawSizes[len-4] && rawSizes[len-1] !== rawSizes[len-3]) {
+    regime = 'DOUBLE_CHOP';
+  }
+
+  // 3. Exponential Moving Average (EMA) smoothed probabilities (alpha = 0.25)
+  let emaSize = 0.5;
+  let emaColor = 0.5;
+  const alpha = 0.25;
+  for (let i = Math.max(0, len - 20); i < len; i++) {
+    emaSize = (1 - alpha) * emaSize + alpha * (cleanSizes[i] === 'BIG' ? 1.0 : 0.0);
+    emaColor = (1 - alpha) * emaColor + alpha * (cleanColors[i] === 'GREEN' ? 1.0 : 0.0);
+  }
+
+  return {
+    cleanSizes,
+    cleanColors,
+    regime,
+    dragonLen,
+    dragonType: lastSize,
+    chopLen,
+    smoothedSizeProb: emaSize,
+    smoothedColorProb: emaColor
+  };
+}
+
+if (typeof window !== 'undefined') window.denoiseGameHistory = denoiseGameHistory;
+if (typeof globalThis !== 'undefined') globalThis.denoiseGameHistory = denoiseGameHistory;
 
 
 
@@ -3173,6 +3270,30 @@ function generateModelNextPrediction(model, history, modelStats) {
     }
   }
 
+  // ── D2. DENOISED REGIME ATTRACTOR & NOISE REMOVAL ──
+  if (len >= 3) {
+    const denoised = denoiseGameHistory(hist);
+    // 1. Dragon Streak Persistence: Prevent counter-trend traps
+    if (denoised.regime === 'DRAGON' && denoised.dragonLen >= 3) {
+      if (sDec === denoised.dragonType) {
+        sProb = Math.min(0.96, sProb + 0.08);
+      } else if (sProb < 0.78) {
+        sDec = denoised.dragonType;
+        sProb = Math.min(0.92, 0.72 + Math.min(0.18, denoised.dragonLen * 0.03));
+      }
+    }
+    // 2. Alternating Chop Phase Synchronization: Prevent phase-lag traps
+    else if (denoised.regime === 'CHOP' && denoised.chopLen >= 3) {
+      const nextChop = (last1.size === 'BIG') ? 'SMALL' : 'BIG';
+      if (sDec === nextChop) {
+        sProb = Math.min(0.95, sProb + 0.06);
+      } else if (sProb < 0.75) {
+        sDec = nextChop;
+        sProb = 0.72;
+      }
+    }
+  }
+
   // ── E. SINGLE PREDICTION DECISION: RESPECT NATIVE SPECIALIZATION & PICK HIGHEST EDGE ──
   const preferredType = model.predType || (model.cat === 'fly' ? 'COLOR' : 'SIZE');
   let predType = preferredType;
@@ -3240,6 +3361,7 @@ if (typeof self !== "undefined") {
   self.evaluatePredictionCorrectness = evaluatePredictionCorrectness;
   self.determineOptimalArenaInChargeModel = determineOptimalArenaInChargeModel;
   self.generateModelNextPrediction = generateModelNextPrediction;
+  self.denoiseGameHistory = denoiseGameHistory;
 }
 
 if (typeof window !== "undefined") {
@@ -3248,6 +3370,7 @@ if (typeof window !== "undefined") {
   window.determineOptimalArenaInChargeModel = determineOptimalArenaInChargeModel;
   window.generateModelNextPrediction = generateModelNextPrediction;
   window.__arenaGenerateModelNextPrediction = generateModelNextPrediction;
+  window.denoiseGameHistory = denoiseGameHistory;
 }
 
 if (typeof module !== "undefined" && module.exports) {
@@ -3255,6 +3378,7 @@ if (typeof module !== "undefined" && module.exports) {
     ARENA_CANONICAL_MODELS,
     evaluatePredictionCorrectness,
     determineOptimalArenaInChargeModel,
-    generateModelNextPrediction
+    generateModelNextPrediction,
+    denoiseGameHistory
   };
 }
