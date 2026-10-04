@@ -3766,6 +3766,7 @@ function switchMobileTab(tab) {
     const iframe = $('dhaniwinIframe');
     if (iframe && (iframe.src === 'about:blank' || !iframe.src || iframe.src.includes('about:blank'))) {
       const targetUrl = getDhaniEntryUrl();
+      try { history.pushState({ dhaniSentinel: true }, ''); } catch(e) {}
       iframe.src = targetUrl;
       const barText = $('mobileWebAddressBarText');
       if (barText) barText.textContent = targetUrl;
@@ -4565,6 +4566,24 @@ function reloadWebIframe() {
   if (iframe) { iframe.src = iframe.src; }
 }
 window.reloadWebIframe = reloadWebIframe;
+
+// ── DhaniWin web navigation (cross-origin iframe: use joint session history) ──
+function dhaniWebBack() { try { history.back(); } catch(e) {} }
+function dhaniWebForward() { try { history.forward(); } catch(e) {} }
+function dhaniWebHome() {
+  const iframe = $('dhaniwinIframe');
+  if (iframe) iframe.src = getDhaniEntryUrl();
+}
+window.dhaniWebBack = dhaniWebBack;
+window.dhaniWebForward = dhaniWebForward;
+window.dhaniWebHome = dhaniWebHome;
+// If Back walks past the first DhaniWin page we land on our sentinel entry: stay in app, reload DhaniWin home.
+window.addEventListener('popstate', (e) => {
+  const webTab = $('tab-web');
+  if (e.state && e.state.dhaniSentinel && webTab && webTab.style.display !== 'none') {
+    dhaniWebHome();
+  }
+});
 
 // ── 27. PWA Installation ──────────────────────────────────────────────────────
 
