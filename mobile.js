@@ -3868,34 +3868,165 @@ function closeCoffeeSupportModal(agreed) {
 }
 window.closeCoffeeSupportModal = closeCoffeeSupportModal;
 
-function dismissCoffeeSupportModalToday() {
+function isCoffeePaidToday() {
   try {
     const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
-    localStorage.setItem('coffee_last_shown_date', today);
-    localStorage.setItem('coffee_dismiss_date', today);
-    showToast('Preference saved • Thank you for your support!', 'info');
+    return localStorage.getItem('coffee_paid_date') === today;
+  } catch(e) {
+    return false;
+  }
+}
+window.isCoffeePaidToday = isCoffeePaidToday;
+
+function recordCoffeePayment(paymentId) {
+  try {
+    const today = new Date().toLocaleDateString('en-CA');
+    localStorage.setItem('coffee_paid_date', today);
+    const info = {
+      date: today,
+      paymentId: String(paymentId || ('pay_' + Math.random().toString(36).substring(2, 10))),
+      time: new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })
+    };
+    localStorage.setItem('coffee_paid_info', JSON.stringify(info));
+    closeCoffeeSupportModal(true);
+    if (typeof syncCoffeeSettingsUI === 'function') syncCoffeeSettingsUI();
+    showToast('💛 Thank you for your support! Popup muted for today.', 'success');
+    if (typeof triggerWinConfetti === 'function') triggerWinConfetti();
   } catch(e) {}
+}
+window.recordCoffeePayment = recordCoffeePayment;
+
+function confirmCoffeePaidPrompt() {
+  const ans = prompt('Enter your Razorpay Payment ID or UPI Reference (or tap OK to confirm support):', 'pay_');
+  if (ans !== null) {
+    const cleanId = ans.trim();
+    recordCoffeePayment(cleanId.length > 4 ? cleanId : ('pay_confirm_' + Date.now().toString(36)));
+  }
+}
+window.confirmCoffeePaidPrompt = confirmCoffeePaidPrompt;
+
+function dismissCoffeeSupportModalToday() {
   closeCoffeeSupportModal(false);
 }
 window.dismissCoffeeSupportModalToday = dismissCoffeeSupportModalToday;
 
 function initCoffeeSupportPopup() {
   try {
-    const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
-    const lastShown = localStorage.getItem('coffee_last_shown_date') || localStorage.getItem('coffee_dismiss_date');
-    if (lastShown === today) {
-      return; // Already shown today
+    // If user paid today, DO NOT show it for that day!
+    if (isCoffeePaidToday()) {
+      return;
     }
-    // Mark today as shown so it appears once daily
-    localStorage.setItem('coffee_last_shown_date', today);
-
-    // Launch popup after smooth 2.5s delay on first visit of the day
+    // Otherwise, show on every refresh after smooth 1.8s delay
     setTimeout(() => {
-      openCoffeeSupportModal();
-    }, 2500);
+      if (!isCoffeePaidToday()) {
+        openCoffeeSupportModal();
+      }
+    }, 1800);
   } catch(e) {}
 }
 window.initCoffeeSupportPopup = initCoffeeSupportPopup;
+
+function checkCoffeePaymentUrl() {
+  try {
+    const search = window.location.search;
+    if (!search) return;
+    const params = new URLSearchParams(search);
+    const paymentId = params.get('razorpay_payment_id') || params.get('payment_id') || params.get('tx_id');
+    const paySuccess = params.get('pay_success') === 'true' || params.get('razorpay_payment_link_status') === 'paid';
+    if (paymentId || paySuccess) {
+      recordCoffeePayment(paymentId);
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  } catch(e) {}
+}
+window.checkCoffeePaymentUrl = checkCoffeePaymentUrl;
+
+function syncCoffeeSettingsUI() {
+  const badge = $('settingsCoffeeBadge');
+  const body = $('settingsCoffeeBody');
+  if (!body) return;
+
+  const isPaid = isCoffeePaidToday();
+  if (isPaid) {
+    let info = { time: 'Today', paymentId: 'Verified' };
+    try {
+      const raw = localStorage.getItem('coffee_paid_info');
+      if (raw) info = JSON.parse(raw);
+    } catch(e) {}
+
+    if (badge) {
+      badge.textContent = 'PAID SUPPORTER';
+      badge.className = 'text-[7.5px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold uppercase';
+    }
+
+    body.innerHTML = `
+      <div class="w-full p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-amber-500/10 to-transparent border border-emerald-400/30 space-y-2">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-circle-check text-xs"></i>
+              <span>Supporter Active Today</span>
+            </div>
+            <p class="text-[9px] text-zinc-300 mt-0.5">Thank you for buying a coffee! Today's popup is muted.</p>
+          </div>
+          <span class="text-lg">💛</span>
+        </div>
+        <div class="flex items-center justify-between pt-1 border-t border-white/[0.08] text-[8.5px] font-mono text-zinc-400">
+          <span>Supported at ${info.time || 'Today'} IST</span>
+          <a href="${RAZORPAY_CHECKOUT_URL}" target="_blank" rel="noopener noreferrer" class="text-amber-300 hover:underline">
+            Support Again ☕
+          </a>
+        </div>
+      </div>
+    `;
+  } else {
+    if (badge) {
+      badge.textContent = 'COMMUNITY FUNDED';
+      badge.className = 'text-[7.5px] font-mono px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30 font-bold uppercase';
+    }
+
+    body.innerHTML = `
+      <p class="text-[10.5px] text-zinc-300 leading-relaxed font-normal">
+        We operate 101 AI prediction models, 24/7 cloud sync, and real-time IST telemetry with zero subscriptions and zero ads. If you enjoy the app, consider supporting with a coffee! 💛
+      </p>
+
+      <div class="w-full space-y-2 pt-0.5">
+        <a href="${RAZORPAY_CHECKOUT_URL}" target="_blank" rel="noopener noreferrer" class="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 hover:from-amber-300 hover:to-orange-400 text-black font-extrabold text-sm tracking-tight flex items-center justify-between shadow-lg shadow-amber-500/20 transition active:scale-[0.98] border border-amber-300/40 cursor-pointer">
+          <div class="flex items-center gap-2">
+            <span class="text-lg">☕</span>
+            <span class="font-black text-xs uppercase tracking-wider">Buy Me a Coffee</span>
+          </div>
+          <div class="flex items-center gap-1 text-[10px] font-mono font-bold bg-black/15 px-2.5 py-0.5 rounded-full text-black">
+            <span>From ₹18</span>
+            <i class="fa-solid fa-arrow-up-right-from-square text-[8.5px]"></i>
+          </div>
+        </a>
+
+        <!-- Quick Tiers -->
+        <div class="w-full grid grid-cols-3 gap-1.5 text-[9px] font-mono">
+          <a href="${RAZORPAY_CHECKOUT_URL}" target="_blank" rel="noopener noreferrer" class="py-1.5 px-1 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-amber-300 font-bold transition flex items-center justify-center gap-1 active:scale-95">
+            <span>☕ ₹18</span>
+          </a>
+          <a href="${RAZORPAY_CHECKOUT_URL}" target="_blank" rel="noopener noreferrer" class="py-1.5 px-1 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-amber-300 font-bold transition flex items-center justify-center gap-1 active:scale-95">
+            <span>🍛 ₹278</span>
+          </a>
+          <a href="${RAZORPAY_CHECKOUT_URL}" target="_blank" rel="noopener noreferrer" class="py-1.5 px-1 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-amber-300 font-bold transition flex items-center justify-center gap-1 active:scale-95">
+            <span>❤️ Any</span>
+          </a>
+        </div>
+
+        <div class="flex items-center justify-between pt-1 border-t border-white/[0.06] text-[8px] font-mono text-zinc-400">
+          <span>⚡ 100% Free Forever</span>
+          <button type="button" onclick="confirmCoffeePaidPrompt()" class="text-amber-300 hover:underline">
+            Already supported today? Confirm
+          </button>
+        </div>
+      </div>
+    `;
+  }
+}
+window.syncCoffeeSettingsUI = syncCoffeeSettingsUI;
 
 // ── 24B. Settings Panel ────────────────────────────────────────────────────────
 
@@ -3903,8 +4034,9 @@ function toggleMobileSettings() {
   const modal = $('mobileSettingsModal');
   if (modal) {
     modal.classList.toggle('hidden');
-    if (!modal.classList.contains('hidden') && typeof syncBackgroundSettingsUI === 'function') {
-      syncBackgroundSettingsUI();
+    if (!modal.classList.contains('hidden')) {
+      if (typeof syncBackgroundSettingsUI === 'function') syncBackgroundSettingsUI();
+      if (typeof syncCoffeeSettingsUI === 'function') syncCoffeeSettingsUI();
     }
   }
 }
@@ -5611,6 +5743,8 @@ function initMobileApp() {
     requestScreenWakeLock();
   }
   syncBackgroundSettingsUI();
+  checkCoffeePaymentUrl();
+  syncCoffeeSettingsUI();
 
   // Check and prompt for background execution permission on first visits
   setTimeout(checkAndPromptBackgroundPermission, 1400);

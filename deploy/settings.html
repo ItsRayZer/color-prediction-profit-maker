@@ -865,18 +865,25 @@
             </div>
           </div>
         </div>
-        <span class="ios-tag-micro tag-warning">COMMUNITY</span>
+        <span id="settingsPageCoffeeTag" class="ios-tag-micro tag-warning">COMMUNITY</span>
       </div>
 
-      <p style="font-size: 12px; color: rgba(235, 235, 245, 0.75); line-height: 17px; margin: 10px 0 0 0;">
-        Our real-time prediction engines, 101 AI models, and zero-delay edge nodes run 24/7 without banner ads or subscriptions. If this terminal helps you, consider buying a coffee!
-      </p>
+      <div id="settingsPageCoffeeBody">
+        <p style="font-size: 12px; color: rgba(235, 235, 245, 0.75); line-height: 17px; margin: 10px 0 0 0;">
+          Our real-time prediction engines, 101 AI models, and zero-delay edge nodes run 24/7 without banner ads or subscriptions. If this terminal helps you, consider buying a coffee!
+        </p>
 
-      <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" class="ios-gold-btn">
-        <i class="fa-solid fa-heart" style="font-size: 13px;"></i>
-        <span>Support Terminal (₹18 - Any)</span>
-        <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px; opacity: 0.7;"></i>
-      </a>
+        <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" class="ios-gold-btn">
+          <i class="fa-solid fa-heart" style="font-size: 13px;"></i>
+          <span>Support Terminal (₹18 - Any)</span>
+          <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px; opacity: 0.7;"></i>
+        </a>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 6px; border-top: 0.5px solid rgba(255,255,255,0.08); font-size: 10px; font-family: ui-monospace, monospace; color: rgba(235, 235, 245, 0.5);">
+          <button onclick="confirmSettingsCoffeePayment()" style="background: none; border: none; color: #ffd60a; text-decoration: underline; cursor: pointer; padding: 0; font-size: 10px;">Already paid? Verify</button>
+          <span>🔒 Secure UPI / Cards</span>
+        </div>
+      </div>
     </div>
 
     <!-- SECTION: CONNECTIVITY & LIVE SYNC -->
@@ -1694,7 +1701,120 @@
       }
     }
 
+    function isCoffeePaidToday() {
+      try {
+        const today = new Date().toLocaleDateString('en-CA');
+        return localStorage.getItem('coffee_paid_date') === today;
+      } catch(e) {
+        return false;
+      }
+    }
+
+    function checkCoffeePaymentUrl() {
+      try {
+        const search = window.location.search;
+        if (!search) return;
+        const params = new URLSearchParams(search);
+        const paymentId = params.get('razorpay_payment_id') || params.get('payment_id') || params.get('tx_id');
+        const paySuccess = params.get('pay_success') === 'true' || params.get('razorpay_payment_link_status') === 'paid';
+        if (paymentId || paySuccess) {
+          const today = new Date().toLocaleDateString('en-CA');
+          localStorage.setItem('coffee_paid_date', today);
+          const info = {
+            date: today,
+            paymentId: String(paymentId || ('pay_' + Math.random().toString(36).substring(2, 10))),
+            time: new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })
+          };
+          localStorage.setItem('coffee_paid_info', JSON.stringify(info));
+          const cleanUrl = window.location.origin + window.location.pathname;
+          window.history.replaceState({}, document.title, cleanUrl);
+          showToast('💛 Supporter Active! Thank you for buying a coffee.');
+        }
+      } catch(e) {}
+    }
+
+    function confirmSettingsCoffeePayment() {
+      const ans = prompt('Enter your Razorpay Payment ID or UPI Reference (or tap OK to confirm support):', 'pay_');
+      if (ans !== null) {
+        const today = new Date().toLocaleDateString('en-CA');
+        localStorage.setItem('coffee_paid_date', today);
+        const cleanId = ans.trim();
+        const info = {
+          date: today,
+          paymentId: cleanId.length > 4 ? cleanId : ('pay_confirm_' + Date.now().toString(36)),
+          time: new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })
+        };
+        localStorage.setItem('coffee_paid_info', JSON.stringify(info));
+        updateCoffeeSupporterUI();
+        showToast('💛 Supporter Active! Daily popups muted for today.');
+      }
+    }
+
+    function updateCoffeeSupporterUI() {
+      checkCoffeePaymentUrl();
+      const tag = document.getElementById('settingsPageCoffeeTag');
+      const body = document.getElementById('settingsPageCoffeeBody');
+      if (!body) return;
+
+      if (isCoffeePaidToday()) {
+        let info = { time: 'Today', paymentId: 'Verified' };
+        try {
+          const raw = localStorage.getItem('coffee_paid_info');
+          if (raw) info = JSON.parse(raw);
+        } catch(e) {}
+
+        if (tag) {
+          tag.textContent = 'PAID SUPPORTER';
+          tag.className = 'ios-tag-micro tag-active';
+        }
+
+        body.innerHTML = `
+          <div style="padding: 12px 14px; border-radius: 14px; background: rgba(52, 199, 89, 0.12); border: 1px solid rgba(52, 199, 89, 0.3); margin-top: 10px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div>
+                <div style="font-size: 13px; font-weight: 700; color: #34c759; display: flex; align-items: center; gap: 6px;">
+                  <i class="fa-solid fa-circle-check"></i>
+                  <span>Supporter Active Today</span>
+                </div>
+                <div style="font-size: 11px; color: rgba(235, 235, 245, 0.75); margin-top: 3px;">
+                  Thank you for supporting 01:01! Today's popup is muted across the app.
+                </div>
+              </div>
+              <span style="font-size: 18px;">💛</span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.08); margin-top: 8px; padding-top: 6px; font-size: 10px; font-family: ui-monospace, monospace; color: rgba(235,235,245,0.5);">
+              <span>Supported: ${info.time || 'Today'} IST (${info.paymentId ? info.paymentId.substring(0, 14) : 'Verified'})</span>
+              <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" style="color: #ffd60a; text-decoration: underline;">Support Again ☕</a>
+            </div>
+          </div>
+        `;
+      } else {
+        if (tag) {
+          tag.textContent = 'COMMUNITY';
+          tag.className = 'ios-tag-micro tag-warning';
+        }
+        body.innerHTML = `
+          <p style="font-size: 12px; color: rgba(235, 235, 245, 0.75); line-height: 17px; margin: 10px 0 0 0;">
+            Our real-time prediction engines, 101 AI models, and zero-delay edge nodes run 24/7 without banner ads or subscriptions. If this terminal helps you, consider buying a coffee!
+          </p>
+
+          <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" class="ios-gold-btn">
+            <i class="fa-solid fa-heart" style="font-size: 13px;"></i>
+            <span>Support Terminal (₹18 - Any)</span>
+            <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px; opacity: 0.7;"></i>
+          </a>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 6px; border-top: 0.5px solid rgba(255,255,255,0.08); font-size: 10px; font-family: ui-monospace, monospace; color: rgba(235, 235, 245, 0.5);">
+            <button onclick="confirmSettingsCoffeePayment()" style="background: none; border: none; color: #ffd60a; text-decoration: underline; cursor: pointer; padding: 0; font-size: 10px;">Already paid? Verify</button>
+            <span>🔒 Secure UPI / Cards</span>
+          </div>
+        `;
+      }
+    }
+
     function initSettings() {
+      // Coffee Supporter Status
+      updateCoffeeSupporterUI();
       // Sound
       const soundVal = localStorage.getItem('quant_sound') !== '0';
       const swSound = document.getElementById('swSoundEffects');

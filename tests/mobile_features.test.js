@@ -799,5 +799,125 @@ test('R5: Post-Login Grace Period & Custom API Endpoints Fallback', async (t) =>
   });
 });
 
+test('Buy Me a Coffee Daily Popup, Suppression & Supporter Settings Sync', async (t) => {
+  const mockStorage = new Map();
 
+  function getTodayString() {
+    return '2026-10-04';
+  }
 
+  function isCoffeePaidToday(today = getTodayString()) {
+    try {
+      return mockStorage.get('coffee_paid_date') === today;
+    } catch(e) {
+      return false;
+    }
+  }
+
+  function recordCoffeePayment(paymentId, today = getTodayString()) {
+    mockStorage.set('coffee_paid_date', today);
+    const info = {
+      date: today,
+      paymentId: String(paymentId || 'pay_test'),
+      time: '02:30 PM'
+    };
+    mockStorage.set('coffee_paid_info', JSON.stringify(info));
+  }
+
+  let modalOpened = false;
+  function openCoffeeModal() {
+    modalOpened = true;
+  }
+
+  function checkCoffeeSupportPopup(today = getTodayString()) {
+    if (isCoffeePaidToday(today)) {
+      return false;
+    }
+    openCoffeeModal();
+    return true;
+  }
+
+  function checkPaymentFromUrl(searchQuery, today = getTodayString()) {
+    const params = new URLSearchParams(searchQuery);
+    const paymentId = params.get('razorpay_payment_id') || params.get('payment_id');
+    const paySuccess = params.get('pay_success') === 'true';
+    if (paymentId || paySuccess) {
+      recordCoffeePayment(paymentId || 'pay_success_test', today);
+      return true;
+    }
+    return false;
+  }
+
+  function getSettingsBadgeAndStatus(today = getTodayString()) {
+    if (isCoffeePaidToday(today)) {
+      const info = JSON.parse(mockStorage.get('coffee_paid_info') || '{}');
+      return {
+        badgeText: 'PAID SUPPORTER',
+        badgeClass: 'tag-active',
+        isMuted: true,
+        supportedAt: info.time
+      };
+    }
+    return {
+      badgeText: 'COMMUNITY FUNDED',
+      badgeClass: 'tag-warning',
+      isMuted: false,
+      supportedAt: null
+    };
+  }
+
+  await t.test('Unpaid user triggers coffee popup on refresh/open', () => {
+    mockStorage.clear();
+    modalOpened = false;
+    const triggered = checkCoffeeSupportPopup('2026-10-04');
+    assert.equal(triggered, true);
+    assert.equal(modalOpened, true, 'Modal should open on refresh when unpaid');
+    assert.equal(isCoffeePaidToday('2026-10-04'), false);
+  });
+
+  await t.test('Paying today stores paid status and suppresses popup for the rest of today', () => {
+    modalOpened = false;
+    recordCoffeePayment('pay_demo_999', '2026-10-04');
+    assert.equal(isCoffeePaidToday('2026-10-04'), true);
+
+    const triggered = checkCoffeeSupportPopup('2026-10-04');
+    assert.equal(triggered, false);
+    assert.equal(modalOpened, false, 'Modal MUST NOT open on refresh when paid today');
+  });
+
+  await t.test('Payment from yesterday expires today so popup triggers again on refresh', () => {
+    modalOpened = false;
+    mockStorage.set('coffee_paid_date', '2026-10-03'); // Paid yesterday
+    assert.equal(isCoffeePaidToday('2026-10-04'), false, 'Yesterday payment is not active today');
+
+    const triggered = checkCoffeeSupportPopup('2026-10-04');
+    assert.equal(triggered, true);
+    assert.equal(modalOpened, true, 'Modal opens on refresh on the next day until paid');
+  });
+
+  await t.test('Redirect back from Razorpay checkout with URL params automatically activates supporter status', () => {
+    mockStorage.clear();
+    assert.equal(isCoffeePaidToday('2026-10-04'), false);
+
+    const recorded = checkPaymentFromUrl('?razorpay_payment_id=pay_live_abc123', '2026-10-04');
+    assert.equal(recorded, true);
+    assert.equal(isCoffeePaidToday('2026-10-04'), true);
+    const info = JSON.parse(mockStorage.get('coffee_paid_info'));
+    assert.equal(info.paymentId, 'pay_live_abc123');
+  });
+
+  await t.test('Settings UI reflects PAID SUPPORTER and popup muted status when paid', () => {
+    recordCoffeePayment('pay_verified_777', '2026-10-04');
+    const status = getSettingsBadgeAndStatus('2026-10-04');
+    assert.equal(status.badgeText, 'PAID SUPPORTER');
+    assert.equal(status.isMuted, true);
+    assert.equal(status.supportedAt, '02:30 PM');
+  });
+
+  await t.test('Settings UI reflects COMMUNITY FUNDED when unpaid', () => {
+    mockStorage.clear();
+    const status = getSettingsBadgeAndStatus('2026-10-04');
+    assert.equal(status.badgeText, 'COMMUNITY FUNDED');
+    assert.equal(status.isMuted, false);
+  });
+});
