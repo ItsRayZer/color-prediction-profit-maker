@@ -1,6 +1,6 @@
 /**
  * =============================================================================
- * mobile.js  –  01:01 Quant AI (Mobile Orchestrator)
+ * mobile.js  –  01:01 (Mobile Orchestrator)
  * WinGo Color Prediction App — Firebase RTDB: zer0one-376d1
  * =============================================================================
  * Rebuilt from: mobile.html, generate_clean_mobile.cjs, patch_mobile_js.js,
@@ -5605,7 +5605,7 @@ function initMobileApp() {
   if (_mobileInitCalled) return;
   _mobileInitCalled = true;
 
-  console.log('[Mobile] 01:01 Quant AI initializing...');
+  console.log('[Mobile] 01:01 initializing...');
 
   // Initialize Web Worker Compute Engine
   try { initModelWorker(); } catch(e) { console.warn('[Mobile] Worker init error:', e); }
