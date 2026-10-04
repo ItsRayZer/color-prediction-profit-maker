@@ -879,6 +879,10 @@
           <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px; opacity: 0.7;"></i>
         </a>
 
+        <p style="font-size: 10px; font-family: ui-monospace, monospace; color: rgba(255, 214, 10, 0.85); text-align: center; margin: 8px 0 0 0;">
+          ✨ After buying a coffee, this won't come again for a while (7 days)
+        </p>
+
         <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 6px; border-top: 0.5px solid rgba(255,255,255,0.08); font-size: 10px; font-family: ui-monospace, monospace; color: rgba(235, 235, 245, 0.5);">
           <button onclick="confirmSettingsCoffeePayment()" style="background: none; border: none; color: #ffd60a; text-decoration: underline; cursor: pointer; padding: 0; font-size: 10px;">Already paid? Verify</button>
           <span>🔒 Secure UPI / Cards</span>
@@ -1701,13 +1705,22 @@
       }
     }
 
-    function isCoffeePaidToday() {
+    const COFFEE_SUPPORTER_DURATION_DAYS = 7;
+    const COFFEE_SUPPORTER_DURATION_MS = COFFEE_SUPPORTER_DURATION_DAYS * 24 * 60 * 60 * 1000;
+
+    function isCoffeePaidActive() {
       try {
+        const until = Number(localStorage.getItem('coffee_paid_until') || 0);
+        if (until && Date.now() < until) return true;
         const today = new Date().toLocaleDateString('en-CA');
         return localStorage.getItem('coffee_paid_date') === today;
       } catch(e) {
         return false;
       }
+    }
+
+    function isCoffeePaidToday() {
+      return isCoffeePaidActive();
     }
 
     function checkCoffeePaymentUrl() {
@@ -1719,16 +1732,22 @@
         const paySuccess = params.get('pay_success') === 'true' || params.get('razorpay_payment_link_status') === 'paid';
         if (paymentId || paySuccess) {
           const today = new Date().toLocaleDateString('en-CA');
+          const validUntil = Date.now() + COFFEE_SUPPORTER_DURATION_MS;
+          const validUntilFormatted = new Date(validUntil).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
           localStorage.setItem('coffee_paid_date', today);
+          localStorage.setItem('coffee_paid_until', String(validUntil));
           const info = {
             date: today,
+            validUntil: validUntil,
+            validUntilFormatted: validUntilFormatted,
+            days: COFFEE_SUPPORTER_DURATION_DAYS,
             paymentId: String(paymentId || ('pay_' + Math.random().toString(36).substring(2, 10))),
             time: new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })
           };
           localStorage.setItem('coffee_paid_info', JSON.stringify(info));
           const cleanUrl = window.location.origin + window.location.pathname;
           window.history.replaceState({}, document.title, cleanUrl);
-          showToast('💛 Supporter Active! Thank you for buying a coffee.');
+          showToast(`💛 Supporter Active! Popup won't come again for a while (until ${validUntilFormatted}).`);
         }
       } catch(e) {}
     }
@@ -1737,16 +1756,22 @@
       const ans = prompt('Enter your Razorpay Payment ID or UPI Reference (or tap OK to confirm support):', 'pay_');
       if (ans !== null) {
         const today = new Date().toLocaleDateString('en-CA');
+        const validUntil = Date.now() + COFFEE_SUPPORTER_DURATION_MS;
+        const validUntilFormatted = new Date(validUntil).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         localStorage.setItem('coffee_paid_date', today);
+        localStorage.setItem('coffee_paid_until', String(validUntil));
         const cleanId = ans.trim();
         const info = {
           date: today,
+          validUntil: validUntil,
+          validUntilFormatted: validUntilFormatted,
+          days: COFFEE_SUPPORTER_DURATION_DAYS,
           paymentId: cleanId.length > 4 ? cleanId : ('pay_confirm_' + Date.now().toString(36)),
           time: new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })
         };
         localStorage.setItem('coffee_paid_info', JSON.stringify(info));
         updateCoffeeSupporterUI();
-        showToast('💛 Supporter Active! Daily popups muted for today.');
+        showToast(`💛 Supporter Active! Popup won't come again for a while (until ${validUntilFormatted}).`);
       }
     }
 
@@ -1756,15 +1781,22 @@
       const body = document.getElementById('settingsPageCoffeeBody');
       if (!body) return;
 
-      if (isCoffeePaidToday()) {
-        let info = { time: 'Today', paymentId: 'Verified' };
+      if (isCoffeePaidActive()) {
+        let info = { time: 'Recently', paymentId: 'Verified' };
         try {
           const raw = localStorage.getItem('coffee_paid_info');
           if (raw) info = JSON.parse(raw);
         } catch(e) {}
 
+        const until = Number(localStorage.getItem('coffee_paid_until') || info.validUntil || 0);
+        let remainingDaysStr = '7 Days';
+        if (until > Date.now()) {
+          const daysLeft = Math.max(1, Math.ceil((until - Date.now()) / (24 * 60 * 60 * 1000)));
+          remainingDaysStr = `${daysLeft} Day${daysLeft > 1 ? 's' : ''}`;
+        }
+
         if (tag) {
-          tag.textContent = 'PAID SUPPORTER';
+          tag.textContent = `PAID SUPPORTER (${remainingDaysStr.toUpperCase()} LEFT)`;
           tag.className = 'ios-tag-micro tag-active';
         }
 
@@ -1774,16 +1806,16 @@
               <div>
                 <div style="font-size: 13px; font-weight: 700; color: #34c759; display: flex; align-items: center; gap: 6px;">
                   <i class="fa-solid fa-circle-check"></i>
-                  <span>Supporter Active Today</span>
+                  <span>Supporter Active (${remainingDaysStr} Left)</span>
                 </div>
                 <div style="font-size: 11px; color: rgba(235, 235, 245, 0.75); margin-top: 3px;">
-                  Thank you for supporting 01:01! Today's popup is muted across the app.
+                  Thank you for supporting 01:01! This popup won't come again for a while${info.validUntilFormatted ? ` (muted until ${info.validUntilFormatted})` : ''}.
                 </div>
               </div>
               <span style="font-size: 18px;">💛</span>
             </div>
             <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.08); margin-top: 8px; padding-top: 6px; font-size: 10px; font-family: ui-monospace, monospace; color: rgba(235,235,245,0.5);">
-              <span>Supported: ${info.time || 'Today'} IST (${info.paymentId ? info.paymentId.substring(0, 14) : 'Verified'})</span>
+              <span>Supported: ${info.time || 'Recently'} IST (${info.paymentId ? info.paymentId.substring(0, 14) : 'Verified'})</span>
               <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" style="color: #ffd60a; text-decoration: underline;">Support Again ☕</a>
             </div>
           </div>
@@ -1803,6 +1835,10 @@
             <span>Support Terminal (₹18 - Any)</span>
             <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px; opacity: 0.7;"></i>
           </a>
+
+          <p style="font-size: 10px; font-family: ui-monospace, monospace; color: rgba(255, 214, 10, 0.85); text-align: center; margin: 8px 0 0 0;">
+            ✨ After buying a coffee, this won't come again for a while (7 days)
+          </p>
 
           <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 6px; border-top: 0.5px solid rgba(255,255,255,0.08); font-size: 10px; font-family: ui-monospace, monospace; color: rgba(235, 235, 245, 0.5);">
             <button onclick="confirmSettingsCoffeePayment()" style="background: none; border: none; color: #ffd60a; text-decoration: underline; cursor: pointer; padding: 0; font-size: 10px;">Already paid? Verify</button>

@@ -801,23 +801,39 @@ test('R5: Post-Login Grace Period & Custom API Endpoints Fallback', async (t) =>
 
 test('Buy Me a Coffee Daily Popup, Suppression & Supporter Settings Sync', async (t) => {
   const mockStorage = new Map();
+  let mockTime = 1791100000000;
+  const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-  function getTodayString() {
-    return '2026-10-04';
+  function getTodayString(t = mockTime) {
+    return new Date(t).toISOString().slice(0, 10);
   }
 
-  function isCoffeePaidToday(today = getTodayString()) {
+  function isCoffeePaidActive() {
     try {
-      return mockStorage.get('coffee_paid_date') === today;
+      const until = Number(mockStorage.get('coffee_paid_until') || 0);
+      if (until) {
+        return mockTime < until;
+      }
+      return mockStorage.get('coffee_paid_date') === getTodayString();
     } catch(e) {
       return false;
     }
   }
 
-  function recordCoffeePayment(paymentId, today = getTodayString()) {
+  function isCoffeePaidToday() {
+    return isCoffeePaidActive();
+  }
+
+  function recordCoffeePayment(paymentId) {
+    const today = getTodayString();
+    const validUntil = mockTime + SEVEN_DAYS_MS;
     mockStorage.set('coffee_paid_date', today);
+    mockStorage.set('coffee_paid_until', String(validUntil));
     const info = {
       date: today,
+      validUntil: validUntil,
+      validUntilFormatted: 'Oct 11',
+      days: 7,
       paymentId: String(paymentId || 'pay_test'),
       time: '02:30 PM'
     };
@@ -829,94 +845,114 @@ test('Buy Me a Coffee Daily Popup, Suppression & Supporter Settings Sync', async
     modalOpened = true;
   }
 
-  function checkCoffeeSupportPopup(today = getTodayString()) {
-    if (isCoffeePaidToday(today)) {
+  function checkCoffeeSupportPopup() {
+    if (isCoffeePaidActive()) {
       return false;
     }
     openCoffeeModal();
     return true;
   }
 
-  function checkPaymentFromUrl(searchQuery, today = getTodayString()) {
+  function checkPaymentFromUrl(searchQuery) {
     const params = new URLSearchParams(searchQuery);
     const paymentId = params.get('razorpay_payment_id') || params.get('payment_id');
     const paySuccess = params.get('pay_success') === 'true';
     if (paymentId || paySuccess) {
-      recordCoffeePayment(paymentId || 'pay_success_test', today);
+      recordCoffeePayment(paymentId || 'pay_success_test');
       return true;
     }
     return false;
   }
 
-  function getSettingsBadgeAndStatus(today = getTodayString()) {
-    if (isCoffeePaidToday(today)) {
+  function getSettingsBadgeAndStatus() {
+    if (isCoffeePaidActive()) {
       const info = JSON.parse(mockStorage.get('coffee_paid_info') || '{}');
+      const until = Number(mockStorage.get('coffee_paid_until') || info.validUntil || 0);
+      let daysLeft = 7;
+      if (until > mockTime) {
+        daysLeft = Math.max(1, Math.ceil((until - mockTime) / (24 * 60 * 60 * 1000)));
+      }
       return {
-        badgeText: 'PAID SUPPORTER',
+        badgeText: `PAID SUPPORTER (${daysLeft} DAYS LEFT)`,
         badgeClass: 'tag-active',
         isMuted: true,
-        supportedAt: info.time
+        supportedAt: info.time,
+        daysLeft: daysLeft
       };
     }
     return {
       badgeText: 'COMMUNITY FUNDED',
       badgeClass: 'tag-warning',
       isMuted: false,
-      supportedAt: null
+      supportedAt: null,
+      daysLeft: 0
     };
   }
 
   await t.test('Unpaid user triggers coffee popup on refresh/open', () => {
     mockStorage.clear();
     modalOpened = false;
-    const triggered = checkCoffeeSupportPopup('2026-10-04');
+    const triggered = checkCoffeeSupportPopup();
     assert.equal(triggered, true);
     assert.equal(modalOpened, true, 'Modal should open on refresh when unpaid');
-    assert.equal(isCoffeePaidToday('2026-10-04'), false);
+    assert.equal(isCoffeePaidActive(), false);
   });
 
-  await t.test('Paying today stores paid status and suppresses popup for the rest of today', () => {
+  await t.test('Buying coffee activates 7-day suppression: modal won\'t come again for a while', () => {
     modalOpened = false;
-    recordCoffeePayment('pay_demo_999', '2026-10-04');
-    assert.equal(isCoffeePaidToday('2026-10-04'), true);
+    recordCoffeePayment('pay_demo_999');
+    assert.equal(isCoffeePaidActive(), true);
 
-    const triggered = checkCoffeeSupportPopup('2026-10-04');
-    assert.equal(triggered, false);
-    assert.equal(modalOpened, false, 'Modal MUST NOT open on refresh when paid today');
+    // Immediate refresh
+    assert.equal(checkCoffeeSupportPopup(), false);
+    assert.equal(modalOpened, false);
+
+    // Fast-forward 3 days into future
+    mockTime += 3 * 24 * 60 * 60 * 1000;
+    assert.equal(isCoffeePaidActive(), true, 'Still active on Day 3');
+    assert.equal(checkCoffeeSupportPopup(), false, 'Suppressed on Day 3');
+
+    // Fast-forward to 6th day (almost 7 days)
+    mockTime += 3 * 24 * 60 * 60 * 1000;
+    assert.equal(isCoffeePaidActive(), true, 'Still active on Day 6');
+    assert.equal(checkCoffeeSupportPopup(), false, 'Suppressed on Day 6');
   });
 
-  await t.test('Payment from yesterday expires today so popup triggers again on refresh', () => {
+  await t.test('After 7-day cooldown expires, popup shows again on refresh until supported', () => {
     modalOpened = false;
-    mockStorage.set('coffee_paid_date', '2026-10-03'); // Paid yesterday
-    assert.equal(isCoffeePaidToday('2026-10-04'), false, 'Yesterday payment is not active today');
+    // Fast-forward 2 more days (Day 8 total)
+    mockTime += 2 * 24 * 60 * 60 * 1000;
+    assert.equal(isCoffeePaidActive(), false, 'Expired after 7 days');
 
-    const triggered = checkCoffeeSupportPopup('2026-10-04');
+    const triggered = checkCoffeeSupportPopup();
     assert.equal(triggered, true);
-    assert.equal(modalOpened, true, 'Modal opens on refresh on the next day until paid');
+    assert.equal(modalOpened, true, 'Popup appears again after 7 days');
   });
 
-  await t.test('Redirect back from Razorpay checkout with URL params automatically activates supporter status', () => {
+  await t.test('Redirect back from Razorpay checkout with URL params automatically activates 7-day supporter status', () => {
     mockStorage.clear();
-    assert.equal(isCoffeePaidToday('2026-10-04'), false);
+    mockTime = 1791100000000;
+    assert.equal(isCoffeePaidActive(), false);
 
-    const recorded = checkPaymentFromUrl('?razorpay_payment_id=pay_live_abc123', '2026-10-04');
+    const recorded = checkPaymentFromUrl('?razorpay_payment_id=pay_live_abc123');
     assert.equal(recorded, true);
-    assert.equal(isCoffeePaidToday('2026-10-04'), true);
+    assert.equal(isCoffeePaidActive(), true);
     const info = JSON.parse(mockStorage.get('coffee_paid_info'));
     assert.equal(info.paymentId, 'pay_live_abc123');
   });
 
-  await t.test('Settings UI reflects PAID SUPPORTER and popup muted status when paid', () => {
-    recordCoffeePayment('pay_verified_777', '2026-10-04');
-    const status = getSettingsBadgeAndStatus('2026-10-04');
-    assert.equal(status.badgeText, 'PAID SUPPORTER');
+  await t.test('Settings UI reflects PAID SUPPORTER (7 DAYS LEFT) and popup muted status when paid', () => {
+    recordCoffeePayment('pay_verified_777');
+    const status = getSettingsBadgeAndStatus();
+    assert.equal(status.badgeText, 'PAID SUPPORTER (7 DAYS LEFT)');
     assert.equal(status.isMuted, true);
     assert.equal(status.supportedAt, '02:30 PM');
+    assert.equal(status.daysLeft, 7);
   });
 
   await t.test('Settings UI reflects COMMUNITY FUNDED when unpaid', () => {
     mockStorage.clear();
-    const status = getSettingsBadgeAndStatus('2026-10-04');
+    const status = getSettingsBadgeAndStatus();
     assert.equal(status.badgeText, 'COMMUNITY FUNDED');
     assert.equal(status.isMuted, false);
   });

@@ -3868,29 +3868,51 @@ function closeCoffeeSupportModal(agreed) {
 }
 window.closeCoffeeSupportModal = closeCoffeeSupportModal;
 
-function isCoffeePaidToday() {
+const COFFEE_SUPPORTER_DURATION_DAYS = 7;
+const COFFEE_SUPPORTER_DURATION_MS = COFFEE_SUPPORTER_DURATION_DAYS * 24 * 60 * 60 * 1000;
+
+function isCoffeePaidActive() {
   try {
-    const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
-    return localStorage.getItem('coffee_paid_date') === today;
+    const until = Number(localStorage.getItem('coffee_paid_until') || 0);
+    if (until && Date.now() < until) {
+      return true;
+    }
+    const today = new Date().toLocaleDateString('en-CA');
+    if (localStorage.getItem('coffee_paid_date') === today) {
+      return true;
+    }
+    return false;
   } catch(e) {
     return false;
   }
+}
+window.isCoffeePaidActive = isCoffeePaidActive;
+
+function isCoffeePaidToday() {
+  return isCoffeePaidActive();
 }
 window.isCoffeePaidToday = isCoffeePaidToday;
 
 function recordCoffeePayment(paymentId) {
   try {
     const today = new Date().toLocaleDateString('en-CA');
+    const validUntil = Date.now() + COFFEE_SUPPORTER_DURATION_MS;
+    const validUntilFormatted = new Date(validUntil).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    
     localStorage.setItem('coffee_paid_date', today);
+    localStorage.setItem('coffee_paid_until', String(validUntil));
     const info = {
       date: today,
+      validUntil: validUntil,
+      validUntilFormatted: validUntilFormatted,
+      days: COFFEE_SUPPORTER_DURATION_DAYS,
       paymentId: String(paymentId || ('pay_' + Math.random().toString(36).substring(2, 10))),
       time: new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })
     };
     localStorage.setItem('coffee_paid_info', JSON.stringify(info));
     closeCoffeeSupportModal(true);
     if (typeof syncCoffeeSettingsUI === 'function') syncCoffeeSettingsUI();
-    showToast('💛 Thank you for your support! Popup muted for today.', 'success');
+    showToast(`💛 Thank you for your support! Popup won't come again for a while (until ${validUntilFormatted}).`, 'success');
     if (typeof triggerWinConfetti === 'function') triggerWinConfetti();
   } catch(e) {}
 }
@@ -3912,13 +3934,13 @@ window.dismissCoffeeSupportModalToday = dismissCoffeeSupportModalToday;
 
 function initCoffeeSupportPopup() {
   try {
-    // If user paid today, DO NOT show it for that day!
-    if (isCoffeePaidToday()) {
+    // If user paid, it won't come again for a while!
+    if (isCoffeePaidActive()) {
       return;
     }
     // Otherwise, show on every refresh after smooth 1.8s delay
     setTimeout(() => {
-      if (!isCoffeePaidToday()) {
+      if (!isCoffeePaidActive()) {
         openCoffeeSupportModal();
       }
     }, 1800);
@@ -3947,16 +3969,23 @@ function syncCoffeeSettingsUI() {
   const body = $('settingsCoffeeBody');
   if (!body) return;
 
-  const isPaid = isCoffeePaidToday();
+  const isPaid = isCoffeePaidActive();
   if (isPaid) {
-    let info = { time: 'Today', paymentId: 'Verified' };
+    let info = { time: 'Recently', paymentId: 'Verified' };
     try {
       const raw = localStorage.getItem('coffee_paid_info');
       if (raw) info = JSON.parse(raw);
     } catch(e) {}
 
+    const until = Number(localStorage.getItem('coffee_paid_until') || info.validUntil || 0);
+    let remainingDaysStr = '7 Days';
+    if (until > Date.now()) {
+      const daysLeft = Math.max(1, Math.ceil((until - Date.now()) / (24 * 60 * 60 * 1000)));
+      remainingDaysStr = `${daysLeft} Day${daysLeft > 1 ? 's' : ''}`;
+    }
+
     if (badge) {
-      badge.textContent = 'PAID SUPPORTER';
+      badge.textContent = `PAID SUPPORTER (${remainingDaysStr.toUpperCase()} LEFT)`;
       badge.className = 'text-[7.5px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold uppercase';
     }
 
@@ -3966,14 +3995,16 @@ function syncCoffeeSettingsUI() {
           <div>
             <div class="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
               <i class="fa-solid fa-circle-check text-xs"></i>
-              <span>Supporter Active Today</span>
+              <span>Supporter Active (${remainingDaysStr} Left)</span>
             </div>
-            <p class="text-[9px] text-zinc-300 mt-0.5">Thank you for buying a coffee! Today's popup is muted.</p>
+            <p class="text-[9px] text-zinc-300 mt-0.5">
+              Thank you for buying a coffee! This popup won't come again for a while${info.validUntilFormatted ? ` (muted until ${info.validUntilFormatted})` : ''}.
+            </p>
           </div>
           <span class="text-lg">💛</span>
         </div>
         <div class="flex items-center justify-between pt-1 border-t border-white/[0.08] text-[8.5px] font-mono text-zinc-400">
-          <span>Supported at ${info.time || 'Today'} IST</span>
+          <span>Supported at ${info.time || 'Recently'} IST</span>
           <a href="${RAZORPAY_CHECKOUT_URL}" target="_blank" rel="noopener noreferrer" class="text-amber-300 hover:underline">
             Support Again ☕
           </a>
@@ -4016,11 +4047,15 @@ function syncCoffeeSettingsUI() {
           </a>
         </div>
 
+        <p class="text-[8.5px] font-mono text-amber-300/80 text-center tracking-tight pt-0.5">
+          ✨ After buying a coffee, this won't come again for a while (7 days)
+        </p>
+
         <div class="flex items-center justify-between pt-1 border-t border-white/[0.06] text-[8px] font-mono text-zinc-400">
-          <span>⚡ 100% Free Forever</span>
           <button type="button" onclick="confirmCoffeePaidPrompt()" class="text-amber-300 hover:underline">
-            Already supported today? Confirm
+            Already supported? Confirm
           </button>
+          <span>🔒 Secure UPI / Cards / Razorpay</span>
         </div>
       </div>
     `;
