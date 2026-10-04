@@ -3845,7 +3845,7 @@ window.setMobileTimeframe = setMobileTimeframe;
 
 // ── 24A. Buy Me a Coffee Support Modal & Razorpay Integration ─────────────────
 
-const RAZORPAY_CHECKOUT_URL = 'https://pages.razorpay.com/pl_TjTtX1mh764PQS/view';
+const RAZORPAY_CHECKOUT_URL = 'https://rzp.io/rzp/bFsHIaS';
 
 function openRazorpayCheckout() {
   window.open(RAZORPAY_CHECKOUT_URL, '_blank', 'noopener,noreferrer');
