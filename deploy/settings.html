@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Settings — 01:01 Quant Terminal (Universal Android &amp; iOS)</title>
+  <title>Settings — 01:01 Quant AI (Universal Android &amp; iOS)</title>
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -188,67 +188,92 @@
       box-shadow: 0 0 8px rgba(52, 199, 89, 0.7);
     }
 
-    /* SEARCH BAR (Liquid Frosted Glass) */
+    /* FLOATING BUTTON-LIKE SEARCH BAR */
     .ios-search-shell {
-      margin: 8px 16px 18px 16px;
-      position: relative;
-    }
-
-    .ios-search-input {
-      width: 100%;
-      height: 40px;
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.04) 50%, rgba(255, 255, 255, 0.07) 100%);
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      padding: 0 34px 0 36px;
-      font-size: 15px;
-      font-weight: 400;
-      letter-spacing: -0.2px;
-      color: #ffffff;
-      outline: none;
-      backdrop-filter: blur(24px) saturate(200%);
-      -webkit-backdrop-filter: blur(24px) saturate(200%);
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+      margin: 10px 16px 18px 16px;
+      position: sticky;
+      top: calc(var(--nav-height) + 8px);
+      z-index: 35;
+      display: flex;
+      align-items: center;
+      background: linear-gradient(135deg, rgba(32, 32, 38, 0.85) 0%, rgba(18, 18, 22, 0.92) 100%);
+      backdrop-filter: blur(28px) saturate(210%);
+      -webkit-backdrop-filter: blur(28px) saturate(210%);
+      border-radius: 9999px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0.5px rgba(255, 255, 255, 0.35);
       transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      padding: 4px 8px 4px 12px;
+      height: 44px;
+      cursor: pointer;
     }
 
-    .ios-search-input::placeholder {
-      color: rgba(235, 235, 245, 0.6);
-      font-weight: 400;
-    }
-
-    .ios-search-input:focus {
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.06) 50%, rgba(255, 255, 255, 0.10) 100%);
+    .ios-search-shell:hover {
       border-color: rgba(255, 255, 255, 0.35);
-      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45), 0 0 0 3px rgba(10, 132, 255, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.75), 0 4px 12px rgba(0, 0, 0, 0.45), inset 0 1px 0.5px rgba(255, 255, 255, 0.45);
+      transform: translateY(-1px);
     }
 
-    .ios-search-glyph {
-      position: absolute;
-      left: 11px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--apple-gray);
-      font-size: 14px;
+    .ios-search-shell:focus-within {
+      border-color: rgba(10, 132, 255, 0.6);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.8), 0 0 0 3px rgba(10, 132, 255, 0.3), inset 0 1px 0.5px rgba(255, 255, 255, 0.5);
+      background: linear-gradient(135deg, rgba(38, 38, 46, 0.95) 0%, rgba(22, 22, 28, 0.98) 100%);
+      cursor: text;
+    }
+
+    .ios-search-btn-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffd60a;
+      font-size: 12px;
+      flex-shrink: 0;
+      margin-right: 10px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
       pointer-events: none;
     }
 
+    .ios-search-input {
+      flex: 1;
+      height: 100%;
+      background: transparent;
+      border: none;
+      padding: 0 6px 0 0;
+      font-size: 14.5px;
+      font-weight: 500;
+      letter-spacing: -0.2px;
+      color: #ffffff;
+      outline: none;
+      cursor: inherit;
+    }
+
+    .ios-search-input::placeholder {
+      color: rgba(235, 235, 245, 0.65);
+      font-weight: 400;
+    }
+
     .ios-search-clear {
-      position: absolute;
-      right: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 18px;
-      height: 18px;
+      width: 20px;
+      height: 20px;
       border-radius: 50%;
-      background: var(--apple-gray-3);
-      color: #000000;
+      background: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
       display: none;
       align-items: center;
       justify-content: center;
       font-size: 10px;
       cursor: pointer;
       border: none;
+      margin-right: 4px;
+      transition: background 0.15s ease;
+    }
+
+    .ios-search-clear:hover {
+      background: rgba(255, 255, 255, 0.35);
     }
 
     /* INSET GROUPED LIST CARD (Cupertino Real Liquid Glass) */
@@ -793,11 +818,11 @@
     <span id="appleToastText">Settings updated</span>
   </div>
 
-  <!-- STICKY TOP NAVIGATION BAR -->
+  <!-- STICKY TOP NAVIGATION BAR (Back & Done) -->
   <header id="iosHeader" class="ios-navbar">
     <a href="/mobile" onclick="if (window.history.length > 1) { event.preventDefault(); window.history.back(); }" class="ios-nav-back">
       <i class="fa-solid fa-chevron-left" style="font-size: 15px;"></i>
-      <span>Terminal</span>
+      <span>Back</span>
     </a>
     <span class="ios-nav-title">Settings</span>
     <button onclick="if (window.history.length > 1) { window.history.back(); } else { window.location.href='/mobile'; }" class="ios-nav-action" style="font-weight: 600;">
@@ -812,15 +837,17 @@
       <h1 class="ios-large-title">Settings</h1>
       <div class="ios-subtitle-pill">
         <span class="status-dot-active"></span>
-        <span>01:01 Quant Terminal • AMOLED Minimalist (Android &amp; iOS)</span>
+        <span>01:01 Quant AI • AMOLED Minimalist (Android &amp; iOS)</span>
       </div>
     </div>
 
-    <!-- CUPERTINO SEARCH BAR -->
-    <div class="ios-search-shell">
-      <i class="fa-solid fa-magnifying-glass ios-search-glyph"></i>
-      <input type="text" id="appleSettingsSearch" class="ios-search-input" placeholder="Search" oninput="filterSettings(this.value)">
-      <button id="searchClearBtn" class="ios-search-clear" onclick="clearSettingsSearch()">✕</button>
+    <!-- CUPERTINO FLOATING BUTTON-LIKE SEARCH BAR -->
+    <div class="ios-search-shell" onclick="document.getElementById('appleSettingsSearch').focus();">
+      <div class="ios-search-btn-icon">
+        <i class="fa-solid fa-magnifying-glass"></i>
+      </div>
+      <input type="text" id="appleSettingsSearch" class="ios-search-input" placeholder="Search settings..." oninput="filterSettings(this.value)">
+      <button id="searchClearBtn" class="ios-search-clear" onclick="event.stopPropagation(); clearSettingsSearch()">✕</button>
     </div>
 
     <!-- PROFILE / ACCOUNT CARD (Apple ID Inset) -->
@@ -861,7 +888,7 @@
               Independent Server Fund
             </div>
             <div style="font-size: 11px; color: rgba(235, 235, 245, 0.6); margin-top: 1px;">
-              Keep 01:01 Terminal 100% Free &amp; Ads-Free
+              Keep 01:01 100% Free &amp; Ads-Free
             </div>
           </div>
         </div>
@@ -870,12 +897,12 @@
 
       <div id="settingsPageCoffeeBody">
         <p style="font-size: 12px; color: rgba(235, 235, 245, 0.75); line-height: 17px; margin: 10px 0 0 0;">
-          Our real-time prediction engines, 101 AI models, and zero-delay edge nodes run 24/7 without banner ads or subscriptions. If this terminal helps you, consider buying a coffee!
+          Our real-time prediction engines, 101 AI models, and zero-delay edge nodes run 24/7 without banner ads or subscriptions. If this helps you, consider buying a coffee!
         </p>
 
         <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" class="ios-gold-btn">
           <i class="fa-solid fa-heart" style="font-size: 13px;"></i>
-          <span>Support Terminal (₹18 - Any)</span>
+          <span>Support 01:01 (₹18 - Any)</span>
           <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px; opacity: 0.7;"></i>
         </a>
 
@@ -1160,7 +1187,7 @@
           </div>
         </div>
 
-        <!-- Terminal View Mode Preference -->
+        <!-- View Mode Preference -->
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-indigo">
@@ -1168,7 +1195,7 @@
             </div>
             <div>
               <div class="ios-label-primary">Default View Mode</div>
-              <div class="ios-label-secondary">Choose Mobile App or Desktop Terminal</div>
+              <div class="ios-label-secondary">Choose Mobile App or Desktop View</div>
             </div>
           </div>
           <div class="ios-row-right">
@@ -1439,8 +1466,8 @@
       <div class="ios-inset-group">
         
         <div class="ios-row">
-          <span class="ios-label-primary">Terminal Platform</span>
-          <span class="ios-value-label">01:01 Quant Terminal</span>
+          <span class="ios-label-primary">Platform</span>
+          <span class="ios-value-label">01:01 Quant AI</span>
         </div>
 
         <div class="ios-row">
@@ -1469,7 +1496,7 @@
     <!-- FOOTER DISCLAIMER -->
     <div style="text-align: center; padding: 12px 24px 28px 24px;">
       <p style="font-size: 11.5px; color: var(--apple-gray-2); line-height: 16px; margin: 0;">
-        01:01 Quant Terminal is an analytical mathematical modeling instrument. Strictly no guaranteed returns. Please play responsibly.
+        01:01 Quant AI is an analytical mathematical modeling instrument. Strictly no guaranteed returns. Please play responsibly.
       </p>
       <p style="font-size: 11px; color: var(--apple-gray-3); margin-top: 8px;">
         Designed with Cupertino HIG Aesthetics • Pure AMOLED Dark
@@ -1827,12 +1854,12 @@
         }
         body.innerHTML = `
           <p style="font-size: 12px; color: rgba(235, 235, 245, 0.75); line-height: 17px; margin: 10px 0 0 0;">
-            Our real-time prediction engines, 101 AI models, and zero-delay edge nodes run 24/7 without banner ads or subscriptions. If this terminal helps you, consider buying a coffee!
+            Our real-time prediction engines, 101 AI models, and zero-delay edge nodes run 24/7 without banner ads or subscriptions. If this helps you, consider buying a coffee!
           </p>
 
           <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" class="ios-gold-btn">
             <i class="fa-solid fa-heart" style="font-size: 13px;"></i>
-            <span>Support Terminal (₹18 - Any)</span>
+            <span>Support 01:01 (₹18 - Any)</span>
             <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px; opacity: 0.7;"></i>
           </a>
 
@@ -2020,7 +2047,7 @@
         localStorage.setItem('quant_preferred_view', val);
         if (val === 'pc') {
           sessionStorage.setItem('quant_force_pc', '1');
-          showToast('Switching to Desktop Terminal...');
+          showToast('Switching to Desktop View...');
           setTimeout(() => window.location.href = 'index.html?mode=pc', 500);
         } else {
           sessionStorage.removeItem('quant_force_pc');

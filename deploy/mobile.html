@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>01:01 – Quant AI Terminal (Mobile)</title>
+  <title>01:01 – Quant AI (Mobile)</title>
   <link rel="icon" type="image/jpeg" href="logo_0101.jpg">
   <link rel="apple-touch-icon" href="logo_0101.jpg">
   <link rel="manifest" href="manifest.json">
@@ -1007,18 +1007,22 @@
       <!-- Top Grab Bar -->
       <div class="w-10 h-1 bg-white/20 rounded-full mx-auto"></div>
 
-      <!-- Header: Title + Done Button -->
-      <div class="flex items-center justify-between pb-1">
-        <div>
-          <h2 class="text-xl font-bold tracking-tight text-white">Settings</h2>
-          <p class="text-[9.5px] font-mono text-zinc-400">01:01 Quant Terminal • AMOLED Minimalist (Android &amp; iOS)</p>
+      <!-- Header: Back + Title + Done Button -->
+      <div class="flex items-center justify-between pb-1 border-b border-white/[0.08]">
+        <button onclick="toggleMobileSettings()" class="text-[#0a84ff] hover:text-[#409cff] font-semibold text-xs flex items-center gap-1 active:scale-95 transition py-1">
+          <i class="fa-solid fa-chevron-left text-[11px]"></i>
+          <span>Back</span>
+        </button>
+        <div class="text-center">
+          <h2 class="text-base font-bold tracking-tight text-white leading-none">Settings</h2>
+          <p class="text-[8.5px] font-mono text-zinc-400 mt-0.5">01:01 Quant AI • AMOLED Minimalist</p>
         </div>
         <div class="flex items-center gap-2">
-          <a href="settings.html" class="px-3 py-1.5 rounded-full bg-blue-500/20 text-[#0a84ff] border border-blue-500/30 font-bold text-xs flex items-center gap-1 active:scale-95 transition">
+          <a href="settings.html" class="px-2.5 py-1 rounded-full bg-blue-500/20 text-[#0a84ff] border border-blue-500/30 font-bold text-[10px] flex items-center gap-1 active:scale-95 transition">
             <span>Full Page</span>
-            <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+            <i class="fa-solid fa-arrow-up-right-from-square text-[8.5px]"></i>
           </a>
-          <button onclick="toggleMobileSettings()" class="px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white/80 font-bold text-xs tracking-tight transition active:scale-95">
+          <button onclick="toggleMobileSettings()" class="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-xs tracking-tight transition active:scale-95">
             Done
           </button>
         </div>
@@ -1030,7 +1034,7 @@
           <img src="logo_0101.jpg" class="w-10 h-10 rounded-xl object-contain shadow-md border border-white/10" alt="01:01 Logo">
           <div>
             <div class="text-xs font-bold text-white flex items-center gap-1.5">
-              <span>01:01 Quant AI Terminal</span>
+              <span>01:01 Quant AI</span>
             </div>
             <p class="text-[9px] font-mono text-zinc-400">Version 2.4.0 • Zero-Quota Edge Architecture</p>
           </div>
@@ -1418,7 +1422,7 @@
 
       <!-- SECTION 8: ABOUT & TRANSPARENCY FOOTER -->
       <div class="text-center py-2 space-y-1">
-        <p class="text-[8.5px] font-mono text-zinc-400">01:01 Quant Terminal • Designed with Apple iOS Aesthetics</p>
+        <p class="text-[8.5px] font-mono text-zinc-400">01:01 Quant AI • Designed with Apple iOS Aesthetics</p>
         <p class="text-[7.5px] text-zinc-400">Zero data collection • Zero commercial telemetry • 100% Free &amp; Ad-Free</p>
       </div>
 
@@ -1526,10 +1530,10 @@
       </div>
 
       <div class="space-y-2 pt-1">
-        <button type="button" onclick="allowBackgroundRunAll(true)" class="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-black font-black text-xs tracking-wide shadow-lg shadow-emerald-500/30 active:scale-[0.98] transition flex items-center justify-center gap-2">
+        <button type="button" onclick="allowBackgroundRunAll(false)" class="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-black font-black text-xs tracking-wide shadow-lg shadow-emerald-500/30 active:scale-[0.98] transition flex items-center justify-center gap-2">
           <i class="fa-solid fa-bolt"></i>
-          <span>Enable All &amp; Open Device Settings</span>
-          <i class="fa-solid fa-chevron-right text-[10px]"></i>
+          <span>Enable All Optimizations</span>
+          <i class="fa-solid fa-check text-[10px]"></i>
         </button>
 
         <div class="flex items-center gap-2">

@@ -1,5 +1,5 @@
 {
-  "name": "01:01 Quant AI Terminal",
+  "name": "01:01 Quant AI",
   "short_name": "01:01 AI",
   "start_url": "/mobile",
   "scope": "/",
@@ -8,7 +8,7 @@
   "background_color": "#000000",
   "theme_color": "#000000",
   "orientation": "portrait-primary",
-  "description": "01:01 Professional Quant AI Color Prediction Terminal with Real-time Universal Engine Sync",
+  "description": "01:01 Professional Quant AI Color Prediction with Real-time Universal Engine Sync",
   "icons": [
     {
       "src": "logo_0101.jpg",

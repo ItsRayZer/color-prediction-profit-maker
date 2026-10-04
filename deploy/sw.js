@@ -75,7 +75,7 @@ self.addEventListener('fetch', (event) => {
                          (await cache.match('/')) ||
                          (await cache.match(req));
           if (cached) return cached;
-          return new Response('<!DOCTYPE html><html><body style="background:#000;color:#fff;font-family:sans-serif;text-align:center;padding:40px;"><h2>01:01 Terminal</h2><p>Connecting to Cloudflare network...</p><button onclick="location.reload()" style="background:#0a84ff;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-size:14px;cursor:pointer;">Retry</button></body></html>', {
+          return new Response('<!DOCTYPE html><html><body style="background:#000;color:#fff;font-family:sans-serif;text-align:center;padding:40px;"><h2>01:01 Quant AI</h2><p>Connecting to Cloudflare network...</p><button onclick="location.reload()" style="background:#0a84ff;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-size:14px;cursor:pointer;">Retry</button></body></html>', {
             status: 200,
             headers: { 'Content-Type': 'text/html; charset=utf-8' }
           });

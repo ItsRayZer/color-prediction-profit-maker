@@ -1,6 +1,6 @@
 /**
  * =============================================================================
- * mobile.js  –  01:01 Quant AI Terminal (Mobile Orchestrator)
+ * mobile.js  –  01:01 Quant AI (Mobile Orchestrator)
  * WinGo Color Prediction App — Firebase RTDB: zer0one-376d1
  * =============================================================================
  * Rebuilt from: mobile.html, generate_clean_mobile.cjs, patch_mobile_js.js,
@@ -5579,7 +5579,7 @@ function initMobileApp() {
   if (_mobileInitCalled) return;
   _mobileInitCalled = true;
 
-  console.log('[Mobile] 01:01 Quant AI Terminal initializing...');
+  console.log('[Mobile] 01:01 Quant AI initializing...');
 
   // Initialize Web Worker Compute Engine
   try { initModelWorker(); } catch(e) { console.warn('[Mobile] Worker init error:', e); }
@@ -5781,8 +5781,8 @@ function initMobileApp() {
   checkCoffeePaymentUrl();
   syncCoffeeSettingsUI();
 
-  // Check and prompt for background execution permission on first visits
-  setTimeout(checkAndPromptBackgroundPermission, 1400);
+  // Background execution settings synced quietly without auto-opening settings or modal
+  // (Available on-demand when user configures background execution)
 
   console.log('[Mobile] Bootstrap complete. Polling active for 4 timeframes.');
 }

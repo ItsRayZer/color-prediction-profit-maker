@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Dhani.win – WinGo Quant AI Terminal</title>
+  <title>Dhani.win – WinGo Quant AI</title>
   <link rel="icon" type="image/jpeg" href="logo_0101.jpg">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -244,12 +244,12 @@
 <div id="mainDesktopGrid" class="relative z-10 flex flex-col lg:grid lg:grid-cols-3 w-full" style="min-height:calc(100vh - 54px)">
 
   <!-- ╔══════════════════════════════════════════════════════════
-       LEFT PANEL — Manual Betting & Legacy Terminal (Normal Mode Only)
+       LEFT PANEL — Manual Betting & Signal Dashboard (Normal Mode Only)
   ══════════════════════════════════════════════════════════╗ -->
   <aside id="leftAsidePanel" class="hidden lg:border-r border-purple-900/30 overflow-y-auto overflow-x-hidden bg-app-bg" style="max-height:calc(100vh - 54px);scrollbar-width:thin;scrollbar-color:#3b1d6e transparent;">
     <div class="p-3 space-y-3">
 
-      <!-- ── QUANT AI SIGNAL TERMINAL ── -->
+      <!-- ── QUANT AI SIGNAL ENGINE ── -->
       <div id="quantBox" class="p-3.5 bg-gradient-to-r from-purple-950 via-slate-900 to-indigo-950 border border-amber-500/40 rounded-2xl shadow-xl">
         <div class="flex items-center justify-between pb-2 border-b border-purple-800/40">
           <div class="flex items-center gap-2">
@@ -5693,7 +5693,7 @@ function toggleProMode() {
   S.proMode = !S.proMode;
   applyProModeUI();
   saveToLocalStorage();
-  showToast(S.proMode ? '⚡ PRO MODE ACTIVATED! Advanced terminal & analytics enabled.' : '📱 NORMAL MODE ACTIVATED. Clean layout restored.', 'info');
+  showToast(S.proMode ? '⚡ PRO MODE ACTIVATED! Advanced intelligence & analytics enabled.' : '📱 NORMAL MODE ACTIVATED. Clean layout restored.', 'info');
 }
 
 function applyProModeUI() {
