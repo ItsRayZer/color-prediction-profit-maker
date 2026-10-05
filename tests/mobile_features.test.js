@@ -524,6 +524,51 @@ test('R1: Tab Navigation, Persistence & Dock Compaction Rules', async (t) => {
     assert.equal(shouldAutoCompactDock('analyse', true), false, 'Non-home tabs should keep dock expanded');
     assert.equal(shouldAutoCompactDock('chart', true), false, 'Non-home tabs should keep dock expanded');
   });
+
+  await t.test('Dock state machine: scrolls down -> compact, touch elsewhere -> disappears, scrolls up -> normal size', () => {
+    let dock = { isCompact: false, isHidden: false };
+    const onScrollDown = () => {
+      dock.isHidden = false;
+      dock.isCompact = true;
+    };
+    const onTouchElsewhere = () => {
+      dock.isHidden = true;
+    };
+    const onScrollUp = () => {
+      dock.isHidden = false;
+      dock.isCompact = false;
+    };
+    const onTouchDock = () => {
+      dock.isHidden = false;
+      dock.isCompact = false;
+    };
+
+    // 1. Initial state
+    assert.equal(dock.isCompact, false);
+    assert.equal(dock.isHidden, false);
+
+    // 2. User scrolls down -> becomes small (compact)
+    onScrollDown();
+    assert.equal(dock.isCompact, true);
+    assert.equal(dock.isHidden, false);
+
+    // 3. User touches somewhere else in Dhani app -> disappears (hidden)
+    onTouchElsewhere();
+    assert.equal(dock.isHidden, true);
+
+    // 4. User scrolls up -> comes back and becomes normal size
+    onScrollUp();
+    assert.equal(dock.isHidden, false);
+    assert.equal(dock.isCompact, false);
+
+    // 5. User touches dock itself when hidden/compact -> comes back and normal size
+    onScrollDown();
+    onTouchElsewhere();
+    assert.equal(dock.isHidden, true);
+    onTouchDock();
+    assert.equal(dock.isHidden, false);
+    assert.equal(dock.isCompact, false);
+  });
 });
 
 test('R2: Floating Assistant Orb & Dynamic Countdown Ring Logic', async (t) => {

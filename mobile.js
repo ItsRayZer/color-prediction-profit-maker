@@ -3622,7 +3622,7 @@ function initHomeHeaderAutoHide() {
   }
 }
 
-// ── Liquid-glass dock: scroll-driven compact (down=small, up=big) ─────────────
+// ── Liquid-glass dock: scroll-driven compact (down=small, up=big) & touch-dismiss ─────────────
 function initDockAutoCompact() {
   const dock = document.getElementById('mobileBottomDock');
   if (!dock) return;
@@ -3631,15 +3631,23 @@ function initDockAutoCompact() {
   const SCROLL_THRESHOLD = 8;
 
   const compact = () => {
+    dock.classList.remove('dock-hidden');
     dock.classList.add('dock-compact');
     document.body.classList.add('nav-compact');
   };
   const expand = () => {
+    dock.classList.remove('dock-hidden');
     dock.classList.remove('dock-compact');
     document.body.classList.remove('nav-compact');
   };
+  const hide = () => {
+    dock.classList.add('dock-hidden');
+  };
+  const unhide = () => {
+    dock.classList.remove('dock-hidden');
+  };
 
-  // ── Window scroll: scrolling down = compact on Home tab (or all tabs if configured) ──
+  // ── Window scroll: scrolling down = compact on Home tab, scrolling up = back to normal ──
   window.addEventListener('scroll', () => {
     const onWeb = document.getElementById('tab-web')?.style.display !== 'none';
     const allowAll = localStorage.getItem('dock_compact_all_tabs') === '1';
@@ -3662,27 +3670,50 @@ function initDockAutoCompact() {
       // User scrolled DOWN → make menu compact
       compact();
     } else if (delta < -SCROLL_THRESHOLD) {
-      // User scrolled UP → make menu back to normal
+      // User scrolled UP → make menu come back and normal size
       expand();
     }
 
     lastScrollY = y;
   }, { passive: true });
 
-  // ── Tap outside bottom dock on Home tab compacts dock ──
+  // ── Tap outside bottom dock on Home tab hides the dock ──
   document.addEventListener('pointerdown', (e) => {
     const onWeb = document.getElementById('tab-web')?.style.display !== 'none';
     const allowAll = localStorage.getItem('dock_compact_all_tabs') === '1';
     if (!onWeb && !allowAll) return;
     const dockEl = document.getElementById('mobileBottomDock');
     if (!dockEl) return;
+    
+    // Tapping near bottom edge when hidden summons the dock back to normal
+    if (dockEl.classList.contains('dock-hidden') && e.clientY > window.innerHeight - 50) {
+      expand();
+      return;
+    }
+
     if (dockEl.contains(e.target)) return;
     const orb = document.getElementById('dhaniwinFloatingOrb');
     if (orb && orb.contains(e.target)) return;
     const modal = document.getElementById('dhaniwinAssistantModal');
     if (modal && !modal.classList.contains('hidden') && modal.contains(e.target)) return;
-    compact();
+    const authBar = document.getElementById('dhaniAuthBar');
+    if (authBar && authBar.contains(e.target)) return;
+
+    // User tapped somewhere else in the Dhani app → hide dock
+    hide();
   }, { passive: true });
+
+  // ── Focus shifts to DhaniWin iframe (user tapped inside DhaniWin) ──
+  window.addEventListener('blur', () => {
+    const onWeb = document.getElementById('tab-web')?.style.display !== 'none';
+    if (onWeb) {
+      setTimeout(() => {
+        if (document.activeElement === document.getElementById('dhaniwinIframe')) {
+          hide();
+        }
+      }, 50);
+    }
+  });
 
   // ── Touching the dock itself always expands it back to normal ──
   ['touchstart', 'pointerdown', 'mouseenter'].forEach(ev =>
@@ -3690,11 +3721,29 @@ function initDockAutoCompact() {
   );
 }
 
-// Expose for DHANIWIN_SCROLL bridge messages
+// Expose for DHANIWIN_SCROLL and DHANIWIN_TOUCH bridge messages
 window._dockSetCompact = (isCompact) => {
   const dock = document.getElementById('mobileBottomDock');
   if (!dock) return;
-  isCompact ? dock.classList.add('dock-compact') : dock.classList.remove('dock-compact');
+  if (isCompact) {
+    dock.classList.remove('dock-hidden');
+    dock.classList.add('dock-compact');
+    document.body.classList.add('nav-compact');
+  } else {
+    dock.classList.remove('dock-compact');
+    dock.classList.remove('dock-hidden');
+    document.body.classList.remove('nav-compact');
+  }
+};
+
+window._dockSetHidden = (isHidden) => {
+  const dock = document.getElementById('mobileBottomDock');
+  if (!dock) return;
+  if (isHidden) {
+    dock.classList.add('dock-hidden');
+  } else {
+    dock.classList.remove('dock-hidden');
+  }
 };
 
 const _runDockInit = () => {
@@ -4803,13 +4852,18 @@ function handleMobileBridgeMessage(msg) {
     handleDhaniSessionExpired('Session Expired • Please Login');
   } else if (msg.type === 'DHANIWIN_SCROLL') {
     // Bridge convention: msg.direction='up' = content moved upward = user scrolled DOWN
-    //   → header hides (already was: setHomeHeaderHidden(msg.direction === 'up'))
-    //   → dock compacts (scrolling down = compact)
+    //   → header hides
+    //   → dock becomes small (compact)
     // msg.direction='down' = content moved downward = user scrolled UP
-    //   → header shows, dock expands
+    //   → header shows, dock comes back and becomes normal size (expanded)
     const userScrolledDown = msg.direction === 'up';
     setHomeHeaderHidden(userScrolledDown);
     if (typeof window._dockSetCompact === 'function') window._dockSetCompact(userScrolledDown);
+  } else if (msg.type === 'DHANIWIN_TOUCH') {
+    const onWeb = document.getElementById('tab-web')?.style.display !== 'none';
+    if (onWeb && typeof window._dockSetHidden === 'function') {
+      window._dockSetHidden(true);
+    }
   } else if (msg.type === 'DHANIWIN_AUTH_SUCCESS' || msg.type === 'DHANIWIN_LOGIN_DETECTED') {
     // Mark logged in via ALL keys and set 60s grace period
     markUserLoggedIn();

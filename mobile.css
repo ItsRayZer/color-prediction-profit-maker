@@ -283,7 +283,14 @@ body {
 #mobileBottomDock {
   transition: max-width 0.38s cubic-bezier(0.16, 1, 0.3, 1), 
               bottom 0.38s cubic-bezier(0.16, 1, 0.3, 1), 
-              opacity 0.25s ease;
+              opacity 0.25s ease,
+              transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#mobileBottomDock.dock-hidden {
+  transform: translateX(-50%) translateY(calc(100% + 24px + var(--safe-bottom)));
+  opacity: 0;
+  pointer-events: none;
 }
 
 #mobileBottomDock.dock-compact {

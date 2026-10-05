@@ -804,6 +804,45 @@
     }, { passive: true });
   })();
 
+  // Report touch/tap anywhere inside DhaniWin to dismiss/hide the floating main menu
+  (function startTouchReporter() {
+    let touchStartY = null;
+    let touchStartX = null;
+    let isScrolling = false;
+
+    window.addEventListener('touchstart', (e) => {
+      if (e.touches && e.touches[0]) {
+        touchStartY = e.touches[0].clientY;
+        touchStartX = e.touches[0].clientX;
+      }
+      isScrolling = false;
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+      if (touchStartY !== null && e.touches && e.touches[0]) {
+        const dy = Math.abs(e.touches[0].clientY - touchStartY);
+        const dx = Math.abs(e.touches[0].clientX - (touchStartX || 0));
+        if (dy > 12 || dx > 12) {
+          isScrolling = true;
+        }
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchend', () => {
+      if (!isScrolling) {
+        notifyApp({ type: 'DHANIWIN_TOUCH', timestamp: Date.now() });
+      }
+      touchStartY = null;
+      touchStartX = null;
+      isScrolling = false;
+    }, { passive: true });
+
+    // Also support pointer/mouse clicks
+    window.addEventListener('click', () => {
+      notifyApp({ type: 'DHANIWIN_TOUCH', timestamp: Date.now() });
+    }, { passive: true });
+  })();
+
 })();
 
 
