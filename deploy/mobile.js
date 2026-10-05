@@ -344,20 +344,24 @@ window.markUserLoggedIn = markUserLoggedIn;
 
 // Clear all login keys (only on confirmed session-out)
 function markUserLoggedOut() {
+  _authGracePeriodUntil = 0;
   try {
     localStorage.removeItem('dhaniwin_is_logged_in');
     localStorage.removeItem('dhaniwin_logged_in');
     localStorage.removeItem('ar_token');
+    sessionStorage.removeItem('dhaniwin_auth_grace_until');
   } catch(e) {}
   try {
     if (window.MobileBridgeState) {
       window.MobileBridgeState.authToken = null;
       window.MobileBridgeState.userId = null;
+      window.MobileBridgeState.enabled = false;
     }
     const uIdEl = document.getElementById('mobileWebUserId');
     if (uIdEl) uIdEl.textContent = 'ID: --';
   } catch(e) {}
   if (typeof updateDhaniAuthBar === 'function') updateDhaniAuthBar();
+  if (typeof updateAppUnlockState === 'function') updateAppUnlockState();
 }
 window.markUserLoggedOut = markUserLoggedOut;
 
@@ -3862,7 +3866,18 @@ function updateAppUnlockState() {
   const unlockModal = $('unlock0101Modal');
   if (loggedIn && unlockModal && !unlockModal.classList.contains('hidden')) {
     unlockModal.classList.add('hidden');
+  } else if (!loggedIn) {
+    // If user is logged out while currently on a protected prediction tab, switch back to web and show unlock modal
+    const activeTab = localStorage.getItem('active_mobile_tab') || 'web';
+    if (activeTab !== 'web') {
+      const webSec = $('tab-web');
+      if (webSec && webSec.style.display === 'none') {
+        switchMobileTab('web');
+      }
+      if (typeof toggleUnlockModal === 'function') toggleUnlockModal(true);
+    }
   }
+
   document.querySelectorAll('.dock-btn').forEach(btn => {
     const t = btn.dataset.tab;
     const indicator = btn.querySelector('.dock-indicator');
@@ -4847,10 +4862,18 @@ function handleMobileBridgeMessage(msg) {
         if (MobileBridgeState.enabled && String(MobileState.activePrediction?.period || '') === failedPeriod) dispatchMobileBetOrder();
       }, 700);
     }
-  } else if (msg.type === 'DHANIWIN_SESSION_OUT') {
-    // Suppress during post-login transition
-    if (isAuthGracePeriodActive()) return;
-    handleDhaniSessionExpired('Session Expired • Please Login');
+  } else if (msg.type === 'DHANIWIN_BET_CANCELLED') {
+    const prepBtn = $('mobileBridgeToggleBtn');
+    if (prepBtn) prepBtn.classList.remove('auto-bet-shake');
+    const targetDisplay = $('mobileWebTargetDisplay');
+    if (targetDisplay) targetDisplay.classList.remove('auto-bet-shake');
+    setMobileBridgeStatus(true, msg.reason || 'Bet Cancelled (Lockout)');
+  } else if (msg.type === 'DHANIWIN_USER_LOGGED_OUT' || msg.type === 'DHANIWIN_SESSION_OUT') {
+    // Immediate logout handling - clear grace period and lock protected features
+    _authGracePeriodUntil = 0;
+    try { sessionStorage.removeItem('dhaniwin_auth_grace_until'); } catch(e) {}
+    markUserLoggedOut();
+    handleDhaniSessionExpired(msg.reason || 'Session Expired • Please Login');
   } else if (msg.type === 'DHANIWIN_SCROLL') {
     // Bridge convention: msg.direction='up' = content moved upward = user scrolled DOWN
     //   → header hides
@@ -4882,21 +4905,25 @@ function handleMobileBridgeMessage(msg) {
       const balEl = $('mobileWebBalance');
       if (balEl) balEl.textContent = '₹' + MobileBridgeState.userBalance.toFixed(2);
     }
+
+    const isAuthUrl = msg.url && (msg.url.toLowerCase().includes('/login') || msg.url.toLowerCase().includes('/register'));
+
     if (msg.isLoggedIn) {
       _syncLogoutCount = 0;
       markUserLoggedIn();
-    } else if (msg.isLoggedIn === false && msg.url && (msg.url.toLowerCase().includes('/login') || msg.url.toLowerCase().includes('/register'))) {
-      if (Date.now() >= _authGracePeriodUntil && isUserLoggedIn()) {
-        _syncLogoutCount = (_syncLogoutCount || 0) + 1;
-        if (_syncLogoutCount >= 3) {
-          _syncLogoutCount = 0;
-          handleDhaniSessionExpired('Session Expired');
-        }
+    } else if (msg.isLoggedIn === false || isAuthUrl) {
+      // If bridge explicitly identifies user as not logged in or on auth pages, immediately revoke
+      if (isUserLoggedIn() && !isAuthGracePeriodActive()) {
+        _syncLogoutCount = 0;
+        markUserLoggedOut();
+        handleDhaniSessionExpired('Session Expired • Please Login');
       }
     } else {
       _syncLogoutCount = 0;
     }
-    if (msg.token) {
+
+    // Only accept token if logged in and not on auth pages
+    if (msg.token && msg.isLoggedIn !== false && !isAuthUrl) {
       markUserLoggedIn();
       try { localStorage.setItem('ar_token', msg.token); } catch(e) {}
       if (!MobileBridgeState.authToken) {
@@ -5169,7 +5196,13 @@ function loadMobileWebUrl(url) {
   const iframe = $('dhaniwinIframe');
   const barText = $('mobileWebAddressBarText');
   const extLink = $('mobileWebExternalTabLink');
-  if (iframe) iframe.src = url;
+  let targetSrc = url;
+  if (typeof window !== 'undefined' && window.location && window.location.protocol.startsWith('http')) {
+    if (url.startsWith('https://dhaniwin44.com')) {
+      targetSrc = url.replace('https://dhaniwin44.com', '/proxy/dhaniwin');
+    }
+  }
+  if (iframe) iframe.src = targetSrc;
   if (barText) barText.textContent = url;
   if (extLink) extLink.href = url;
 }

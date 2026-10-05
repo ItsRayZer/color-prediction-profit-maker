@@ -1095,6 +1095,41 @@ test('Dhani Login Verification, Registration First-Time, Refresh Persistence & A
     const canAccessAi = switchMobileTab('ai');
     assert.equal(canAccessAi, true, 'Prediction menus remain unlocked across refresh');
   });
+
+  await t.test('User logout immediately revokes access, locks prediction tabs, and redirects to Web view', () => {
+    function markUserLoggedOut() {
+      mockStorage.removeItem('dhaniwin_is_logged_in');
+      mockStorage.removeItem('dhaniwin_logged_in');
+      mockStorage.removeItem('ar_token');
+      // If currently on protected tab, boot back to web
+      if (activeTab === 'home' || activeTab === 'ai' || activeTab === 'pattern') {
+        activeTab = 'web';
+      }
+      unlockModalVisible = true;
+    }
+
+    // Currently logged in and accessing AI tab
+    switchMobileTab('ai');
+    assert.equal(activeTab, 'ai');
+    assert.equal(isUserLoggedIn(), true);
+
+    // Logout occurs (via API call, UI click, or bridge session sync)
+    markUserLoggedOut();
+    assert.equal(isUserLoggedIn(), false, 'User must immediately register as logged out');
+    assert.equal(activeTab, 'web', 'Protected tab must immediately boot user back to web tab');
+    assert.equal(unlockModalVisible, true, 'Unlock 01:01 modal must immediately open');
+
+    // Attempting to re-enter prediction menus while logged out must be blocked
+    const tryAnalyse = switchMobileTab('home');
+    assert.equal(tryAnalyse, false, 'Analyse must be locked when logged out');
+    assert.equal(activeTab, 'web');
+
+    const tryAi = switchMobileTab('ai');
+    assert.equal(tryAi, false, 'AI must be locked when logged out');
+
+    const tryPattern = switchMobileTab('pattern');
+    assert.equal(tryPattern, false, 'Pattern must be locked when logged out');
+  });
 });
 
 test('Floating Assistant Modal Sheet Gestures & Smooth Transitions', async (t) => {

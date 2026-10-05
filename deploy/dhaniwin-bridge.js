@@ -26,12 +26,30 @@
 
   let _justLoggedInGrace = 0;
 
-  // Intercept fetch & XHR to catch login/register responses instantly
+  // Intercept fetch & XHR to catch login/register and logout responses instantly
   (function hookNetworkAuth() {
     try {
       const origFetch = window.fetch;
       if (origFetch) {
         window.fetch = async function(...args) {
+          try {
+            const url = (typeof args[0] === 'string' ? args[0] : args[0]?.url || '').toLowerCase();
+            // Intercept logout calls immediately
+            if (url.includes('logout') || url.includes('signout') || url.includes('exit')) {
+              console.log('[Quant AI Bridge] 🚪 Logout API call intercepted:', url);
+              _wasLoggedInBefore = false;
+              _justLoggedInGrace = 0;
+              try { localStorage.removeItem('ar_token'); } catch(e) {}
+              try { sessionStorage.removeItem('dhaniwin_auth_grace_until'); } catch(e) {}
+              notifyApp({
+                type: 'DHANIWIN_USER_LOGGED_OUT',
+                url: window.location.href,
+                reason: 'Logout API call',
+                timestamp: Date.now()
+              });
+            }
+          } catch(e) {}
+
           const response = await origFetch.apply(this, args);
           try {
             const url = (typeof args[0] === 'string' ? args[0] : args[0]?.url || '').toLowerCase();
@@ -54,6 +72,32 @@
       }
     } catch(e) {}
   })();
+
+  // Intercept clicks on any Logout / Sign Out button inside DhaniWin
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('click', (e) => {
+      try {
+        const target = e.target?.closest ? e.target.closest('button, a, div, span') : null;
+        if (!target) return;
+        const txt = (target.innerText || target.textContent || '').trim().toLowerCase();
+        const isLogout = txt === 'logout' || txt === 'log out' || txt === 'sign out' || txt === '退出' ||
+                         String(target.className || '').toLowerCase().includes('logout');
+        if (isLogout) {
+          console.log('[Quant AI Bridge] 🚪 User clicked logout button in DhaniWin UI');
+          _wasLoggedInBefore = false;
+          _justLoggedInGrace = 0;
+          try { localStorage.removeItem('ar_token'); } catch(e) {}
+          try { sessionStorage.removeItem('dhaniwin_auth_grace_until'); } catch(e) {}
+          notifyApp({
+            type: 'DHANIWIN_USER_LOGGED_OUT',
+            url: window.location.href,
+            reason: 'User clicked logout button',
+            timestamp: Date.now()
+          });
+        }
+      } catch(e) {}
+    }, true);
+  }
 
   // ── 1. Floating On-Screen HUD ────────────────────────────────────────────────
   function updateFloatingHud(statusText, color) {
@@ -261,8 +305,22 @@
   // ── 5. Scrape User Session & Wallet Balance ──────────────────────────────────
   let _wasLoggedInBefore = false;
   function scrapeUserSession() {
+    const href = window.location.href.toLowerCase();
+    const isAuthPage = href.includes('/login') || href.includes('/register');
+    const isWinGoPage = href.includes('/wingo/');
+
+    // Check for explicit "Login" / "Register" prompts in header or navigation
+    const hasAuthPrompts = Array.from(document.querySelectorAll('button, a, span, div')).some(el => {
+      const t = (el.innerText || el.textContent || '').trim().toLowerCase();
+      return (t === 'login' || t === 'register' || t === 'sign in') && el.offsetParent !== null;
+    });
+
     let token = null;
-    try { token = localStorage.getItem('ar_token'); } catch(e) {}
+    if (!isAuthPage) {
+      try { token = localStorage.getItem('ar_token'); } catch(e) {}
+    } else {
+      try { localStorage.removeItem('ar_token'); } catch(e) {}
+    }
 
     let balance = null;
     const candidates = document.querySelectorAll('.wallet-balance, .balance-num, [class*="balance"], [class*="money"], .amount, .van-nav-bar__title');
@@ -275,10 +333,11 @@
       }
     }
 
-    const href = window.location.href.toLowerCase();
-    const isAuthPage = href.includes('/login') || href.includes('/register');
-    const isWinGoPage = href.includes('/wingo/');
-    const isLoggedIn = !isAuthPage && (balance !== null || token !== null || isWinGoPage);
+    // A user is only logged in if:
+    // 1. Not on an auth page (/login, /register)
+    // 2. AND no visible login prompt is displayed
+    // 3. AND (balance is confirmed, or token exists on WinGo page)
+    const isLoggedIn = !isAuthPage && !hasAuthPrompts && (balance !== null || (token !== null && isWinGoPage));
 
     if (isLoggedIn && !_wasLoggedInBefore) {
       _wasLoggedInBefore = true;
@@ -290,32 +349,36 @@
         interval: activeTimeframe,
         timestamp: Date.now()
       });
-    } else if (isAuthPage && _wasLoggedInBefore) {
-      // Do not fire session-out during post-login transition or if token is present
+    } else if (!isLoggedIn && (_wasLoggedInBefore || isAuthPage)) {
+      // Do not fire session-out during post-login grace transition
       let storedGrace = 0;
       try { storedGrace = Number(sessionStorage.getItem('dhaniwin_auth_grace_until')) || 0; } catch(e) {}
       const effectiveGrace = Math.max(_justLoggedInGrace, storedGrace);
-      if (Date.now() < effectiveGrace || token) {
+      if (Date.now() < effectiveGrace) {
         return;
       }
       _wasLoggedInBefore = false;
+      try { localStorage.removeItem('ar_token'); } catch(e) {}
       notifyApp({
-        type: 'DHANIWIN_SESSION_OUT',
+        type: 'DHANIWIN_USER_LOGGED_OUT',
         url: window.location.href,
+        reason: isAuthPage ? 'On login page' : 'Logged out on DhaniWin',
         timestamp: Date.now()
       });
     }
 
     notifyApp({
       type: 'DHANIWIN_USER_SYNC',
-      token: token,
+      token: isLoggedIn ? token : null,
       balance: balance,
       isLoggedIn: isLoggedIn,
       url: window.location.href,
       timestamp: Date.now()
     });
   }
-  setInterval(scrapeUserSession, 3000);
+  // Run immediately and every 1.5s for instant login/logout responsiveness
+  scrapeUserSession();
+  setInterval(scrapeUserSession, 1500);
 
   // ── 6. Live Scraper: Monitors History Table ──────────────────────────────────
   let lastPeriodSeen = null;
@@ -651,7 +714,40 @@
           updateFloatingHud(`👉 TAP BET NOW: ${target} ₹${stake}`, 'emerald');
           notifyApp({ type: 'DHANIWIN_BET_PREPARED', period, target, stake, timestamp: Date.now() });
 
+          // Tactical haptic vibration on supported devices
+          if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            try { navigator.vibrate([120, 80, 120]); } catch(e) {}
+          }
+
+          // Safety Lockout Monitor: if user doesn't confirm before <5s remaining, cancel & close sheet
+          let userConfirmed = false;
+          let lockoutCheckInterval = setInterval(() => {
+            if (userConfirmed) {
+              clearInterval(lockoutCheckInterval);
+              return;
+            }
+            if (isRoundLockingSoon()) {
+              clearInterval(lockoutCheckInterval);
+              console.log('[Quant AI Bridge] ⚠️ Lockout window reached (<5s)! Auto-cancelling unconfirmed bet.');
+              updateFloatingHud('⏳ Lockout (<5s) • Bet Cancelled', 'amber');
+              const closeIcon = currentPopup.querySelector('.van-popup__close-icon, .van-icon-cross, [class*="close-icon"], .dialog-close');
+              if (closeIcon) {
+                simulateClick(closeIcon);
+              } else {
+                const overlay = document.querySelector('.van-overlay');
+                if (overlay) simulateClick(overlay);
+              }
+              confirmBtn.style.animation = '';
+              confirmBtn.classList.remove('auto-bet-shake');
+              notifyApp({ type: 'DHANIWIN_BET_CANCELLED', period, target, stake, reason: 'Round lockout (<5s)' });
+            }
+          }, 300);
+
           confirmBtn.addEventListener('click', function onUserConfirm() {
+            userConfirmed = true;
+            clearInterval(lockoutCheckInterval);
+            confirmBtn.style.animation = '';
+            confirmBtn.classList.remove('auto-bet-shake');
             updateFloatingHud(`✅ Bet Placed: ${target} ₹${stake}`, 'emerald');
             notifyApp({ type: 'DHANIWIN_BET_CONFIRMATION', success: true, period, target, stake, timestamp: Date.now() });
           }, { once: true });
