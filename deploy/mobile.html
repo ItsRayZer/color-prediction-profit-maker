@@ -972,6 +972,88 @@
   </main>
 
   <!-- ════════════════════════════════════════════════════════════
+       UNLOCK 01:01 MODAL (AMOLED Liquid Glass Full Access Gate)
+  ════════════════════════════════════════════════════════════ -->
+  <div id="unlock0101Modal" class="fixed inset-0 z-[100005] bg-black/85 backdrop-blur-2xl flex items-center justify-center p-4 transition-all duration-300 hidden" onclick="if(event.target===this) toggleUnlockModal(false)">
+    <div class="relative w-full max-w-sm rounded-[36px] bg-gradient-to-b from-white/[0.08] via-white/[0.03] to-black/90 border border-white/[0.14] shadow-[0_20px_60px_rgba(0,0,0,0.95)] p-6 flex flex-col items-center text-center overflow-hidden select-none">
+      
+      <!-- Subtle Ambient Glow -->
+      <div class="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-48 bg-amber-500/15 rounded-full blur-3xl pointer-events-none"></div>
+
+      <!-- Close Button (Top-Right) -->
+      <button type="button" onclick="toggleUnlockModal(false)" class="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center text-white/70 hover:text-white transition active:scale-95" title="Close">
+        <i class="fa-solid fa-xmark text-xs"></i>
+      </button>
+
+      <!-- Floating Crown Glass Badge -->
+      <div class="relative w-24 h-24 flex items-center justify-center mt-2 mb-1">
+        <div class="absolute inset-0 rounded-full bg-amber-400/20 blur-xl animate-pulse"></div>
+        <div class="relative w-20 h-20 rounded-3xl bg-gradient-to-tr from-amber-400/15 via-white/10 to-orange-500/15 border border-amber-300/30 flex items-center justify-center text-4xl shadow-[0_0_35px_rgba(245,158,11,0.3)]">
+          👑
+        </div>
+      </div>
+
+      <!-- Title & Subtitle -->
+      <h2 class="text-2xl font-black tracking-tight text-white mt-1">
+        Unlock <span class="bg-gradient-to-r from-white via-amber-200 to-amber-400 bg-clip-text text-transparent">01:01</span>
+      </h2>
+      <p class="text-[10px] font-mono font-black tracking-[0.25em] text-zinc-400 uppercase mt-0.5">
+        GET FULL ACCESS
+      </p>
+
+      <!-- 4 Glass Feature Badges -->
+      <div class="grid grid-cols-2 gap-2.5 w-full my-4">
+        <div class="p-3 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex flex-col items-center text-center gap-1.5 backdrop-blur-md">
+          <div class="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 text-xs">
+            <i class="fa-solid fa-chart-column"></i>
+          </div>
+          <span class="text-[10px] font-bold text-white leading-tight">All Prediction Systems</span>
+        </div>
+        <div class="p-3 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex flex-col items-center text-center gap-1.5 backdrop-blur-md">
+          <div class="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 text-xs">
+            <i class="fa-solid fa-brain"></i>
+          </div>
+          <span class="text-[10px] font-bold text-white leading-tight">Advanced Analysis</span>
+        </div>
+        <div class="p-3 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex flex-col items-center text-center gap-1.5 backdrop-blur-md">
+          <div class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 text-xs">
+            <i class="fa-solid fa-layer-group"></i>
+          </div>
+          <span class="text-[10px] font-bold text-white leading-tight">Exclusive Patterns</span>
+        </div>
+        <div class="p-3 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex flex-col items-center text-center gap-1.5 backdrop-blur-md">
+          <div class="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-xs">
+            <i class="fa-solid fa-bolt"></i>
+          </div>
+          <span class="text-[10px] font-bold text-white leading-tight">All Premium Menus</span>
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <button type="button" onclick="startDhaniAuthFlow()" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-blue-600/80 via-indigo-600/80 to-purple-600/80 hover:from-blue-500 hover:to-indigo-500 border border-white/20 text-white font-black text-sm tracking-wide flex items-center justify-between shadow-[0_8px_30px_rgba(79,70,229,0.35)] active:scale-[0.98] transition">
+        <div class="flex items-center gap-2.5">
+          <span class="text-base">🎲</span>
+          <span class="font-black text-sm">Login with Dhani</span>
+        </div>
+        <i class="fa-solid fa-chevron-right text-xs text-white/70"></i>
+      </button>
+
+      <p class="text-[9.5px] text-zinc-400 mt-2.5 leading-relaxed font-medium">
+        Login with your Dhaniwin account to unlock everything for free.
+      </p>
+
+      <!-- Already logged in verify link -->
+      <div class="mt-3 pt-3 border-t border-white/[0.08] w-full flex items-center justify-center">
+        <button type="button" onclick="confirmDhaniLoggedIn()" class="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 flex items-center gap-1.5 underline underline-offset-4 cursor-pointer">
+          <i class="fa-solid fa-circle-check"></i>
+          <span>Already logged in? Tap to verify</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════
        BUY ME A COFFEE / SUPPORT POPUP MODAL (Compact & Daily)
   ════════════════════════════════════════════════════════════ -->
   <div id="coffeeSupportModal" class="fixed inset-0 z-[100000] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4 transition-all duration-300 opacity-0 pointer-events-none" onclick="if(event.target===this) closeCoffeeSupportModal(false)">

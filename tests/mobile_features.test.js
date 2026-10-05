@@ -957,3 +957,98 @@ test('Buy Me a Coffee Daily Popup, Suppression & Supporter Settings Sync', async
     assert.equal(status.isMuted, false);
   });
 });
+
+test('Dhani Login Verification, Registration First-Time, Refresh Persistence & App Unlock', async (t) => {
+  const storage = new Map();
+  const mockStorage = {
+    getItem: (k) => storage.get(k) || null,
+    setItem: (k, v) => storage.set(k, String(v)),
+    removeItem: (k) => storage.delete(k),
+    clear: () => storage.clear()
+  };
+
+  const DHANIWIN_HOME_URL = 'https://dhaniwin44.com/';
+  const DHANIWIN_LOGIN_URL = 'https://dhaniwin44.com/login';
+  const DHANIWIN_REGISTRATION_URL = 'https://dhaniwin44.com/register?inviteCode=EEJKXQN&from=app';
+
+  function isUserLoggedIn() {
+    return mockStorage.getItem('dhaniwin_is_logged_in') === 'true' ||
+           mockStorage.getItem('dhaniwin_logged_in') === '1' ||
+           !!mockStorage.getItem('ar_token');
+  }
+
+  function getDhaniEntryUrl() {
+    if (isUserLoggedIn()) return DHANIWIN_HOME_URL;
+    return mockStorage.getItem('dhaniwin_registered') === '1' ? DHANIWIN_LOGIN_URL : DHANIWIN_REGISTRATION_URL;
+  }
+
+  function markUserLoggedIn() {
+    mockStorage.setItem('dhaniwin_is_logged_in', 'true');
+    mockStorage.setItem('dhaniwin_logged_in', '1');
+    mockStorage.setItem('dhaniwin_registered', '1');
+  }
+
+  let unlockModalVisible = false;
+  let activeTab = 'web';
+
+  function switchMobileTab(tab) {
+    if (tab !== 'web' && !isUserLoggedIn()) {
+      unlockModalVisible = true;
+      return false;
+    }
+    activeTab = tab;
+    unlockModalVisible = false;
+    return true;
+  }
+
+  await t.test('First-time unregistered user gets registration URL', () => {
+    mockStorage.clear();
+    assert.equal(isUserLoggedIn(), false);
+    assert.equal(getDhaniEntryUrl(), DHANIWIN_REGISTRATION_URL, 'First time user redirected to registration');
+  });
+
+  await t.test('Unauthenticated user cannot access prediction menus; Unlock 01:01 modal opens', () => {
+    mockStorage.clear();
+    unlockModalVisible = false;
+    const canSwitchHome = switchMobileTab('home');
+    assert.equal(canSwitchHome, false);
+    assert.equal(unlockModalVisible, true, 'Unlock 01:01 modal triggered for Analyse');
+
+    const canSwitchAi = switchMobileTab('ai');
+    assert.equal(canSwitchAi, false);
+    assert.equal(unlockModalVisible, true, 'Unlock 01:01 modal triggered for AI');
+
+    const canSwitchPattern = switchMobileTab('pattern');
+    assert.equal(canSwitchPattern, false);
+    assert.equal(unlockModalVisible, true, 'Unlock 01:01 modal triggered for Pattern');
+  });
+
+  await t.test('Dhani login verification unlocks full app, prediction menus, and shows Dhani home', () => {
+    markUserLoggedIn();
+    assert.equal(isUserLoggedIn(), true);
+    assert.equal(getDhaniEntryUrl(), DHANIWIN_HOME_URL, 'Logged in user lands on Dhani home page');
+
+    const switchedAnalyse = switchMobileTab('home');
+    assert.equal(switchedAnalyse, true);
+    assert.equal(activeTab, 'home');
+    assert.equal(unlockModalVisible, false, 'Modal closed and Analyse accessible');
+
+    const switchedAi = switchMobileTab('ai');
+    assert.equal(switchedAi, true);
+    assert.equal(activeTab, 'ai');
+
+    const switchedPattern = switchMobileTab('pattern');
+    assert.equal(switchedPattern, true);
+    assert.equal(activeTab, 'pattern');
+  });
+
+  await t.test('Page refresh maintains login state and does NOT log user out or show registration again', () => {
+    // Simulate browser refresh: storage persists in localStorage
+    assert.equal(isUserLoggedIn(), true, 'User is still logged in after reload');
+    assert.equal(getDhaniEntryUrl(), DHANIWIN_HOME_URL, 'Still points to Dhani home, never registration');
+
+    const canAccessAi = switchMobileTab('ai');
+    assert.equal(canAccessAi, true, 'Prediction menus remain unlocked across refresh');
+  });
+});
+

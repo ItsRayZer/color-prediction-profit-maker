@@ -3505,17 +3505,18 @@ const DHANIWIN_INTERVAL_URLS = {
 };
 const DHANIWIN_REGISTRATION_URL = 'https://dhaniwin44.com/register?inviteCode=EEJKXQN&from=app';
 const DHANIWIN_LOGIN_URL = 'https://dhaniwin44.com/login';
+const DHANIWIN_HOME_URL = 'https://dhaniwin44.com/';
 
 // ── Per-user DhaniWin auth flow (no personal credentials anywhere) ──────────────
-// Active session → user's last interval; returning user → Login; new user → Register.
+// Active session → DhaniWin Home; returning user → Login; new user → Register.
 function getDhaniEntryUrl() {
   if (isUserLoggedIn()) {
-    const tf = localStorage.getItem('dhaniwin_last_interval') || MobileState.timeframe || '30s';
-    return DHANIWIN_INTERVAL_URLS[tf] || DHANIWIN_INTERVAL_URLS['30s'];
+    return DHANIWIN_HOME_URL;
   }
   return localStorage.getItem('dhaniwin_registered') === '1' ? DHANIWIN_LOGIN_URL : DHANIWIN_REGISTRATION_URL;
 }
 window.getDhaniEntryUrl = getDhaniEntryUrl;
+window.DHANIWIN_HOME_URL = DHANIWIN_HOME_URL;
 
 function handleDhaniSessionExpired(reason) {
   if (Date.now() < _authGracePeriodUntil) {
@@ -3525,8 +3526,8 @@ function handleDhaniSessionExpired(reason) {
   markUserLoggedOut();
   setMobileBridgeStatus(false, reason || 'Session Expired • Please Login');
   showToast('⚠️ Session expired. Please log in again.', 'warn');
-  loadMobileWebUrl(getDhaniEntryUrl());
   showDhaniAuthBar(true);
+  if (typeof updateAppUnlockState === 'function') updateAppUnlockState();
 }
 window.handleDhaniSessionExpired = handleDhaniSessionExpired;
 
@@ -3559,13 +3560,13 @@ function openDhaniRegister() {
   if (typeof switchMobileTab === 'function') switchMobileTab('web');
   loadMobileWebUrl(DHANIWIN_REGISTRATION_URL);
 }
-// User confirms they've logged in inside DhaniWin (needed because the cross-origin
-// iframe cannot be inspected without the bridge script).
+// User confirms they've logged in inside DhaniWin
 function confirmDhaniLoggedIn() {
   markUserLoggedIn();
-  const tf = localStorage.getItem('dhaniwin_last_interval') || MobileState.timeframe || '30s';
-  loadMobileWebUrl(DHANIWIN_INTERVAL_URLS[tf] || DHANIWIN_INTERVAL_URLS['30s']);
-  showToast('✅ Opening your WinGo interval', 'success');
+  loadMobileWebUrl(DHANIWIN_HOME_URL);
+  showToast('✅ Login Verified! Full 01:01 Access Unlocked', 'success');
+  if (typeof toggleUnlockModal === 'function') toggleUnlockModal(false);
+  if (typeof updateAppUnlockState === 'function') updateAppUnlockState();
 }
 function openDhaniAccountMenu() {
   if (isUserLoggedIn()) {
@@ -3710,6 +3711,11 @@ if (document.readyState === 'loading') {
 }
 
 function switchMobileTab(tab) {
+  // If user is not logged in and attempts to access prediction tabs, trigger Unlock 01:01 modal
+  if (tab !== 'web' && !isUserLoggedIn()) {
+    toggleUnlockModal(true);
+    return;
+  }
   try { localStorage.setItem('active_mobile_tab', tab); } catch(e) {}
 
   ['home', 'ai', 'sim', 'web', 'pattern'].forEach(t => {
@@ -3777,6 +3783,50 @@ function switchMobileTab(tab) {
   }
 }
 window.switchMobileTab = switchMobileTab;
+
+// ── Unlock 01:01 Modal & Entitlement State ────────────────────────────────────
+function toggleUnlockModal(show) {
+  const modal = $('unlock0101Modal');
+  if (!modal) return;
+  if (show === undefined) {
+    modal.classList.toggle('hidden');
+  } else if (show) {
+    modal.classList.remove('hidden');
+  } else {
+    modal.classList.add('hidden');
+  }
+}
+window.toggleUnlockModal = toggleUnlockModal;
+
+function startDhaniAuthFlow() {
+  toggleUnlockModal(false);
+  switchMobileTab('web');
+  const targetUrl = getDhaniEntryUrl();
+  loadMobileWebUrl(targetUrl);
+  showDhaniAuthBar(true);
+}
+window.startDhaniAuthFlow = startDhaniAuthFlow;
+
+function updateAppUnlockState() {
+  const loggedIn = isUserLoggedIn();
+  const unlockModal = $('unlock0101Modal');
+  if (loggedIn && unlockModal && !unlockModal.classList.contains('hidden')) {
+    unlockModal.classList.add('hidden');
+  }
+  document.querySelectorAll('.dock-btn').forEach(btn => {
+    const t = btn.dataset.tab;
+    const indicator = btn.querySelector('.dock-indicator');
+    if (indicator) {
+      if (t !== 'web' && !loggedIn) {
+        indicator.textContent = '🔒';
+        indicator.style.fontSize = '8px';
+      } else {
+        indicator.textContent = '';
+      }
+    }
+  });
+}
+window.updateAppUnlockState = updateAppUnlockState;
 
 function setMobileTimeframe(tf) {
   MobileState.timeframe = tf;
@@ -4700,47 +4750,7 @@ function initMobileDhaniWinBridge() {
   renderMobileWalletStats();
   setupFloatingOrb();
 
-  // ── IFRAME URL MONITOR: Auto-detect login/logout by watching the iframe URL ──
-  // This is the most reliable auth detection — no bridge messages required.
-  let _lastIframeSrc = '';
-  let _iframeWasOnWinGo = false;
-  let _sessionOutCount = 0; // Require 3 consecutive checks before clearing session
-  setInterval(() => {
-    try {
-      const iframe = $('dhaniwinIframe');
-      if (!iframe || !iframe.src) return;
-      const src = iframe.src.toLowerCase();
-      if (src === _lastIframeSrc) return; // No change
-      _lastIframeSrc = src;
-
-      const isWinGoPage = src.includes('/wingo/') || src.includes('wingo_');
-      const isAuthPage = src.includes('/login') || src.includes('/register');
-
-      if (isWinGoPage) {
-        // NOTE: cross-origin iframe.src is only the URL WE assigned — it does not prove
-        // a live session (DhaniWin may have redirected internally to /login). Never
-        // auto-mark login from it.
-        _sessionOutCount = 0;
-        _iframeWasOnWinGo = true;
-      } else if (isAuthPage && _iframeWasOnWinGo) {
-        // Do not expire if within post-login grace period
-        if (Date.now() < _authGracePeriodUntil) {
-          _sessionOutCount = 0;
-          return;
-        }
-        _sessionOutCount++;
-        if (_sessionOutCount >= 4) {
-          // Confirmed session expired
-          _sessionOutCount = 0;
-          _iframeWasOnWinGo = false;
-          handleDhaniSessionExpired('Session Expired • Please Login');
-          console.log('[Mobile Bridge] Session-out confirmed from iframe URL redirect.');
-        }
-      } else {
-        _sessionOutCount = 0;
-      }
-    } catch(e) {}
-  }, 2000);
+  // Cross-origin iframe.src is not polled for session state, allowing the user to browse any DhaniWin page freely.
 }
 
 
@@ -4801,19 +4811,15 @@ function handleMobileBridgeMessage(msg) {
     setHomeHeaderHidden(userScrolledDown);
     if (typeof window._dockSetCompact === 'function') window._dockSetCompact(userScrolledDown);
   } else if (msg.type === 'DHANIWIN_AUTH_SUCCESS' || msg.type === 'DHANIWIN_LOGIN_DETECTED') {
-    // Mark logged in via ALL keys and set 15s grace period
+    // Mark logged in via ALL keys and set 60s grace period
     markUserLoggedIn();
-    _authGracePeriodUntil = Date.now() + 15000;
+    _authGracePeriodUntil = Date.now() + 60000;
     _syncLogoutCount = 0;
     setMobileBridgeStatus(true, 'Login Verified ✓');
-    showToast('🎉 Login Confirmed! Opening your WinGo interval...', 'success');
-    // ISSUE 3 FIX: Load the user's LAST selected interval immediately
-    const lastTf = localStorage.getItem('dhaniwin_last_interval') || MobileState.timeframe || '30s';
-    const targetUrl = DHANIWIN_INTERVAL_URLS[lastTf] || DHANIWIN_INTERVAL_URLS['30s'];
-    // Store the timeframe in MobileState too so the entire app syncs
-    MobileState.timeframe = lastTf;
-    localStorage.setItem('dhaniwin_last_interval', lastTf);
-    loadMobileWebUrl(targetUrl);
+    showToast('🎉 Login Confirmed! Full Access Unlocked', 'success');
+    if (typeof toggleUnlockModal === 'function') toggleUnlockModal(false);
+    if (typeof updateAppUnlockState === 'function') updateAppUnlockState();
+    loadMobileWebUrl(DHANIWIN_HOME_URL);
 
   } else if (msg.type === 'DHANIWIN_USER_SYNC') {
     if (msg.balance !== null && msg.balance !== undefined && !isNaN(Number(msg.balance))) {
@@ -5819,6 +5825,7 @@ function initMobileApp() {
   syncBackgroundSettingsUI();
   checkCoffeePaymentUrl();
   syncCoffeeSettingsUI();
+  updateAppUnlockState();
 
   // Background execution settings synced quietly without auto-opening settings or modal
   // (Available on-demand when user configures background execution)

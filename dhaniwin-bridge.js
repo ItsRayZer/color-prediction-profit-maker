@@ -44,7 +44,7 @@
                   try { sessionStorage.setItem('dhaniwin_auth_grace_until', String(_justLoggedInGrace)); } catch(e) {}
                   _wasLoggedInBefore = true;
                   notifyApp({ type: 'DHANIWIN_AUTH_SUCCESS', data });
-                  setTimeout(autoOpenWinGo, 600);
+                  setTimeout(goHomeAfterLogin, 600);
                 }
               }).catch(() => {});
             }
@@ -215,34 +215,21 @@
     '5m':  '/WinGo/WinGo_5M'
   };
 
-  // ── 4. Auto-Navigate to WinGo Game & Timeframe Tab ───────────────────────────
-  function autoOpenWinGo() {
+  // ── 4. Post-login routing (NO forced redirects — user may browse any DhaniWin page) ──
+  // After a fresh login/register success, land on the DhaniWin home page once.
+  function goHomeAfterLogin() {
     const href = window.location.href.toLowerCase();
-    const isRegisterOrLogin = href.includes('/register') || href.includes('/login');
-    let token = null;
-    try {
-      token = localStorage.getItem('ar_token') || sessionStorage.getItem('ar_token');
-    } catch(e) {}
-
-    // Only auto-navigate if logged in or past registration
-    if (!isRegisterOrLogin || token) {
-      const targetPath = INTERVAL_URL_MAP[activeTimeframe] || '/WinGo/WinGo_30S';
-      const targetPathLower = targetPath.toLowerCase();
-
-      // Check if we are already on this interval's URL
-      if (!href.includes(targetPathLower)) {
-        console.log('[Quant AI Bridge] 🚀 Direct Interval Routing ->', targetPath);
-        updateFloatingHud(`Loading WinGo ${activeTimeframe.toUpperCase()}...`, 'amber');
-        window.location.href = window.location.origin + targetPath;
-        return;
-      }
-
-      // If already on the page, ensure correct tab is active
-      switchTimerTab(activeTimeframe);
+    if (href.includes('/login') || href.includes('/register')) {
+      window.location.href = window.location.origin + '/';
     }
   }
-  setTimeout(autoOpenWinGo, 1200);
-  setInterval(autoOpenWinGo, 3000);
+
+  // Only keep the timer tab in sync when the user is ALREADY on a WinGo page. Never navigate.
+  function autoOpenWinGo() {
+    const href = window.location.href.toLowerCase();
+    if (href.includes('/wingo/')) switchTimerTab(activeTimeframe);
+  }
+  setTimeout(autoOpenWinGo, 1500);
 
   // Switch WinGo Timer Tab (30s, 1m, 3m, 5m)
   function switchTimerTab(tf) {
