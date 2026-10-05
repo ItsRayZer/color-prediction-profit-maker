@@ -772,25 +772,21 @@
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads">
       </iframe>
 
-      <!-- Floating web navigation (Back / Forward / Home / Reload) for the embedded DhaniWin site -->
-      <div id="dhaniWebNavPill" style="position:fixed; left:12px; bottom:92px; z-index:99997; display:flex; gap:2px; padding:3px; border-radius:999px; background:rgba(20,20,22,0.72); border:1px solid rgba(255,255,255,0.1); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);">
-        <button type="button" onclick="dhaniWebBack()" aria-label="Back" style="width:34px;height:34px;border-radius:50%;color:#fff;background:transparent;"><i class="fa-solid fa-chevron-left text-xs"></i></button>
-        <button type="button" onclick="dhaniWebForward()" aria-label="Forward" style="width:34px;height:34px;border-radius:50%;color:#fff;background:transparent;"><i class="fa-solid fa-chevron-right text-xs"></i></button>
-        <button type="button" onclick="dhaniWebHome()" aria-label="DhaniWin home" style="width:34px;height:34px;border-radius:50%;color:#fff;background:transparent;"><i class="fa-solid fa-house text-xs"></i></button>
-        <button type="button" onclick="reloadWebIframe()" aria-label="Reload" style="width:34px;height:34px;border-radius:50%;color:#fff;background:transparent;"><i class="fa-solid fa-rotate-right text-xs"></i></button>
-      </div>
-
       <!-- Pull handle: visible when our top bar is hidden; tap / swipe down to show it -->
       <button id="homeHeaderPullHandle" type="button" aria-label="Show top bar"></button>
 
-      <!-- Login / Register bar (shown when logged out or session expired) -->
-      <div id="dhaniAuthBar" class="liquid-glass-pill" style="display:none;">
-        <i class="fa-solid fa-user-lock text-amber-300 text-xs"></i>
-        <span id="dhaniAuthBarText" class="text-[10.5px] font-bold text-white/80 whitespace-nowrap">Not logged in</span>
-        <button type="button" onclick="openDhaniLogin()" class="auth-btn auth-btn-primary">Login</button>
-        <button type="button" onclick="openDhaniRegister()" class="auth-btn">Register</button>
-        <button type="button" onclick="confirmDhaniLoggedIn()" class="auth-btn" title="I have logged in — open WinGo"><i class="fa-solid fa-check"></i></button>
-        <button type="button" onclick="dismissDhaniAuthBar()" class="auth-btn auth-btn-ghost" title="Hide"><i class="fa-solid fa-xmark"></i></button>
+      <!-- Minimalist Apple Auth Bar (shown when logged out or session expired) -->
+      <div id="dhaniAuthBar" style="display:none;">
+        <span id="dhaniAuthBarText" style="display:none;">Not logged in</span>
+        <button type="button" onclick="openDhaniLogin()" class="auth-btn apple-auth-btn apple-auth-login">Login</button>
+        <button type="button" onclick="openDhaniRegister()" class="auth-btn apple-auth-btn apple-auth-register">Register</button>
+        <button type="button" onclick="confirmDhaniLoggedIn()" class="auth-btn apple-auth-btn apple-auth-verified" title="I have logged in — verify & unlock 01:01">
+          <i class="fa-solid fa-check text-[10px]"></i>
+          <span>Already logged in before</span>
+        </button>
+        <button type="button" onclick="dismissDhaniAuthBar()" class="auth-btn apple-auth-close" title="Close" aria-label="Dismiss auth bar">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
       </div>
 
       <!-- Floating Circle Assistant (AssistiveTouch Orb with Radial Clock Timer Ring) -->
