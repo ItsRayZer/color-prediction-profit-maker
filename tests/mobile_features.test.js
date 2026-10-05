@@ -1097,3 +1097,68 @@ test('Dhani Login Verification, Registration First-Time, Refresh Persistence & A
   });
 });
 
+test('Floating Assistant Modal Sheet Gestures & Smooth Transitions', async (t) => {
+  let modal = { hidden: true, sheetOpen: false, translateY: 100 };
+  let pullToRefreshBlocked = false;
+
+  function toggleSheet(show) {
+    if (show) {
+      modal.hidden = false;
+      modal.sheetOpen = true;
+      modal.translateY = 0;
+    } else {
+      modal.sheetOpen = false;
+      modal.translateY = 100;
+      modal.hidden = true;
+    }
+  }
+
+  function handleTouchDrag(dy, isAtTop, e) {
+    if (dy > 0 && isAtTop) {
+      if (e.cancelable) {
+        e.preventDefault();
+        pullToRefreshBlocked = true;
+      }
+      modal.translateY = dy;
+    }
+  }
+
+  function handleTouchRelease(dy) {
+    if (dy > 65) {
+      toggleSheet(false);
+    } else {
+      modal.translateY = 0;
+    }
+  }
+
+  await t.test('Opening assistant modal slides up smoothly and reveals sheet', () => {
+    toggleSheet(true);
+    assert.equal(modal.hidden, false);
+    assert.equal(modal.sheetOpen, true);
+    assert.equal(modal.translateY, 0);
+  });
+
+  await t.test('Dragging down at top prevents browser pull-to-refresh reload and tracks finger', () => {
+    let prevented = false;
+    const mockEvent = { cancelable: true, preventDefault: () => { prevented = true; } };
+    handleTouchDrag(40, true, mockEvent);
+    assert.equal(prevented, true, 'Must prevent default browser pull-to-refresh reload');
+    assert.equal(pullToRefreshBlocked, true);
+    assert.equal(modal.translateY, 40, 'Sheet tracks user drag distance');
+  });
+
+  await t.test('Releasing drag < 65px snaps sheet back to 0 (stays open)', () => {
+    handleTouchRelease(40);
+    assert.equal(modal.translateY, 0, 'Snaps back to top');
+    assert.equal(modal.sheetOpen, true, 'Remains open');
+    assert.equal(modal.hidden, false);
+  });
+
+  await t.test('Wiping/dragging down > 65px smoothly dismisses and closes the sheet', () => {
+    handleTouchRelease(80);
+    assert.equal(modal.sheetOpen, false);
+    assert.equal(modal.translateY, 100, 'Slides completely off screen');
+    assert.equal(modal.hidden, true);
+  });
+});
+

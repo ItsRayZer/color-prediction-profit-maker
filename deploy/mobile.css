@@ -1099,3 +1099,28 @@ a[href*="tradingview.com"] {
 .animate-bounce-subtle {
   animation: subtleFloat 3s ease-in-out infinite;
 }
+
+/* ── DhaniWin Floating Ball Assistant Modal (Smooth iOS Bottom Sheet) ── */
+#dhaniwinAssistantModal {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+#dhaniwinAssistantModal.sheet-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+#dhaniwinAssistantModal #dhaniwinAssistantSheet {
+  transform: translateY(100%);
+  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+  overscroll-behavior-y: contain;
+}
+#dhaniwinAssistantModal.sheet-open #dhaniwinAssistantSheet {
+  transform: translateY(0);
+}
+#dhaniwinAssistantModal.sheet-dragging #dhaniwinAssistantSheet {
+  transition: none !important;
+}

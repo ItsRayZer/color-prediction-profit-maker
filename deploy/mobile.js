@@ -3751,6 +3751,7 @@ const _runDockInit = () => {
   try { initDockAutoCompact(); } catch(e) { console.warn('[DockCompact]', e); }
   try { updateDhaniAuthBar(); } catch(e) {}
   try { initCoffeeSupportPopup(); } catch(e) { console.warn('[CoffeePopup]', e); }
+  try { initDhaniwinAssistantSheetGesture(); } catch(e) { console.warn('[SheetGesture]', e); }
 };
 
 if (document.readyState === 'loading') {
@@ -5458,19 +5459,103 @@ function checkAndSendBestTimeNotification(winRate, wins, total, tf) {
 window.checkAndSendBestTimeNotification = checkAndSendBestTimeNotification;
 
 // ── 30. Floating AssistiveTouch Circle Assistant & Modal Hub ──────────────────
+let _assistantModalClosing = false;
 
 function toggleDhaniwinAssistantModal(show) {
   const modal = $('dhaniwinAssistantModal');
+  const sheet = $('dhaniwinAssistantSheet');
   if (!modal) return;
-  if (show === undefined) {
-    modal.classList.toggle('hidden');
-  } else if (show) {
+
+  const isOpen = !modal.classList.contains('hidden') && modal.classList.contains('sheet-open');
+  const targetOpen = show === undefined ? !isOpen : Boolean(show);
+
+  if (targetOpen) {
+    _assistantModalClosing = false;
     modal.classList.remove('hidden');
+    // Force browser reflow to guarantee the opening animation triggers
+    void modal.offsetWidth;
+    modal.classList.add('sheet-open');
+    if (sheet) {
+      sheet.style.transform = '';
+      sheet.scrollTop = 0;
+    }
   } else {
-    modal.classList.add('hidden');
+    if (_assistantModalClosing) return;
+    _assistantModalClosing = true;
+    modal.classList.remove('sheet-open');
+    if (sheet) {
+      sheet.style.transform = 'translateY(100%)';
+    }
+    setTimeout(() => {
+      if (_assistantModalClosing) {
+        modal.classList.add('hidden');
+        if (sheet) sheet.style.transform = '';
+        _assistantModalClosing = false;
+      }
+    }, 320);
   }
 }
 window.toggleDhaniwinAssistantModal = toggleDhaniwinAssistantModal;
+
+// ── Initialize Bottom Sheet Wipe-Down Gesture & Prevent Pull-to-Refresh Reload ──
+function initDhaniwinAssistantSheetGesture() {
+  const modal = document.getElementById('dhaniwinAssistantModal');
+  const sheet = document.getElementById('dhaniwinAssistantSheet');
+  const grabArea = document.getElementById('dhaniwinGrabHandleArea');
+  if (!modal || !sheet) return;
+
+  let startY = 0;
+  let currentY = 0;
+  let isDragging = false;
+
+  const onTouchStart = (e) => {
+    if (!e.touches || e.touches.length !== 1) return;
+    startY = e.touches[0].clientY;
+    currentY = startY;
+    isDragging = false;
+  };
+
+  const onTouchMove = (e) => {
+    if (!e.touches || e.touches.length !== 1) return;
+    currentY = e.touches[0].clientY;
+    const dy = currentY - startY;
+
+    // Pulling down when sheet is scrolled to top, or touching the top grab handle area
+    if (dy > 0 && (sheet.scrollTop <= 0 || (grabArea && grabArea.contains(e.target)))) {
+      // PREVENT BROWSER PULL-TO-REFRESH PAGE RELOAD
+      if (e.cancelable) e.preventDefault();
+      isDragging = true;
+      modal.classList.add('sheet-dragging');
+      sheet.style.transform = `translateY(${Math.max(0, dy)}px)`;
+    }
+  };
+
+  const onTouchEnd = () => {
+    if (!isDragging) return;
+    modal.classList.remove('sheet-dragging');
+    const dy = currentY - startY;
+    isDragging = false;
+
+    // Threshold: swipe down more than 65px closes the sheet smoothly
+    if (dy > 65) {
+      toggleDhaniwinAssistantModal(false);
+    } else {
+      // Rebound / snap back to open position
+      sheet.style.transition = 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)';
+      sheet.style.transform = 'translateY(0)';
+      setTimeout(() => {
+        sheet.style.transition = '';
+        sheet.style.transform = '';
+      }, 260);
+    }
+  };
+
+  sheet.addEventListener('touchstart', onTouchStart, { passive: true });
+  sheet.addEventListener('touchmove', onTouchMove, { passive: false });
+  sheet.addEventListener('touchend', onTouchEnd, { passive: true });
+  sheet.addEventListener('touchcancel', onTouchEnd, { passive: true });
+}
+window.initDhaniwinAssistantSheetGesture = initDhaniwinAssistantSheetGesture;
 
 let _dhaniwinTrueFullscreen = false;
 function toggleDhaniWinTrueFullscreen() {
