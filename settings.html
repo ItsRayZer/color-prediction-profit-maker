@@ -1291,121 +1291,57 @@
       </div>
     </div>
 
-    <!-- SECTION: APPLE IOS SYSTEM SHORTCUTS (from FifiTheBulldog/ios-settings-urls) -->
-    <div class="setting-category" data-cat="apple ios shortcuts system">
+    <!-- UNIFIED DYNAMIC DEVICE & OS OPTIMIZATION (Auto-detects iOS vs Android vs Desktop) -->
+    <div id="deviceSettingsGroup" class="setting-category" data-cat="device system android apple battery notifications permissions shortcuts">
       <div class="ios-group-title">
-        <span>Apple iOS System Shortcuts</span>
-        <span class="ios-tag-micro tag-neutral">iOS PREFS</span>
+        <span>Device &amp; OS Optimization</span>
+        <span id="devicePlatformTag" class="ios-tag-micro tag-active">AUTO-DETECTED</span>
       </div>
       <div class="ios-inset-group">
-        
-        <!-- Apple Notifications Settings URL -->
-        <a href="App-prefs:root=NOTIFICATIONS_ID" class="ios-row interactive">
-          <div class="ios-row-left">
-            <div class="ios-squircle sq-red">
-              <i class="fa-solid fa-sliders"></i>
-            </div>
-            <div>
-              <div class="ios-label-primary">iOS Notifications Settings</div>
-              <div class="ios-label-secondary">Configure lock-screen banners &amp; badges</div>
-            </div>
-          </div>
-          <div class="ios-row-right">
-            <span class="ios-scheme-badge">prefs</span>
-            <i class="fa-solid fa-arrow-up-right-from-square ios-chevron" style="font-size: 11px;"></i>
-          </div>
-        </a>
 
-        <!-- Apple Battery & Low Power Mode URL -->
-        <a href="App-prefs:root=BATTERY" class="ios-row interactive">
+        <!-- Dynamic OS Battery & Performance Row -->
+        <div id="deviceBatteryRow" class="ios-row interactive" style="cursor: pointer;">
           <div class="ios-row-left">
-            <div class="ios-squircle sq-green">
-              <i class="fa-solid fa-battery-full"></i>
-            </div>
-            <div>
-              <div class="ios-label-primary">iOS Battery &amp; Low Power</div>
-              <div class="ios-label-secondary">Disable Low Power throttling during trading</div>
-            </div>
-          </div>
-          <div class="ios-row-right">
-            <span class="ios-scheme-badge">prefs</span>
-            <i class="fa-solid fa-arrow-up-right-from-square ios-chevron" style="font-size: 11px;"></i>
-          </div>
-        </a>
-
-        <!-- Apple Safari Settings URL -->
-        <a href="App-prefs:root=SAFARI" class="ios-row interactive">
-          <div class="ios-row-left">
-            <div class="ios-squircle sq-blue">
-              <i class="fa-brands fa-safari"></i>
-            </div>
-            <div>
-              <div class="ios-label-primary">Safari Settings</div>
-              <div class="ios-label-secondary">Manage cookies, storage &amp; audio autoplay</div>
-            </div>
-          </div>
-          <div class="ios-row-right">
-            <span class="ios-scheme-badge">prefs</span>
-            <i class="fa-solid fa-arrow-up-right-from-square ios-chevron" style="font-size: 11px;"></i>
-          </div>
-        </a>
-
-      </div>
-      <div class="ios-group-footer">
-        Direct URL schemes open native iOS Settings sub-menus when using iPhone, iPad, or Safari Web Apps.
-      </div>
-    </div>
-
-    <!-- SECTION: ANDROID SYSTEM INTENTS & BATTERY GUIDANCE -->
-    <div class="setting-category" data-cat="android battery notifications intent permissions shortcuts">
-      <div class="ios-group-title">
-        <span>Android System Shortcuts &amp; Battery Guidance</span>
-        <span class="ios-tag-micro tag-active">ANDROID INTENTS</span>
-      </div>
-      <div class="ios-inset-group">
-        <!-- Android Battery Optimization Intent -->
-        <div class="ios-row interactive" onclick="launchAndroidBatterySettings()" style="cursor: pointer;">
-          <div class="ios-row-left">
-            <div class="ios-squircle sq-green">
+            <div id="deviceBatteryIcon" class="ios-squircle sq-green">
               <i class="fa-solid fa-battery-half"></i>
             </div>
             <div>
-              <div class="ios-label-primary">Android Battery Optimization</div>
-              <div class="ios-label-secondary">Launch Ignore Battery Optimizations intent</div>
+              <div id="deviceBatteryTitle" class="ios-label-primary">Battery &amp; Background Activity</div>
+              <div id="deviceBatterySub" class="ios-label-secondary">Prevent system throttling during prediction analysis</div>
             </div>
           </div>
           <div class="ios-row-right">
-            <span class="ios-scheme-badge">intent</span>
+            <span id="deviceBatteryActionTag" class="ios-scheme-badge">tune</span>
             <i class="fa-solid fa-arrow-up-right-from-square ios-chevron" style="font-size: 11px;"></i>
           </div>
         </div>
 
-        <!-- Android App Notification Settings Intent -->
-        <div class="ios-row interactive" onclick="launchAndroidNotificationSettings()" style="cursor: pointer;">
+        <!-- Dynamic OS Notifications Row -->
+        <div id="deviceNotifRow" class="ios-row interactive" style="cursor: pointer;">
           <div class="ios-row-left">
-            <div class="ios-squircle sq-blue">
+            <div id="deviceNotifIcon" class="ios-squircle sq-blue">
               <i class="fa-solid fa-bell"></i>
             </div>
             <div>
-              <div class="ios-label-primary">Android Notification Settings</div>
-              <div class="ios-label-secondary">Launch App Notification Permissions intent</div>
+              <div id="deviceNotifTitle" class="ios-label-primary">System Notifications</div>
+              <div id="deviceNotifSub" class="ios-label-secondary">Configure high-priority prediction signals</div>
             </div>
           </div>
           <div class="ios-row-right">
-            <span class="ios-scheme-badge">intent</span>
+            <span id="deviceNotifActionTag" class="ios-scheme-badge">system</span>
             <i class="fa-solid fa-arrow-up-right-from-square ios-chevron" style="font-size: 11px;"></i>
           </div>
         </div>
 
-        <!-- Battery Optimization Interactive Guide -->
+        <!-- Universal Optimization Guide -->
         <div class="ios-row interactive" onclick="openBatteryGuideModal()" style="cursor: pointer;">
           <div class="ios-row-left">
             <div class="ios-squircle sq-orange">
               <i class="fa-solid fa-book-open"></i>
             </div>
             <div>
-              <div class="ios-label-primary">Device Optimization Guide</div>
-              <div class="ios-label-secondary">Step-by-step instructions for MIUI, One UI, ColorOS</div>
+              <div class="ios-label-primary">Device Guide for Background Reliability</div>
+              <div id="deviceGuideSub" class="ios-label-secondary">Keep AI models calculating when phone is locked</div>
             </div>
           </div>
           <div class="ios-row-right">
@@ -1413,9 +1349,10 @@
             <i class="fa-solid fa-chevron-right ios-chevron"></i>
           </div>
         </div>
+
       </div>
-      <div class="ios-group-footer">
-        Direct Android intent launchers open native OS battery optimization and notification panels in Android Chrome, WebView, or PWA mode.
+      <div id="deviceGroupFooter" class="ios-group-footer">
+        Tailored optimizations detected for your active mobile operating system.
       </div>
     </div>
 
@@ -1926,6 +1863,9 @@
       // Custom Endpoints
       loadCustomEndpointsUI();
 
+      // Adaptive Device & OS System Optimization Setup
+      setupDeviceOptimizationSection();
+
       // Scroll listener for large title collapse
       window.addEventListener('scroll', handleNavbarScroll, { passive: true });
     }
@@ -2172,6 +2112,109 @@
         showToast('Default endpoints restored');
       } catch (e) {
         showToast('Failed to reset endpoints', false);
+      }
+    }
+
+    function detectUserPlatform() {
+      const ua = navigator.userAgent || '';
+      const platform = navigator.platform || '';
+      const isIOS = /iPhone|iPad|iPod/i.test(ua) || (platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isAndroid = /Android/i.test(ua);
+      if (isIOS) return 'ios';
+      if (isAndroid) return 'android';
+      return 'desktop';
+    }
+
+    function setupDeviceOptimizationSection() {
+      const os = detectUserPlatform();
+      const platformTag = document.getElementById('devicePlatformTag');
+      const batteryRow = document.getElementById('deviceBatteryRow');
+      const batteryTitle = document.getElementById('deviceBatteryTitle');
+      const batterySub = document.getElementById('deviceBatterySub');
+      const batteryAction = document.getElementById('deviceBatteryActionTag');
+      const notifRow = document.getElementById('deviceNotifRow');
+      const notifTitle = document.getElementById('deviceNotifTitle');
+      const notifSub = document.getElementById('deviceNotifSub');
+      const notifAction = document.getElementById('deviceNotifActionTag');
+      const guideSub = document.getElementById('deviceGuideSub');
+      const footer = document.getElementById('deviceGroupFooter');
+
+      if (os === 'ios') {
+        if (platformTag) {
+          platformTag.textContent = 'APPLE iOS';
+          platformTag.className = 'ios-tag-micro tag-neutral';
+        }
+        if (batteryTitle) batteryTitle.textContent = 'iOS Battery & Low Power';
+        if (batterySub) batterySub.textContent = 'Disable Low Power throttling during background trading';
+        if (batteryAction) batteryAction.textContent = 'prefs';
+        if (batteryRow) {
+          batteryRow.onclick = () => {
+            window.location.href = 'App-prefs:root=BATTERY';
+            showToast('Opening iOS Battery Settings...');
+          };
+        }
+
+        if (notifTitle) notifTitle.textContent = 'iOS Notification Banners';
+        if (notifSub) notifSub.textContent = 'Configure lock-screen banners, sounds & badges';
+        if (notifAction) notifAction.textContent = 'prefs';
+        if (notifRow) {
+          notifRow.onclick = () => {
+            window.location.href = 'App-prefs:root=NOTIFICATIONS_ID';
+            showToast('Opening iOS Notification Settings...');
+          };
+        }
+
+        if (guideSub) guideSub.textContent = 'Safari & PWA Add-to-Home-Screen setup guide';
+        if (footer) footer.textContent = 'Optimized for Apple iPhone & iPad. Direct URL schemes open native iOS Settings panels.';
+
+      } else if (os === 'android') {
+        if (platformTag) {
+          platformTag.textContent = 'ANDROID OS';
+          platformTag.className = 'ios-tag-micro tag-active';
+        }
+        if (batteryTitle) batteryTitle.textContent = 'Android Battery Optimization';
+        if (batterySub) batterySub.textContent = 'Exempt 01:01 from background sleep & battery saver';
+        if (batteryAction) batteryAction.textContent = 'intent';
+        if (batteryRow) {
+          batteryRow.onclick = launchAndroidBatterySettings;
+        }
+
+        if (notifTitle) notifTitle.textContent = 'Android Notification Channels';
+        if (notifSub) notifSub.textContent = 'Enable sound alerts for high-win signals';
+        if (notifAction) notifAction.textContent = 'intent';
+        if (notifRow) {
+          notifRow.onclick = launchAndroidNotificationSettings;
+        }
+
+        if (guideSub) guideSub.textContent = 'Step-by-step instructions for Xiaomi, Samsung, OnePlus & Vivo';
+        if (footer) footer.textContent = 'Optimized for Android. Intents launch directly into native application settings.';
+
+      } else {
+        // Desktop / Laptop
+        if (platformTag) {
+          platformTag.textContent = 'DESKTOP / WEB';
+          platformTag.className = 'ios-tag-micro tag-neutral';
+        }
+        if (batteryTitle) batteryTitle.textContent = 'Background Keep-Alive';
+        if (batterySub) batterySub.textContent = 'Browser tab throttling prevention active';
+        if (batteryAction) batteryAction.textContent = 'active';
+        if (batteryRow) {
+          batteryRow.onclick = () => showToast('Desktop Keep-Alive is managed automatically ✓');
+        }
+
+        if (notifTitle) notifTitle.textContent = 'Browser Notifications';
+        if (notifSub) notifSub.textContent = 'Allow native desktop notification popups';
+        if (notifAction) notifAction.textContent = 'prompt';
+        if (notifRow) {
+          notifRow.onclick = () => {
+            if (typeof Notification !== 'undefined') {
+              Notification.requestPermission().then(updateNotifTag);
+            }
+          };
+        }
+
+        if (guideSub) guideSub.textContent = 'Performance guides for Chrome, Edge, Brave & Safari';
+        if (footer) footer.textContent = 'Universal web optimizations active for desktop workspace.';
       }
     }
 

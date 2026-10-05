@@ -1,8 +1,11 @@
 // 01:01 Service Worker for Standalone PWA Installation
-const CACHE_NAME = '0101-pwa-cache-v5';
+const CACHE_NAME = '0101-pwa-cache-v6';
 const ASSETS_TO_CACHE = [
   '/',
   '/mobile',
+  '/mobile.html',
+  '/settings',
+  '/settings.html',
   '/mobile.css',
   '/mobile.js',
   '/logo_0101.jpg',
@@ -70,10 +73,12 @@ self.addEventListener('fetch', (event) => {
         .catch(async () => {
           // Robust offline fallback: serve cached mobile view or home view without throwing ERR_FAILED
           const cache = await caches.open(CACHE_NAME);
-          const cached = (await cache.match('/mobile')) ||
+          const cached = (await cache.match(req)) ||
+                         (await cache.match('/settings.html')) ||
+                         (await cache.match('/settings')) ||
+                         (await cache.match('/mobile')) ||
                          (await cache.match('/mobile.html')) ||
-                         (await cache.match('/')) ||
-                         (await cache.match(req));
+                         (await cache.match('/'));
           if (cached) return cached;
           return new Response('<!DOCTYPE html><html><body style="background:#000;color:#fff;font-family:sans-serif;text-align:center;padding:40px;"><h2>01:01</h2><p>Connecting to Cloudflare network...</p><button onclick="location.reload()" style="background:#0a84ff;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-size:14px;cursor:pointer;">Retry</button></body></html>', {
             status: 200,
