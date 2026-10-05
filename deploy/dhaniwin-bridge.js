@@ -23,10 +23,124 @@
   let configuredStake = 2;
   let configuredMaxStake = 64;
   let hasAppBetSettings = false;
-
   let _justLoggedInGrace = 0;
+  let _lastScrapedBalance = null;
 
-  // Intercept fetch & XHR to catch login/register and logout responses instantly
+  // ── 0. Real Balance Engine (Network XHR/Fetch Interception + DOM Scanner) ────
+  function extractBalanceFromJson(data, depth = 0) {
+    if (!data || typeof data !== 'object' || depth > 5) return null;
+    
+    // 1. Direct candidate inspection
+    const primaryKeys = [
+      'balance', 'userbalance', 'user_balance', 'availablebalance', 'available_balance',
+      'wallet', 'userwallet', 'user_wallet', 'walletbalance', 'wallet_balance',
+      'money', 'usermoney', 'user_money', 'realmoney', 'real_money',
+      'coin', 'amount', 'totalbalance', 'total_balance'
+    ];
+
+    // Check at current level
+    for (const k of Object.keys(data)) {
+      const lowerKey = k.toLowerCase().replace(/[^a-z0-9_]/g, '');
+      if (primaryKeys.includes(lowerKey)) {
+        const val = data[k];
+        if (typeof val === 'number' && Number.isFinite(val) && val >= 0) return val;
+        if (typeof val === 'string' && val.trim() !== '') {
+          const num = Number(val.replace(/,/g, '').trim());
+          if (Number.isFinite(num) && num >= 0) return num;
+        }
+      }
+    }
+
+    // 2. Recursive inspection for nested wrappers like data, result, payload, body, info
+    const subKeys = ['data', 'result', 'payload', 'body', 'userInfo', 'user_info', 'user', 'wallet', 'wallets', 'member', 'account'];
+    for (const sk of subKeys) {
+      if (data[sk] && typeof data[sk] === 'object') {
+        const nested = extractBalanceFromJson(data[sk], depth + 1);
+        if (nested !== null) return nested;
+      }
+    }
+
+    return null;
+  }
+
+  function onRealBalanceDetected(balance, source) {
+    if (typeof balance !== 'number' || isNaN(balance) || balance < 0) return;
+    if (_lastScrapedBalance === balance) return;
+    _lastScrapedBalance = balance;
+    console.log(`%c[RealBalanceEngine] 💰 Scraped real balance: ₹${balance.toFixed(2)} (via ${source})`, 'color:#10b981;font-weight:bold;');
+    notifyApp({
+      type: 'DHANIWIN_REAL_BALANCE',
+      balance: balance,
+      source: source,
+      timestamp: Date.now()
+    });
+    notifyApp({
+      type: 'DHANIWIN_USER_SYNC',
+      balance: balance,
+      isLoggedIn: true,
+      url: window.location.href,
+      timestamp: Date.now()
+    });
+  }
+
+  function scrapeRealBalanceFromDOM() {
+    const selectors = [
+      '.wallet-balance',
+      '.balance-num',
+      '[class*="wallet-num"]',
+      '[class*="wallet_num"]',
+      '[class*="balance_num"]',
+      '[class*="user-money"]',
+      '[class*="wallet-money"]',
+      '.van-nav-bar__title',
+      '[class*="money"]',
+      '[class*="balance"]',
+      '[class*="amount"]',
+      '[class*="asset"]'
+    ];
+    const elements = Array.from(document.querySelectorAll(selectors.join(','))).filter(el => {
+      if (el.closest('#quant-ai-hud, #dhaniwinAssistantModal, [class*="stepper"], .time-box, [class*="countdown"]')) return false;
+      return el.offsetParent !== null;
+    });
+
+    for (const el of elements) {
+      const txt = (el.innerText || el.textContent || '').trim();
+      if (txt.includes(':') || txt.includes('%') || txt.includes('#') || txt.length > 35) continue;
+      // Exclude period issue numbers (e.g. 2026100510005)
+      if (/^[0-9]{8,}$/.test(txt)) continue;
+      const match = txt.match(/(?:[₹$]|Rs\.?)\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)/i) ||
+                    txt.match(/^([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)$/);
+      if (match && match[1]) {
+        const num = Number(match[1].replace(/,/g, ''));
+        if (Number.isFinite(num) && num >= 0) {
+          return num;
+        }
+      }
+    }
+
+    // Secondary DOM fallback: inspect elements preceded by Balance/Wallet labels
+    const allLabels = Array.from(document.querySelectorAll('span, div, p, b')).filter(el => {
+      if (el.closest('#quant-ai-hud, #dhaniwinAssistantModal, .time-box')) return false;
+      const t = (el.innerText || el.textContent || '').trim().toLowerCase();
+      return (t === 'balance' || t === 'wallet' || t === 'wallet balance' || t === 'total assets') && el.offsetParent !== null;
+    });
+    for (const lbl of allLabels) {
+      const parent = lbl.parentElement;
+      if (parent) {
+        const numTxt = (parent.innerText || parent.textContent || '').replace(lbl.innerText, '').trim();
+        const m = numTxt.match(/(?:[₹$]|Rs\.?)\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)/i) ||
+                  numTxt.match(/([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)/);
+        if (m && m[1]) {
+          const num = Number(m[1].replace(/,/g, ''));
+          if (Number.isFinite(num) && num >= 0) return num;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // Intercept fetch & XHR to catch login/register, logout, AND wallet balance responses instantly
   (function hookNetworkAuth() {
     try {
       const origFetch = window.fetch;
@@ -66,10 +180,46 @@
                 }
               }).catch(() => {});
             }
+
+            // Real Balance Scraper: Intercept any wallet, user info, or balance JSON payload
+            if (url.includes('wallet') || url.includes('user') || url.includes('balance') || url.includes('money') || url.includes('financial') || url.includes('ar-lottery')) {
+              const clone = response.clone();
+              clone.json().then(data => {
+                const bal = extractBalanceFromJson(data);
+                if (bal !== null) {
+                  onRealBalanceDetected(bal, 'fetch-api');
+                }
+              }).catch(() => {});
+            }
           } catch(e) {}
           return response;
         };
       }
+    } catch(e) {}
+
+    // Also Hook XMLHttpRequest for legacy or Axios requests inside DhaniWin
+    try {
+      const origOpen = XMLHttpRequest.prototype.open;
+      const origSend = XMLHttpRequest.prototype.send;
+      XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+        this._reqUrl = (typeof url === 'string') ? url : '';
+        return origOpen.call(this, method, url, ...rest);
+      };
+      XMLHttpRequest.prototype.send = function(...args) {
+        this.addEventListener('load', function() {
+          try {
+            const urlLower = (this._reqUrl || '').toLowerCase();
+            if (urlLower.includes('wallet') || urlLower.includes('user') || urlLower.includes('balance') || urlLower.includes('money') || urlLower.includes('financial')) {
+              const parsed = JSON.parse(this.responseText);
+              const bal = extractBalanceFromJson(parsed);
+              if (bal !== null) {
+                onRealBalanceDetected(bal, 'xhr-api');
+              }
+            }
+          } catch(e) {}
+        });
+        return origSend.apply(this, args);
+      };
     } catch(e) {}
   })();
 
@@ -322,14 +472,11 @@
       try { localStorage.removeItem('ar_token'); } catch(e) {}
     }
 
-    let balance = null;
-    const candidates = document.querySelectorAll('.wallet-balance, .balance-num, [class*="balance"], [class*="money"], .amount, .van-nav-bar__title');
-    for (const el of candidates) {
-      const txt = (el.innerText || el.textContent || '').trim();
-      const match = txt.match(/[₹$]?\s*([0-9]+(?:\.[0-9]{1,2})?)/);
-      if (match && Number(match[1]) > 0 && !txt.includes('%') && !txt.includes(':') && !txt.includes('#')) {
-        balance = Number(match[1]);
-        break;
+    let balance = _lastScrapedBalance;
+    if (balance === null) {
+      balance = scrapeRealBalanceFromDOM();
+      if (balance !== null) {
+        _lastScrapedBalance = balance;
       }
     }
 
@@ -431,7 +578,7 @@
     if (!target) return null;
     const tgt = String(target).trim().toUpperCase();
     const container = findBettingContainer();
-    const candidates = Array.from(container.querySelectorAll('button, div, span, [role="button"], [class*="btn"], [class*="item"]')).filter(el => {
+    const candidates = Array.from(container.querySelectorAll('button, div, span, [role="button"], [class*="btn"], [class*="item"], .van-col')).filter(el => {
       // Exclude table rows, history, hud, assistant
       const isExcluded = el.closest('tr, table, [class*="record"], [class*="history"], [class*="hud"], #quant-ai-hud, [class*="assistant"], .van-popup');
       return !isExcluded && (el.offsetParent !== null || el.offsetWidth > 0);
@@ -443,7 +590,7 @@
     let match = candidates.find(el => {
       const cls = (typeof el.className === 'string' ? el.className.toLowerCase() : '');
       const dtype = (el.getAttribute('data-type') || el.getAttribute('data-bet') || el.getAttribute('data-value') || '').toLowerCase();
-      return dtype === tgtLower || cls.includes(`btn-${tgtLower}`) || cls.includes(`bet-${tgtLower}`) || cls.includes(`item-${tgtLower}`);
+      return dtype === tgtLower || cls.includes(`btn-${tgtLower}`) || cls.includes(`bet-${tgtLower}`) || cls.includes(`item-${tgtLower}`) || cls.includes(`type-${tgtLower}`);
     });
     if (match) return match.closest('button, [role="button"], [class*="btn"], .van-col, .bet-item') || match;
 
@@ -458,19 +605,19 @@
       }
 
       // Word matching for BIG, SMALL, GREEN, RED, VIOLET
-      return new RegExp(`^${tgt}(\\s|\\n|$)|^\\s*${tgt}\\b`).test(t);
+      return new RegExp(`^${tgt}(\\s|\\n|$)|^\\s*${tgt}\\b`).test(t) || t === tgt;
     });
     if (match) return match.closest('button, [role="button"], [class*="btn"], .van-col, .bet-item') || match;
 
     // 3. Fallback whole-page search (strictly excluding tables and HUD)
-    const all = Array.from(document.querySelectorAll('button, div, span, [role="button"]')).filter(el => {
+    const all = Array.from(document.querySelectorAll('button, div, span, [role="button"], .van-col')).filter(el => {
       return !el.closest('tr, table, [class*="record"], [class*="history"], #quant-ai-hud, [class*="assistant"]');
     });
     match = all.find(el => {
       const t = (el.innerText || el.textContent || '').trim().toUpperCase();
       return (t === tgt || new RegExp(`^${tgt}(\\s|\\n|$)`).test(t)) && !t.includes('PREP') && !t.includes('QUANT');
     });
-    return match ? (match.closest('button, [role="button"], [class*="btn"]') || match) : null;
+    return match ? (match.closest('button, [role="button"], [class*="btn"], .van-col, .bet-item') || match) : null;
   }
 
   // ── 8. Vue 2/3 Reactive Input Setter & Stepper Adjuster ───────────────────────
@@ -488,9 +635,9 @@
     } catch(e) {
       input.value = String(val);
     }
-    input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
-    input.dispatchEvent(new Event('blur', { bubbles: true, composed: true }));
+    ['focus', 'input', 'change', 'blur'].forEach(evtName => {
+      try { input.dispatchEvent(new Event(evtName, { bubbles: true, composed: true })); } catch(e) {}
+    });
   }
 
   function adjustStepperStake(activePopup, desiredStake) {
@@ -512,30 +659,24 @@
       if (!isActive) simulateClick(chip1);
     }
 
-    // 2. Find stepper input and +/- buttons (prioritise van-stepper__input)
+    // 2. Check for exact multiplier / quick stake buttons (e.g. X1, X2, X5, X10, X50, X100 or ₹2, ₹5, etc.)
+    const quickButtons = chips.filter(el => {
+      const t = (el.innerText || el.textContent || '').trim().toUpperCase();
+      return (t === `X${targetStake}` || t === `${targetStake}` || t === `₹${targetStake}`) && !el.closest('.van-stepper');
+    });
+    if (quickButtons.length > 0) {
+      simulateClick(quickButtons[0]);
+    }
+
+    // 3. Find stepper input and +/- buttons (prioritise van-stepper__input)
     const stepperInput = activePopup.querySelector(
       'input.van-stepper__input, input.amount-input, .van-stepper input, input[type="tel"], input[type="number"]'
     );
-    const plusBtn  = activePopup.querySelector('.van-stepper__plus,  [class*="stepper__plus"]');
-    const minusBtn = activePopup.querySelector('.van-stepper__minus, [class*="stepper__minus"]');
+    const plusBtn  = activePopup.querySelector('.van-stepper__plus,  [class*="stepper__plus"], [class*="plus"]');
+    const minusBtn = activePopup.querySelector('.van-stepper__minus, [class*="stepper__minus"], [class*="minus"]');
 
     if (stepperInput) {
-      // BEST METHOD: bypass Vue reactivity lock via native HTMLInputElement prototype setter
-      try {
-        const proto = Object.getPrototypeOf(stepperInput);
-        const desc = Object.getOwnPropertyDescriptor(proto, 'value') ||
-                     Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
-        if (desc && desc.set) {
-          desc.set.call(stepperInput, String(targetStake));
-        } else {
-          stepperInput.value = String(targetStake);
-        }
-      } catch(e) { stepperInput.value = String(targetStake); }
-
-      // Fire Vue's expected event chain to sync v-model
-      ['focus', 'input', 'change', 'blur'].forEach(evtName => {
-        try { stepperInput.dispatchEvent(new Event(evtName, { bubbles: true, composed: true })); } catch(e) {}
-      });
+      setNativeInputValue(stepperInput, targetStake);
 
       // Check immediately if value didn't stick (e.g. locked/readonly input)
       const immediateVal = parseInt(stepperInput.value, 10) || 0;
@@ -559,14 +700,14 @@
       }
     }
 
-    // 3. Auto-check Terms Checkbox (required before DhaniWin allows confirm)
+    // 4. Auto-check Terms Checkbox (required before DhaniWin allows confirm)
     const checkboxes = activePopup.querySelectorAll('.van-checkbox, input[type="checkbox"]');
     checkboxes.forEach(cb => {
       const isChecked = cb.classList.contains('van-checkbox--checked') || cb.checked;
       if (!isChecked) simulateClick(cb);
     });
 
-    return !!(stepperInput || plusBtn);
+    return !!(stepperInput || plusBtn || quickButtons.length > 0);
   }
 
   async function selectAndVerifyStake(activePopup, desiredStake) {
@@ -588,14 +729,18 @@
         }
       } else {
         const hasStepper = popup.querySelector('.van-stepper__plus, [class*="stepper__plus"]');
-        if (!hasStepper) return false;
-        stepperControlsSeen = true;
+        if (!hasStepper) {
+          // If popup already open and Terms checked, accept adjustment attempt
+          if (attemptedAdjustment) return true;
+        } else {
+          stepperControlsSeen = true;
+        }
         if (!attemptedAdjustment) attemptedAdjustment = adjustStepperStake(popup, targetStake);
-        if (Date.now() - startedAt >= stepperOnlyWaitMs) return attemptedAdjustment && stepperControlsSeen;
+        if (Date.now() - startedAt >= stepperOnlyWaitMs) return attemptedAdjustment;
       }
       await new Promise(resolve => setTimeout(resolve, 80));
     }
-    return false;
+    return attemptedAdjustment;
   }
 
 
@@ -800,7 +945,53 @@
       }
     } else if (msg.type === 'EXECUTE_REAL_BET' && msg.enabled) {
       executeRealBet(msg);
+    } else if (msg.type === 'DHANIWIN_REQUEST_SYNC') {
+      console.log('[Quant AI Bridge] 🔄 Sync requested by app — probing wallet API & DOM...');
+      const refreshBtn = document.querySelector('.van-icon-replay, [class*="refresh"], [class*="reload"], .wallet-refresh, .refresh-btn');
+      if (refreshBtn) simulateClick(refreshBtn);
+      const domBal = scrapeRealBalanceFromDOM();
+      if (domBal !== null) onRealBalanceDetected(domBal, 'dom-sync');
+      scrapeUserSession();
+    } else if (msg.type === 'DHANIWIN_REQUEST_AUTH_CHECK') {
+      console.log('[Quant AI Bridge] 🔍 Auth check requested by app...');
+      const authResult = performRealAuthInspection();
+      notifyApp({
+        type: 'DHANIWIN_AUTH_CHECK_RESULT',
+        loggedIn: authResult.loggedIn,
+        user: authResult.user,
+        balance: authResult.balance,
+        reason: authResult.reason,
+        timestamp: Date.now()
+      });
     }
+  }
+
+  function performRealAuthInspection() {
+    let token = null;
+    let userId = null;
+    try {
+      token = localStorage.getItem('token') || sessionStorage.getItem('token') || localStorage.getItem('authorization') || localStorage.getItem('accessToken');
+      userId = localStorage.getItem('userId') || localStorage.getItem('user_id') || sessionStorage.getItem('userId');
+    } catch(e) {}
+
+    const domBal = scrapeRealBalanceFromDOM();
+    const hasLogoutBtn = !!document.querySelector('.logout-btn, button[class*="logout"], [class*="login-out"], [class*="loginout"]');
+    const isLoginPage = window.location.pathname.toLowerCase().includes('/login') || window.location.pathname.toLowerCase().includes('/register');
+    const hasPasswordInput = !!document.querySelector('input[type="password"]');
+
+    if (isLoginPage || hasPasswordInput) {
+      return { loggedIn: false, reason: 'User is currently on the login or registration page' };
+    }
+
+    if (token || (domBal !== null && domBal >= 0) || hasLogoutBtn || userId) {
+      return {
+        loggedIn: true,
+        user: userId || 'verified_member',
+        balance: domBal !== null ? domBal : null
+      };
+    }
+
+    return { loggedIn: false, reason: 'No active session token or member profile detected' };
   }
 
   if (channel) channel.onmessage = (ev) => handleIncomingOrder(ev.data);
@@ -875,29 +1066,47 @@
   }
   startAdaptivePoller();
 
-  // Report scroll direction to the host app (drives its Home top-bar auto-hide).
-  // 'up' = finger swipes up (content advances), 'down' = finger swipes down.
+  // Report scroll direction to the host app (drives its Home top-bar auto-hide and dock restoration).
+  // 'up' = finger swipes up (content advances down), 'down' = finger swipes down (user scrolls UP).
   (function startScrollReporter() {
     let lastY = window.scrollY || 0;
     let lastDir = null;
+    let lastReportTime = 0;
+
     const report = (dir) => {
-      if (dir === lastDir) return;
+      const now = Date.now();
+      // Allow reporting if direction changed, OR if scrolling UP ('down') repeatedly after a brief throttle
+      if (dir === lastDir && dir !== 'down' && (now - lastReportTime < 500)) return;
+      if (dir === 'down' && (now - lastReportTime < 80)) return; // Light throttle on fast scroll-ups
       lastDir = dir;
-      notifyApp({ type: 'DHANIWIN_SCROLL', direction: dir, timestamp: Date.now() });
+      lastReportTime = now;
+      notifyApp({ type: 'DHANIWIN_SCROLL', direction: dir, timestamp: now });
     };
-    window.addEventListener('scroll', () => {
-      const y = window.scrollY || 0;
-      if (Math.abs(y - lastY) < 12) return;
+
+    window.addEventListener('scroll', (e) => {
+      const target = e.target === document ? window : (e.target || window);
+      const y = target.scrollY !== undefined ? target.scrollY : (target.scrollTop || 0);
+      if (Math.abs(y - lastY) < 8) return;
       report(y > lastY ? 'up' : 'down');
       lastY = y;
-    }, { passive: true });
+    }, { capture: true, passive: true });
+
     let ty = null;
-    window.addEventListener('touchstart', (e) => { ty = e.touches[0].clientY; }, { passive: true });
+    window.addEventListener('touchstart', (e) => {
+      if (e.touches && e.touches[0]) {
+        ty = e.touches[0].clientY;
+      }
+      lastDir = null; // Always allow the next swipe gesture to be reported
+    }, { capture: true, passive: true });
+
     window.addEventListener('touchmove', (e) => {
-      if (ty === null) return;
+      if (ty === null || !e.touches || !e.touches[0]) return;
       const dy = e.touches[0].clientY - ty;
-      if (Math.abs(dy) > 24) { report(dy < 0 ? 'up' : 'down'); ty = e.touches[0].clientY; }
-    }, { passive: true });
+      if (Math.abs(dy) > 12) {
+        report(dy < 0 ? 'up' : 'down');
+        ty = e.touches[0].clientY;
+      }
+    }, { capture: true, passive: true });
   })();
 
   // Report touch/tap anywhere inside DhaniWin to dismiss/hide the floating main menu

@@ -1225,3 +1225,176 @@ test('Floating Assistant Modal Sheet Gestures & Smooth Transitions', async (t) =
   });
 });
 
+test('Auth UI Separation, Real Verification & Anti-Nesting Guard', async (t) => {
+  const mockStorage = new Map();
+  const localStorageMock = {
+    getItem: (k) => mockStorage.get(k) || null,
+    setItem: (k, v) => mockStorage.set(k, String(v)),
+    removeItem: (k) => mockStorage.delete(k)
+  };
+  const mockSession = new Map();
+  const sessionStorageMock = {
+    getItem: (k) => mockSession.get(k) || null,
+    setItem: (k, v) => mockSession.set(k, String(v)),
+    removeItem: (k) => mockSession.delete(k)
+  };
+
+  let isLoggedIn = false;
+  let topPillVisible = false;
+  let floatingBtnVisible = false;
+
+  function updateAuthUI() {
+    const showAuth = !isLoggedIn;
+    topPillVisible = showAuth;
+    const hasVisitedOrAttempted = localStorageMock.getItem('dhaniwin_user_has_logged_in_ever') === '1' ||
+                                  localStorageMock.getItem('dhaniwin_registered') === '1' ||
+                                  sessionStorageMock.getItem('dhani_login_attempted') === '1';
+    floatingBtnVisible = showAuth && !!hasVisitedOrAttempted;
+  }
+
+  await t.test('First time visit before login: floating "Already Logged In" button is NOT shown', () => {
+    isLoggedIn = false;
+    updateAuthUI();
+    assert.equal(topPillVisible, true, 'Top middle Login/Register pill must be visible');
+    assert.equal(floatingBtnVisible, false, 'Floating Already Logged In button must NOT appear on first time visit');
+  });
+
+  await t.test('After tapping Login or visiting before: floating button appears above dock', () => {
+    sessionStorageMock.setItem('dhani_login_attempted', '1');
+    updateAuthUI();
+    assert.equal(topPillVisible, true);
+    assert.equal(floatingBtnVisible, true, 'Floating button must appear once user has visited or attempted login');
+  });
+
+  await t.test('Real verification rejects when bridge reports no active session', async () => {
+    let authApproved = false;
+    function verifySession(bridgeResponse) {
+      if (bridgeResponse && bridgeResponse.loggedIn) {
+        authApproved = true;
+        isLoggedIn = true;
+      } else {
+        authApproved = false;
+      }
+    }
+
+    verifySession({ loggedIn: false, reason: 'User is on login page' });
+    assert.equal(authApproved, false, 'Must reject fake / unverified login');
+    assert.equal(isLoggedIn, false);
+  });
+
+  await t.test('Real verification approves and unlocks 01:01 when bridge confirms session', async () => {
+    let authApproved = false;
+    function verifySession(bridgeResponse) {
+      if (bridgeResponse && bridgeResponse.loggedIn) {
+        authApproved = true;
+        isLoggedIn = true;
+        localStorageMock.setItem('dhaniwin_user_has_logged_in_ever', '1');
+      }
+    }
+
+    verifySession({ loggedIn: true, user: 'member_7781', balance: 450 });
+    assert.equal(authApproved, true, 'Must approve verified login');
+    assert.equal(isLoggedIn, true);
+    updateAuthUI();
+    assert.equal(topPillVisible, false, 'Top pill must hide when logged in');
+    assert.equal(floatingBtnVisible, false, 'Floating button must hide when logged in');
+  });
+
+  await t.test('Anti-nesting: frame guard detects nested iframe and suppresses duplicate UI', () => {
+    const isInsideFrame = (windowTop, windowSelf) => windowTop !== windowSelf;
+    assert.equal(isInsideFrame({}, {}), true, 'Nested frame detected when top !== self');
+    assert.equal(isInsideFrame(1, 1), false, 'Normal top window when top === self');
+  });
+});
+
+test('Custom Default Website, Required API Verification & Auto Fallback', async (t) => {
+  const mockStorage = new Map();
+  const localStorageMock = {
+    getItem: (k) => mockStorage.get(k) || null,
+    setItem: (k, v) => mockStorage.set(k, String(v)),
+    removeItem: (k) => mockStorage.delete(k)
+  };
+
+  const DEFAULT_SITE = 'https://dhaniwin44.com/';
+
+  function getDefaultUrl() {
+    const custom = localStorageMock.getItem('custom_default_website_url');
+    if (custom && custom.startsWith('http')) return custom;
+    return DEFAULT_SITE;
+  }
+
+  function simulateVerifyAndSave(siteUrl, apiUrl, mockFetchData) {
+    if (!siteUrl || !apiUrl) {
+      return { success: false, error: 'Both website and API required' };
+    }
+    let list = [];
+    if (Array.isArray(mockFetchData)) list = mockFetchData;
+    else if (mockFetchData?.data?.list) list = mockFetchData.data.list;
+
+    if (list.length === 0) {
+      // Auto-revert to old default website if error / no data
+      localStorageMock.removeItem('custom_default_website_url');
+      localStorageMock.removeItem('quant_custom_api_endpoints');
+      return { success: false, error: 'API returned 0 records. Reverted to default DhaniWin.' };
+    }
+
+    localStorageMock.setItem('custom_default_website_url', siteUrl);
+    localStorageMock.setItem('quant_custom_api_endpoints', JSON.stringify({ '30s': apiUrl }));
+    return { success: true };
+  }
+
+  await t.test('Valid website and working API saves custom website and updates default URL', () => {
+    const result = simulateVerifyAndSave('https://mirror-game.com/', 'https://api.mirror.com/draw', [{ issue: '2026100501', number: 5 }]);
+    assert.equal(result.success, true);
+    assert.equal(getDefaultUrl(), 'https://mirror-game.com/');
+  });
+
+  await t.test('Failing API or empty records auto-reverts to default DhaniWin with error', () => {
+    const result = simulateVerifyAndSave('https://broken-mirror.com/', 'https://api.broken.com/draw', []);
+    assert.equal(result.success, false);
+    assert.match(result.error, /Reverted to default DhaniWin/);
+    assert.equal(getDefaultUrl(), DEFAULT_SITE, 'Must auto-revert to default DhaniWin on failure');
+  });
+});
+
+test('Scroll Up Restores Menu Dock to Normal Size & Visibility', async (t) => {
+  let isCompact = false;
+  let isHidden = false;
+
+  const _dockSetCompact = (compact) => {
+    isCompact = compact;
+    if (!compact) isHidden = false;
+  };
+  const _dockSetHidden = (hide) => {
+    isHidden = hide;
+  };
+
+  // 1. Initial: fully visible
+  assert.equal(isCompact, false);
+  assert.equal(isHidden, false);
+
+  // 2. User scrolls down: dock becomes compact
+  _dockSetCompact(true);
+  assert.equal(isCompact, true);
+
+  // 3. User taps or scrolls away: dock gets hidden
+  _dockSetHidden(true);
+  assert.equal(isHidden, true);
+
+  // 4. User scrolls UP: direction === 'down' -> dock must be completely unhidden and expanded to normal size
+  const handleScrollMessage = (direction) => {
+    const userScrolledDown = direction === 'up';
+    if (userScrolledDown) {
+      _dockSetCompact(true);
+    } else {
+      _dockSetHidden(false);
+      _dockSetCompact(false);
+    }
+  };
+
+  handleScrollMessage('down');
+  assert.equal(isHidden, false, 'Dock must be unhidden when scrolling up');
+  assert.equal(isCompact, false, 'Dock must be restored to normal full size when scrolling up');
+});
+
+

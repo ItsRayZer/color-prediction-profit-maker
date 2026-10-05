@@ -117,6 +117,118 @@ async function syncToFirebase(tfKey, rounds, env) {
   return res.ok;
 }
 
+const DHANIWIN_UPSTREAM = 'https://dhaniwin44.com';
+
+async function handleDhaniwinProxy(request, url) {
+  const subPath = url.pathname.replace(/^\/proxy\/dhaniwin/, '') || '/';
+  const targetUrl = new URL(subPath + url.search, DHANIWIN_UPSTREAM);
+
+  const forwardHeaders = new Headers(request.headers);
+  forwardHeaders.set('Host', targetUrl.hostname);
+  forwardHeaders.set('Origin', targetUrl.origin);
+  forwardHeaders.set('Referer', `${targetUrl.origin}/`);
+  forwardHeaders.delete('cf-connecting-ip');
+  forwardHeaders.delete('cf-ipcountry');
+  forwardHeaders.delete('cf-ray');
+  forwardHeaders.delete('cf-visitor');
+
+  const proxyRequest = new Request(targetUrl.toString(), {
+    method: request.method,
+    headers: forwardHeaders,
+    body: ['GET', 'HEAD'].includes(request.method) ? undefined : request.body,
+    redirect: 'manual'
+  });
+
+  const upstreamResponse = await fetch(proxyRequest);
+  const responseHeaders = new Headers(upstreamResponse.headers);
+
+  // 1. Strip all frame blocking restrictions
+  responseHeaders.delete('x-frame-options');
+  responseHeaders.delete('content-security-policy');
+  responseHeaders.delete('content-security-policy-report-only');
+  responseHeaders.delete('frame-options');
+
+  // 2. Set permissive CORS
+  responseHeaders.set('Access-Control-Allow-Origin', '*');
+  responseHeaders.set('Access-Control-Allow-Credentials', 'true');
+  responseHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, HEAD');
+  responseHeaders.set('Access-Control-Allow-Headers', '*');
+
+  // 3. Rewrite redirect Location headers
+  const location = responseHeaders.get('Location') || responseHeaders.get('location');
+  if (location) {
+    let rewrittenLocation = location;
+    if (rewrittenLocation.startsWith(DHANIWIN_UPSTREAM)) {
+      rewrittenLocation = rewrittenLocation.replace(DHANIWIN_UPSTREAM, '/proxy/dhaniwin');
+    } else if (rewrittenLocation.startsWith('https://dhaniwin') || rewrittenLocation.startsWith('http://dhaniwin')) {
+      rewrittenLocation = rewrittenLocation.replace(/^https?:\/\/[^\/]+/, '/proxy/dhaniwin');
+    } else if (rewrittenLocation.startsWith('/')) {
+      rewrittenLocation = `/proxy/dhaniwin${rewrittenLocation}`;
+    }
+    responseHeaders.set('Location', rewrittenLocation);
+  }
+
+  // 4. Rewrite Set-Cookie headers for iframe partition
+  const rawSetCookie = upstreamResponse.headers.get('set-cookie');
+  if (rawSetCookie) {
+    const cookies = rawSetCookie.split(/,\s*(?=[a-zA-Z0-9_-]+=)/);
+    responseHeaders.delete('set-cookie');
+    cookies.forEach(c => {
+      let cleaned = c.replace(/Domain=[^;]+;?/gi, '');
+      cleaned = cleaned.replace(/SameSite=[^;]+;?/gi, '');
+      cleaned = cleaned.replace(/Secure;?/gi, '');
+      cleaned = cleaned.trim();
+      if (!cleaned.endsWith(';')) cleaned += ';';
+      cleaned += ' SameSite=None; Secure';
+      responseHeaders.append('set-cookie', cleaned);
+    });
+  }
+
+  const contentType = (responseHeaders.get('content-type') || '').toLowerCase();
+
+  // 5. If HTML page, inject dhaniwin-bridge.js and shake CSS using HTMLRewriter
+  if (contentType.includes('text/html') && typeof HTMLRewriter !== 'undefined') {
+    const rewriter = new HTMLRewriter()
+      .on('head', {
+        element(el) {
+          el.append(`
+            <style>
+              @keyframes autoBetShake {
+                0%, 100% { transform: scale(1.04) translateX(0); }
+                20%, 60% { transform: scale(1.05) translateX(-4px); }
+                40%, 80% { transform: scale(1.05) translateX(4px); }
+              }
+              .auto-bet-shake {
+                animation: autoBetShake 0.65s ease-in-out infinite !important;
+                outline: 3px solid #10b981 !important;
+                box-shadow: 0 0 32px rgba(16, 185, 129, 0.95) !important;
+              }
+            </style>
+          `, { html: true });
+        }
+      })
+      .on('body', {
+        element(el) {
+          el.append(`<script src="/dhaniwin-bridge.js"></script>`, { html: true });
+        }
+      });
+
+    return rewriter.transform(
+      new Response(upstreamResponse.body, {
+        status: upstreamResponse.status,
+        statusText: upstreamResponse.statusText,
+        headers: responseHeaders
+      })
+    );
+  }
+
+  return new Response(upstreamResponse.body, {
+    status: upstreamResponse.status,
+    statusText: upstreamResponse.statusText,
+    headers: responseHeaders
+  });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -131,6 +243,18 @@ export default {
           'Access-Control-Max-Age': '86400'
         }
       });
+    }
+
+    // Reverse Proxy for In-App DhaniWin Embed
+    if (url.pathname.startsWith('/proxy/dhaniwin')) {
+      try {
+        return await handleDhaniwinProxy(request, url);
+      } catch (proxyErr) {
+        return new Response(JSON.stringify({ error: 'Proxy Gateway Error', message: proxyErr.message }), {
+          status: 502,
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        });
+      }
     }
 
     const tf = url.searchParams.get('tf') || '30s';
@@ -240,6 +364,10 @@ export default {
           headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
         });
       }
+    }
+
+    if (env && env.ASSETS) {
+      return env.ASSETS.fetch(request);
     }
 
     return new Response(JSON.stringify({ status: 'ok', service: 'WinGo Cloudflare Edge Proxy' }), {

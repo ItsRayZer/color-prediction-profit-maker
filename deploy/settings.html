@@ -422,6 +422,24 @@
       transform: scale(0.97);
     }
 
+    /* Full-screen iOS Slide-over Sub-page */
+    .ios-subpage {
+      position: fixed;
+      inset: 0;
+      background-color: var(--ios-amoled-bg);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: calc(48px + env(safe-area-inset-bottom, 20px));
+    }
+    .ios-subpage.active {
+      transform: translateX(0);
+    }
+
     .ios-row-left {
       display: flex;
       align-items: center;
@@ -972,61 +990,31 @@
       </div>
     </div>
 
-    <!-- SECTION: CUSTOM API ENDPOINTS -->
-    <div class="setting-category" data-cat="api endpoint network upstream sync">
+    <!-- SECTION: DEFAULT WEBSITE & API ENDPOINTS (SUB-PAGE ROW) -->
+    <div class="setting-category" data-cat="website default api endpoint network dhaniwin custom">
       <div class="ios-group-title">
-        <span>Custom API Endpoints (WinGo Intervals)</span>
-        <span class="ios-tag-micro tag-neutral">HTTP JSON</span>
+        <span>Default Platform &amp; Custom API</span>
+        <span class="ios-tag-micro tag-neutral">Home Web</span>
       </div>
       <div class="ios-inset-group">
-        <!-- 30s Endpoint -->
-        <div class="ios-row-stack">
-          <div class="ios-endpoint-header">
-            <span class="ios-label-primary">30s Interval Endpoint</span>
-            <span id="badgeEndpoint30s" class="ios-tag-micro tag-neutral">LOCKED DEFAULT</span>
+        <div class="ios-row-item" onclick="openDefaultWebsiteSubpage()" style="cursor: pointer;">
+          <div class="ios-row-left">
+            <div class="ios-icon-box" style="background: linear-gradient(135deg, #0a84ff, #5e5ce6);">
+              <i class="fa-solid fa-globe" style="color: #ffffff; font-size: 14px;"></i>
+            </div>
+            <div class="ios-row-text">
+              <span class="ios-label-primary">Change Default Website &amp; API</span>
+              <span class="ios-label-secondary" id="currentWebsiteSubtext">DhaniWin (dhaniwin44.com)</span>
+            </div>
           </div>
-          <input type="url" id="endpointInput30s" class="ios-endpoint-input" placeholder="https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json" oninput="handleEndpointChange('30s', this.value)">
-        </div>
-
-        <!-- 1m Endpoint -->
-        <div class="ios-row-stack">
-          <div class="ios-endpoint-header">
-            <span class="ios-label-primary">1m Interval Endpoint</span>
-            <span id="badgeEndpoint1m" class="ios-tag-micro tag-neutral">LOCKED DEFAULT</span>
+          <div class="ios-row-right">
+            <span id="customWebsiteStatusBadge" class="ios-tag-micro tag-neutral">DEFAULT</span>
+            <i class="fa-solid fa-chevron-right" style="color: var(--label-tertiary); font-size: 12px; margin-left: 6px;"></i>
           </div>
-          <input type="url" id="endpointInput1m" class="ios-endpoint-input" placeholder="https://draw.ar-lottery01.com/WinGo/WinGo_1M/GetHistoryIssuePage.json" oninput="handleEndpointChange('1m', this.value)">
-        </div>
-
-        <!-- 3m Endpoint -->
-        <div class="ios-row-stack">
-          <div class="ios-endpoint-header">
-            <span class="ios-label-primary">3m Interval Endpoint</span>
-            <span id="badgeEndpoint3m" class="ios-tag-micro tag-neutral">LOCKED DEFAULT</span>
-          </div>
-          <input type="url" id="endpointInput3m" class="ios-endpoint-input" placeholder="https://draw.ar-lottery01.com/WinGo/WinGo_3M/GetHistoryIssuePage.json" oninput="handleEndpointChange('3m', this.value)">
-        </div>
-
-        <!-- 5m Endpoint -->
-        <div class="ios-row-stack">
-          <div class="ios-endpoint-header">
-            <span class="ios-label-primary">5m Interval Endpoint</span>
-            <span id="badgeEndpoint5m" class="ios-tag-micro tag-neutral">LOCKED DEFAULT</span>
-          </div>
-          <input type="url" id="endpointInput5m" class="ios-endpoint-input" placeholder="https://draw.ar-lottery01.com/WinGo/WinGo_5M/GetHistoryIssuePage.json" oninput="handleEndpointChange('5m', this.value)">
-        </div>
-
-        <!-- Action Row -->
-        <div class="ios-row" style="justify-content: flex-end; gap: 8px;">
-          <button type="button" onclick="saveCustomEndpoints()" class="ios-action-btn primary">
-            <i class="fa-solid fa-check"></i> Save Custom Endpoints
-          </button>
-          <button type="button" onclick="restoreDefaultEndpointsUI()" class="ios-action-btn secondary">
-            <i class="fa-solid fa-rotate-left"></i> Restore Defaults
-          </button>
         </div>
       </div>
       <div class="ios-group-footer">
-        Specify custom mirror endpoints for 30s, 1m, 3m, or 5m WinGo draw data. Locked default protection guarantees seamless fallback if left blank or reset.
+        Change the embedded platform website on your Home screen and connect custom WinGo draw APIs. Auto-reverts to default if connection fails.
       </div>
     </div>
 
@@ -1860,8 +1848,8 @@
       // Notifications
       updateNotifTag();
 
-      // Custom Endpoints
-      loadCustomEndpointsUI();
+      // Default Website & Custom Endpoints
+      loadDefaultWebsiteUI();
 
       // Adaptive Device & OS System Optimization Setup
       setupDeviceOptimizationSection();
@@ -2310,7 +2298,257 @@
       }
     }
 
+    /* ── Sub-page: Default Website & Custom API ── */
+    function openDefaultWebsiteSubpage() {
+      const sub = document.getElementById('subpageDefaultWebsite');
+      if (sub) {
+        loadDefaultWebsiteUI();
+        sub.classList.add('active');
+        document.body.style.overflow = 'hidden';
+      }
+    }
+
+    function closeDefaultWebsiteSubpage() {
+      const sub = document.getElementById('subpageDefaultWebsite');
+      if (sub) {
+        sub.classList.remove('active');
+        document.body.style.overflow = '';
+      }
+    }
+
+    function loadDefaultWebsiteUI() {
+      const customSite = localStorage.getItem('custom_default_website_url') || '';
+      const siteInput = document.getElementById('customWebsiteUrlInput');
+      const badgeCurrentSite = document.getElementById('badgeCurrentSite');
+      const subtext = document.getElementById('currentWebsiteSubtext');
+      const statusBadge = document.getElementById('customWebsiteStatusBadge');
+
+      if (siteInput) siteInput.value = customSite;
+
+      if (customSite && customSite.trim().length > 0) {
+        if (badgeCurrentSite) { badgeCurrentSite.textContent = 'CUSTOM'; badgeCurrentSite.className = 'ios-tag-micro tag-active'; }
+        if (subtext) subtext.textContent = 'Custom: ' + customSite;
+        if (statusBadge) { statusBadge.textContent = 'CUSTOM'; statusBadge.className = 'ios-tag-micro tag-active'; }
+      } else {
+        if (badgeCurrentSite) { badgeCurrentSite.textContent = 'LOCKED DEFAULT'; badgeCurrentSite.className = 'ios-tag-micro tag-neutral'; }
+        if (subtext) subtext.textContent = 'DhaniWin (dhaniwin44.com)';
+        if (statusBadge) { statusBadge.textContent = 'DEFAULT'; statusBadge.className = 'ios-tag-micro tag-neutral'; }
+      }
+
+      loadCustomEndpointsUI();
+    }
+
+    async function verifyAndSaveCustomWebsite() {
+      const siteInput = document.getElementById('customWebsiteUrlInput');
+      const ep30Input = document.getElementById('endpointInput30s');
+      const ep1mInput = document.getElementById('endpointInput1m');
+      const btn = document.getElementById('btnVerifyAndSaveWebsite');
+
+      const targetSite = siteInput ? siteInput.value.trim() : '';
+      const targetEp30 = ep30Input ? ep30Input.value.trim() : '';
+      const targetEp1m = ep1mInput ? ep1mInput.value.trim() : '';
+
+      if (!targetSite && !targetEp30) {
+        restoreDefaultWebsiteAndApi();
+        return;
+      }
+
+      if (!targetSite) {
+        showWebsiteNotice('error', '⚠️ Please enter the platform website URL.');
+        return;
+      }
+      if (!targetEp30) {
+        showWebsiteNotice('error', '⚠️ To change the default website, you must provide the matching API endpoint.');
+        return;
+      }
+
+      if (!targetSite.startsWith('http://') && !targetSite.startsWith('https://')) {
+        showWebsiteNotice('error', '⚠️ Website URL must start with http:// or https://');
+        return;
+      }
+      if (!targetEp30.startsWith('http://') && !targetEp30.startsWith('https://')) {
+        showWebsiteNotice('error', '⚠️ API Endpoint URL must start with http:// or https://');
+        return;
+      }
+
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Testing API & Verifying...';
+      }
+      showWebsiteNotice('info', '🔍 Testing live draw connection to custom API endpoint...');
+
+      try {
+        const testUrl = targetEp30 + (targetEp30.includes('?') ? '&' : '?') + 'pageNo=1&_=' + Date.now();
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 6000);
+        const resp = await fetch(testUrl, { signal: ctrl.signal });
+        clearTimeout(timer);
+
+        if (!resp.ok) {
+          throw new Error('Server responded with HTTP status ' + resp.status);
+        }
+
+        const data = await resp.json();
+        let list = [];
+        if (Array.isArray(data)) list = data;
+        else if (data?.data?.list) list = data.data.list;
+        else if (data?.list) list = data.list;
+        else if (typeof data === 'object') list = Object.values(data).filter(v => v && typeof v === 'object');
+
+        if (list.length === 0) {
+          throw new Error('API returned 0 round records / empty issue data');
+        }
+
+        // VERIFICATION SUCCESSFUL!
+        localStorage.setItem('custom_default_website_url', targetSite);
+        const endpoints = { '30s': targetEp30 };
+        if (targetEp1m) endpoints['1m'] = targetEp1m;
+        localStorage.setItem('quant_custom_api_endpoints', JSON.stringify(endpoints));
+
+        loadDefaultWebsiteUI();
+        showWebsiteNotice('success', '🎉 Verification Successful! ' + list.length + ' live round records verified. Custom platform set as default on Home tab.');
+        showToast('Custom website and API verified successfully!');
+
+      } catch (err) {
+        console.error('[Website Verify Error]', err);
+        // Auto-revert to old default website if error / no data
+        localStorage.removeItem('custom_default_website_url');
+        localStorage.removeItem('quant_custom_api_endpoints');
+        loadDefaultWebsiteUI();
+
+        showWebsiteNotice('error', '❌ Verification Failed: ' + (err.message || 'API endpoint did not return valid data') + '. Automatically reverted to default DhaniWin platform.');
+        showToast('Verification failed: Reverted to default DhaniWin', false);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Verify & Set As Default Website';
+        }
+      }
+    }
+
+    function showWebsiteNotice(type, msg) {
+      const notice = document.getElementById('websiteVerifyNotice');
+      if (!notice) return;
+      notice.style.display = 'block';
+      if (type === 'success') {
+        notice.style.background = 'rgba(52, 199, 89, 0.15)';
+        notice.style.border = '1px solid rgba(52, 199, 89, 0.35)';
+        notice.style.color = '#30d158';
+      } else if (type === 'error') {
+        notice.style.background = 'rgba(255, 69, 58, 0.15)';
+        notice.style.border = '1px solid rgba(255, 69, 58, 0.35)';
+        notice.style.color = '#ff453a';
+      } else {
+        notice.style.background = 'rgba(10, 132, 255, 0.15)';
+        notice.style.border = '1px solid rgba(10, 132, 255, 0.35)';
+        notice.style.color = '#0a84ff';
+      }
+      notice.textContent = msg;
+    }
+
+    function restoreDefaultWebsiteAndApi() {
+      localStorage.removeItem('custom_default_website_url');
+      localStorage.removeItem('quant_custom_api_endpoints');
+      loadDefaultWebsiteUI();
+      const notice = document.getElementById('websiteVerifyNotice');
+      if (notice) notice.style.display = 'none';
+      showToast('Restored default DhaniWin platform & endpoints');
+    }
+
+    window.openDefaultWebsiteSubpage = openDefaultWebsiteSubpage;
+    window.closeDefaultWebsiteSubpage = closeDefaultWebsiteSubpage;
+    window.verifyAndSaveCustomWebsite = verifyAndSaveCustomWebsite;
+    window.restoreDefaultWebsiteAndApi = restoreDefaultWebsiteAndApi;
+
     document.addEventListener('DOMContentLoaded', initSettings);
   </script>
+
+  <!-- ════════════════════════════════════════════════════════════
+       FULL-SCREEN SUB-PAGE: CHANGE DEFAULT WEBSITE & CUSTOM API
+  ════════════════════════════════════════════════════════════ -->
+  <div id="subpageDefaultWebsite" class="ios-subpage">
+    <!-- Sub-page Navigation Bar -->
+    <header class="ios-navbar" style="position: sticky; top: 0;">
+      <button type="button" class="ios-nav-back" onclick="closeDefaultWebsiteSubpage()">
+        <i class="fa-solid fa-chevron-left" style="font-size: 15px;"></i>
+        <span>Settings</span>
+      </button>
+      <div class="ios-nav-title" style="opacity: 1; transform: translateY(0);">Website &amp; API</div>
+      <div style="width: 50px;"></div>
+    </header>
+
+    <div class="ios-large-title-wrap" style="padding-bottom: 4px;">
+      <h1 class="ios-large-title" style="font-size: 26px; line-height: 32px;">Change Default Website</h1>
+      <div class="ios-subtitle-pill">
+        <span class="status-dot-active"></span>
+        <span>Active Live Mirror Configuration</span>
+      </div>
+    </div>
+
+    <!-- Group 1: Default Platform Website -->
+    <div class="setting-category" style="margin-top: 10px;">
+      <div class="ios-group-title">
+        <span>Home Screen Default Website</span>
+        <span id="badgeCurrentSite" class="ios-tag-micro tag-neutral">LOCKED DEFAULT</span>
+      </div>
+      <div class="ios-inset-group">
+        <div class="ios-row-stack">
+          <div class="ios-endpoint-header">
+            <span class="ios-label-primary">Embedded Web URL</span>
+          </div>
+          <input type="url" id="customWebsiteUrlInput" class="ios-endpoint-input" placeholder="https://dhaniwin44.com/" value="">
+        </div>
+      </div>
+      <div class="ios-group-footer">
+        This replaces the default DhaniWin website embedded on the Home tab. To change this, you must also provide the matching API endpoint below so 01:01 can pull live prediction rounds.
+      </div>
+    </div>
+
+    <!-- Group 2: Matching Custom API Endpoints -->
+    <div class="setting-category">
+      <div class="ios-group-title">
+        <span>Required Custom API Endpoint</span>
+        <span class="ios-tag-micro tag-neutral">WinGo Draw JSON</span>
+      </div>
+      <div class="ios-inset-group">
+        <!-- 30s Endpoint -->
+        <div class="ios-row-stack">
+          <div class="ios-endpoint-header">
+            <span class="ios-label-primary">30s Interval Draw Endpoint (Required)</span>
+            <span id="badgeEndpoint30s" class="ios-tag-micro tag-neutral">DEFAULT</span>
+          </div>
+          <input type="url" id="endpointInput30s" class="ios-endpoint-input" placeholder="https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json">
+        </div>
+
+        <!-- 1m Endpoint -->
+        <div class="ios-row-stack">
+          <div class="ios-endpoint-header">
+            <span class="ios-label-primary">1m Interval Draw Endpoint (Optional)</span>
+            <span id="badgeEndpoint1m" class="ios-tag-micro tag-neutral">DEFAULT</span>
+          </div>
+          <input type="url" id="endpointInput1m" class="ios-endpoint-input" placeholder="https://draw.ar-lottery01.com/WinGo/WinGo_1M/GetHistoryIssuePage.json">
+        </div>
+      </div>
+      <div class="ios-group-footer">
+        Verification tests whether the API endpoint returns live round issue data. If the API returns no data or fails, 01:01 will automatically revert to default DhaniWin.
+      </div>
+    </div>
+
+    <!-- Verification / Error Notice Strip -->
+    <div id="websiteVerifyNotice" style="display: none; margin: 0 16px 14px 16px; padding: 12px 14px; border-radius: 14px; font-size: 12px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.4;"></div>
+
+    <!-- Action Buttons -->
+    <div style="padding: 0 16px; display: flex; flex-direction: column; gap: 10px;">
+      <button type="button" id="btnVerifyAndSaveWebsite" onclick="verifyAndSaveCustomWebsite()" class="ios-action-btn primary" style="width: 100%; justify-content: center; height: 44px; font-size: 13.5px; border-radius: 14px;">
+        <i class="fa-solid fa-circle-check"></i>
+        <span>Verify &amp; Set As Default Website</span>
+      </button>
+
+      <button type="button" onclick="restoreDefaultWebsiteAndApi()" class="ios-action-btn secondary" style="width: 100%; justify-content: center; height: 40px; font-size: 12.5px; border-radius: 14px;">
+        <i class="fa-solid fa-rotate-left"></i>
+        <span>Restore Original DhaniWin Default</span>
+      </button>
+    </div>
+  </div>
 </body>
 </html>

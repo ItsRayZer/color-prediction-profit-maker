@@ -22,6 +22,16 @@
   <!-- Apple Liquid Glass Mobile Stylesheet -->
   <link rel="stylesheet" href="mobile.css">
 
+  <!-- Anti-Nesting Frame Guard: Prevents duplicate bars or floating balls if loaded inside iframe -->
+  <script>
+    if (window.self !== window.top) {
+      document.documentElement.classList.add('in-embedded-frame');
+      var s = document.createElement('style');
+      s.textContent = 'header, #dhaniwinFloatingOrb, #mobileBottomDock, #dhaniAuthBar, #homeTopAuthPill, #floatingAlreadyLoggedInBtn, #dhaniwinAssistantModal { display: none !important; } body { padding: 0 !important; background: transparent !important; }';
+      document.head.appendChild(s);
+    }
+  </script>
+
   <!-- Firebase App, Analytics & Realtime Database SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
@@ -755,226 +765,30 @@
       <!-- Pull handle: visible when our top bar is hidden; tap / swipe down to show it -->
       <button id="homeHeaderPullHandle" type="button" aria-label="Show top bar"></button>
 
-      <!-- Minimalist Apple Auth Bar (shown when logged out or session expired) -->
-      <div id="dhaniAuthBar" style="display:none;">
-        <span id="dhaniAuthBarText" style="display:none;">Not logged in</span>
-        <button type="button" onclick="openDhaniLogin()" class="auth-btn apple-auth-btn apple-auth-login">Login</button>
-        <button type="button" onclick="openDhaniRegister()" class="auth-btn apple-auth-btn apple-auth-register">Register</button>
-        <button type="button" onclick="confirmDhaniLoggedIn()" class="auth-btn apple-auth-btn apple-auth-verified" title="I have logged in — verify & unlock 01:01">
-          <i class="fa-solid fa-check text-[10px]"></i>
-          <span>Already logged in before</span>
+      <!-- Top-Middle Minimalist Auth Bar (Login & Register directly below topbar) -->
+      <div id="homeTopAuthPill" class="home-top-auth-pill" style="display:none;">
+        <button type="button" onclick="openDhaniLogin()" class="apple-auth-btn apple-auth-login">
+          <i class="fa-solid fa-arrow-right-to-bracket text-[10px]"></i>
+          <span>Login</span>
         </button>
-        <button type="button" onclick="dismissDhaniAuthBar()" class="auth-btn apple-auth-close" title="Close" aria-label="Dismiss auth bar">
+        <button type="button" onclick="openDhaniRegister()" class="apple-auth-btn apple-auth-register">
+          <i class="fa-solid fa-user-plus text-[10px]"></i>
+          <span>Register</span>
+        </button>
+        <button type="button" onclick="dismissDhaniAuthBar()" class="apple-auth-close" title="Close" aria-label="Dismiss auth bar">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
 
-      <!-- Floating Circle Assistant (AssistiveTouch Orb with Radial Clock Timer Ring) -->
-      <div id="dhaniwinFloatingOrb"
-        class="fixed select-none cursor-pointer transition-transform active:scale-90 touch-none"
-        style="bottom: 90px; right: 16px; width: 60px; height: 60px; z-index: 99998; display: block;"
-        title="01:01">
-        
-        <!-- Clock-Like Radial SVG Countdown Ring -->
-        <svg class="absolute -inset-[3px] w-[66px] h-[66px] -rotate-90 pointer-events-none" viewBox="0 0 66 66">
-          <circle cx="33" cy="33" r="30" stroke="rgba(255, 255, 255, 0.1)" stroke-width="2.5" fill="none" />
-          <circle id="orbTimerRing" cx="33" cy="33" r="30" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" fill="none" stroke-dasharray="188.5" stroke-dashoffset="0" style="transition: stroke-dashoffset 0.25s linear, stroke 0.3s ease, filter 0.3s ease;" />
-        </svg>
+      <!-- Floating "Already logged in before" button (floating above bottom dock menu in the middle) -->
+      <button id="floatingAlreadyLoggedInBtn" type="button" onclick="confirmDhaniLoggedInReal()" style="display:none;" title="Verify active DhaniWin session and unlock 01:01">
+        <i class="fa-solid fa-circle-check text-[11px] text-emerald-400"></i>
+        <span id="floatingAlreadyLoggedInText">Already logged in before</span>
+      </button>
 
-        <!-- Outer Glowing Pulsing Ring & Inner Ball -->
-        <div id="floatingOrbRing" class="absolute inset-[3px] rounded-full bg-gradient-to-tr from-amber-500 via-emerald-500 to-indigo-500 p-[2px] shadow-[0_4px_24px_rgba(16,185,129,0.45)]">
-          <div class="w-full h-full rounded-full bg-black/95 backdrop-blur-md flex flex-col items-center justify-center text-center">
-            <span id="floatingOrbIcon" class="text-xs leading-none">🎯</span>
-            <span id="floatingOrbTarget" class="text-[8.5px] font-black font-mono text-amber-300 leading-tight">BIG</span>
-            <span id="floatingOrbStake" class="text-[7.5px] font-bold font-mono text-emerald-400 leading-none">₹2</span>
-          </div>
-        </div>
-        <!-- Pulse Status Indicator Dot -->
-        <span id="floatingOrbDotPing" class="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black animate-ping"></span>
-        <span id="floatingOrbDot" class="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black"></span>
-      </div>
-
-      <!-- Frosted Glass Minimalist Assistant Hub Modal (Slide-Up iOS Sheet) -->
-      <div id="dhaniwinAssistantModal" class="fixed inset-0 bg-black/80 backdrop-blur-xl flex flex-col justify-end hidden" style="z-index: 100000; overscroll-behavior: contain;" onclick="if(event.target===this) toggleDhaniwinAssistantModal(false)">
-        <div id="dhaniwinAssistantSheet" class="w-full max-w-md mx-auto bg-[#121216] border-t border-white/[0.12] rounded-t-[32px] max-h-[85vh] overflow-y-auto pb-8 p-4 shadow-2xl space-y-3" style="overscroll-behavior: contain; touch-action: pan-y;">
-          
-          <!-- Top Grab Handle Area (Smooth swipe down / tap to dismiss) -->
-          <div id="dhaniwinGrabHandleArea" class="w-full py-2 flex items-center justify-center cursor-pointer select-none" style="touch-action: none;" onclick="toggleDhaniwinAssistantModal(false)">
-            <div class="w-12 h-1.5 bg-white/25 hover:bg-white/40 rounded-full transition-colors"></div>
-          </div>
-
-          <!-- 1. Minimal Header: Real Scraped Balance & Live Profit -->
-          <div class="flex items-center justify-between pb-2 border-b border-white/[0.08]">
-            <div class="flex items-center gap-3">
-              <div class="flex flex-col">
-                <span class="text-[7.5px] font-mono text-zinc-400 uppercase tracking-wider">Live Balance</span>
-                <span id="mobileWebBalance" class="text-sm font-black font-mono text-white">₹0.00</span>
-              </div>
-              <div class="h-6 w-[1px] bg-white/10"></div>
-              <div class="flex flex-col">
-                <span class="text-[7.5px] font-mono text-zinc-400 uppercase tracking-wider">Session Profit</span>
-                <span id="mobileWebSessionPnl" class="text-sm font-black font-mono text-emerald-400">+₹0.00</span>
-              </div>
-            </div>
-            <div class="flex items-center gap-1.5">
-              <button onclick="syncMobileUserWallet()" class="px-2.5 py-1 rounded-full bg-white/10 hover:bg-white/15 text-zinc-200 font-mono text-[8.5px] flex items-center gap-1 active:scale-95 transition">
-                <i class="fa-solid fa-arrows-rotate text-[8px]"></i> Sync
-              </button>
-              <button onclick="toggleDhaniwinAssistantModal(false)" class="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-zinc-300 flex items-center justify-center text-xs">
-                <i class="fa-solid fa-xmark"></i>
-              </button>
-            </div>
-          </div>
-
-          <!-- 2. Minimal Interval Selector (Auto-routes to WinGo_30S / 1M / 3M / 5M) -->
-          <div class="flex items-center justify-between gap-1 p-1 rounded-2xl bg-black/50 border border-white/[0.08]">
-            <button onclick="setMobileDhaniWinTimeframe('30s')" id="webTf-30s" class="flex-1 py-1.5 rounded-xl font-mono text-[10px] font-black transition active:scale-95 bg-amber-500/25 text-amber-300 border border-amber-400/40">30s</button>
-            <button onclick="setMobileDhaniWinTimeframe('1m')" id="webTf-1m" class="flex-1 py-1.5 rounded-xl font-mono text-[10px] font-black transition active:scale-95 text-white/50 hover:text-white hover:bg-white/5">1m</button>
-            <button onclick="setMobileDhaniWinTimeframe('3m')" id="webTf-3m" class="flex-1 py-1.5 rounded-xl font-mono text-[10px] font-black transition active:scale-95 text-white/50 hover:text-white hover:bg-white/5">3m</button>
-            <button onclick="setMobileDhaniWinTimeframe('5m')" id="webTf-5m" class="flex-1 py-1.5 rounded-xl font-mono text-[10px] font-black transition active:scale-95 text-white/50 hover:text-white hover:bg-white/5">5m</button>
-          </div>
-
-          <!-- 3. Current Period, Time & AI Prediction Target Card -->
-          <div class="liquid-glass-card p-3 rounded-2xl border border-white/[0.08] flex items-center justify-between">
-            <div class="flex flex-col">
-              <div class="flex items-center gap-1.5">
-                <span class="text-[9px] font-mono text-zinc-400">PERIOD:</span>
-                <span id="assistantPeriodNum" class="text-[10px] font-mono font-bold text-amber-300">--</span>
-              </div>
-              <div class="flex items-center gap-1 mt-1">
-                <i class="fa-solid fa-clock text-amber-400 text-[10px]"></i>
-                <span id="assistantCountdown" class="font-mono text-lg font-black text-amber-400 tracking-wider">00:00</span>
-              </div>
-            </div>
-            <div class="flex flex-col items-end">
-              <span class="text-[8px] font-mono uppercase tracking-wider text-zinc-400">AI Target</span>
-              <div class="flex items-center gap-1.5 mt-0.5">
-                <span id="mobileWebTargetDisplay" class="text-2xl font-black text-amber-300">BIG</span>
-                <span id="assistantConfBadge" class="text-[8.5px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">84%</span>
-              </div>
-              <span id="mobileWebLevelBadge" class="text-[7.5px] font-mono text-zinc-400 mt-0.5">Level 1 (Base)</span>
-            </div>
-          </div>
-
-          <!-- 4. Recent Sequence Prediction Road (Last 8 Balls) -->
-          <div class="space-y-1">
-            <div class="flex items-center justify-between text-[8px] font-mono text-zinc-400 px-0.5">
-              <span>RECENT SEQUENCE ROAD</span>
-              <span class="text-zinc-500">NEWEST ◄ OLDER</span>
-            </div>
-            <div id="assistantMiniRoad" class="flex items-center gap-1.5 p-2 rounded-xl bg-black/40 border border-white/[0.06] overflow-x-auto min-h-[38px]">
-              <!-- Dynamically populated with 8 latest balls with prediction result badges -->
-            </div>
-          <!-- 4.5. 4 Risk Modes & Loss Recovery Controller -->
-          <div class="p-2.5 rounded-2xl bg-black/40 border border-white/[0.08] space-y-2">
-            <div class="flex items-center justify-between text-[8.5px] font-mono">
-              <span class="text-zinc-300 font-bold uppercase tracking-wider flex items-center gap-1">
-                <i class="fa-solid fa-shield-halved text-emerald-400"></i> RISK & LOSS RECOVERY MODE:
-              </span>
-              <button onclick="toggleAutoOptimizeBase()" id="autoOptimizeToggleBtn" class="px-2 py-0.5 rounded-full font-mono text-[8px] font-bold border transition active:scale-95 bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
-                ⚡ Auto-Base: ON
-              </button>
-            </div>
-            <!-- 4 Mode Selector Pills -->
-            <div class="grid grid-cols-4 gap-1">
-              <button onclick="setRiskMode('safe')" id="riskModeBtn-safe" class="py-1.5 rounded-xl font-mono text-[8.5px] font-bold border flex flex-col items-center justify-center transition active:scale-95 bg-white/5 text-zinc-400 border-white/5">
-                <span>🛡️ SAFE</span>
-                <span class="text-[6.5px] opacity-70">Low DD (2L)</span>
-              </button>
-              <button onclick="setRiskMode('profitable')" id="riskModeBtn-profitable" class="py-1.5 rounded-xl font-mono text-[8.5px] font-bold border flex flex-col items-center justify-center transition active:scale-95 bg-amber-500/25 text-amber-300 border-amber-500/40 shadow-sm">
-                <span>💰 PROFIT</span>
-                <span class="text-[6.5px] opacity-70">Balanced (3L)</span>
-              </button>
-              <button onclick="setRiskMode('risk')" id="riskModeBtn-risk" class="py-1.5 rounded-xl font-mono text-[8.5px] font-bold border flex flex-col items-center justify-center transition active:scale-95 bg-white/5 text-zinc-400 border-white/5">
-                <span>⚡ RISK</span>
-                <span class="text-[6.5px] opacity-70">Growth (4L)</span>
-              </button>
-              <button onclick="setRiskMode('high_risk')" id="riskModeBtn-high_risk" class="py-1.5 rounded-xl font-mono text-[8.5px] font-bold border flex flex-col items-center justify-center transition active:scale-95 bg-white/5 text-zinc-400 border-white/5">
-                <span>🔥 HIGH</span>
-                <span class="text-[6.5px] opacity-70">Max (5L)</span>
-              </button>
-            </div>
-            <!-- Mode Details Subtext & Never Run Out Guard -->
-            <div class="text-[7.5px] font-mono text-zinc-400 flex items-center justify-between px-0.5">
-              <span id="riskModeSummary">Ladder: 1x, 2x, 4x • Multiplier: 2.0x</span>
-              <span class="text-emerald-400 font-bold flex items-center gap-1">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>Solvency Guard Active</span>
-              </span>
-            </div>
-          </div>
-
-          <!-- 5. 1-Tap Base Bet Quick Set Chips & Next Stake Display -->
-          <div class="p-2.5 rounded-2xl bg-black/40 border border-white/[0.08] space-y-2">
-            <div class="flex items-center justify-between text-[8.5px] font-mono">
-              <span class="text-zinc-300 font-bold">1-TAP BASE BET (₹):</span>
-              <span class="text-zinc-400">Next Prep Stake: <b id="mobileWebStakeDisplay" class="text-emerald-400 font-bold">₹2</b></span>
-            </div>
-            <div class="grid grid-cols-6 gap-1">
-              <button onclick="setAssistantBaseStake(1)"   id="chipBtn-1"   class="py-1 rounded-lg font-mono text-[9.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95">₹1</button>
-              <button onclick="setAssistantBaseStake(2)"   id="chipBtn-2"   class="py-1 rounded-lg font-mono text-[9.5px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 active:scale-95">₹2</button>
-              <button onclick="setAssistantBaseStake(5)"   id="chipBtn-5"   class="py-1 rounded-lg font-mono text-[9.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95">₹5</button>
-              <button onclick="setAssistantBaseStake(10)"  id="chipBtn-10"  class="py-1 rounded-lg font-mono text-[9.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95">₹10</button>
-              <button onclick="setAssistantBaseStake(50)"  id="chipBtn-50"  class="py-1 rounded-lg font-mono text-[9.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95">₹50</button>
-              <button onclick="setAssistantBaseStake(100)" id="chipBtn-100" class="py-1 rounded-lg font-mono text-[9.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95">₹100</button>
-            </div>
-          </div>
-
-          <!-- 6. Stop Loss Protection -->
-          <div class="p-2.5 rounded-2xl bg-black/40 border border-white/[0.08] flex items-center justify-between gap-2">
-            <div class="flex items-center gap-1.5 text-[8.5px] font-mono text-zinc-300">
-              <i class="fa-solid fa-shield-halved text-rose-400"></i>
-              <span>Stop Bet if Loss Reaches:</span>
-            </div>
-            <div class="flex items-center gap-1 font-mono text-xs">
-              <span class="text-rose-400 font-bold">-₹</span>
-              <input id="mobileWebStopLossLimit" type="number" value="100" min="5" step="5" onchange="updateAssistantLossLimit(this.value)" class="w-14 bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-right font-bold text-rose-300 outline-none">
-            </div>
-          </div>
-
-          <!-- 7. Main Auto-Prep Activation Toggle -->
-          <button id="mobileBridgeToggleBtn" onclick="toggleMobileRealAutoBet()" class="w-full py-3 rounded-2xl font-mono text-xs font-black bg-emerald-500/25 hover:bg-emerald-500/35 text-emerald-300 border border-emerald-500/50 active:scale-95 transition shadow-lg flex items-center justify-center gap-2">
-            <span id="mobileBridgeDot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span id="mobileBridgeStatusLabel">▶ ACTIVATE AUTO-PREP &amp; AUTO-SHAKE</span>
-          </button>
-
-          <!-- Utilities Bar (Reload, WinGo, Full View, Script) -->
-          <div class="grid grid-cols-4 gap-1.5 pt-1 border-t border-white/[0.06] text-[8.5px] font-mono">
-            <button onclick="reloadWebIframe()" class="py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 text-center active:scale-95 transition">
-              🔄 Reload
-            </button>
-            <button onclick="loadMobileWebUrl('https://dhaniwin44.com/WinGo/WinGo_30S')" class="py-1.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold text-center active:scale-95 transition">
-              🎮 WinGo
-            </button>
-            <button onclick="toggleDhaniWinTrueFullscreen()" id="btnTrueFullscreenToggle" class="py-1.5 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold text-center active:scale-95 transition">
-              📺 Full View
-            </button>
-            <button onclick="copyMobileBridgeScript()" class="py-1.5 rounded-xl bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-bold text-center active:scale-95 transition">
-              📋 Script
-            </button>
-          </div>
-
-          <!-- Disclaimer / Safety Assurance -->
-          <p class="text-[7.5px] font-mono text-zinc-500 text-center">
-            🔒 Auto-prep opens sheet &amp; sets stake. Final confirmation remains strictly manual.
-          </p>
-
-        </div>
-      </div>
-
-      <!-- ════════════════════════════════════════════════════════════
-           APPLE CINEMATIC MONEY RAIN CELEBRATION OVERLAY
-      ════════════════════════════════════════════════════════════ -->
-      <!-- Container: pointer-events-none so DhaniWin site is still clickable underneath. Canvas is pass-through. Pill button is pointer-events-auto so user can tap to dismiss. -->
-      <div id="appleMoneyRainContainer" class="fixed inset-0 pointer-events-none z-[100002] hidden flex flex-col items-center justify-start pt-16 transition-opacity duration-300 overflow-hidden">
-        <canvas id="appleMoneyRainCanvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
-        <!-- Apple Dynamic Island Floating Win Pill — pointer-events-auto so it IS tappable -->
-        <div id="appleMoneyWinPill" class="relative z-10 px-4 py-2 rounded-full bg-black/90 border border-emerald-500/40 shadow-[0_8px_32px_rgba(16,185,129,0.35)] flex items-center gap-2 transform scale-95 transition-all duration-300 pointer-events-auto cursor-pointer" onclick="dismissAppleMoneyRain()">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span id="appleMoneyWinTitle" class="text-[11px] font-black font-mono tracking-tight text-white">PREDICTION WON</span>
-          <span id="appleMoneyWinBadge" class="text-[10px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-500/40">+₹2.00</span>
-
-        </div>
+      <!-- Backward-compatible hidden container for state binding -->
+      <div id="dhaniAuthBar" style="display:none;">
+        <span id="dhaniAuthBarText" style="display:none;">Not logged in</span>
       </div>
 
     </section>
@@ -983,6 +797,232 @@
          PAGE 4: PATTERN (Pattern Intelligence Layer)
     ══════════════════════════════════════════════════════════╗ -->
     <section id="tab-pattern" class="mobile-page space-y-3" style="display:none;"></section>
+
+    <!-- ════════════════════════════════════════════════════════════
+         FLOATING ASSISTIVE-TOUCH ORB (Always Available, Never Blocked)
+    ════════════════════════════════════════════════════════════ -->
+    <div id="dhaniwinFloatingOrb"
+      class="fixed select-none cursor-pointer transition-transform active:scale-90 touch-none"
+      style="bottom: 90px; right: 16px; width: 62px; height: 62px; z-index: 99998; display: block;"
+      onclick="toggleDhaniwinAssistantModal(true); event.stopPropagation();"
+      role="button"
+      tabindex="0"
+      title="01:01 AI Assistant">
+      
+      <!-- Clock-Like Radial SVG Countdown Ring -->
+      <svg class="absolute -inset-[3px] w-[68px] h-[68px] -rotate-90 pointer-events-none" viewBox="0 0 68 68">
+        <circle cx="34" cy="34" r="31" stroke="rgba(255, 255, 255, 0.08)" stroke-width="2.5" fill="none" />
+        <circle id="orbTimerRing" cx="34" cy="34" r="31" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" fill="none" stroke-dasharray="194.8" stroke-dashoffset="0" style="transition: stroke-dashoffset 0.25s linear, stroke 0.3s ease, filter 0.3s ease;" />
+      </svg>
+
+      <!-- Outer Glowing Pulsing Ring & Inner AMOLED Ball -->
+      <div id="floatingOrbRing" class="absolute inset-[3px] rounded-full bg-gradient-to-tr from-amber-500/80 via-emerald-500/90 to-cyan-500/80 p-[1.5px] shadow-[0_4px_24px_rgba(16,185,129,0.45)]">
+        <div class="w-full h-full rounded-full bg-[#09090d]/95 backdrop-blur-xl flex flex-col items-center justify-center text-center">
+          <span id="floatingOrbIcon" class="text-[11px] leading-none mb-0.5">🎯</span>
+          <span id="floatingOrbTarget" class="text-[9px] font-black font-mono text-amber-300 leading-tight tracking-tight">BIG</span>
+          <span id="floatingOrbStake" class="text-[8px] font-bold font-mono text-emerald-400 leading-none">₹2</span>
+        </div>
+      </div>
+      <!-- Pulse Status Indicator Dot -->
+      <span id="floatingOrbDotPing" class="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black animate-ping"></span>
+      <span id="floatingOrbDot" class="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black"></span>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════
+         REDESIGNED APPLE / GEN-Z ASSISTANT MODAL (AMOLED Liquid Glass)
+    ════════════════════════════════════════════════════════════ -->
+    <div id="dhaniwinAssistantModal" class="fixed inset-0 bg-black/80 backdrop-blur-xl flex flex-col justify-end hidden" style="z-index: 100000; overscroll-behavior: contain;" onclick="if(event.target===this) toggleDhaniwinAssistantModal(false)">
+      <div id="dhaniwinAssistantSheet" class="w-full max-w-md mx-auto bg-[#0b0b0f] border-t border-white/[0.12] rounded-t-[36px] max-h-[88vh] overflow-y-auto pb-8 p-4 shadow-[0_-24px_64px_rgba(0,0,0,0.95)] space-y-3.5" style="overscroll-behavior: contain; touch-action: pan-y;">
+        
+        <!-- Top Grab Handle Area (Smooth swipe down / tap to dismiss) -->
+        <div id="dhaniwinGrabHandleArea" class="w-full pt-1 pb-2 flex items-center justify-center cursor-pointer select-none" style="touch-action: none;" onclick="toggleDhaniwinAssistantModal(false)">
+          <div class="w-12 h-1.5 bg-white/25 hover:bg-white/40 rounded-full transition-colors"></div>
+        </div>
+
+        <!-- 1. Apple Dynamic Island: Scraped Balance, Live PnL & Quick Sync -->
+        <div class="apple-glass-card p-3 rounded-2xl flex items-center justify-between border border-white/[0.08]">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-2xl bg-white/[0.06] border border-white/[0.1] flex items-center justify-center text-base shadow-inner">
+              👛
+            </div>
+            <div class="flex flex-col">
+              <span class="text-[7.5px] font-mono text-zinc-400 uppercase tracking-widest flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> LIVE SCRAPED BALANCE
+              </span>
+              <span id="mobileWebBalance" class="text-base font-black font-mono text-white tracking-tight">₹0.00</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="flex flex-col items-end mr-1">
+              <span class="text-[7px] font-mono text-zinc-400 uppercase tracking-wider">SESSION PnL</span>
+              <span id="mobileWebSessionPnl" class="text-xs font-black font-mono text-emerald-400">+₹0.00</span>
+            </div>
+            <button type="button" onclick="syncMobileUserWallet()" class="apple-glass-pill px-2.5 py-1.5 rounded-xl text-zinc-200 font-mono text-[9px] font-bold flex items-center gap-1 active:scale-95 transition" title="Scrape & Sync Balance">
+              <i class="fa-solid fa-arrows-rotate text-[8.5px]"></i>
+              <span>SYNC</span>
+            </button>
+            <button type="button" onclick="toggleDhaniwinAssistantModal(false)" class="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-zinc-300 flex items-center justify-center text-xs active:scale-90 transition">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. Minimal Interval Selector (Auto-routes to WinGo_30S / 1M / 3M / 5M) -->
+        <div class="grid grid-cols-4 gap-1 p-1 rounded-2xl bg-black/60 border border-white/[0.08]">
+          <button type="button" onclick="setMobileDhaniWinTimeframe('30s')" id="webTf-30s" class="py-1.5 rounded-xl font-mono text-[10px] font-black transition active:scale-95 bg-amber-500/25 text-amber-300 border border-amber-400/40 shadow-sm">30s</button>
+          <button type="button" onclick="setMobileDhaniWinTimeframe('1m')" id="webTf-1m" class="py-1.5 rounded-xl font-mono text-[10px] font-black transition active:scale-95 text-white/50 hover:text-white hover:bg-white/5">1m</button>
+          <button type="button" onclick="setMobileDhaniWinTimeframe('3m')" id="webTf-3m" class="py-1.5 rounded-xl font-mono text-[10px] font-black transition active:scale-95 text-white/50 hover:text-white hover:bg-white/5">3m</button>
+          <button type="button" onclick="setMobileDhaniWinTimeframe('5m')" id="webTf-5m" class="py-1.5 rounded-xl font-mono text-[10px] font-black transition active:scale-95 text-white/50 hover:text-white hover:bg-white/5">5m</button>
+        </div>
+
+        <!-- 3. Gen-Z AMOLED Hero Prediction Card -->
+        <div class="relative overflow-hidden apple-glass-card p-3.5 rounded-3xl border border-white/[0.1] bg-gradient-to-br from-white/[0.04] to-transparent">
+          <div class="absolute -top-12 -right-12 w-28 h-28 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
+          
+          <div class="flex items-center justify-between">
+            <div class="flex flex-col space-y-1">
+              <div class="flex items-center gap-1.5">
+                <span class="text-[8.5px] font-mono text-zinc-400 tracking-wider">PERIOD</span>
+                <span id="assistantPeriodNum" class="text-[11px] font-mono font-black text-amber-300">--</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <i class="fa-solid fa-stopwatch text-amber-400 text-xs"></i>
+                <span id="assistantCountdown" class="font-mono text-xl font-black text-white tracking-widest">00:00</span>
+              </div>
+            </div>
+
+            <div class="flex flex-col items-end">
+              <span class="text-[7.5px] font-mono uppercase tracking-widest text-zinc-400">01:01 CALL</span>
+              <div class="flex items-center gap-2 mt-0.5">
+                <span id="mobileWebTargetDisplay" class="text-3xl font-black tracking-tight text-amber-300 drop-shadow-[0_0_12px_rgba(245,158,11,0.35)]">BIG</span>
+                <span id="assistantConfBadge" class="text-[9px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/35">84%</span>
+              </div>
+              <span id="mobileWebLevelBadge" class="text-[7.5px] font-mono text-zinc-400 mt-0.5">Level 1 (Base)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Macro Sequence Road (Last 8 Draws) -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between text-[8px] font-mono text-zinc-400 px-1">
+            <span class="tracking-wider">RECENT SEQUENCE ROAD</span>
+            <span class="text-zinc-500">NEWEST ◄ OLDER</span>
+          </div>
+          <div id="assistantMiniRoad" class="flex items-center gap-2 p-2 rounded-2xl bg-black/50 border border-white/[0.06] overflow-x-auto min-h-[42px]">
+            <!-- Dynamically populated with 8 latest balls with prediction result badges -->
+          </div>
+        </div>
+
+        <!-- 5. 4 Risk Modes & Loss Recovery Controller (Solvency Guard) -->
+        <div class="apple-glass-card p-3 rounded-3xl border border-white/[0.08] space-y-2.5">
+          <div class="flex items-center justify-between text-[8.5px] font-mono">
+            <span class="text-zinc-300 font-black uppercase tracking-wider flex items-center gap-1.5">
+              <i class="fa-solid fa-shield-halved text-emerald-400 text-[10px]"></i> RISK &amp; RECOVERY MODE
+            </span>
+            <button type="button" onclick="toggleAutoOptimizeBase()" id="autoOptimizeToggleBtn" class="px-2.5 py-0.5 rounded-full font-mono text-[8px] font-black border transition active:scale-95 bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
+              ⚡ Auto-Base: ON
+            </button>
+          </div>
+
+          <!-- 4 Mode Selector Pills -->
+          <div class="grid grid-cols-4 gap-1.5">
+            <button type="button" onclick="setRiskMode('safe')" id="riskModeBtn-safe" class="py-2 rounded-2xl font-mono text-[9px] font-black border flex flex-col items-center justify-center transition active:scale-95 bg-white/5 text-zinc-400 border-white/5">
+              <span>🛡️ SAFE</span>
+              <span class="text-[6.5px] opacity-70 font-normal">2L / Low DD</span>
+            </button>
+            <button type="button" onclick="setRiskMode('profitable')" id="riskModeBtn-profitable" class="py-2 rounded-2xl font-mono text-[9px] font-black border flex flex-col items-center justify-center transition active:scale-95 bg-amber-500/25 text-amber-300 border-amber-500/40 shadow-sm">
+              <span>💰 PROFIT</span>
+              <span class="text-[6.5px] opacity-70 font-normal">3L / Balanced</span>
+            </button>
+            <button type="button" onclick="setRiskMode('risk')" id="riskModeBtn-risk" class="py-2 rounded-2xl font-mono text-[9px] font-black border flex flex-col items-center justify-center transition active:scale-95 bg-white/5 text-zinc-400 border-white/5">
+              <span>⚡ SURGE</span>
+              <span class="text-[6.5px] opacity-70 font-normal">4L / Growth</span>
+            </button>
+            <button type="button" onclick="setRiskMode('high_risk')" id="riskModeBtn-high_risk" class="py-2 rounded-2xl font-mono text-[9px] font-black border flex flex-col items-center justify-center transition active:scale-95 bg-white/5 text-zinc-400 border-white/5">
+              <span>🔥 HYPER</span>
+              <span class="text-[6.5px] opacity-70 font-normal">5L / Max</span>
+            </button>
+          </div>
+
+          <!-- Solvency Guard Assurance -->
+          <div class="text-[7.5px] font-mono text-zinc-400 flex items-center justify-between px-1">
+            <span id="riskModeSummary">Ladder: 1x, 2x, 4x • Multiplier: 2.0x</span>
+            <span class="text-emerald-400 font-bold flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Solvency Guard Active</span>
+            </span>
+          </div>
+        </div>
+
+        <!-- 6. 1-Tap Base Bet Quick Set Chips & Next Stake Display -->
+        <div class="apple-glass-card p-3 rounded-3xl border border-white/[0.08] space-y-2">
+          <div class="flex items-center justify-between text-[8.5px] font-mono">
+            <span class="text-zinc-300 font-bold tracking-wider">1-TAP BASE BET (₹):</span>
+            <span class="text-zinc-400">Next Prep Stake: <b id="mobileWebStakeDisplay" class="text-emerald-400 font-bold text-[10px]">₹2</b></span>
+          </div>
+          <div class="grid grid-cols-6 gap-1">
+            <button type="button" onclick="setAssistantBaseStake(1)"   id="chipBtn-1"   class="py-1.5 rounded-xl font-mono text-[9.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95">₹1</button>
+            <button type="button" onclick="setAssistantBaseStake(2)"   id="chipBtn-2"   class="py-1.5 rounded-xl font-mono text-[9.5px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 active:scale-95">₹2</button>
+            <button type="button" onclick="setAssistantBaseStake(5)"   id="chipBtn-5"   class="py-1.5 rounded-xl font-mono text-[9.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95">₹5</button>
+            <button type="button" onclick="setAssistantBaseStake(10)"  id="chipBtn-10"  class="py-1.5 rounded-xl font-mono text-[9.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95">₹10</button>
+            <button type="button" onclick="setAssistantBaseStake(50)"  id="chipBtn-50"  class="py-1.5 rounded-xl font-mono text-[9.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95">₹50</button>
+            <button type="button" onclick="setAssistantBaseStake(100)" id="chipBtn-100" class="py-1.5 rounded-xl font-mono text-[9.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95">₹100</button>
+          </div>
+        </div>
+
+        <!-- 7. Stop Loss Protection -->
+        <div class="apple-glass-card p-3 rounded-2xl border border-white/[0.08] flex items-center justify-between gap-2">
+          <div class="flex items-center gap-1.5 text-[8.5px] font-mono text-zinc-300">
+            <i class="fa-solid fa-shield-halved text-rose-400 text-xs"></i>
+            <span>Stop Bet if Loss Reaches:</span>
+          </div>
+          <div class="flex items-center gap-1 font-mono text-xs">
+            <span class="text-rose-400 font-bold">-₹</span>
+            <input id="mobileWebStopLossLimit" type="number" value="100" min="5" step="5" onchange="updateAssistantLossLimit(this.value)" class="w-16 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-right font-bold text-rose-300 outline-none">
+          </div>
+        </div>
+
+        <!-- 8. Apple VisionOS Primary Action Button: AUTO-PREP & AUTO-SHAKE -->
+        <button id="mobileBridgeToggleBtn" onclick="toggleMobileRealAutoBet()" class="w-full py-3.5 rounded-2xl font-mono text-xs font-black bg-emerald-500/25 hover:bg-emerald-500/35 text-emerald-300 border border-emerald-500/50 active:scale-95 transition shadow-[0_8px_24px_rgba(16,185,129,0.25)] flex items-center justify-center gap-2">
+          <span id="mobileBridgeDot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="mobileBridgeStatusLabel">▶ ACTIVATE AUTO-PREP &amp; AUTO-SHAKE</span>
+        </button>
+
+        <!-- 9. Luxury AMOLED Utilities Dock (Reload, WinGo, Full View, Script) -->
+        <div class="grid grid-cols-4 gap-1.5 pt-1 border-t border-white/[0.06] text-[8.5px] font-mono">
+          <button type="button" onclick="reloadWebIframe()" class="py-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 text-center active:scale-95 transition">
+            🔄 Reload
+          </button>
+          <button type="button" onclick="loadMobileWebUrl('https://dhaniwin44.com/WinGo/WinGo_30S')" class="py-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold text-center active:scale-95 transition">
+            🎮 WinGo
+          </button>
+          <button type="button" onclick="toggleDhaniWinTrueFullscreen()" id="btnTrueFullscreenToggle" class="py-2 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold text-center active:scale-95 transition">
+            📺 Full View
+          </button>
+          <button type="button" onclick="copyMobileBridgeScript()" class="py-2 rounded-xl bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-bold text-center active:scale-95 transition">
+            📋 Script
+          </button>
+        </div>
+
+        <!-- Disclaimer / Safety Assurance -->
+        <p class="text-[7.5px] font-mono text-zinc-500 text-center">
+          🔒 Auto-prep opens sheet &amp; sets stake. Final confirmation remains strictly manual.
+        </p>
+
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════
+         APPLE CINEMATIC MONEY RAIN CELEBRATION OVERLAY
+    ════════════════════════════════════════════════════════════ -->
+    <div id="appleMoneyRainContainer" class="fixed inset-0 pointer-events-none z-[100002] hidden flex flex-col items-center justify-start pt-16 transition-opacity duration-300 overflow-hidden">
+      <canvas id="appleMoneyRainCanvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+      <div id="appleMoneyWinPill" class="relative z-10 px-4 py-2 rounded-full bg-black/90 border border-emerald-500/40 shadow-[0_8px_32px_rgba(16,185,129,0.35)] flex items-center gap-2 transform scale-95 transition-all duration-300 pointer-events-auto cursor-pointer" onclick="dismissAppleMoneyRain()">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span id="appleMoneyWinTitle" class="text-[11px] font-black font-mono tracking-tight text-white">PREDICTION WON</span>
+        <span id="appleMoneyWinBadge" class="text-[10px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-500/40">+₹2.00</span>
+      </div>
+    </div>
 
   </main>
 

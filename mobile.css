@@ -378,40 +378,97 @@ body.home-header-hidden #tab-web {
 }
 body.home-header-hidden #homeHeaderPullHandle { display: block; }
 
-/* ── Login / Register bar (logged out or session expired) ── */
-#dhaniAuthBar {
+/* ── Top-middle Login & Register pill (underneath top bar) ── */
+.home-top-auth-pill {
   position: fixed;
-  left: 12px;
-  right: 82px;
-  bottom: calc(76px + var(--safe-bottom));
-  z-index: 60;
+  top: calc(var(--app-header-h, 54px) + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 55;
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 6px 8px;
+  padding: 5px 8px;
   border-radius: 9999px;
-  background: rgba(20, 20, 22, 0.78);
-  backdrop-filter: blur(24px) saturate(190%);
-  -webkit-backdrop-filter: blur(24px) saturate(190%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(18, 18, 22, 0.84);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-#dhaniAuthBar::-webkit-scrollbar {
-  display: none;
+  transition: opacity 0.25s ease, transform 0.25s ease, top 0.25s ease;
 }
 
-#dhaniAuthBar .apple-auth-btn {
+body.home-header-hidden .home-top-auth-pill {
+  top: 10px;
+}
+
+/* ── Floating "Already Logged In Before" pill (above bottom menu dock in the middle) ── */
+#floatingAlreadyLoggedInBtn {
+  position: fixed;
+  bottom: calc(76px + var(--safe-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 55;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 18px;
+  border-radius: 9999px;
+  background: rgba(16, 185, 129, 0.16);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  border: 1px solid rgba(16, 185, 129, 0.40);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65), 0 0 24px rgba(16, 185, 129, 0.22);
+  color: #34d399;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  white-space: nowrap;
+  outline: none;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, background-color 0.2s ease, bottom 0.25s ease;
+}
+
+#floatingAlreadyLoggedInBtn:hover {
+  background: rgba(16, 185, 129, 0.24);
+  border-color: rgba(16, 185, 129, 0.55);
+  color: #6ee7b7;
+}
+
+#floatingAlreadyLoggedInBtn:active {
+  transform: translateX(-50%) scale(0.95);
+}
+
+body.nav-compact #floatingAlreadyLoggedInBtn {
+  bottom: calc(64px + var(--safe-bottom));
+}
+
+#mobileBottomDock.dock-hidden ~ #floatingAlreadyLoggedInBtn,
+#mobileBottomDock.dock-hidden + #floatingAlreadyLoggedInBtn {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@keyframes shakeError {
+  0%, 100% { transform: translateX(-50%); }
+  20%, 60% { transform: translateX(calc(-50% - 6px)); }
+  40%, 80% { transform: translateX(calc(-50% + 6px)); }
+}
+
+.shake-anim {
+  animation: shakeError 0.45s ease-in-out !important;
+}
+
+/* ── Minimalist Apple Auth Buttons ── */
+.apple-auth-btn {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 7px 14px;
+  padding: 6px 13px;
   border-radius: 9999px;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: -0.01em;
   white-space: nowrap;
@@ -422,51 +479,51 @@ body.home-header-hidden #homeHeaderPullHandle { display: block; }
   user-select: none;
   -webkit-user-select: none;
 }
-#dhaniAuthBar .apple-auth-btn:active {
+.apple-auth-btn:active {
   transform: scale(0.94);
 }
 
 /* Apple Minimalist: Clean White Frosted Pill */
-#dhaniAuthBar .apple-auth-login {
+.apple-auth-login {
   color: #ffffff;
   background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.24);
   backdrop-filter: blur(8px);
 }
-#dhaniAuthBar .apple-auth-login:hover {
+.apple-auth-login:hover {
   background: rgba(255, 255, 255, 0.24);
   border-color: rgba(255, 255, 255, 0.35);
 }
 
 /* Apple Minimalist: Subtle Ghost Pill */
-#dhaniAuthBar .apple-auth-register {
+.apple-auth-register {
   color: rgba(255, 255, 255, 0.88);
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.12);
 }
-#dhaniAuthBar .apple-auth-register:hover {
+.apple-auth-register:hover {
   background: rgba(255, 255, 255, 0.12);
   color: #ffffff;
 }
 
-/* Apple Minimalist: Emerald Tinted Pill for verified/returning user */
-#dhaniAuthBar .apple-auth-verified {
+/* Apple Minimalist: Emerald Tinted Pill */
+.apple-auth-verified {
   color: #34d399;
   background: rgba(16, 185, 129, 0.14);
   border-color: rgba(16, 185, 129, 0.30);
 }
-#dhaniAuthBar .apple-auth-verified:hover {
+.apple-auth-verified:hover {
   background: rgba(16, 185, 129, 0.22);
   border-color: rgba(16, 185, 129, 0.45);
   color: #6ee7b7;
 }
 
 /* Apple Minimalist: Circular Close Button */
-#dhaniAuthBar .apple-auth-close {
+.apple-auth-close {
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -474,16 +531,16 @@ body.home-header-hidden #homeHeaderPullHandle { display: block; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 10.5px;
   cursor: pointer;
   outline: none;
   transition: transform 0.15s ease, background-color 0.15s ease, color 0.15s ease;
 }
-#dhaniAuthBar .apple-auth-close:hover {
+.apple-auth-close:hover {
   background: rgba(255, 255, 255, 0.14);
   color: #ffffff;
 }
-#dhaniAuthBar .apple-auth-close:active {
+.apple-auth-close:active {
   transform: scale(0.92);
 }
 
@@ -1107,6 +1164,9 @@ a[href*="tradingview.com"] {
   transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1);
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 #dhaniwinAssistantModal.sheet-open {
   opacity: 1;
@@ -1117,10 +1177,32 @@ a[href*="tradingview.com"] {
   transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform;
   overscroll-behavior-y: contain;
+  background: rgba(11, 11, 15, 0.94);
+  backdrop-filter: blur(44px) saturate(210%);
+  -webkit-backdrop-filter: blur(44px) saturate(210%);
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 -24px 64px -12px rgba(0, 0, 0, 0.95);
 }
 #dhaniwinAssistantModal.sheet-open #dhaniwinAssistantSheet {
   transform: translateY(0);
 }
 #dhaniwinAssistantModal.sheet-dragging #dhaniwinAssistantSheet {
   transition: none !important;
+}
+
+/* Luxury AMOLED Glass Cards & Micro-Pills */
+.apple-glass-card {
+  background: rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+}
+.apple-glass-pill {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.apple-glass-pill:active {
+  transform: scale(0.97);
 }

@@ -807,14 +807,46 @@ function _parseRawList(raw) {
   return list.filter(Boolean);
 }
 
+let _customApiFailureStreak = 0;
+function notifyCustomApiResult(tf, success, err) {
+  const hasCustom = !!localStorage.getItem('quant_custom_api_endpoints') || !!localStorage.getItem('custom_default_website_url');
+  if (!hasCustom) return;
+
+  if (success) {
+    _customApiFailureStreak = 0;
+  } else {
+    _customApiFailureStreak++;
+    if (_customApiFailureStreak >= 5) {
+      _customApiFailureStreak = 0;
+      console.warn('[Custom API Monitor] Endpoint failed 5 consecutive times. Reverting to default DhaniWin.');
+      try {
+        localStorage.removeItem('quant_custom_api_endpoints');
+        localStorage.removeItem('custom_default_website_url');
+      } catch(e) {}
+      if (typeof showToast === 'function') {
+        showToast('⚠️ Custom website/API returned no data. Auto-reverted to default DhaniWin.', 'error');
+      }
+      if (typeof loadMobileWebUrl === 'function') {
+        loadMobileWebUrl(DHANIWIN_HOME_URL);
+      }
+    }
+  }
+}
+
 async function fetchLiveHistoryFromDirectAPI(tf) {
   // ── Source 1: Direct Upstream Lottery Feed (ar-lottery01.com — active live round data) ──
   try {
     const upstreamUrl = `${TF_UPSTREAM_URLS[tf] || TF_UPSTREAM_URLS['30s']}?pageNo=1&_=${Date.now()}`;
     const raw = await _fetchWithTimeout(upstreamUrl, 4000);
     const list = _parseRawList(raw);
-    if (list.length > 0) return list;
+    if (list.length > 0) {
+      notifyCustomApiResult(tf, true);
+      return list;
+    } else {
+      notifyCustomApiResult(tf, false, 'Empty data list');
+    }
   } catch (e) {
+    notifyCustomApiResult(tf, false, e);
     // Upstream unavailable – fall through
   }
 
@@ -3511,9 +3543,24 @@ const DHANIWIN_REGISTRATION_URL = 'https://dhaniwin44.com/register?inviteCode=EE
 const DHANIWIN_LOGIN_URL = 'https://dhaniwin44.com/login';
 const DHANIWIN_HOME_URL = 'https://dhaniwin44.com/';
 
+function getDefaultDhaniUrl() {
+  try {
+    const custom = localStorage.getItem('custom_default_website_url');
+    if (custom && typeof custom === 'string' && custom.trim().startsWith('http')) {
+      return custom.trim();
+    }
+  } catch(e) {}
+  return DHANIWIN_HOME_URL;
+}
+window.getDefaultDhaniUrl = getDefaultDhaniUrl;
+
 // ── Per-user DhaniWin auth flow (no personal credentials anywhere) ──────────────
 // Active session → DhaniWin Home; returning user → Login; new user → Register.
 function getDhaniEntryUrl() {
+  const custom = getDefaultDhaniUrl();
+  if (custom !== DHANIWIN_HOME_URL) {
+    return custom;
+  }
   if (isUserLoggedIn()) {
     return DHANIWIN_HOME_URL;
   }
@@ -3537,13 +3584,30 @@ window.handleDhaniSessionExpired = handleDhaniSessionExpired;
 
 let _dhaniAuthBarDismissed = false;
 function updateDhaniAuthBar() {
-  const bar = document.getElementById('dhaniAuthBar');
-  if (!bar) return;
   const loggedIn = isUserLoggedIn();
   const onWeb = document.getElementById('tab-web')?.style.display !== 'none';
-  bar.style.display = (!loggedIn && onWeb && !_dhaniAuthBarDismissed) ? 'flex' : 'none';
-  const txt = document.getElementById('dhaniAuthBarText');
-  if (txt) txt.textContent = localStorage.getItem('dhaniwin_registered') === '1' ? 'Logged out' : 'Not logged in';
+  const showAuth = !loggedIn && onWeb && !_dhaniAuthBarDismissed;
+
+  // 1. Top middle Login & Register pill (under header)
+  const topPill = document.getElementById('homeTopAuthPill');
+  if (topPill) {
+    topPill.style.display = showAuth ? 'flex' : 'none';
+  }
+
+  // 2. Floating "Already Logged In Before" button (above bottom dock in middle)
+  // RULE: Don't show this on first-time visit before login!
+  const floatBtn = document.getElementById('floatingAlreadyLoggedInBtn');
+  if (floatBtn) {
+    const hasVisitedOrAttempted = localStorage.getItem('dhaniwin_user_has_logged_in_ever') === '1' ||
+                                  localStorage.getItem('dhaniwin_registered') === '1' ||
+                                  sessionStorage.getItem('dhani_login_attempted') === '1';
+    floatBtn.style.display = (showAuth && hasVisitedOrAttempted) ? 'flex' : 'none';
+  }
+
+  // Sync backward-compatible container
+  const bar = document.getElementById('dhaniAuthBar');
+  if (bar) bar.style.display = showAuth ? 'flex' : 'none';
+
   const acct = document.getElementById('headerAccountIcon');
   if (acct) acct.className = loggedIn ? 'fa-solid fa-user-check text-xs text-emerald-300' : 'fa-solid fa-right-to-bracket text-xs text-sky-300';
 }
@@ -3557,21 +3621,102 @@ function dismissDhaniAuthBar() { _dhaniAuthBarDismissed = true; updateDhaniAuthB
 window.dismissDhaniAuthBar = dismissDhaniAuthBar;
 
 function openDhaniLogin() {
+  try { sessionStorage.setItem('dhani_login_attempted', '1'); } catch(e) {}
   if (typeof switchMobileTab === 'function') switchMobileTab('web');
   loadMobileWebUrl(DHANIWIN_LOGIN_URL);
+  updateDhaniAuthBar();
 }
 function openDhaniRegister() {
+  try { sessionStorage.setItem('dhani_login_attempted', '1'); } catch(e) {}
   if (typeof switchMobileTab === 'function') switchMobileTab('web');
   loadMobileWebUrl(DHANIWIN_REGISTRATION_URL);
+  updateDhaniAuthBar();
 }
-// User confirms they've logged in inside DhaniWin
+
+let _authVerificationInProgress = false;
+let _authVerificationTimeout = null;
+
+async function confirmDhaniLoggedInReal() {
+  if (_authVerificationInProgress) return;
+  const btn = document.getElementById('floatingAlreadyLoggedInBtn');
+  const txt = document.getElementById('floatingAlreadyLoggedInText');
+  const originalHtml = txt ? txt.innerHTML : 'Already logged in before';
+
+  _authVerificationInProgress = true;
+  if (txt) txt.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Verifying session...';
+  if (btn) btn.style.opacity = '0.85';
+
+  const completeVerification = (verified, detail = '') => {
+    if (!_authVerificationInProgress) return;
+    _authVerificationInProgress = false;
+    if (_authVerificationTimeout) {
+      clearTimeout(_authVerificationTimeout);
+      _authVerificationTimeout = null;
+    }
+    if (txt) txt.innerHTML = originalHtml;
+    if (btn) btn.style.opacity = '1';
+
+    if (verified) {
+      markUserLoggedIn();
+      try {
+        localStorage.setItem('dhaniwin_user_has_logged_in_ever', '1');
+        localStorage.setItem('dhaniwin_registered', '1');
+      } catch(e) {}
+      _authGracePeriodUntil = Date.now() + 60000;
+      setMobileBridgeStatus(true, 'Login Verified ✓');
+      showToast('🎉 Login Confirmed! Active DhaniWin session verified.', 'success');
+      if (typeof toggleUnlockModal === 'function') toggleUnlockModal(false);
+      if (typeof updateAppUnlockState === 'function') updateAppUnlockState();
+      updateDhaniAuthBar();
+      loadMobileWebUrl(getDefaultDhaniUrl());
+    } else {
+      if (btn) {
+        btn.classList.add('shake-anim');
+        setTimeout(() => btn.classList.remove('shake-anim'), 600);
+      }
+      showToast(detail || '⚠️ Active DhaniWin login not detected. Please login on the DhaniWin page first, then verify.', 'warn');
+    }
+  };
+
+  // Step 1: Probe the iframe bridge
+  const iframe = document.getElementById('dhaniwinIframe');
+  if (iframe && iframe.contentWindow) {
+    try {
+      iframe.contentWindow.postMessage({ type: 'DHANIWIN_REQUEST_AUTH_CHECK', timestamp: Date.now() }, '*');
+    } catch(e) {}
+  }
+  if (typeof syncMobileUserWallet === 'function') {
+    try { syncMobileUserWallet(); } catch(e) {}
+  }
+
+  // Register resolver for immediate bridge response
+  window._pendingAuthCheckResolver = (res) => {
+    if (res && res.loggedIn) {
+      completeVerification(true, 'Verified via In-App Bridge');
+    } else {
+      completeVerification(false, res?.reason || '⚠️ No active DhaniWin session found.');
+    }
+  };
+
+  // Wait up to 2.2s
+  _authVerificationTimeout = setTimeout(() => {
+    if (!_authVerificationInProgress) return;
+    if (MobileBridgeState.userBalance !== null && !isNaN(Number(MobileBridgeState.userBalance))) {
+      completeVerification(true, 'Verified via Live Bridge Balance');
+    } else if (MobileBridgeState.bridgeVerified || MobileBridgeState.active) {
+      completeVerification(true, 'Verified via Active Bridge');
+    } else {
+      completeVerification(false, '⚠️ DhaniWin login not detected. Please enter your credentials on the DhaniWin page first.');
+    }
+  }, 2200);
+}
+window.confirmDhaniLoggedInReal = confirmDhaniLoggedInReal;
+
 function confirmDhaniLoggedIn() {
-  markUserLoggedIn();
-  loadMobileWebUrl(DHANIWIN_HOME_URL);
-  showToast('✅ Login Verified! Full 01:01 Access Unlocked', 'success');
-  if (typeof toggleUnlockModal === 'function') toggleUnlockModal(false);
-  if (typeof updateAppUnlockState === 'function') updateAppUnlockState();
+  confirmDhaniLoggedInReal();
 }
+window.confirmDhaniLoggedIn = confirmDhaniLoggedIn;
+
 function openDhaniAccountMenu() {
   if (isUserLoggedIn()) {
     if (confirm('Log out / switch DhaniWin account?')) {
@@ -3586,7 +3731,6 @@ function openDhaniAccountMenu() {
 }
 window.openDhaniLogin = openDhaniLogin;
 window.openDhaniRegister = openDhaniRegister;
-window.confirmDhaniLoggedIn = confirmDhaniLoggedIn;
 window.openDhaniAccountMenu = openDhaniAccountMenu;
 
 // ── Home tab: auto-hide top bar ────────────────────────────────────────────────
@@ -5036,28 +5180,48 @@ function handleMobileBridgeMessage(msg) {
     handleDhaniSessionExpired(msg.reason || 'Session Expired • Please Login');
   } else if (msg.type === 'DHANIWIN_SCROLL') {
     // Bridge convention: msg.direction='up' = content moved upward = user scrolled DOWN
-    //   → header hides
-    //   → dock becomes small (compact)
+    //   → header hides, dock becomes small (compact)
     // msg.direction='down' = content moved downward = user scrolled UP
-    //   → header shows, dock comes back and becomes normal size (expanded)
+    //   → header shows, dock comes back completely unhidden and expanded
     const userScrolledDown = msg.direction === 'up';
     setHomeHeaderHidden(userScrolledDown);
-    if (typeof window._dockSetCompact === 'function') window._dockSetCompact(userScrolledDown);
+    const floatBtn = document.getElementById('floatingAlreadyLoggedInBtn');
+    if (userScrolledDown) {
+      if (typeof window._dockSetCompact === 'function') window._dockSetCompact(true);
+      if (floatBtn) floatBtn.style.opacity = '0';
+    } else {
+      // User scrolled UP: unhide dock and expand it back to full visibility
+      if (typeof window._dockSetHidden === 'function') window._dockSetHidden(false);
+      if (typeof window._dockSetCompact === 'function') window._dockSetCompact(false);
+      if (floatBtn && floatBtn.style.display !== 'none') floatBtn.style.opacity = '1';
+    }
+  } else if (msg.type === 'DHANIWIN_AUTH_CHECK_RESULT') {
+    if (typeof window._pendingAuthCheckResolver === 'function') {
+      window._pendingAuthCheckResolver(msg);
+      window._pendingAuthCheckResolver = null;
+    }
   } else if (msg.type === 'DHANIWIN_TOUCH') {
-    const onWeb = document.getElementById('tab-web')?.style.display !== 'none';
-    if (onWeb && typeof window._dockSetHidden === 'function') {
+    // Only hide dock if assistant modal is open or true fullscreen is toggled
+    const modal = document.getElementById('dhaniwinAssistantModal');
+    const isModalOpen = modal && !modal.classList.contains('hidden') && modal.classList.contains('sheet-open');
+    if (isModalOpen && typeof window._dockSetHidden === 'function') {
       window._dockSetHidden(true);
     }
   } else if (msg.type === 'DHANIWIN_AUTH_SUCCESS' || msg.type === 'DHANIWIN_LOGIN_DETECTED') {
     // Mark logged in via ALL keys and set 60s grace period
     markUserLoggedIn();
+    try {
+      localStorage.setItem('dhaniwin_user_has_logged_in_ever', '1');
+      localStorage.setItem('dhaniwin_registered', '1');
+    } catch(e) {}
     _authGracePeriodUntil = Date.now() + 60000;
     _syncLogoutCount = 0;
     setMobileBridgeStatus(true, 'Login Verified ✓');
     showToast('🎉 Login Confirmed! Full Access Unlocked', 'success');
     if (typeof toggleUnlockModal === 'function') toggleUnlockModal(false);
     if (typeof updateAppUnlockState === 'function') updateAppUnlockState();
-    loadMobileWebUrl(DHANIWIN_HOME_URL);
+    updateDhaniAuthBar();
+    loadMobileWebUrl(getDefaultDhaniUrl());
 
   } else if (msg.type === 'DHANIWIN_USER_SYNC' || msg.type === 'DHANIWIN_REAL_BALANCE') {
     if (msg.balance !== null && msg.balance !== undefined && !isNaN(Number(msg.balance))) {
@@ -5382,15 +5546,13 @@ function loadMobileWebUrl(url) {
   const iframe = $('dhaniwinIframe');
   const barText = $('mobileWebAddressBarText');
   const extLink = $('mobileWebExternalTabLink');
-  let targetSrc = url;
-  if (typeof window !== 'undefined' && window.location && window.location.protocol.startsWith('http')) {
-    if (url.startsWith('https://dhaniwin44.com')) {
-      targetSrc = url.replace('https://dhaniwin44.com', '/proxy/dhaniwin');
-    }
+  let targetSrc = url || (typeof getDefaultDhaniUrl === 'function' ? getDefaultDhaniUrl() : DHANIWIN_HOME_URL);
+  if (targetSrc === DHANIWIN_HOME_URL && typeof getDefaultDhaniUrl === 'function') {
+    targetSrc = getDefaultDhaniUrl();
   }
   if (iframe) iframe.src = targetSrc;
-  if (barText) barText.textContent = url;
-  if (extLink) extLink.href = url;
+  if (barText) barText.textContent = targetSrc;
+  if (extLink) extLink.href = targetSrc;
 }
 window.loadMobileWebUrl = loadMobileWebUrl;
 
@@ -5929,6 +6091,14 @@ function setupFloatingOrb() {
     }
   }
 
+  let _orbLastTapTime = 0;
+  function triggerOrbOpen() {
+    const now = Date.now();
+    if (now - _orbLastTapTime < 350) return; // Prevent double firing from touch+synthetic click
+    _orbLastTapTime = now;
+    toggleDhaniwinAssistantModal(true);
+  }
+
   function onPointerUp(e) {
     if (!isDragging) return;
     isDragging = false;
@@ -5937,7 +6107,7 @@ function setupFloatingOrb() {
     const elapsed = Date.now() - pointerDownTime;
     if (!hasMoved || elapsed < 260) {
       // Clean tap detected: open assistant modal sheet
-      toggleDhaniwinAssistantModal(true);
+      triggerOrbOpen();
       return;
     }
 
@@ -5968,7 +6138,7 @@ function setupFloatingOrb() {
   // Direct click / enter key fallback
   orb.addEventListener('click', (e) => {
     if (!hasMoved) {
-      toggleDhaniwinAssistantModal(true);
+      triggerOrbOpen();
     }
   });
 
