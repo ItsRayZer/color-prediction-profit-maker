@@ -201,22 +201,6 @@
          PAGE 2: ANALYSE (Prediction Hero -> Audit -> Chart -> History -> Repeated / Frequency)
     ══════════════════════════════════════════════════════════╗ -->
     <section id="tab-home" class="mobile-page space-y-3" style="display:block;">
-      
-      <!-- High-Confidence "Best Time to Bet" Alert Card -->
-      <div id="bestTimeNotifCard" class="liquid-glass-card p-2.5 rounded-2xl flex items-center justify-between gap-2.5 border border-amber-500/30">
-        <div class="flex items-center gap-2">
-          <div class="w-7 h-7 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center shrink-0 text-xs font-bold">
-            🔔
-          </div>
-          <div>
-            <div class="text-[11px] font-bold text-white leading-tight">High-Confidence Alerts</div>
-            <p class="text-[8px] text-zinc-400">Push notification when Win Rate exceeds 60%</p>
-          </div>
-        </div>
-        <button id="btnEnableNotif" onclick="requestBestTimeNotificationPermission()" class="px-2.5 py-1 rounded-full bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-mono text-[8.5px] font-bold active:scale-95 transition shrink-0">
-          Enable
-        </button>
-      </div>
 
       <!-- Timeframe Selector Pills -->
       <div class="p-1 rounded-2xl bg-black/60 border border-white/[0.08] backdrop-blur-xl flex items-center justify-between gap-1">
@@ -252,10 +236,6 @@
                 <span id="heroSignalBadge" class="text-2xl font-black tracking-tight text-white">CALCULATING...</span>
                 <span id="heroTypeBadge" class="text-[8.5px] font-bold px-2 py-0.5 rounded-md bg-white/10 text-zinc-300 font-mono border border-white/10">--</span>
                 <span id="heroColorBadge" class="hidden"></span>
-              </div>
-              <div class="flex items-center gap-1.5 mt-1 text-[9px] font-mono text-zinc-400">
-                <span>Confidence: <b id="heroConfVal" class="text-emerald-400 font-black">--%</b></span>
-                <span id="heroDigitVal" class="hidden"></span>
               </div>
             </div>
             <div class="text-right flex flex-col items-end">
@@ -1208,7 +1188,7 @@
           </div>
           <div>
             <span class="text-white font-bold block">Outside Live Alerts</span>
-            <span class="text-zinc-400 text-[8px] leading-tight block">Receive outside push notifications for high-confidence AI predictions when the app is in background.</span>
+            <span class="text-zinc-400 text-[8px] leading-tight block">Receive outside notifications for upcoming rounds when the app is in background.</span>
           </div>
         </div>
 
