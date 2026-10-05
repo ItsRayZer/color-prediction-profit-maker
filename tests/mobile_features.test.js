@@ -1195,5 +1195,33 @@ test('Floating Assistant Modal Sheet Gestures & Smooth Transitions', async (t) =
     assert.equal(modal.translateY, 100, 'Slides completely off screen');
     assert.equal(modal.hidden, true);
   });
+
+  await t.test('Opening floating ball assistant hides the main menu dock, and closing it restores it', () => {
+    let dockHidden = false;
+    const _dockSetHidden = (hide) => { dockHidden = hide; };
+
+    function toggleAssistantWithDock(show) {
+      if (show) {
+        _dockSetHidden(true);
+        toggleSheet(true);
+      } else {
+        _dockSetHidden(false);
+        toggleSheet(false);
+      }
+    }
+
+    // 1. Initial state: dock is visible
+    assert.equal(dockHidden, false);
+
+    // 2. Open floating assistant orb sheet -> main menu dock MUST hide
+    toggleAssistantWithDock(true);
+    assert.equal(dockHidden, true, 'Main menu dock must be hidden while floating assistant is open');
+    assert.equal(modal.sheetOpen, true);
+
+    // 3. Close floating assistant -> main menu dock MUST be restored
+    toggleAssistantWithDock(false);
+    assert.equal(dockHidden, false, 'Main menu dock must be unhidden when floating assistant closes');
+    assert.equal(modal.sheetOpen, false);
+  });
 });
 

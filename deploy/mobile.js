@@ -3819,17 +3819,19 @@ function switchMobileTab(tab) {
 
   // Manage DhaniWin Web View & Floating Assistant Orb
   const orb = $('dhaniwinFloatingOrb');
-  if (tab === 'web') {
+  if (tab === 'web' || tab === 'home') {
     if (orb) orb.style.display = 'block';
     if (typeof updateFloatingOrbUI === 'function') updateFloatingOrbUI();
 
-    const iframe = $('dhaniwinIframe');
-    if (iframe && (iframe.src === 'about:blank' || !iframe.src || iframe.src.includes('about:blank'))) {
-      const targetUrl = getDhaniEntryUrl();
-      try { history.pushState({ dhaniSentinel: true }, ''); } catch(e) {}
-      iframe.src = targetUrl;
-      const barText = $('mobileWebAddressBarText');
-      if (barText) barText.textContent = targetUrl;
+    if (tab === 'web') {
+      const iframe = $('dhaniwinIframe');
+      if (iframe && (iframe.src === 'about:blank' || !iframe.src || iframe.src.includes('about:blank'))) {
+        const targetUrl = getDhaniEntryUrl();
+        try { history.pushState({ dhaniSentinel: true }, ''); } catch(e) {}
+        iframe.src = targetUrl;
+        const barText = $('mobileWebAddressBarText');
+        if (barText) barText.textContent = targetUrl;
+      }
     }
   } else {
     if (orb) orb.style.display = 'none';
@@ -4775,9 +4777,157 @@ const MobileBridgeState = {
   circuitBreakerActive: false,
   circuitBreakerPauseRounds: 0,
   userId: null,
-  authToken: null
+  authToken: null,
+  riskMode: 'profitable',
+  autoOptimizeBase: true,
+  maxLevelCap: 3,
+  circuitBreakerLossLimit: 3
 };
 window.MobileBridgeState = MobileBridgeState;
+
+const RISK_MODES = {
+  safe: {
+    id: 'safe',
+    name: 'SAFE',
+    icon: '🛡️',
+    baseFraction: 0.005, // 0.5% of balance (min ₹1)
+    defaultBase: 1,
+    multiplier: 1.5,
+    maxLevel: 2,         // Max 2 steps
+    stopLossPct: 0.15,
+    takeProfitPct: 0.10,
+    circuitBreakerLosses: 2,
+    description: 'Capital Preservation • Low Drawdown'
+  },
+  profitable: {
+    id: 'profitable',
+    name: 'PROFITABLE',
+    icon: '💰',
+    baseFraction: 0.01,  // 1% of balance (min ₹2)
+    defaultBase: 2,
+    multiplier: 2.0,
+    maxLevel: 3,         // Max 3 steps (1x, 2x, 4x)
+    stopLossPct: 0.30,
+    takeProfitPct: 0.25,
+    circuitBreakerLosses: 3,
+    description: 'Optimal Yield • Balanced Recovery'
+  },
+  risk: {
+    id: 'risk',
+    name: 'RISK',
+    icon: '⚡',
+    baseFraction: 0.025, // 2.5% of balance
+    defaultBase: 5,
+    multiplier: 2.2,
+    maxLevel: 4,         // Max 4 steps
+    stopLossPct: 0.50,
+    takeProfitPct: 0.50,
+    circuitBreakerLosses: 4,
+    description: 'High Velocity • 4-Tier Recovery'
+  },
+  high_risk: {
+    id: 'high_risk',
+    name: 'HIGH RISK',
+    icon: '🔥',
+    baseFraction: 0.05,  // 5% of balance
+    defaultBase: 10,
+    multiplier: 2.5,
+    maxLevel: 5,         // Max 5 steps
+    stopLossPct: 0.70,
+    takeProfitPct: 1.00,
+    circuitBreakerLosses: 5,
+    description: 'Maximum Aggression • Deep Ladder'
+  }
+};
+window.RISK_MODES = RISK_MODES;
+
+function setRiskMode(modeKey) {
+  if (!RISK_MODES[modeKey]) modeKey = 'profitable';
+  MobileBridgeState.riskMode = modeKey;
+  try { localStorage.setItem('dhaniwin_risk_mode', modeKey); } catch(e) {}
+  autoOptimizeBaseStake();
+  updateRiskModeUI();
+  if (typeof playSoundEffect === 'function') playSoundEffect('click');
+}
+window.setRiskMode = setRiskMode;
+
+function toggleAutoOptimizeBase(forceState) {
+  if (forceState !== undefined) {
+    MobileBridgeState.autoOptimizeBase = !!forceState;
+  } else {
+    MobileBridgeState.autoOptimizeBase = !MobileBridgeState.autoOptimizeBase;
+  }
+  try { localStorage.setItem('dhaniwin_auto_optimize_base', MobileBridgeState.autoOptimizeBase ? '1' : '0'); } catch(e) {}
+  autoOptimizeBaseStake();
+  updateRiskModeUI();
+  if (typeof playSoundEffect === 'function') playSoundEffect('click');
+}
+window.toggleAutoOptimizeBase = toggleAutoOptimizeBase;
+
+function autoOptimizeBaseStake() {
+  const modeKey = MobileBridgeState.riskMode || 'profitable';
+  const mode = RISK_MODES[modeKey] || RISK_MODES.profitable;
+  const balance = Number(MobileBridgeState.userBalance) || 0;
+
+  if (MobileBridgeState.autoOptimizeBase && balance > 0) {
+    const optimalBase = Math.max(1, Math.floor(balance * mode.baseFraction));
+    MobileBridgeState.baseStake = optimalBase;
+  } else if (!MobileBridgeState.baseStake || MobileBridgeState.baseStake < 1) {
+    MobileBridgeState.baseStake = mode.defaultBase;
+  }
+
+  MobileBridgeState.multiplier = mode.multiplier;
+  MobileBridgeState.maxLevelCap = mode.maxLevel;
+  MobileBridgeState.circuitBreakerLossLimit = mode.circuitBreakerLosses;
+
+  // SOLVENCY PROTECTION: Never let maximum ladder draw exceed available balance
+  if (balance > 0) {
+    let totalLadderCost = 0;
+    for (let i = 0; i < mode.maxLevel; i++) {
+      totalLadderCost += Math.round(MobileBridgeState.baseStake * Math.pow(mode.multiplier, i));
+    }
+    if (totalLadderCost > balance * 0.80) {
+      const multSum = Array.from({length: mode.maxLevel}, (_, i) => Math.pow(mode.multiplier, i)).reduce((a, b) => a + b, 0);
+      const safeMaxBase = Math.max(1, Math.floor((balance * 0.70) / (multSum || 1)));
+      MobileBridgeState.baseStake = Math.min(MobileBridgeState.baseStake, safeMaxBase);
+    }
+  }
+
+  calculateAndRenderMobileStake();
+  updateRiskModeUI();
+}
+window.autoOptimizeBaseStake = autoOptimizeBaseStake;
+
+function updateRiskModeUI() {
+  const modeKey = MobileBridgeState.riskMode || 'profitable';
+  ['safe', 'profitable', 'risk', 'high_risk'].forEach(m => {
+    const btn = $('riskModeBtn-' + m);
+    if (!btn) return;
+    if (m === modeKey) {
+      btn.className = 'py-1.5 rounded-xl font-mono text-[8.5px] font-bold border flex flex-col items-center justify-center transition active:scale-95 bg-amber-500/25 text-amber-300 border-amber-500/40 shadow-sm';
+    } else {
+      btn.className = 'py-1.5 rounded-xl font-mono text-[8.5px] font-bold border flex flex-col items-center justify-center transition active:scale-95 bg-white/5 text-zinc-400 border-white/5';
+    }
+  });
+
+  const optBtn = $('autoOptimizeToggleBtn');
+  if (optBtn) {
+    if (MobileBridgeState.autoOptimizeBase) {
+      optBtn.className = 'px-2 py-0.5 rounded-full font-mono text-[8px] font-bold border transition active:scale-95 bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+      optBtn.textContent = '⚡ Auto-Base: ON';
+    } else {
+      optBtn.className = 'px-2 py-0.5 rounded-full font-mono text-[8px] font-bold border transition active:scale-95 bg-white/5 text-zinc-400 border-white/10';
+      optBtn.textContent = '⚡ Auto-Base: OFF';
+    }
+  }
+
+  const summary = $('riskModeSummary');
+  if (summary) {
+    const mode = RISK_MODES[modeKey] || RISK_MODES.profitable;
+    summary.textContent = `Ladder: ${mode.maxLevel}L • Base: ₹${MobileBridgeState.baseStake} (${(mode.baseFraction * 100).toFixed(1)}%) • Mult: ${mode.multiplier}x`;
+  }
+}
+window.updateRiskModeUI = updateRiskModeUI;
 
 function initMobileDhaniWinBridge() {
   if (typeof BroadcastChannel !== 'undefined') {
@@ -4811,6 +4961,16 @@ function initMobileDhaniWinBridge() {
     }
   } catch(e) {}
 
+  // Restore saved risk mode & auto optimize preference
+  try {
+    const savedMode = localStorage.getItem('dhaniwin_risk_mode');
+    if (savedMode && RISK_MODES[savedMode]) MobileBridgeState.riskMode = savedMode;
+    const savedOpt = localStorage.getItem('dhaniwin_auto_optimize_base');
+    if (savedOpt !== null) MobileBridgeState.autoOptimizeBase = savedOpt === '1';
+  } catch(e) {}
+
+  autoOptimizeBaseStake();
+  updateRiskModeUI();
   calculateAndRenderMobileStake();
   renderMobileWalletStats();
   setupFloatingOrb();
@@ -4899,11 +5059,15 @@ function handleMobileBridgeMessage(msg) {
     if (typeof updateAppUnlockState === 'function') updateAppUnlockState();
     loadMobileWebUrl(DHANIWIN_HOME_URL);
 
-  } else if (msg.type === 'DHANIWIN_USER_SYNC') {
+  } else if (msg.type === 'DHANIWIN_USER_SYNC' || msg.type === 'DHANIWIN_REAL_BALANCE') {
     if (msg.balance !== null && msg.balance !== undefined && !isNaN(Number(msg.balance))) {
+      const prevBal = MobileBridgeState.userBalance;
       MobileBridgeState.userBalance = Number(msg.balance);
       const balEl = $('mobileWebBalance');
       if (balEl) balEl.textContent = '₹' + MobileBridgeState.userBalance.toFixed(2);
+      if (MobileBridgeState.autoOptimizeBase && Math.abs(prevBal - MobileBridgeState.userBalance) > 0.05) {
+        autoOptimizeBaseStake();
+      }
     }
 
     const isAuthUrl = msg.url && (msg.url.toLowerCase().includes('/login') || msg.url.toLowerCase().includes('/register'));
@@ -5034,13 +5198,20 @@ function updateMobileAutoBetSettings() {
 window.updateMobileAutoBetSettings = updateMobileAutoBetSettings;
 
 function calculateAndRenderMobileStake() {
-  // STRICT REQUIREMENT: Maximum 3 levels allowed (Level 1 = 1x, Level 2 = 2x, Level 3 = 4x).
-  // Under NO circumstances may multiplier or stake advance to Level 4 (> 3 consecutive losses)!
-  const safeLevel = Math.min(2, Math.max(0, MobileBridgeState.currentLevel || 0));
+  const maxLevels = MobileBridgeState.maxLevelCap || 3;
+  const safeLevel = Math.min(maxLevels - 1, Math.max(0, MobileBridgeState.currentLevel || 0));
   MobileBridgeState.currentLevel = safeLevel;
   const unconstrainedStake = Math.round(MobileBridgeState.baseStake * Math.pow(MobileBridgeState.multiplier, safeLevel));
   // Don't double more than maxStakeCap
-  MobileBridgeState.currentStake = Math.min(unconstrainedStake, MobileBridgeState.maxStakeCap);
+  let calculatedStake = Math.min(unconstrainedStake, MobileBridgeState.maxStakeCap);
+
+  // Solvency Protection: Never let calculated stake exceed live scraped balance
+  const balance = Number(MobileBridgeState.userBalance) || 0;
+  if (balance > 0 && calculatedStake > balance) {
+    calculatedStake = Math.max(1, Math.floor(balance));
+  }
+
+  MobileBridgeState.currentStake = calculatedStake;
   try { localStorage.setItem('dhaniwin_active_stake', String(MobileBridgeState.currentStake)); } catch(e) {}
 
   const stakeEl = $('mobileWebStakeDisplay');
@@ -5125,14 +5296,15 @@ function dispatchMobileBetOrder(targetOverride) {
     return;
   }
 
-  // Strict Safety Guard: Under no conditions allow dispatch if consecutive losses reached 3
-  if (MobileBridgeState.consecutiveLosses >= 3) {
+  // Strict Safety Guard: Under no conditions allow dispatch if consecutive losses reached limit
+  const lossLimit = MobileBridgeState.circuitBreakerLossLimit || 3;
+  if (MobileBridgeState.consecutiveLosses >= lossLimit) {
     MobileBridgeState.circuitBreakerActive = true;
     MobileBridgeState.circuitBreakerPauseRounds = 2;
     MobileBridgeState.currentLevel = 0;
     MobileBridgeState.currentStake = MobileBridgeState.baseStake || 2;
     MobileBridgeState.consecutiveLosses = 0;
-    setMobileBridgeStatus(false, `🛡️ Circuit Breaker: Tripped on 3 losses. Paused for 2R.`);
+    setMobileBridgeStatus(false, `🛡️ Circuit Breaker: Tripped on ${lossLimit} losses. Paused for 2R.`);
     return;
   }
 
@@ -5158,6 +5330,20 @@ function dispatchMobileBetOrder(targetOverride) {
   if (!targetOverride) MobileBridgeState.lastPeriodDispatched = period;
 
   calculateAndRenderMobileStake();
+
+  // Solvency Guard: Ensure user never runs out of money
+  const balance = Number(MobileBridgeState.userBalance) || 0;
+  if (balance > 0) {
+    if (balance < 1) {
+      toggleMobileRealAutoBet(false);
+      setMobileBridgeStatus(false, '🛑 Insufficient Balance');
+      showToast('⚠️ Balance is ₹0. Please deposit to continue auto-prep.', 'warn');
+      return;
+    }
+    if (MobileBridgeState.currentStake > balance) {
+      MobileBridgeState.currentStake = Math.max(1, Math.floor(balance));
+    }
+  }
 
   const targetEl = $('mobileWebTargetDisplay');
   if (targetEl) {
@@ -5499,12 +5685,17 @@ function toggleDhaniwinAssistantModal(show) {
   const sheet = $('dhaniwinAssistantSheet');
   if (!modal) return;
 
-  const isOpen = !modal.classList.contains('hidden') && modal.classList.contains('sheet-open');
+  const isOpen = !modal.classList.contains('hidden') && modal.classList.contains('sheet-open') && modal.style.display !== 'none';
   const targetOpen = show === undefined ? !isOpen : Boolean(show);
 
   if (targetOpen) {
     _assistantModalClosing = false;
+    // Hide main menu bottom dock when opening floating ball assistant
+    if (typeof window._dockSetHidden === 'function') {
+      window._dockSetHidden(true);
+    }
     modal.classList.remove('hidden');
+    modal.style.display = 'flex';
     // Force browser reflow to guarantee the opening animation triggers
     void modal.offsetWidth;
     modal.classList.add('sheet-open');
@@ -5519,9 +5710,14 @@ function toggleDhaniwinAssistantModal(show) {
     if (sheet) {
       sheet.style.transform = 'translateY(100%)';
     }
+    // Restore main menu dock when closing floating ball assistant
+    if (typeof window._dockSetHidden === 'function') {
+      window._dockSetHidden(false);
+    }
     setTimeout(() => {
       if (_assistantModalClosing) {
         modal.classList.add('hidden');
+        modal.style.display = 'none';
         if (sheet) sheet.style.transform = '';
         _assistantModalClosing = false;
       }
@@ -5693,10 +5889,12 @@ function setupFloatingOrb() {
   let startLeft = 0;
   let startTop = 0;
   let hasMoved = false;
+  let pointerDownTime = 0;
 
   function onPointerDown(e) {
     isDragging = true;
     hasMoved = false;
+    pointerDownTime = Date.now();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     startX = clientX;
@@ -5715,14 +5913,15 @@ function setupFloatingOrb() {
     const dx = clientX - startX;
     const dy = clientY - startY;
 
-    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+    // Generous threshold (> 12px) to prevent finger micro-jitter from mistaking taps for drags
+    if (Math.abs(dx) > 12 || Math.abs(dy) > 12) {
       hasMoved = true;
     }
 
     if (hasMoved) {
       if (e.cancelable && e.preventDefault) e.preventDefault();
-      const newLeft = Math.max(8, Math.min(window.innerWidth - 64, startLeft + dx));
-      const newTop = Math.max(10, Math.min(window.innerHeight - 76, startTop + dy));
+      const newLeft = Math.max(8, Math.min(window.innerWidth - 68, startLeft + dx));
+      const newTop = Math.max(10, Math.min(window.innerHeight - 80, startTop + dy));
       orb.style.left = `${newLeft}px`;
       orb.style.top = `${newTop}px`;
       orb.style.right = 'auto';
@@ -5735,17 +5934,18 @@ function setupFloatingOrb() {
     isDragging = false;
     orb.style.transition = 'transform 0.2s ease, left 0.3s cubic-bezier(0.25, 1, 0.5, 1), top 0.3s cubic-bezier(0.25, 1, 0.5, 1)';
 
-    if (!hasMoved) {
-      // Tap detected: toggle assistant modal silently (no sound on floating ball)
-      toggleDhaniwinAssistantModal();
+    const elapsed = Date.now() - pointerDownTime;
+    if (!hasMoved || elapsed < 260) {
+      // Clean tap detected: open assistant modal sheet
+      toggleDhaniwinAssistantModal(true);
       return;
     }
 
     // Magnetic edge snap (left or right)
     const rect = orb.getBoundingClientRect();
     const midX = window.innerWidth / 2;
-    const targetLeft = rect.left < midX ? 12 : window.innerWidth - 68;
-    const targetTop = Math.max(14, Math.min(window.innerHeight - 84, rect.top));
+    const targetLeft = rect.left < midX ? 12 : window.innerWidth - 72;
+    const targetTop = Math.max(14, Math.min(window.innerHeight - 88, rect.top));
 
     orb.style.left = `${targetLeft}px`;
     orb.style.top = `${targetTop}px`;
@@ -5764,6 +5964,13 @@ function setupFloatingOrb() {
   orb.addEventListener('mousedown', onPointerDown);
   window.addEventListener('mousemove', onPointerMove);
   window.addEventListener('mouseup', onPointerUp);
+
+  // Direct click / enter key fallback
+  orb.addEventListener('click', (e) => {
+    if (!hasMoved) {
+      toggleDhaniwinAssistantModal(true);
+    }
+  });
 
   updateFloatingOrbUI();
 }
