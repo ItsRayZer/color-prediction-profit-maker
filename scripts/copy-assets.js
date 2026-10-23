@@ -44,7 +44,9 @@ console.log('Copied index.html -> deploy/index.html (source, unprocessed)');
 });
 
   // Copy individual files
-  ['terminal.html', 'dhaniwin-bridge.js', 'logo_0101.jpg', 'coffee_card.jpg', 'favicon.svg', 'axofy-theme.css', 'mobile.html', 'mobile.css', 'mobile.js', 'settings.html', 'manifest.json', 'sw.js', '_headers'].forEach(file => {
+  // 2026-10-24 rebase: 'axofy-theme.css' dropped from the copy list —
+  // the rebased app is the owner's live app, which has no Axofy theme.
+  ['terminal.html', 'dhaniwin-bridge.js', 'logo_0101.jpg', 'coffee_card.jpg', 'favicon.svg', 'mobile.html', 'mobile.css', 'mobile.js', 'settings.html', 'manifest.json', 'sw.js', '_headers'].forEach(file => {
     const src = path.join(rootDir, file);
     const dest = path.join(deployDir, file);
     if (fs.existsSync(src)) {

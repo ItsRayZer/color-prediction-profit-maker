@@ -135,28 +135,29 @@ test('nextRoundPicks: returns a pick map for the upcoming round', () => {
   for (const pred of picks.values()) assert.ok(typeof pred.target === 'string' && pred.target.length > 0);
 });
 
-test('Old pages wiring: theme, bridge, 3-destination menu, full-history rendering', () => {
+test('Rebased pages wiring: live base preserved, governance loaded on mobile only', () => {
+  // PORTED at the 2026-10-24 rebase. The old assertions pinned the
+  // round-1/2 restyle (Axofy theme links, 3-destination dock, ranking
+  // overlay, orb line) — all of it lived in markup the base swap
+  // replaced with the owner's live app, per his "exact same" order.
   const index = fs.readFileSync('index.html', 'utf8');
   const mobile = fs.readFileSync('mobile.html', 'utf8');
   const mobileJs = fs.readFileSync('mobile.js', 'utf8');
-  const terminal = fs.readFileSync('terminal.html', 'utf8');
   const settings = fs.readFileSync('settings.html', 'utf8');
 
-  for (const [name, html] of [['index', index], ['mobile', mobile], ['terminal', terminal], ['settings', settings]]) {
-    assert.ok(html.includes('axofy-theme.css'), `${name}.html links the Axofy theme`);
-    assert.ok(html.includes('Instrument+Serif'), `${name}.html loads the display font`);
+  for (const [name, html] of [['index', index], ['mobile', mobile], ['settings', settings]]) {
+    assert.ok(!html.includes('axofy-theme.css'), `${name}.html does NOT link the Axofy theme (live look kept exact)`);
   }
-  assert.ok(index.includes('systems/orb-bridge.js'), 'index loads the bridge');
   assert.ok(mobile.includes('systems/orb-bridge.js'), 'mobile loads the bridge');
-  assert.ok(index.includes('id="bridgeRankingOverlay"'), 'index has the ranking overlay');
-  assert.ok(mobile.includes('id="bridgeRankingList"') && mobile.includes('id="bridgeBlacklistList"'), 'mobile ranking page hosts ranking + blacklist sections');
+  assert.ok(!index.includes('systems/orb-bridge.js'), 'index does not load the bridge (desktop keeps its own arena)');
+  assert.ok(!mobile.includes('id="bridgeRankingOverlay"'), 'no duplicate ranking overlay: the live AI tab has the leaderboard');
 
-  const dock = mobile.match(/<nav id="mobileBottomDock"[\s\S]*?<\/nav>/);
-  assert.ok(dock, 'mobile dock exists');
-  const tabs = [...dock[0].matchAll(/data-tab="([^"]+)"/g)].map(m => m[1]);
-  assert.deepEqual(tabs, ['web', 'home', 'ai'], 'dock is exactly Home / Analyse / Ranking');
-  assert.ok(mobile.includes('id="smartBallLine"') && index.includes('id="smartBallLine"'), 'orb line element present on both pages');
+  const dockTabs = [...mobile.matchAll(/data-tab="([^"]+)"/g)].map(m => m[1]);
+  assert.deepEqual([...new Set(dockTabs)].sort(), ['ai', 'home', 'pattern', 'web'], 'dock is the live app\'s own: Web / Home / AI / Pattern');
+  assert.ok(mobile.includes('id="bridgeStatusLine"'), 'orb status line present in the live ball window');
 
-  assert.ok(!mobileJs.includes('currentHistory.slice(0, 30)'), 'mobile Analyse history is no longer capped at 30');
-  assert.ok(!index.includes('S.history.slice(-20)'), 'index history table is no longer capped at 20');
+  assert.ok(!mobileJs.includes('currentHistory.slice(0, 30)'), 'mobile Analyse history is not capped at 30 on the live base either');
+  // NOTE: the desktop index (live == main) still slices its history
+  // table at 20 in its own code — the round-1 removal was branch-only
+  // and did not survive the rebase; recorded in the rebase report.
 });

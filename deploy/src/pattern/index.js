@@ -204,12 +204,35 @@ class PatternIntelligenceCoordinator {
       setTimeout(processChunk, 0);
     }
   }
+
+  /**
+   * Safe read-only helper for all AI models: get repeated patterns
+   */
+  async getRepeatedPatterns(opts = {}) {
+    return this.api.getRepeatedPatterns(opts);
+  }
+
+  /**
+   * Safe read-only helper for all AI models: get top most repeated patterns with continuation
+   */
+  async getMostRepeatedPatterns(opts = {}) {
+    return this.api.getMostRepeatedPatterns(opts);
+  }
+
+  /**
+   * Safe read-only helper for all AI models: get pattern context for current sequence
+   */
+  async getPatternContext(opts = {}) {
+    return this.api.getPatternContext(opts);
+  }
 }
 
 export const patternCoordinator = new PatternIntelligenceCoordinator();
 
 if (typeof window !== 'undefined') {
   window.PatternIntelligence = patternCoordinator;
+  // Also expose patternApi directly on window for models and test suites
+  window.patternApi = patternCoordinator.api;
   // Auto-init on DOM ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => patternCoordinator.init());

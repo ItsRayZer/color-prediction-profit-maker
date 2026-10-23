@@ -1,7 +1,9 @@
 /**
  * fix_round.test.js — 2026-10-23 fix round:
  *  1/2. Coffee popup trap (orb + settings blocked) — dismissal persists.
- *  3.   LoginVerifier: two-signal VERIFIED, instant NOT_LOGGED_IN, expiry.
+ *  3.   LoginVerifier: VERIFIED / NOT_LOGGED_IN / expiry. PORTED at the
+ *       2026-10-24 rebase: VERIFIED now requires the bridge's
+ *       API-proven published user state (see the v2 tests below).
  *  4.   Governed settlement fires the win/loss sound hook.
  *  5a.  Per-timeframe governance scope + labelled global fallback.
  *  5b.  Pattern-conditioned ranking blend (bounded, >= 20 samples).
@@ -36,49 +38,77 @@ test('LoginVerifier: no signals and single-signal flickers stay UNKNOWN', () => 
   assert.equal(v2.status(T0 + 1000).state, LOGIN_STATES.UNKNOWN, 'balance alone is one signal kind');
 });
 
-test('LoginVerifier: two independent positive kinds verify', () => {
+// REBASE v2 (2026-10-24): the two-kind rule was itself a guess — a
+// token or a page-scraped number is not a live session. VERIFIED now
+// requires the bridge's published user state with apiProven=true.
+const provenState = (over = {}) => ({
+  type: 'DHANIWIN_USER_STATE', isLoggedIn: true, balance: 512.5,
+  balanceSource: 'api', apiProven: true, fetchMode: 'active',
+  userId: '998877', ts: T0, seq: 1, ...over
+});
+
+test('LoginVerifier: legacy signal kinds never verify on their own (v2 rule)', () => {
   const v = new LoginVerifier();
-  v.observe({ isLoggedIn: true, balance: 512.5 }, T0);
+  v.observe({ isLoggedIn: true, balance: 512.5, hasToken: true }, T0);
+  const s = v.status(T0);
+  assert.equal(s.state, LOGIN_STATES.UNKNOWN, 'flag + balance + token from legacy syncs is still not API proof');
+  assert.ok(s.evidence.length >= 1, 'the legacy signals are reported as evidence, not proof');
+});
+
+test('LoginVerifier: API-proven bridge state verifies; unproven state does not', () => {
+  const v = new LoginVerifier();
+  v.observeBridgeState(provenState(), T0);
   const s = v.status(T0);
   assert.equal(s.state, LOGIN_STATES.VERIFIED);
   assert.equal(s.balance, 512.5);
+  assert.equal(s.balanceSource, 'api');
   assert.ok(s.evidence.length >= 2);
 
   const v2 = new LoginVerifier();
-  v2.observe({ isLoggedIn: true, hasToken: true }, T0);
-  assert.equal(v2.status(T0).state, LOGIN_STATES.VERIFIED, 'bridge flag + token verifies');
+  v2.observeBridgeState(provenState({ apiProven: false }), T0);
+  const s2 = v2.status(T0);
+  assert.equal(s2.state, LOGIN_STATES.UNKNOWN, 'bridge-reported login without API proof waits');
+  assert.ok(s2.evidence.some(e => e.includes('API wallet proof')), 'evidence names what is missing');
 });
 
 test('LoginVerifier: explicit negative drops to NOT_LOGGED_IN immediately', () => {
   const v = new LoginVerifier();
-  v.observe({ isLoggedIn: true, balance: 100 }, T0);
+  v.observeBridgeState(provenState(), T0);
   assert.equal(v.status(T0).state, LOGIN_STATES.VERIFIED);
   v.observe({ isLoggedIn: false }, T0 + 500);
-  assert.equal(v.status(T0 + 500).state, LOGIN_STATES.NOT_LOGGED_IN);
+  assert.equal(v.status(T0 + 500).state, LOGIN_STATES.NOT_LOGGED_IN, 'a newer negative beats a still-fresh VERIFIED');
 
   const v2 = new LoginVerifier();
-  v2.observe({ isLoggedIn: true, balance: 100 }, T0);
+  v2.observeBridgeState(provenState(), T0);
   v2.observe({ isAuthPage: true }, T0 + 500);
   assert.equal(v2.status(T0 + 500).state, LOGIN_STATES.NOT_LOGGED_IN, 'auth page is an explicit negative');
 
   const v3 = new LoginVerifier();
-  v3.observe({ isLoggedIn: true, balance: 100 }, T0);
+  v3.observeBridgeState(provenState(), T0);
   v3.observe({ explicitLogout: true }, T0 + 500);
   assert.equal(v3.status(T0 + 500).state, LOGIN_STATES.NOT_LOGGED_IN, 'logout event is an explicit negative');
+
+  const v4 = new LoginVerifier();
+  v4.observeBridgeState(provenState(), T0);
+  v4.observeBridgeState(provenState({ isLoggedIn: false, seq: 2, ts: T0 + 500 }), T0 + 500);
+  assert.equal(v4.status(T0 + 500).state, LOGIN_STATES.NOT_LOGGED_IN, 'bridge state isLoggedIn=false is an explicit negative');
 });
 
-test('LoginVerifier: VERIFIED expires to UNKNOWN when syncs stop (>90s)', () => {
+test('LoginVerifier: VERIFIED expires to UNKNOWN when the bridge state goes stale (>60s)', () => {
   const v = new LoginVerifier();
-  v.observe({ isLoggedIn: true, balance: 100, hasToken: true }, T0);
+  v.observeBridgeState(provenState(), T0);
   assert.equal(v.status(T0 + 30_000).state, LOGIN_STATES.VERIFIED);
-  assert.equal(v.status(T0 + 91_000).state, LOGIN_STATES.UNKNOWN, 'silence decays VERIFIED, never upgrades it');
+  assert.equal(v.status(T0 + 61_000).state, LOGIN_STATES.UNKNOWN, 'a stale bridge state decays VERIFIED, never extends it');
+  assert.equal(v.status(T0 + 91_000).state, LOGIN_STATES.UNKNOWN);
 });
 
 test('LoginVerifier: fresh positives after a negative can re-verify', () => {
   const v = new LoginVerifier();
   v.observe({ isLoggedIn: false }, T0);
   assert.equal(v.status(T0).state, LOGIN_STATES.NOT_LOGGED_IN);
-  v.observe({ isLoggedIn: true, balance: 42 }, T0 + 2000);
+  v.observe({ isLoggedIn: true, balance: 42 }, T0 + 1000);
+  assert.equal(v.status(T0 + 1000).state, LOGIN_STATES.UNKNOWN, 'legacy positives alone cannot re-verify under the v2 rule');
+  v.observeBridgeState(provenState({ balance: 42, ts: T0 + 2000, seq: 2 }), T0 + 2000);
   assert.equal(v.status(T0 + 2000).state, LOGIN_STATES.VERIFIED);
 });
 
@@ -253,12 +283,19 @@ test('Index settings: panel toggle re-homed standalone (dormant block stays unto
   assert.ok(indexHtml.includes("panel.style.transform = 'translateX(100%)'"), 'close behaviour matches the original');
 });
 
-test('Login pills exist where the owner looks: mobile header + sheet, index hero', () => {
+test('Login evidence surfaces on the rebased app: live ball window line + settings diagnostic', () => {
+  // PORTED (rebase 2026-10-24): the round-1 pill elements lived in
+  // markup the base swap replaced. On the live base the evidence
+  // surfaces are (a) the ONE slim status line inside the live ball
+  // window and (b) the DhaniWin Bridge diagnostic row in settings.
   const mobileHtml = fs.readFileSync('mobile.html', 'utf8');
-  const indexHtml = fs.readFileSync('index.html', 'utf8');
-  assert.ok((mobileHtml.match(/bridge-login-pill/g) || []).length >= 2, 'mobile has header + sheet pills');
-  assert.ok((indexHtml.match(/bridge-login-pill/g) || []).length >= 1, 'index hero card has a pill');
+  const settingsHtml = fs.readFileSync('settings.html', 'utf8');
+  assert.ok(mobileHtml.includes('id="bridgeStatusLine"'), 'live ball window carries the bridge status line');
+  assert.ok(mobileHtml.includes('systems/orb-bridge.js'), 'mobile loads the bridge');
+  assert.ok(settingsHtml.includes('id="bridgeDiagLine"') && settingsHtml.includes('id="bridgeDiagDetail"') && settingsHtml.includes('id="bridgeDiagTag"'), 'settings shows the bridge diagnostic');
+  assert.ok(settingsHtml.includes('o101_bridge_state_v1'), 'settings diagnostic consumes the persisted bridge snapshot');
   const bridge = fs.readFileSync('systems/orb-bridge.js', 'utf8');
   assert.ok(bridge.includes('verifyLogin'), 'bridge exposes verifyLogin for checks');
-  assert.ok(bridge.includes('DHANIWIN_USER_SYNC'), 'bridge consumes the sync feed');
+  assert.ok(bridge.includes('DHANIWIN_USER_STATE'), 'bridge consumes the published user state');
+  assert.ok(bridge.includes('bridgeDiagnostic'), 'bridge exposes the structured diagnostic');
 });

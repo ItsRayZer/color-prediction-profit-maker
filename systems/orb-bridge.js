@@ -1,10 +1,14 @@
 /**
- * orb-bridge.js — Smart Ball background decision layer for the OLD app.
+ * orb-bridge.js — Smart Ball background decision layer.
  * ════════════════════════════════════════════════════════════════════
- * Loaded as a module by index.html and mobile.html AFTER the app's own
- * engine scripts (quant_algorithm, arena_models, wingo systems, pattern
- * analysis). Those engines stay loaded and untouched — this bridge is
- * the decision layer OVER them:
+ * REBASED 2026-10-24 onto the owner's live app (0one.pages.dev): loaded
+ * as a module by mobile.html AFTER the live app's own engine scripts
+ * (quant_algorithm, arena_models, wingo systems, pattern analysis).
+ * Those engines stay loaded and untouched — this bridge is the
+ * decision layer OVER them. It drives the live ball window's NEXT
+ * PREDICTION area (target, calibrated confidence, bankroll Base/Bet)
+ * and the window's bridge status line; the live app's own leaderboard
+ * (AI tab) is NOT duplicated.
  *
  *  - Maintains a persisted per-model history (localStorage, versioned)
  *    for EVERY arena model: on every settled round it records the pick
@@ -238,31 +242,62 @@ export function nextRoundPicks(models, history, genFn) {
 // ─────────────────────────────────────────────────────────────────────
 // Login verification (pure, testable)
 // ─────────────────────────────────────────────────────────────────────
-// The DhaniWin bridge script already computes isLoggedIn inside the
-// embedded site and posts DHANIWIN_USER_SYNC / DHANIWIN_REAL_BALANCE.
-// CRITICAL TRANSPORT FACT: the bridge's notifyApp() sends primarily on
-// BroadcastChannel('dhaniwin_quant_channel'); its window.postMessage
-// copies go only to window.opener / window.parent. A listener on
-// window 'message' alone therefore STARVES in the normal setup (the
-// exact bug the owner hit: the pill sat on "Checking login…" forever,
-// which reads as guessing). The runtime below subscribes to the
-// BroadcastChannel itself AND polls the app's MobileBridgeState.
-// One flickering message is NOT proof of login. VERIFIED requires TWO
-// independent positive signal kinds (bridge isLoggedIn=true, a fresh
-// balance, a session token) with a sync seen inside the stale window.
-// An explicit negative (isLoggedIn=false, auth page, logout event)
-// drops to NOT_LOGGED_IN immediately; silence for >90s decays a
-// VERIFIED back to UNKNOWN — never the other way round. And if NO
-// sync of any kind has EVER arrived 15s after load, the state is
-// NO_SIGNAL — the pill must say the bridge is silent instead of
-// pretending to check forever.
+// REBASE v2 RULE (owner's order, 2026-10-24): the old two-kind rule
+// still amounted to guessing — a token in storage or a number scraped
+// off the page is not proof of a live session, and the balance it
+// produced was not necessarily the account's real balance. The truth
+// source is now the bridge's published USER STATE (dhaniwin-bridge.js
+// section 12): the bridge runs INSIDE the DhaniWin page, proves login
+// from the page's own authenticated wallet/user API traffic (and its
+// session-powered active re-query of the learned wallet endpoint),
+// and publishes { isLoggedIn, balance, balanceSource, apiProven,
+// fetchMode, userId, ts, seq } on the BroadcastChannel, via window
+// postMessage AND to Firebase RTDB /user_state.
+// VERIFIED now requires: a bridge state received ≤60s ago with
+// isLoggedIn=true AND apiProven=true. The displayed balance is that
+// state's exact figure; when its balanceSource is 'dom' the figure is
+// labelled "from page" until an API payload confirms it. Legacy
+// signals (USER_SYNC / REAL_BALANCE / app-state polls) still feed
+// evidence and explicit negatives, but can never reach VERIFIED on
+// their own. An explicit negative drops to NOT_LOGGED_IN immediately;
+// a stale bridge state decays VERIFIED back to UNKNOWN; and if NO
+// signal of any kind has EVER arrived 15s after load the state is
+// NO_SIGNAL — say the bridge is silent instead of checking forever.
 export const LOGIN_STATES = { VERIFIED: 'VERIFIED', NOT_LOGGED_IN: 'NOT_LOGGED_IN', UNKNOWN: 'UNKNOWN', NO_SIGNAL: 'NO_SIGNAL' };
 export const NO_SIGNAL_AFTER_MS = 15000;
+export const BRIDGE_STATE_FRESH_MS = 60000;
+export const BRIDGE_STATE_KEY = 'o101_bridge_state_v1';
+export const RTDB_BASE = 'https://zer0one-376d1-default-rtdb.asia-southeast1.firebasedatabase.app';
+
+/**
+ * Normalise a raw published bridge state (from DHANIWIN_USER_STATE on
+ * the channel / postMessage, or the RTDB /user_state node) — or null
+ * when the payload is not a bridge state at all. Pure. The session
+ * token is NEVER part of a published state; if one ever appears in a
+ * payload it is dropped here, never propagated.
+ */
+export function normaliseBridgeState(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  if (raw.type !== undefined && raw.type !== 'DHANIWIN_USER_STATE') return null;
+  if (typeof raw.isLoggedIn !== 'boolean' && raw.balance === undefined && raw.apiProven === undefined) return null;
+  const balance = raw.balance !== null && raw.balance !== undefined && Number.isFinite(Number(raw.balance)) ? Number(raw.balance) : null;
+  return {
+    isLoggedIn: typeof raw.isLoggedIn === 'boolean' ? raw.isLoggedIn : null,
+    balance,
+    balanceSource: raw.balanceSource === 'api' || raw.balanceSource === 'dom' ? raw.balanceSource : null,
+    apiProven: raw.apiProven === true,
+    fetchMode: raw.fetchMode === 'active' || raw.fetchMode === 'intercept' || raw.fetchMode === 'pending' ? raw.fetchMode : null,
+    userId: raw.userId !== null && raw.userId !== undefined ? String(raw.userId) : null,
+    ts: Number.isFinite(Number(raw.ts)) ? Number(raw.ts) : null,
+    seq: Number.isFinite(Number(raw.seq)) ? Number(raw.seq) : null
+  };
+}
 
 export class LoginVerifier {
-  constructor({ balanceFreshMs = 60000, staleMs = 90000, noSignalAfterMs = NO_SIGNAL_AFTER_MS, startedAt = null } = {}) {
+  constructor({ balanceFreshMs = 60000, staleMs = 90000, stateFreshMs = BRIDGE_STATE_FRESH_MS, noSignalAfterMs = NO_SIGNAL_AFTER_MS, startedAt = null } = {}) {
     this.balanceFreshMs = balanceFreshMs;
     this.staleMs = staleMs;
+    this.stateFreshMs = stateFreshMs;
     this.noSignalAfterMs = noSignalAfterMs;
     this.startedAt = startedAt !== null && Number.isFinite(Number(startedAt)) ? Number(startedAt) : Date.now();
     this.everObserved = false;
@@ -273,6 +308,44 @@ export class LoginVerifier {
     this.lastPositiveAt = null;
     this.negativeAt = null;
     this.balance = null;
+    // The bridge's published user state (the only path to VERIFIED).
+    this.bridgeState = null;      // last normalised state accepted
+    this.bridgeStateAt = null;    // app-clock time it was received
+  }
+
+  /**
+   * Feed one published bridge state (already normalised, or raw — it
+   * is normalised here). receivedAt is the APP clock; the bridge's own
+   * ts is kept for display but freshness is judged on receivedAt so a
+   * skewed page clock cannot fake or kill freshness. Out-of-order
+   * states (older ts AND older seq than the last accepted) are
+   * ignored, except after a long silence (bridge restart resets seq).
+   */
+  observeBridgeState(raw, receivedAt = Date.now()) {
+    const st = normaliseBridgeState(raw);
+    if (!st) return this.status(receivedAt);
+    const t = Number.isFinite(Number(receivedAt)) ? Number(receivedAt) : Date.now();
+    if (this.bridgeState) {
+      const olderTs = st.ts !== null && this.bridgeState.ts !== null && st.ts < this.bridgeState.ts;
+      const olderSeq = st.seq !== null && this.bridgeState.seq !== null && st.seq < this.bridgeState.seq;
+      const longSilence = t - this.bridgeStateAt > 120000;
+      if ((olderTs || olderSeq) && !longSilence) return this.status(t);
+    }
+    this.everObserved = true;
+    this.bridgeState = st;
+    this.bridgeStateAt = t;
+    this.lastSyncAt = t;
+    if (st.isLoggedIn === false) {
+      this.negativeAt = t;
+    } else if (st.isLoggedIn === true) {
+      this.lastPositiveAt = t;
+      if (this.negativeAt !== null && this.negativeAt < t) this.negativeAt = null;
+    }
+    if (st.balance !== null) {
+      this.balance = st.balance;
+      this.lastBalanceAt = t;
+    }
+    return this.status(t);
   }
 
   /**
@@ -307,23 +380,55 @@ export class LoginVerifier {
   status(now = Date.now()) {
     const t = Number.isFinite(Number(now)) ? Number(now) : Date.now();
     const syncAgeMs = this.lastSyncAt !== null ? Math.max(0, t - this.lastSyncAt) : null;
-    if (this.negativeAt !== null && (this.lastPositiveAt === null || this.negativeAt >= this.lastPositiveAt)) {
-      return { state: LOGIN_STATES.NOT_LOGGED_IN, balance: this.balance, evidence: ['explicit negative (logout / auth page / isLoggedIn=false)'], lastSyncAt: this.lastSyncAt, syncAgeMs, everSynced: this.lastSyncAt !== null };
+    const bs = this.bridgeState;
+    const stateAgeMs = this.bridgeStateAt !== null ? Math.max(0, t - this.bridgeStateAt) : null;
+    const stateFresh = bs !== null && stateAgeMs <= this.stateFreshMs;
+    const base = {
+      balance: bs && bs.balance !== null ? bs.balance : this.balance,
+      balanceSource: bs ? bs.balanceSource : null,
+      apiProven: bs ? bs.apiProven : false,
+      fetchMode: bs ? bs.fetchMode : null,
+      userId: bs ? bs.userId : null,
+      stateAgeMs,
+      lastSyncAt: this.lastSyncAt,
+      syncAgeMs,
+      everSynced: this.lastSyncAt !== null
+    };
+    // An explicit negative that is NEWER than every positive signal
+    // wins immediately — including over a still-fresh VERIFIED state
+    // (a logout event at T+1s must not wait for the state to stale).
+    // Ties go to the negative: when in doubt, say logged out.
+    const negativeNewest = this.negativeAt !== null
+      && this.negativeAt >= Math.max(
+        this.lastPositiveAt === null ? -1 : this.lastPositiveAt,
+        this.bridgeStateAt === null ? -1 : this.bridgeStateAt);
+    if (negativeNewest) {
+      return { ...base, state: LOGIN_STATES.NOT_LOGGED_IN, evidence: ['explicit negative (logout / auth page / bridge state isLoggedIn=false)'] };
     }
-    const kinds = [];
-    if (this.lastBridgeLoginAt !== null && t - this.lastBridgeLoginAt <= this.staleMs) kinds.push('bridge isLoggedIn=true');
-    if (this.lastBalanceAt !== null && t - this.lastBalanceAt <= this.balanceFreshMs) kinds.push(`fresh balance ₹${this.balance}`);
-    if (this.lastTokenAt !== null && t - this.lastTokenAt <= this.staleMs) kinds.push('session token present');
-    const syncFresh = this.lastSyncAt !== null && t - this.lastSyncAt <= this.staleMs;
-    if (kinds.length >= 2 && syncFresh) {
-      return { state: LOGIN_STATES.VERIFIED, balance: this.balance, evidence: kinds, lastSyncAt: this.lastSyncAt, syncAgeMs, everSynced: true };
+    // VERIFIED: fresh bridge state, bridge-proven login, API proof.
+    if (stateFresh && bs.isLoggedIn === true && bs.apiProven) {
+      const evidence = ['bridge user state (fresh)', 'authenticated wallet API proof'];
+      evidence.push(bs.balanceSource === 'api' ? 'balance exact from wallet API' : 'balance from page (DOM), API confirmation pending');
+      if (bs.fetchMode) evidence.push(`bridge fetch mode: ${bs.fetchMode}`);
+      return { ...base, state: LOGIN_STATES.VERIFIED, evidence };
     }
-    // No sync of ANY kind has ever arrived and the grace window has
+    // No signal of ANY kind has ever arrived and the grace window has
     // passed: say the bridge is silent instead of "checking" forever.
     if (!this.everObserved && t - this.startedAt >= this.noSignalAfterMs) {
-      return { state: LOGIN_STATES.NO_SIGNAL, balance: this.balance, evidence: [], lastSyncAt: null, syncAgeMs: null, everSynced: false };
+      return { ...base, state: LOGIN_STATES.NO_SIGNAL, balance: this.balance, evidence: [], lastSyncAt: null, syncAgeMs: null, everSynced: false };
     }
-    return { state: LOGIN_STATES.UNKNOWN, balance: this.balance, evidence: kinds, lastSyncAt: this.lastSyncAt, syncAgeMs, everSynced: this.lastSyncAt !== null };
+    // UNKNOWN — with honest evidence about what is still missing.
+    const kinds = [];
+    if (bs !== null) {
+      if (!stateFresh) kinds.push(`bridge state stale (${Math.round(stateAgeMs / 1000)}s old)`);
+      else if (bs.isLoggedIn === true && !bs.apiProven) kinds.push('bridge reports login · waiting for API wallet proof');
+      else if (bs.isLoggedIn === null) kinds.push('bridge connected · login not yet determined');
+      if (bs.fetchMode === 'pending') kinds.push('wallet endpoint not learned yet (active fetch pending)');
+    }
+    if (this.lastBridgeLoginAt !== null && t - this.lastBridgeLoginAt <= this.staleMs) kinds.push('legacy sync claims login (not API-proven)');
+    if (this.lastBalanceAt !== null && t - this.lastBalanceAt <= this.balanceFreshMs) kinds.push(`balance seen ₹${this.balance} (unproven source)`);
+    if (this.lastTokenAt !== null && t - this.lastTokenAt <= this.staleMs) kinds.push('session token present (not proof on its own)');
+    return { ...base, state: LOGIN_STATES.UNKNOWN, evidence: kinds };
   }
 }
 
@@ -340,6 +445,10 @@ export function signalFromBridgeMessage(msg) {
   const isAuthPage = url.includes('/login') || url.includes('/register');
   const balance = msg.balance !== null && msg.balance !== undefined && Number.isFinite(Number(msg.balance)) ? Number(msg.balance) : null;
   switch (msg.type) {
+    case 'DHANIWIN_USER_STATE': {
+      const bridgeState = normaliseBridgeState(msg);
+      return bridgeState ? { bridgeState } : null;
+    }
     case 'DHANIWIN_USER_SYNC':
       return {
         isLoggedIn: typeof msg.isLoggedIn === 'boolean' ? msg.isLoggedIn : null,
@@ -379,18 +488,48 @@ export function signalFromBridgeStateSnapshot(snapshot = {}) {
   return { sig, signature: JSON.stringify([sig.balance, sig.hasToken, sig.isLoggedIn]) };
 }
 
-/** One-line evidence text for the login pill / mini window. Pure. */
+/** One-line evidence text for the login pill / window status line. Pure. */
 export function loginEvidenceLine(login) {
   if (!login) return 'Checking login…';
   const inrFmt = n => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
-  const age = login.syncAgeMs !== null && login.syncAgeMs !== undefined
-    ? ` · sync ${Math.max(0, Math.round(login.syncAgeMs / 1000))}s ago` : '';
+  const ageMs = login.stateAgeMs !== null && login.stateAgeMs !== undefined ? login.stateAgeMs : login.syncAgeMs;
+  const age = ageMs !== null && ageMs !== undefined
+    ? ` · sync ${Math.max(0, Math.round(ageMs / 1000))}s ago` : '';
   switch (login.state) {
-    case LOGIN_STATES.VERIFIED: return `Login verified · ${inrFmt(login.balance)}${age}`;
+    case LOGIN_STATES.VERIFIED: {
+      const label = login.balanceSource === 'api' ? 'exact · API' : login.balanceSource === 'dom' ? 'from page' : 'API-proven';
+      return `Login verified · ${inrFmt(login.balance)} (${label})${age}`;
+    }
     case LOGIN_STATES.NOT_LOGGED_IN: return 'Not logged in';
     case LOGIN_STATES.NO_SIGNAL: return 'No bridge signal — open DhaniWin with the bridge active';
-    default: return login.everSynced ? `Checking login…${age}` : 'Checking login…';
+    default: {
+      const ev = Array.isArray(login.evidence) ? login.evidence : [];
+      if (ev.some(e => e.includes('API wallet proof'))) return 'Bridge connected · waiting for API wallet proof…';
+      if (ev.some(e => e.includes('stale'))) return `Bridge signal stale${age} — waiting for the DhaniWin tab`;
+      return login.everSynced ? `Checking login…${age}` : 'Checking login…';
+    }
   }
+}
+
+/**
+ * Structured diagnostic of the login/balance system for the settings
+ * page (which renders it as: login state, balance + source, bridge
+ * mode, last sync age). Pure — fed from a LoginVerifier status object.
+ */
+export function bridgeDiagnostic(login) {
+  if (!login) {
+    return { loginState: 'UNKNOWN', balanceText: '—', balanceSource: null, fetchMode: null, syncAgeText: 'never', line: 'Checking login…' };
+  }
+  const inrFmt = n => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  const ageMs = login.stateAgeMs !== null && login.stateAgeMs !== undefined ? login.stateAgeMs : login.syncAgeMs;
+  return {
+    loginState: login.state,
+    balanceText: login.balance !== null && login.balance !== undefined ? inrFmt(login.balance) : '—',
+    balanceSource: login.balanceSource || null,
+    fetchMode: login.fetchMode || null,
+    syncAgeText: ageMs !== null && ageMs !== undefined ? `${Math.max(0, Math.round(ageMs / 1000))}s ago` : 'never',
+    line: loginEvidenceLine(login)
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -620,6 +759,12 @@ function initBridge() {
 
   function detectBalance() {
     if (state.page === 'mobile') {
+      // The bridge's published user state is the exact figure; the
+      // app's own MobileBridgeState balance is the fallback.
+      const vs = verifier.bridgeState;
+      if (vs && vs.balance !== null && vs.balance !== undefined) {
+        return { balance: Number(vs.balance), source: BALANCE_SOURCES.BRIDGE };
+      }
       const b = window.MobileBridgeState && Number(window.MobileBridgeState.userBalance);
       if (b && b > 0) return { balance: b, source: BALANCE_SOURCES.BRIDGE };
       return { balance: null, source: 'none' };
@@ -642,11 +787,21 @@ function initBridge() {
   function feedBridgeMessage(msg) {
     const sig = signalFromBridgeMessage(msg);
     if (!sig) return;
-    verifier.observe(sig, Date.now());
-    const b = Number(msg.balance);
-    if (Number.isFinite(b) && b > 0) {
-      state.balance = b;
-      state.balanceSource = BALANCE_SOURCES.BRIDGE;
+    if (sig.bridgeState) {
+      // The published user state is the truth path: its balance is the
+      // exact figure (0 is a real balance), its login is API-proven.
+      verifier.observeBridgeState(sig.bridgeState, Date.now());
+      if (sig.bridgeState.balance !== null) {
+        state.balance = sig.bridgeState.balance;
+        state.balanceSource = BALANCE_SOURCES.BRIDGE;
+      }
+    } else {
+      verifier.observe(sig, Date.now());
+      const b = Number(msg.balance);
+      if (Number.isFinite(b) && b > 0) {
+        state.balance = b;
+        state.balanceSource = BALANCE_SOURCES.BRIDGE;
+      }
     }
     const login = verifier.status(Date.now());
     state.login = login;
@@ -690,12 +845,52 @@ function initBridge() {
   setInterval(pollBridgeState, 2000);
   setTimeout(pollBridgeState, 1000);
 
+  // Fourth feed: the bridge also publishes its user state to Firebase
+  // RTDB /user_state (codebase convention: plain fetch of the .json
+  // node, like the universal_state poller). This reaches the app even
+  // when the DhaniWin tab is in another window/browser context where
+  // BroadcastChannel cannot. Poll politely; failures are silent.
+  async function pollRtdbUserState() {
+    try {
+      if (typeof fetch !== 'function') return;
+      const resp = await fetch(`${RTDB_BASE}/user_state.json`, { cache: 'no-store' });
+      if (!resp || !resp.ok) return;
+      const data = await resp.json();
+      const st = normaliseBridgeState(data);
+      if (!st) return;
+      verifier.observeBridgeState(st, Date.now());
+      if (st.balance !== null) { state.balance = st.balance; state.balanceSource = BALANCE_SOURCES.BRIDGE; }
+      const login = verifier.status(Date.now());
+      state.login = login;
+      renderLogin(login);
+    } catch (e) { /* offline / rules: channel + postMessage still feed */ }
+  }
+  setInterval(pollRtdbUserState, 5000);
+  setTimeout(pollRtdbUserState, 2500);
+
+  // Persist a compact bridge snapshot so the settings page (a separate
+  // document) can show the same diagnostic: login state, exact balance
+  // + source, bridge fetch mode, last sync age.
+  function persistBridgeSnapshot(login) {
+    try {
+      const d = bridgeDiagnostic(login);
+      const snap = {
+        state: d.loginState,
+        line: d.line,
+        balance: login ? login.balance : null,
+        balanceSource: d.balanceSource,
+        fetchMode: d.fetchMode,
+        lastSyncAt: login ? login.lastSyncAt : null,
+        updatedAt: Date.now()
+      };
+      localStorage.setItem(BRIDGE_STATE_KEY, JSON.stringify(snap));
+    } catch (e) { /* storage full/blocked: settings falls back to its own feeds */ }
+  }
+
   // ── Speaking (orb's line) ────────────────────────────────────────
   function say(text) {
     const el = $('smartBallLine');
     if (el && text) el.textContent = text;
-    const mini = $('smartBallReason');
-    if (mini && text) mini.textContent = text;
     state.lastLine = text;
   }
 
@@ -744,12 +939,12 @@ function initBridge() {
     return { scope, pool, bl, patternCtx };
   }
 
-  // ── Login status: pills + ball announcements ─────────────────────
+  // ── Login status: window line + ball announcements ───────────────
   function loginLine(login) {
-    if (login.state === LOGIN_STATES.VERIFIED) return `Login verified · ${inr(login.balance)} on DhaniWin.`;
+    if (login.state === LOGIN_STATES.VERIFIED) return `Login verified · ${inr(login.balance)} on DhaniWin (bridge API proof).`;
     if (login.state === LOGIN_STATES.NOT_LOGGED_IN) return 'Not logged in. Open the DhaniWin tab and log in first — no signal or stake until login is verified.';
     if (login.state === LOGIN_STATES.NO_SIGNAL) return 'No bridge signal yet. Open DhaniWin with the bridge active so I can verify your login — I will not guess it.';
-    return 'Checking login… waiting for two independent confirmations from the DhaniWin bridge.';
+    return 'Checking login… waiting for the bridge\'s API-proven user state.';
   }
 
   function renderLogin(login) {
@@ -758,11 +953,35 @@ function initBridge() {
       el.textContent = text;
       el.setAttribute('data-state', login.state);
     });
-    renderMiniLogin(login);
+    persistBridgeSnapshot(login);
+    renderWindowStatus();
     if (state.loginState !== login.state) {
       state.loginState = login.state;
       say(loginLine(login));
     }
+  }
+
+  // The ONE slim line added to the live ball window (#bridgeStatusLine):
+  // login evidence first, then the governed call for this round. It
+  // never invents a number: balance comes from the bridge state, the
+  // call from the gate, stakes from the bankroll session.
+  function renderWindowStatus() {
+    const el = $('bridgeStatusLine');
+    if (!el) return;
+    const parts = [];
+    if (state.login) parts.push(loginEvidenceLine(state.login));
+    const gate = state.gate;
+    if (gate) {
+      if (gate.decision === GATE_DECISIONS.BET) {
+        const verified = state.login && state.login.state === LOGIN_STATES.VERIFIED;
+        parts.push('BET ' + (gate.pick || '')
+          + (verified && state.session ? ` · ladder step ${state.session.level + 1}/${state.session.ladderLevels} · next ${inr(state.session.nextStake)}` : ''));
+      } else {
+        parts.push('SKIP — ' + (gate.reason || 'gate declined'));
+      }
+    }
+    el.textContent = parts.length ? parts.join(' · ') : 'Bridge: checking login…';
+    el.setAttribute('data-login-state', state.login ? state.login.state : 'UNKNOWN');
   }
 
   // ── Backfill: walk the stored history once per (tf, history length)
@@ -935,10 +1154,10 @@ function initBridge() {
       // no stake suggestion, whatever the engines think.
       if (login.state !== LOGIN_STATES.VERIFIED) {
         const reason = login.state === LOGIN_STATES.NOT_LOGGED_IN
-          ? 'Not logged in: login on the DhaniWin tab first. No signal or stake is suggested until login is verified with two independent confirmations.'
+          ? 'Not logged in: login on the DhaniWin tab first. No signal or stake is suggested until the bridge proves login from its wallet API traffic.'
           : login.state === LOGIN_STATES.NO_SIGNAL
-            ? 'No bridge signal: open DhaniWin with the bridge active. No signal or stake is suggested until login is verified with two independent confirmations.'
-            : 'Login not verified yet: waiting for two independent confirmations from the DhaniWin bridge. No signal or stake is suggested until then.';
+            ? 'No bridge signal: open DhaniWin with the bridge active. No signal or stake is suggested until the bridge proves login from its wallet API traffic.'
+            : 'Login not verified yet: waiting for the bridge\'s API-proven user state. No signal or stake is suggested until then.';
         gate = { ...gate, decision: GATE_DECISIONS.SKIP, prob: null, reason };
       }
       state.gate = gate;
@@ -948,7 +1167,7 @@ function initBridge() {
 
       // Orb face + badges reflect the GOVERNED signal, not raw engine output.
       renderSignal(gate, incharge, login);
-      renderMini();
+      renderWindowStatus();
       const gateKey = latestPeriod + ':' + gate.decision + ':' + (gate.pick || '');
       if (state.gatePeriodKey !== gateKey) {
         state.gatePeriodKey = gateKey;
@@ -965,7 +1184,7 @@ function initBridge() {
     const bet = gate.decision === GATE_DECISIONS.BET;
     // No stake suggestion while login is unverified (UNKNOWN or worse).
     const loginVerified = !!login && login.state === LOGIN_STATES.VERIFIED;
-    const confText = bet && gate.prob !== null && gate.prob !== undefined ? Math.round(gate.prob * 100) + '%' : '—%';
+    const confText = bet && gate.prob !== null && gate.prob !== undefined ? Math.round(gate.prob * 100) + '%' : '—';
     if (state.page === 'mobile') {
       const orbTarget = $('floatingOrbTarget');
       if (orbTarget) orbTarget.textContent = bet ? gate.pick : 'SKIP';
@@ -975,225 +1194,15 @@ function initBridge() {
       if (targetEl) targetEl.textContent = bet ? gate.pick : 'SKIP';
       const conf = $('assistantConfBadge');
       if (conf) conf.textContent = confText;
-      const lvl = $('mobileWebLevelBadge');
-      if (lvl && state.session) lvl.textContent = bet ? `Level ${state.session.level + 1} (bridge ladder)` : 'Bridge: no bet this round';
-    }
-  }
-
-  // ── Smart Ball MINI WINDOW (mobile only — markup in mobile.html) ──
-  // The ball used to open only the full assistant sheet. The owner
-  // wants a small, squat, minimal, resizable floating window on ball
-  // tap instead. Every ball tap in the app funnels through the global
-  // toggleDhaniwinAssistantModal(true) (the orb's inline onclick and
-  // mobile.js setupFloatingOrb's triggerOrbOpen), so the bridge routes
-  // that one global to the mini window; the expand button inside the
-  // mini window calls the ORIGINAL function to open the full sheet.
-  // mobile.js is not modified.
-  const MINI_KEY = 'o101_smartball_window_v1';
-  const MINI_MIN_W = 240, MINI_MIN_H = 160;
-  const mini = { open: false, x: null, y: null, w: 300, h: 210, restored: false };
-  let miniOpenSheet = null;
-
-  function miniEl() { return $('smartBallWindow'); }
-
-  function miniLoad() {
-    try {
-      const raw = localStorage.getItem(MINI_KEY);
-      if (raw) {
-        const d = JSON.parse(raw);
-        if (d && typeof d === 'object') {
-          if (Number.isFinite(d.w)) mini.w = d.w;
-          if (Number.isFinite(d.h)) mini.h = d.h;
-          if (Number.isFinite(d.x)) mini.x = d.x;
-          if (Number.isFinite(d.y)) mini.y = d.y;
-          mini.open = !!d.open;
-        }
-      }
-    } catch (e) {}
-    mini.restored = true;
-  }
-  function miniSave() {
-    try { localStorage.setItem(MINI_KEY, JSON.stringify({ open: mini.open, x: mini.x, y: mini.y, w: mini.w, h: mini.h })); } catch (e) {}
-  }
-  function miniClampSize() {
-    mini.w = Math.min(Math.max(mini.w, MINI_MIN_W), Math.max(MINI_MIN_W, Math.floor(window.innerWidth * 0.92)));
-    mini.h = Math.min(Math.max(mini.h, MINI_MIN_H), Math.max(MINI_MIN_H, Math.floor(window.innerHeight * 0.70)));
-  }
-  function miniClampPos() {
-    if (mini.x === null || mini.y === null) return;
-    mini.x = Math.min(Math.max(mini.x, 4), Math.max(4, window.innerWidth - mini.w - 4));
-    mini.y = Math.min(Math.max(mini.y, 4), Math.max(4, window.innerHeight - mini.h - 4));
-  }
-  function miniApply() {
-    const el = miniEl();
-    if (!el) return;
-    miniClampSize();
-    miniClampPos();
-    el.style.width = mini.w + 'px';
-    el.style.height = mini.h + 'px';
-    if (mini.x !== null && mini.y !== null) {
-      el.style.left = mini.x + 'px';
-      el.style.top = mini.y + 'px';
-      el.style.right = 'auto';
-      el.style.bottom = 'auto';
-    }
-  }
-  function openMini() {
-    const el = miniEl();
-    if (!el) return;
-    if (!mini.restored) miniLoad();
-    mini.open = true;
-    miniApply();
-    el.classList.remove('hidden');
-    renderMini();
-    miniSave();
-  }
-  function closeMini() {
-    const el = miniEl();
-    if (!el) return;
-    mini.open = false;
-    el.classList.add('hidden');
-    miniSave();
-  }
-  function toggleMini() { if (mini.open) closeMini(); else openMini(); }
-
-  function renderMiniLogin(login) {
-    const line = $('smartBallLoginLine');
-    if (line && login) line.textContent = loginEvidenceLine(login);
-    const dot = $('smartBallLoginDot');
-    if (dot && login) {
-      dot.setAttribute('data-state', login.state);
-      dot.style.background = login.state === LOGIN_STATES.VERIFIED ? '#4cd27a'
-        : login.state === LOGIN_STATES.NOT_LOGGED_IN ? '#ff5d55'
-          : login.state === LOGIN_STATES.NO_SIGNAL ? '#f0b24a' : '#8b8b93';
-    }
-  }
-
-  function renderMini() {
-    if (!mini.open) return;
-    const gate = state.gate;
-    const call = $('smartBallCall');
-    if (call) {
-      if (!gate) call.textContent = '—';
-      else if (gate.decision === GATE_DECISIONS.BET) {
-        const verified = state.login && state.login.state === LOGIN_STATES.VERIFIED;
-        call.textContent = 'BET · ' + (gate.pick || '') + (verified && state.session ? ' · ' + inr(state.session.nextStake) : '');
-      } else call.textContent = 'SKIP';
-    }
-    const ladder = $('smartBallLadder');
-    if (ladder) {
-      ladder.textContent = state.session
-        ? `Ladder step ${state.session.level + 1}/${state.session.ladderLevels} · next ${inr(state.session.nextStake)}`
-        : 'Ladder —';
-    }
-    const pnl = $('smartBallPnl');
-    if (pnl) {
-      const v = state.session ? (state.session.sessionPnL || 0) : 0;
-      pnl.textContent = 'Session P&L ' + (v > 0 ? '+' : v < 0 ? '−' : '') + inr(Math.abs(v));
-    }
-    if (state.login) renderMiniLogin(state.login);
-  }
-
-  function initMiniWindow() {
-    const el = miniEl();
-    if (!el) return; // index.html has no orb and no mini window — mobile only
-    miniLoad();
-    miniApply();
-    if (mini.open) { el.classList.remove('hidden'); renderMini(); }
-
-    const header = $('smartBallWindowHeader');
-    if (header) {
-      header.addEventListener('pointerdown', e => {
-        if (e.target.closest('button')) return;
-        e.preventDefault();
-        const rect = el.getBoundingClientRect();
-        const sx = e.clientX, sy = e.clientY, ox = rect.left, oy = rect.top;
-        mini.x = ox; mini.y = oy; miniApply();
-        const move = mv => {
-          mini.x = ox + (mv.clientX - sx);
-          mini.y = oy + (mv.clientY - sy);
-          miniClampPos();
-          el.style.left = mini.x + 'px';
-          el.style.top = mini.y + 'px';
-          el.style.right = 'auto';
-          el.style.bottom = 'auto';
-        };
-        const up = () => {
-          window.removeEventListener('pointermove', move);
-          window.removeEventListener('pointerup', up);
-          miniSave();
-        };
-        window.addEventListener('pointermove', move);
-        window.addEventListener('pointerup', up);
-      });
-    }
-    const grip = $('smartBallResizeGrip');
-    if (grip) {
-      grip.addEventListener('pointerdown', e => {
-        e.preventDefault();
-        e.stopPropagation();
-        const rect = el.getBoundingClientRect();
-        if (mini.x === null) { mini.x = rect.left; mini.y = rect.top; miniApply(); }
-        const sx = e.clientX, sy = e.clientY, sw = mini.w, sh = mini.h;
-        const move = mv => {
-          mini.w = sw + (mv.clientX - sx);
-          mini.h = sh + (mv.clientY - sy);
-          miniClampSize();
-          el.style.width = mini.w + 'px';
-          el.style.height = mini.h + 'px';
-        };
-        const up = () => {
-          window.removeEventListener('pointermove', move);
-          window.removeEventListener('pointerup', up);
-          miniSave();
-        };
-        window.addEventListener('pointermove', move);
-        window.addEventListener('pointerup', up);
-      });
-    }
-    const closeBtn = $('smartBallCloseBtn');
-    if (closeBtn) closeBtn.addEventListener('click', e => { e.stopPropagation(); closeMini(); });
-    const expandBtn = $('smartBallExpandBtn');
-    if (expandBtn) expandBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      closeMini();
-      if (typeof miniOpenSheet === 'function') miniOpenSheet();
-      else if (typeof window.toggleDhaniwinAssistantModal === 'function') window.toggleDhaniwinAssistantModal(true);
-    });
-    window.addEventListener('resize', () => { if (mini.open) miniApply(); });
-    window.addEventListener('orientationchange', () => { if (mini.open) miniApply(); });
-
-    // Route ball taps to the mini window (see section comment above).
-    const routeBall = () => {
-      const orig = window.toggleDhaniwinAssistantModal;
-      if (typeof orig !== 'function' || orig.__o101MiniRouted) return true;
-      let allowSheet = false;
-      let lastRouteAt = 0;
-      const routed = function (show) {
-        if (show === true && !allowSheet) {
-          // One physical tap fires this global TWICE (mobile.js's
-          // debounced triggerOrbOpen AND the orb's inline onclick).
-          // Opening the sheet was idempotent, toggling is not — so
-          // coalesce repeats inside the app's own 350ms debounce.
-          const now = Date.now();
-          if (now - lastRouteAt < 350) return undefined;
-          lastRouteAt = now;
-          toggleMini();
-          return undefined;
-        }
-        if (show === false) closeMini();
-        return orig.apply(this, arguments);
-      };
-      routed.__o101MiniRouted = true;
-      window.toggleDhaniwinAssistantModal = routed;
-      miniOpenSheet = () => { allowSheet = true; try { orig(true); } finally { allowSheet = false; } };
-      return true;
-    };
-    if (!routeBall()) {
-      // mobile.js defines the toggle after this module in some load
-      // orders — keep retrying briefly until it appears.
-      let tries = 0;
-      const iv = setInterval(() => { if (routeBall() || ++tries > 40) clearInterval(iv); }, 250);
+      // Ladder Base/Bet in the live window come from bankroll.js (the
+      // governed ladder). No stake is shown while login is unverified.
+      // The Level badge stays the live app's own recovery display —
+      // the governed ladder state is carried by Base/Bet + the status
+      // line, never by relabelling the app's ladder.
+      const baseEl = $('assistantBaseStakeDisplay');
+      if (baseEl) baseEl.textContent = state.session ? inr(state.session.baseBet) : '—';
+      const betEl = $('mobileWebStakeDisplay');
+      if (betEl) betEl.textContent = bet && loginVerified && state.session ? inr(state.session.nextStake) : '—';
     }
   }
 
@@ -1256,14 +1265,11 @@ function initBridge() {
     },
     verifyLogin: () => verifier.status(Date.now()),
     loginState: () => state.loginState,
-    openMini,
-    closeMini,
-    toggleMini,
+    diagnostic: () => bridgeDiagnostic(verifier.status(Date.now())),
     store,
     _state: state
   };
 
-  try { initMiniWindow(); } catch (e) { /* mini window must never break the app */ }
   setInterval(() => { try { cycle(); } catch (e) {} }, 3000);
   setTimeout(() => { try { cycle(); } catch (e) {} }, 1200);
 }

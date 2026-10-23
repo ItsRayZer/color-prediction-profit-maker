@@ -1428,6 +1428,34 @@ function evaluatePredictionCorrectness(target, numVal, sizeVal, colorVal) {
   return null;
 }
 
+function calculateWilsonScore(wins, total, z = 1.96) {
+  if (total <= 0) return 0;
+  const p = wins / total;
+  const n = total;
+  const denominator = 1 + (z * z) / n;
+  const centre = p + (z * z) / (2 * n);
+  const spread = z * Math.sqrt((p * (1 - p) + (z * z) / (4 * n)) / n);
+  return Math.max(0, (centre - spread) / denominator);
+}
+
+function calculateModelRating(m) {
+  const total = Number(m.totalEvaluated !== undefined ? m.totalEvaluated : (m.evaluated || 0));
+  const wins = Number(m.wins || 0);
+  const streak = Number(m.streak !== undefined ? m.streak : 0);
+  const wilson = calculateWilsonScore(wins, total) * 100;
+  const histPath = m.historyPath || [];
+  const last10 = histPath.slice(0, 10);
+  const last10WR = last10.length > 0 ? (last10.filter(x => x.won).length / last10.length) * 100 : (total > 0 ? (wins / total) * 100 : 50);
+  let momentum = 50;
+  if (streak > 0) momentum = Math.min(100, 50 + streak * 10);
+  else if (streak < 0) momentum = Math.max(0, 50 + streak * 20);
+  const last5 = histPath.slice(0, 5);
+  const last5WR = last5.length >= 3 ? (last5.filter(x => x.won).length / last5.length) : (total > 0 ? wins / total : 0.5);
+  let slumpPenalty = 1.0;
+  if (streak <= -2 || last5WR < 0.40) slumpPenalty = 0.40;
+  return ((wilson * 0.40) + (last10WR * 0.35) + (momentum * 0.25)) * slumpPenalty;
+}
+
 function determineOptimalArenaInChargeModel(models, manualId, isAutoMode = true) {
   if (!Array.isArray(models) || models.length === 0) return null;
 
@@ -1439,20 +1467,31 @@ function determineOptimalArenaInChargeModel(models, manualId, isAutoMode = true)
 
   const getStreak = m => Number(m.streak !== undefined ? m.streak : 0);
   const getEvaluated = m => Number(m.totalEvaluated !== undefined ? m.totalEvaluated : (m.evaluated || 0));
-  const getWinRate = m => Number(m.winRate !== undefined ? m.winRate : 0);
+  const getWinRate = m => Number(m.winRate !== undefined ? m.winRate : (getEvaluated(m) > 0 ? (Number(m.wins || 0) / getEvaluated(m)) : 0));
 
-  // 2. Slump Protection & Leadership Intelligence:
+  // 2. Slump & Blacklist Quarantine Exclusion:
+  // Models in Quarantine lockup are strictly prohibited from In-Charge leadership
+  const unquarantinedModels = models.filter(m => {
+    if (typeof ModelQuarantineEngine !== 'undefined' && ModelQuarantineEngine.isModelQuarantined(m)) {
+      return false;
+    }
+    return true;
+  });
+  const activeModels = unquarantinedModels.length > 0 ? unquarantinedModels : models;
+
   // If a model is currently in a severe slump (streak <= -2, having lost 2+ consecutive rounds),
   // it is disqualified from in-charge leadership to ensure no 3rd loss cascade reaches the user,
   // PROVIDED other qualified models exist with non-negative streak and viable win rate.
-  const nonSlumpingModels = models.filter(m => getStreak(m) > -2);
+  const nonSlumpingModels = activeModels.filter(m => getStreak(m) > -2);
   const candidatePool = (nonSlumpingModels.length > 0 && nonSlumpingModels.some(m => getWinRate(m) >= 0.50))
     ? nonSlumpingModels
-    : models;
+    : (nonSlumpingModels.length > 0 ? nonSlumpingModels : activeModels);
 
-  // 3. Strict Win Rate Rating Ranking with Anti-Loss Guard:
-  // Models are rated and in-charge champion is selected strictly upon Win Rate
+  // 3. Wilson Score + Recency + Momentum Composite Rating Ranking with Anti-Loss Guard:
   const sorted = [...candidatePool].sort((a, b) => {
+    const rA = calculateModelRating(a);
+    const rB = calculateModelRating(b);
+    if (Math.abs(rB - rA) > 0.05) return rB - rA; // Highest composite rating first
     const wrA = getWinRate(a);
     const wrB = getWinRate(b);
     if (wrB !== wrA) return wrB - wrA; // Highest Win Rate first
@@ -1469,10 +1508,12 @@ function determineOptimalArenaInChargeModel(models, manualId, isAutoMode = true)
   });
 
   const best = sorted[0] || models[0];
+  const bestRating = calculateModelRating(best);
   return {
     model: best,
     mode: 'HIGHEST_WIN_RATE',
-    reason: `👑 ${best.name} (${(getWinRate(best) * 100).toFixed(1)}% WR · ${best.wins || 0}W / ${best.losses || 0}L)`
+    rating: bestRating,
+    reason: `👑 ${best.name} (Rating ${bestRating.toFixed(1)} · ${(getWinRate(best) * 100).toFixed(1)}% WR · ${best.wins || 0}W / ${best.losses || 0}L)`
   };
 }
 
@@ -1603,6 +1644,30 @@ function generateModelNextPrediction(model, history, modelStats) {
   const nums = hist.map(r => Number(r.number));
   const colors = hist.map(r => normColor(r.color));
   const sizes = hist.map(r => normSize(r.size));
+
+  // ── Repeated Pattern Intelligence Across Full History (up to 500+ rounds) ──
+  function extractSequenceContinuation(seq, windowSize = 3) {
+    if (!seq || seq.length < windowSize + 1) return null;
+    const targetKey = seq.slice(-windowSize).join('|');
+    const counts = {};
+    let total = 0;
+    for (let i = 0; i <= seq.length - windowSize - 1; i++) {
+      if (seq.slice(i, i + windowSize).join('|') === targetKey) {
+        const nextVal = seq[i + windowSize];
+        counts[nextVal] = (counts[nextVal] || 0) + 1;
+        total++;
+      }
+    }
+    if (total === 0) return null;
+    let topVal = null, topCount = 0;
+    for (const [v, cnt] of Object.entries(counts)) {
+      if (cnt > topCount) { topCount = cnt; topVal = v; }
+    }
+    return { topVal, confidence: topCount / total, totalMatches: total, counts };
+  }
+
+  const patternSizeContinuation = extractSequenceContinuation(sizes, 3) || extractSequenceContinuation(sizes, 2);
+  const patternColorContinuation = extractSequenceContinuation(colors, 3) || extractSequenceContinuation(colors, 2);
 
   let cProb = 0.60;
   let cDec = 'GREEN';
@@ -2439,6 +2504,18 @@ function generateModelNextPrediction(model, history, modelStats) {
         if (m.pSize === 'BIG') apexSizeBig += w;
         else apexSizeSmall += w;
       });
+
+      // ── 3B. VERIFIED REPEATED PATTERN CONTINUATION SYNTHESIS ─────────
+      if (patternSizeContinuation && patternSizeContinuation.confidence >= 0.65 && patternSizeContinuation.totalMatches >= 2) {
+        const patternBonus = patternSizeContinuation.confidence * 4.5;
+        if (patternSizeContinuation.topVal === 'BIG') apexSizeBig += patternBonus;
+        else apexSizeSmall += patternBonus;
+      }
+      if (patternColorContinuation && patternColorContinuation.confidence >= 0.65 && patternColorContinuation.totalMatches >= 2) {
+        const patternBonus = patternColorContinuation.confidence * 4.5;
+        if (patternColorContinuation.topVal === 'GREEN') apexColorGreen += patternBonus;
+        else apexColorRed += patternBonus;
+      }
 
       // ── 4. ORTHOGONAL TRIPLE-LOCK (BIO + MATH + ML) ─────────────────
       const topFly = activePool.find(m => m.id.startsWith('fly-')) || activePool[0];
@@ -3356,12 +3433,293 @@ function generateModelNextPrediction(model, history, modelStats) {
 }
 
 
+// ════════════════════════════════════════════════════════════════════════════════
+// ── E. MODEL QUARANTINE, FORENSICS INVESTIGATION & SHADOW TRIAL PROBATION ENGINE ──
+// ════════════════════════════════════════════════════════════════════════════════
+
+const ModelQuarantineEngine = {
+  // Map of timeframe -> Map(modelName -> quarantineRecord)
+  _quarantineByTf: {},
+
+  getQuarantineStore(tf = '30s') {
+    if (!this._quarantineByTf[tf]) {
+      this._quarantineByTf[tf] = {};
+      try {
+        if (typeof localStorage !== 'undefined') {
+          const raw = localStorage.getItem(`quant_model_quarantine_${tf}`);
+          if (raw) this._quarantineByTf[tf] = JSON.parse(raw);
+        }
+      } catch(e) {}
+    }
+    return this._quarantineByTf[tf];
+  },
+
+  saveQuarantineStore(tf = '30s') {
+    try {
+      if (typeof localStorage !== 'undefined' && this._quarantineByTf[tf]) {
+        localStorage.setItem(`quant_model_quarantine_${tf}`, JSON.stringify(this._quarantineByTf[tf]));
+      }
+    } catch(e) {}
+  },
+
+  isModelQuarantined(modelOrName, tf = '30s') {
+    const name = typeof modelOrName === 'string' ? modelOrName : (modelOrName?.name || modelOrName?.id);
+    if (!name) return false;
+    const store = this.getQuarantineStore(tf);
+    const rec = store[name];
+    return !!(rec && rec.status === 'QUARANTINED');
+  },
+
+  getQuarantinedModelsList(tf = '30s') {
+    const store = this.getQuarantineStore(tf);
+    return Object.values(store);
+  },
+
+  /**
+   * Evaluates if a model should enter Quarantine Lockup upon 4-5 consecutive losses.
+   * Lockup period: 10 to 20 rounds of quarantine + 20 rounds of shadow trial probation.
+   */
+  evaluateQuarantineLockup(model, tf, history) {
+    if (!model || !model.name) return null;
+    const store = this.getQuarantineStore(tf);
+    const curStreak = Number(model.streak !== undefined ? model.streak : 0);
+
+    // If already in quarantine, update probation trial
+    if (store[model.name] && store[model.name].status === 'QUARANTINED') {
+      return store[model.name];
+    }
+
+    // Trigger Lockup on 4 or more consecutive losses (streak <= -4)
+    if (curStreak <= -4) {
+      const lockupRounds = Math.floor(Math.random() * 11) + 10; // 10 to 20 rounds lockup
+      const forensics = this.conductForensicInvestigation(model, history);
+      const mutatedNeuron = this.synthesizeSynapticRehabilitation(model, forensics);
+
+      const record = {
+        modelName: model.name,
+        modelId: model.id || model.name,
+        cat: model.cat || 'AI',
+        triggerLossStreak: Math.abs(curStreak),
+        status: 'QUARANTINED',
+        lockupRoundsTotal: lockupRounds,
+        lockupRoundsRemaining: lockupRounds,
+        probationTotalRounds: 20, // Strict 20-round isolated trial
+        probationRoundsDone: 0,
+        probationWins: 0,
+        probationLosses: 0,
+        probationHistory: [],
+        forensics,
+        synapticRehab: mutatedNeuron,
+        quarantinedAt: Date.now(),
+        updatedAt: Date.now()
+      };
+
+      store[model.name] = record;
+      this.saveQuarantineStore(tf);
+      return record;
+    }
+    return null;
+  },
+
+  /**
+   * Diagnostic Forensics: Dissects why the model suffered consecutive losses.
+   */
+  conductForensicInvestigation(model, history) {
+    const hist = Array.isArray(history) ? history.slice(-20) : [];
+    const recentSizes = hist.map(r => String(r.size || '').toUpperCase().includes('BIG') ? 'BIG' : 'SMALL');
+    const recentColors = hist.map(r => String(r.color || '').toUpperCase().includes('GREEN') ? 'GREEN' : 'RED');
+
+    // 1. Regime Analysis (Dragon streak vs Choppy alternation)
+    let maxDragon = 1, curDragon = 1;
+    let alternations = 0;
+    for (let i = 1; i < recentSizes.length; i++) {
+      if (recentSizes[i] === recentSizes[i - 1]) {
+        curDragon++;
+        if (curDragon > maxDragon) maxDragon = curDragon;
+      } else {
+        curDragon = 1;
+        alternations++;
+      }
+    }
+    const isDragonRegime = maxDragon >= 4;
+    const isChopRegime = alternations >= 6;
+
+    // 2. Decision Hysteresis / Switch Failure
+    const path = (model.historyPath || []).slice(0, 5);
+    const failedTargets = path.map(p => p.predTarget);
+    const targetSet = new Set(failedTargets);
+    const isStubbornHysteresis = targetSet.size === 1 && failedTargets.length >= 4;
+
+    // 3. Neuromodulatory Overload Check
+    const lossPain = Number(model.lossPain || 0.0);
+    const dopamine = Number(model.dopamine || 0.5);
+    const neuroExhaustion = lossPain > 0.6 || dopamine < 0.25;
+
+    let rootCause = 'Unknown Stochastic Variance';
+    let remedy = 'Standard weight calibration';
+
+    if (isStubbornHysteresis) {
+      rootCause = 'Decision Hysteresis (Refractory Switch Failure - stuck on single side)';
+      remedy = 'Invert lateral horn polarity & decay persistence threshold';
+    } else if (isDragonRegime && (model.cat === 'chaos' || model.cat === 'oscillator')) {
+      rootCause = `Regime Mismatch: Long Directional Dragon (${maxDragon} streak) overwhelmed counter-trend oscillator`;
+      remedy = 'Temporarily bypass oscillator filters during high-trend momentum';
+    } else if (isChopRegime && (model.cat === 'trend' || model.cat === 'momentum')) {
+      rootCause = `Regime Mismatch: High-frequency Chop (${alternations} switches) broke trend-following inertia`;
+      remedy = 'Increase damping coefficient and shorten lookback window to 3 periods';
+    } else if (neuroExhaustion) {
+      rootCause = `Neuro-Synaptic Exhaustion (Loss pain: ${lossPain.toFixed(2)}, Dopamine: ${dopamine.toFixed(2)})`;
+      remedy = 'Full Dopamine baseline infusion (0.75) and Synaptic Pain dampening';
+    } else {
+      rootCause = 'Statistical Pattern Entropy Inversion (Feature weights desynchronized from recent draws)';
+      remedy = 'Recalibrate associative weights using 50-round denoised centroid';
+    }
+
+    return {
+      rootCause,
+      remedy,
+      maxDragonStreak: maxDragon,
+      alternationCount: alternations,
+      isStubbornHysteresis,
+      dopamineAtFailure: dopamine,
+      lossPainAtFailure: lossPain,
+      analyzedRounds: hist.length,
+      timestamp: new Date().toISOString()
+    };
+  },
+
+  /**
+   * Synaptic Rehabilitation & Parameter Mutation
+   */
+  synthesizeSynapticRehabilitation(model, forensics) {
+    const originalDopamine = model.dopamine || 0.5;
+    const originalPain = model.lossPain || 0.0;
+
+    // Reset neuro-chemical baseline
+    const rehabilitatedDopamine = 0.85; // Dopamine infused
+    const dampenedLossPain = 0.05;      // Pain cleared
+
+    // Mutate internal weights
+    model.dopamine = rehabilitatedDopamine;
+    model.lossPain = dampenedLossPain;
+
+    return {
+      dopamineBoost: `+${((rehabilitatedDopamine - originalDopamine) * 100).toFixed(0)}%`,
+      painReduction: `-${(Math.max(0, originalPain - dampenedLossPain) * 100).toFixed(0)}%`,
+      plasticityMutation: forensics.remedy,
+      status: 'REHABILITATED_IN_SHADOW_PROBATION'
+    };
+  },
+
+  /**
+   * Processes a newly settled round for quarantined models during their 20-round shadow trial.
+   * Quarantined models predict strictly in shadow mode—never exposed to user or In-Charge.
+   */
+  processShadowTrialRound(tf, roundOutcome) {
+    const store = this.getQuarantineStore(tf);
+    const quarantinedNames = Object.keys(store);
+    if (quarantinedNames.length === 0) return;
+
+    const { number, size, color } = roundOutcome;
+    const allModels = (typeof ARENA_CANONICAL_MODELS !== 'undefined') ? ARENA_CANONICAL_MODELS : [];
+
+    quarantinedNames.forEach(name => {
+      const rec = store[name];
+      if (!rec || rec.status !== 'QUARANTINED') return;
+
+      const model = allModels.find(m => m.name === name || m.id === name);
+      if (!model) return;
+
+      // Decrement general lockup streak remaining if still waiting
+      if (rec.lockupRoundsRemaining > 0) {
+        rec.lockupRoundsRemaining--;
+      }
+
+      // Generate isolated shadow prediction
+      let shadowPred = null;
+      try {
+        if (typeof generateModelNextPrediction === 'function') {
+          shadowPred = generateModelNextPrediction(model, [], {
+            streak: 0,
+            dopamine: model.dopamine || 0.85,
+            lossPain: model.lossPain || 0.05
+          });
+        }
+      } catch(e) {}
+
+      const target = shadowPred?.predTarget || model.predTarget || 'BIG';
+      const won = evaluatePredictionCorrectness(target, number, size, color);
+
+      rec.probationRoundsDone = (rec.probationRoundsDone || 0) + 1;
+      if (won === true) {
+        rec.probationWins = (rec.probationWins || 0) + 1;
+      } else {
+        rec.probationLosses = (rec.probationLosses || 0) + 1;
+      }
+
+      rec.probationHistory.unshift({
+        target,
+        won: won === true,
+        period: roundOutcome.period || '?',
+        time: Date.now()
+      });
+      if (rec.probationHistory.length > 20) rec.probationHistory.pop();
+
+      const currentProbationWR = rec.probationRoundsDone > 0
+        ? (rec.probationWins / rec.probationRoundsDone)
+        : 0;
+      rec.currentProbationWR = Number(currentProbationWR.toFixed(3));
+      rec.updatedAt = Date.now();
+
+      // Check for Completion of 20-Round Shadow Trial Probation:
+      if (rec.probationRoundsDone >= rec.probationTotalRounds) {
+        if (rec.currentProbationWR >= 0.60 && rec.lockupRoundsRemaining <= 0) {
+          // GRADUATION: Model passed shadow probation (>= 60% win rate over 20 rounds)
+          rec.status = 'GRADUATED';
+          rec.graduatedAt = Date.now();
+          // Reset streak to clean slate and re-admit to active roster
+          model.streak = 1;
+          model.dopamine = 0.80;
+          model.lossPain = 0.0;
+          console.log(`[Model Quarantine] 🎓 ${model.name} has PASSED 20-round shadow probation (${(rec.currentProbationWR * 100).toFixed(1)}% WR). Re-admitted to active roster!`);
+        } else {
+          // FAILED PROBATION: Win rate was under 60% or lockup not served
+          // Model is sent back for deeper parameter mutation, resets shadow trial for another 20 rounds
+          rec.probationRoundsDone = 0;
+          rec.probationWins = 0;
+          rec.probationLosses = 0;
+          rec.probationHistory = [];
+          rec.lockupRoundsRemaining = 10;
+          // Deeper synaptic re-tune
+          model.dopamine = Math.min(0.95, (model.dopamine || 0.8) + 0.05);
+          model.lossPain = 0.02;
+          console.warn(`[Model Quarantine] ❌ ${model.name} FAILED shadow probation (${(rec.currentProbationWR * 100).toFixed(1)}% WR). Re-tuning synapses and re-locking for 20 more rounds.`);
+        }
+      }
+    });
+
+    this.saveQuarantineStore(tf);
+  }
+};
+
+if (typeof window !== "undefined") {
+  window.ModelQuarantineEngine = ModelQuarantineEngine;
+}
+if (typeof self !== "undefined") {
+  self.ModelQuarantineEngine = ModelQuarantineEngine;
+}
+
+// ════════════════════════════════════════════════════════════════════════════════
+// ── EXPORTS & GLOBAL ASSIGNMENTS ──
+// ════════════════════════════════════════════════════════════════════════════════
+
 if (typeof self !== "undefined") {
   self.ARENA_CANONICAL_MODELS = ARENA_CANONICAL_MODELS;
   self.evaluatePredictionCorrectness = evaluatePredictionCorrectness;
   self.determineOptimalArenaInChargeModel = determineOptimalArenaInChargeModel;
   self.generateModelNextPrediction = generateModelNextPrediction;
   self.denoiseGameHistory = denoiseGameHistory;
+  self.ModelQuarantineEngine = ModelQuarantineEngine;
 }
 
 if (typeof window !== "undefined") {
@@ -3371,6 +3729,7 @@ if (typeof window !== "undefined") {
   window.generateModelNextPrediction = generateModelNextPrediction;
   window.__arenaGenerateModelNextPrediction = generateModelNextPrediction;
   window.denoiseGameHistory = denoiseGameHistory;
+  window.ModelQuarantineEngine = ModelQuarantineEngine;
 }
 
 if (typeof module !== "undefined" && module.exports) {
@@ -3379,6 +3738,7 @@ if (typeof module !== "undefined" && module.exports) {
     evaluatePredictionCorrectness,
     determineOptimalArenaInChargeModel,
     generateModelNextPrediction,
-    denoiseGameHistory
+    denoiseGameHistory,
+    ModelQuarantineEngine
   };
 }

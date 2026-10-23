@@ -244,18 +244,15 @@ test('TEST 9 — PREDICTION ISOLATION: Models Retain Exact Prediction Output and
   assert.equal(predictionB.confidence, 0.74);
 });
 
-test('TEST 10 — MENU INTEGRITY: 3-destination dock (owner spec 2026-10-23)', () => {
-  // SUPERSEDES the original 4-tab assertion: the owner reduced the main
-  // menu to exactly 3 destinations — Home, Analyse, Ranking. The Pattern
-  // section itself still exists in the DOM (feature kept, just no longer
-  // a dock destination).
+test('TEST 10 — MENU INTEGRITY: live app dock (owner spec superseded 2026-10-24)', () => {
+  // SUPERSEDED AGAIN at the rebase: the 3-destination dock was a
+  // branch-only restyle. The owner's LIVE app (now the base, per his
+  // "exact same" order) ships a 4-destination dock — Web (the embedded
+  // DhaniWin home), Home (Analyse), AI (Ranking), Pattern — and the
+  // menu integrity rule is now: the dock is exactly the live app's.
   const mobileHtmlPath = path.resolve('mobile.html');
   const content = fs.readFileSync(mobileHtmlPath, 'utf8');
 
-  // Verify dock-container buttons order:
-  // 1. Home (data-tab="web")
-  // 2. Analyse (data-tab="home")
-  // 3. Ranking (data-tab="ai")
   const dockRegex = /<nav id="mobileBottomDock"[\s\S]*?<\/nav>/;
   const dockMatch = content.match(dockRegex);
   assert.ok(dockMatch, 'mobileBottomDock must exist');
@@ -263,11 +260,10 @@ test('TEST 10 — MENU INTEGRITY: 3-destination dock (owner spec 2026-10-23)', (
   const dockHtml = dockMatch[0];
   const tabMatches = [...dockHtml.matchAll(/data-tab="([^"]+)"/g)].map(m => m[1]);
 
-  assert.equal(tabMatches.length, 3, 'Owner spec: exactly 3 navigation tabs');
-  assert.equal(tabMatches[0], 'web', 'Menu 1 must be Home (web)');
-  assert.equal(tabMatches[1], 'home', 'Menu 2 must be Analyse (home)');
-  assert.equal(tabMatches[2], 'ai', 'Menu 3 must be Ranking (ai)');
+  assert.deepEqual(tabMatches, ['web', 'home', 'ai', 'pattern'], 'dock is the live app\'s own 4 destinations, in order');
 
-  // Verify section #tab-pattern exists (feature retained off-menu)
-  assert.ok(content.includes('id="tab-pattern"'), 'tab-pattern section must exist in DOM');
+  // Every dock destination has its section in the DOM.
+  for (const tab of ['web', 'home', 'ai', 'pattern', 'sim']) {
+    assert.ok(content.includes(`id="tab-${tab}"`), `tab-${tab} section must exist in DOM`);
+  }
 });

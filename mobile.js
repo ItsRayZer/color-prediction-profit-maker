@@ -809,8 +809,8 @@ function _parseRawList(raw) {
 
 let _customApiFailureStreak = 0;
 function notifyCustomApiResult(tf, success, err) {
-  const hasCustom = !!localStorage.getItem('quant_custom_api_endpoints') || !!localStorage.getItem('custom_default_website_url');
-  if (!hasCustom) return;
+  const hasCustomApi = !!localStorage.getItem('quant_custom_api_endpoints');
+  if (!hasCustomApi) return;
 
   if (success) {
     _customApiFailureStreak = 0;
@@ -818,16 +818,12 @@ function notifyCustomApiResult(tf, success, err) {
     _customApiFailureStreak++;
     if (_customApiFailureStreak >= 5) {
       _customApiFailureStreak = 0;
-      console.warn('[Custom API Monitor] Endpoint failed 5 consecutive times. Reverting to default DhaniWin.');
+      console.warn('[Custom API Monitor] Custom API endpoint failed 5 consecutive times. Falling back to default data stream.');
       try {
         localStorage.removeItem('quant_custom_api_endpoints');
-        localStorage.removeItem('custom_default_website_url');
       } catch(e) {}
       if (typeof showToast === 'function') {
-        showToast('⚠️ Custom website/API returned no data. Auto-reverted to default DhaniWin.', 'error');
-      }
-      if (typeof loadMobileWebUrl === 'function') {
-        loadMobileWebUrl(DHANIWIN_HOME_URL);
+        showToast('⚠️ Custom API returned no data. Reverted to universal data stream.', 'info');
       }
     }
   }
@@ -1144,9 +1140,10 @@ function renderAuthoritativeAIPrediction(list, forceRecompute = false) {
 
   // ── STRICT ROUND-LOCK: PREVENT PREDICTION FLAPPING/GLITCHING IN THE SAME ROUND ──
   // If a prediction is already locked for this timeframe & period, strictly preserve it!
+  // ONLY lock if the round is still active/pending (won === undefined). If already settled, generate fresh prediction!
   if (!forceRecompute && MobileState.scheduledPredictionsByPeriod?.[tf]?.[periodStr]) {
     const locked = MobileState.scheduledPredictionsByPeriod[tf][periodStr];
-    if (locked && locked.target) {
+    if (locked && locked.target && locked.won === undefined) {
       MobileState.activePrediction = {
         period: periodStr,
         target: locked.target,
@@ -1175,13 +1172,22 @@ function renderAuthoritativeAIPrediction(list, forceRecompute = false) {
     } else if (!isLocalSource && cloudState?.inChargeModel) {
       inChargeName = cloudState.inChargeModel;
     } else if (effectiveModels.length > 0) {
-      const sorted = [...effectiveModels].sort((a, b) => {
-        const wrA = Number(a.winRate !== undefined ? a.winRate : (parseFloat(a.winRatePct) / 100 || 0));
-        const wrB = Number(b.winRate !== undefined ? b.winRate : (parseFloat(b.winRatePct) / 100 || 0));
-        if (wrB !== wrA) return wrB - wrA;
-        return (b.streak || 0) - (a.streak || 0);
-      });
-      inChargeName = sorted[0]?.name || inChargeName;
+      if (typeof determineOptimalArenaInChargeModel === 'function') {
+        const opt = determineOptimalArenaInChargeModel(effectiveModels, null, true);
+        if (opt?.model?.name) {
+          inChargeName = opt.model.name;
+          inChargeReason = opt.reason;
+        }
+      }
+      if (!inChargeName) {
+        const sorted = [...effectiveModels].sort((a, b) => {
+          const wrA = Number(a.winRate !== undefined ? a.winRate : (parseFloat(a.winRatePct) / 100 || 0));
+          const wrB = Number(b.winRate !== undefined ? b.winRate : (parseFloat(b.winRatePct) / 100 || 0));
+          if (wrB !== wrA) return wrB - wrA;
+          return (b.streak || 0) - (a.streak || 0);
+        });
+        inChargeName = sorted[0]?.name || inChargeName;
+      }
     }
   }
   if (!inChargeName && effectiveModels.length > 0) {
@@ -1198,8 +1204,48 @@ function renderAuthoritativeAIPrediction(list, forceRecompute = false) {
   let predType = 'SIZE';
   let conf = 0.82;
 
+  // Direct Execution / Stage 3 Defense Consensus Shield:
+  // When at 2 consecutive losses, Stage 3 Defense Consensus Shield activates,
+  // aggregating the top 5 non-slumping models to protect the critical 3rd round.
+  const isStage3Active = !!(window.MobileBridgeState && window.MobileBridgeState.consecutiveLosses === 2 && effectiveModels.length >= 3);
+  if (isStage3Active && typeof window.generateModelNextPrediction === 'function') {
+    try {
+      const nonSlump = effectiveModels.filter(m => {
+        if (Number(m.streak !== undefined ? m.streak : 0) <= -2) return false;
+        if (typeof ModelQuarantineEngine !== 'undefined' && ModelQuarantineEngine.isModelQuarantined(m)) return false;
+        return true;
+      });
+      const top5Pool = (nonSlump.length >= 3 ? nonSlump : effectiveModels).slice(0, 5);
+      let bigVotes = 0, smallVotes = 0, confSum = 0;
+      top5Pool.forEach(m => {
+        try {
+          const pred = window.generateModelNextPrediction(m, list, {
+            streak: m.streak || 0,
+            dopamine: m.dopamine || 0.5,
+            lossPain: m.lossPain || 0.0
+          });
+          const t = (pred?.predTarget || pred?.predSize || 'BIG').toUpperCase();
+          const c = Number(pred?.conf) || 0.82;
+          if (t.includes('BIG')) bigVotes += c;
+          else if (t.includes('SMALL')) smallVotes += c;
+          confSum += c;
+        } catch(e) {}
+      });
+      if (bigVotes > 0 || smallVotes > 0) {
+        target = bigVotes >= smallVotes ? 'BIG' : 'SMALL';
+        predType = 'SIZE';
+        conf = Math.min(0.96, (confSum / Math.max(1, top5Pool.length)) + 0.05);
+        if (champModel) {
+          champModel.predTarget = target;
+          champModel.predType = predType;
+          champModel.conf = conf;
+        }
+      }
+    } catch(e) {}
+  }
+
   // Direct Execution: Calculate fresh prediction for in-charge champion on latest draw sequence
-  if (champModel && typeof window.generateModelNextPrediction === 'function') {
+  if (!target && champModel && typeof window.generateModelNextPrediction === 'function') {
     try {
       const p = window.generateModelNextPrediction(champModel, list, {
         streak: champModel.streak || 0,
@@ -1298,29 +1344,126 @@ function renderAuthoritativeAIPrediction(list, forceRecompute = false) {
 }
 window.renderAuthoritativeAIPrediction = renderAuthoritativeAIPrediction;
 
+// ── High-Precision Test Mode & Prediction Delivery Gate ──────────────────────
+// Evaluates calibration rounds but unlocks IMMEDIATELY for confirmed streaks (>=2) and high confidence (>=75%)
+function checkPredictionGateStatus(tf, list) {
+  const cutoff = MobileState.auditResetPeriod?.[tf] || localStorage.getItem(`wingo_audit_reset_${tf}`);
+  const settled = (list || []).filter(r => {
+    if (!r.aiTarget || r.aiCorrect === null || r.aiCorrect === undefined) return false;
+    if (cutoff && cutoff !== 'SESSION_START' && String(r.period) <= String(cutoff)) return false;
+    return true;
+  });
+
+  const total = settled.length;
+  const wins = settled.filter(r => r.aiCorrect === true).length;
+  const losses = total - wins;
+  const winRate = total > 0 ? (wins / total) : 0;
+
+  // Recent streak of settled
+  const recent = settled.slice(-5);
+  const recentWins = recent.filter(r => r.aiCorrect === true).length;
+  let streak = 0;
+  for (let i = settled.length - 1; i >= 0; i--) {
+    if (settled[i].aiCorrect === true) streak++;
+    else break;
+  }
+
+  // Active in-charge model and prediction signal
+  const models = (typeof getEffectiveModelList === 'function' ? getEffectiveModelList(tf) : []) || [];
+  const inCharge = models.find(m => m.name === MobileState.inChargeModel) || models[0];
+  const inChargeStreak = Number(inCharge?.streak || 0);
+  const inChargeWR = Number(inCharge?.winRate || 0);
+  const conf = MobileState.activePrediction?.conf || inCharge?.conf || 0.75;
+
+  // 🚀 EARLY UNLOCK FOR CONFIRMED STREAKS & HIGH CONFIDENCE:
+  // If champion has streak >= 2, or confidence >= 75%, or recent 3 rounds have >= 2 wins, release prediction immediately!
+  const hasStreakMomentum = streak >= 2 || inChargeStreak >= 2;
+  const hasHighConfidence = conf >= 0.75 || inChargeWR >= 0.60;
+  const hasRecentEdge = (recent.length >= 2 && recentWins >= 2);
+
+  if (hasStreakMomentum || hasHighConfidence || hasRecentEdge) {
+    return {
+      ready: true,
+      mode: 'ACTIVE',
+      progress: total > 0 ? `${wins}W / ${losses}L` : (hasStreakMomentum ? `🔥 ${Math.max(streak, inChargeStreak)}W Streak` : `${Math.round(conf * 100)}% Conf`),
+      reason: hasStreakMomentum ? `Winning Streak Active (${Math.max(streak, inChargeStreak)}W)` : `High Confidence Edge (${Math.round(conf * 100)}%)`,
+      winRate: total > 0 ? Math.round(winRate * 100) : Math.round((inChargeWR || 0.65) * 100),
+      wins, losses, streak: Math.max(streak, inChargeStreak)
+    };
+  }
+
+  // If in initial rounds (under 3) and no confirmed streak yet, indicate calibration but don't freeze indefinitely
+  const MIN_TEST_ROUNDS = 3;
+  if (total < MIN_TEST_ROUNDS) {
+    return {
+      ready: false,
+      mode: 'TESTING',
+      progress: `${total}/${MIN_TEST_ROUNDS}`,
+      reason: `Calibrating (${total}/${MIN_TEST_ROUNDS} test rounds)`,
+      winRate: Math.round(winRate * 100),
+      wins, losses, streak
+    };
+  }
+
+  // If user had temporary losses, don't trap them in WAIT indefinitely:
+  // After 2 losses, allow prediction to flow with anti-slump consensus
+  if (wins >= losses || winRate >= 0.45 || streak >= 1) {
+    return {
+      ready: true,
+      mode: 'ACTIVE',
+      progress: `${wins}W / ${losses}L`,
+      reason: `Active Edge (${Math.round(winRate * 100)}% WR)`,
+      winRate: Math.round(winRate * 100),
+      wins, losses, streak
+    };
+  }
+
+  // Mild drawdown: still provide actionable prediction with alert
+  return {
+    ready: true,
+    mode: 'RECOVERY',
+    progress: `${wins}W / ${losses}L`,
+    reason: `Recovery Edge (${Math.round(winRate * 100)}% WR)`,
+    winRate: Math.round(winRate * 100),
+    wins, losses, streak
+  };
+}
+window.checkPredictionGateStatus = checkPredictionGateStatus;
+
 function _updateAllPredictionUI(target, predType, conf, inChargeName, periodStr, list) {
   const isColor = ['RED','GREEN','VIOLET'].includes(target);
   const confPct = Math.round((conf || 0.82) * 100);
+  const tf = MobileState.timeframe;
+
+  // Test mode gate check
+  const gate = checkPredictionGateStatus(tf, list);
+  MobileState.predictionGate = gate;
 
   // Hero signal badge
   const heroSignal = $('heroSignalBadge');
   if (heroSignal) {
-    heroSignal.textContent = target || 'CALCULATING...';
-    heroSignal.className = `text-2xl font-black tracking-tight ${
-      target === 'BIG' ? 'text-amber-300' :
-      target === 'SMALL' ? 'text-sky-300' :
-      target === 'GREEN' ? 'text-emerald-400' :
-      target === 'RED' ? 'text-rose-400' : 'text-white'
-    }`;
+    if (gate.ready) {
+      heroSignal.textContent = target || 'CALCULATING...';
+      heroSignal.className = `text-2xl font-black tracking-tight ${
+        target === 'BIG' ? 'text-amber-300' :
+        target === 'SMALL' ? 'text-sky-300' :
+        target === 'GREEN' ? 'text-emerald-400' :
+        target === 'RED' ? 'text-rose-400' : 'text-white'
+      }`;
+    } else {
+      // In calibration / test mode
+      heroSignal.textContent = gate.mode === 'TESTING' ? `TESTING (${gate.progress})` : 'SEEKING EDGE';
+      heroSignal.className = 'text-xl font-black tracking-tight text-amber-400/90';
+    }
   }
 
   const heroType = $('heroTypeBadge');
-  if (heroType) heroType.textContent = predType || 'SIZE';
+  if (heroType) heroType.textContent = gate.ready ? (predType || 'SIZE') : `TESTING`;
 
   const heroConf = $('heroConfVal');
   if (heroConf) {
-    heroConf.textContent = `${confPct}%`;
-    heroConf.className = confPct >= 75 ? 'text-emerald-400 font-black' : 'text-amber-400 font-black';
+    heroConf.textContent = gate.ready ? `${confPct}%` : `${gate.winRate || '--'}% WR`;
+    heroConf.className = gate.ready && confPct >= 75 ? 'text-emerald-400 font-black' : 'text-amber-400 font-black';
   }
 
   const heroModel = $('heroModelName');
@@ -1329,14 +1472,19 @@ function _updateAllPredictionUI(target, predType, conf, inChargeName, periodStr,
   // AI Champion card target badge
   const champTarget = $('aiChampionTargetBadge');
   if (champTarget) {
-    champTarget.textContent = target || 'CALCULATING';
-    champTarget.className = `px-2 py-0.5 rounded font-black text-[8.5px] border ${
-      target === 'BIG' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' :
-      target === 'SMALL' ? 'bg-sky-500/20 text-sky-300 border-sky-500/30' :
-      target === 'GREEN' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
-      target === 'RED' ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' :
-      'bg-amber-500/20 text-amber-300 border-amber-500/30'
-    }`;
+    if (gate.ready) {
+      champTarget.textContent = target || 'CALCULATING';
+      champTarget.className = `px-2 py-0.5 rounded font-black text-[8.5px] border ${
+        target === 'BIG' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' :
+        target === 'SMALL' ? 'bg-sky-500/20 text-sky-300 border-sky-500/30' :
+        target === 'GREEN' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
+        target === 'RED' ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' :
+        'bg-amber-500/20 text-amber-300 border-amber-500/30'
+      }`;
+    } else {
+      champTarget.textContent = 'CALIBRATING';
+      champTarget.className = 'px-2 py-0.5 rounded font-black text-[8.5px] border bg-amber-500/20 text-amber-300 border-amber-500/30';
+    }
   }
 
   const champType = $('aiChampionTypeBadge');
@@ -1344,32 +1492,31 @@ function _updateAllPredictionUI(target, predType, conf, inChargeName, periodStr,
 
   // Sequential Prediction Road (Balls with mixed colors for 0,5, newest on left)
   renderHeroSequentialBallRoad(list);
-  // DhaniWin Web Tab Target & Auto-Prep Sync
+
+  // DhaniWin Web Tab Target & Floating Assistant Display
   const webTargetEl = $('mobileWebTargetDisplay');
-  if (webTargetEl && target) {
-    webTargetEl.textContent = target;
+  if (webTargetEl) {
+    const displayTarget = target || 'BIG';
+    webTargetEl.textContent = displayTarget;
     webTargetEl.className = `text-2xl font-black ${
-      target === 'BIG' ? 'text-amber-300' :
-      target === 'SMALL' ? 'text-sky-300' :
-      target === 'GREEN' ? 'text-emerald-400' :
-      target === 'RED' ? 'text-rose-400' : 'text-white'
+      displayTarget === 'BIG' ? 'text-amber-300' :
+      displayTarget === 'SMALL' ? 'text-sky-300' :
+      displayTarget === 'GREEN' ? 'text-emerald-400' :
+      displayTarget === 'RED' ? 'text-rose-400' : 'text-white'
     }`;
   }
+
   const assistConf = $('assistantConfBadge');
   if (assistConf) {
-    assistConf.textContent = `${confPct}%`;
+    assistConf.textContent = gate.ready ? `${confPct}%` : (gate.mode === 'TESTING' ? gate.progress : `${gate.winRate}%`);
   }
+
   if (typeof updateFloatingOrbUI === 'function') {
     updateFloatingOrbUI();
   }
-  if (window.MobileBridgeState && MobileBridgeState.enabled && target) {
-    if (typeof dispatchMobileBetOrder === 'function') {
-      dispatchMobileBetOrder();
-    }
-  }
 
-  // Sim bot: place next bet
-  if (MobileState.sim.running && !MobileState.sim.pendingBet) {
+  // Sim bot: place next bet only if gate is active or in test
+  if (MobileState.sim.running && !MobileState.sim.pendingBet && target) {
     initSimBet(target, periodStr);
   }
 }
@@ -1456,9 +1603,9 @@ function renderHistoryTable(list) {
   if (badge) badge.textContent = `${list.length} Draws`;
 
   // Show most recent first
-  const display = [...list].reverse(); // FULL stored history (was silently capped at 30)
+  const display = [...list].reverse().slice(0, 30);
 
-  const buildRow = (r) => {
+  tbody.innerHTML = display.map(r => {
     const isWin = r.aiCorrect === true || r.result === 'WIN';
     const isLoss = r.aiCorrect === false || r.result === 'LOSS';
     const hasResult = r.aiTarget && (r.aiCorrect !== null && r.aiCorrect !== undefined);
@@ -1484,28 +1631,7 @@ function renderHistoryTable(list) {
       <td class="py-1.5 px-1 font-mono text-[8px] text-zinc-400">${r.color ? r.color.split(',')[0] : '—'}</td>
       <td class="py-1.5 px-1 text-right">${resultBadge}</td>
     </tr>`;
-  };
-  // Chunked rendering of the FULL history: first chunk now, more appended on
-  // scroll (sentinel row) — every stored round is reachable, never capped.
-  let rendered = 0;
-  const CHUNK = 120;
-  const sentinel = document.createElement('tr');
-  sentinel.innerHTML = '<td colspan="5" class="py-2 text-center text-zinc-600 text-[8px] font-mono">scroll for more…</td>';
-  const renderChunk = () => {
-    const part = display.slice(rendered, rendered + CHUNK);
-    if (!part.length) return;
-    sentinel.insertAdjacentHTML('beforebegin', part.map(buildRow).join(''));
-    rendered += part.length;
-    if (rendered >= display.length) { sentinel.remove(); if (window.__mobileHistObs) window.__mobileHistObs.disconnect(); }
-  };
-  tbody.innerHTML = '';
-  tbody.appendChild(sentinel);
-  renderChunk();
-  if (window.__mobileHistObs) window.__mobileHistObs.disconnect();
-  if (display.length > CHUNK && 'IntersectionObserver' in window) {
-    window.__mobileHistObs = new IntersectionObserver(es => { if (es[0].isIntersecting) renderChunk(); }, { rootMargin: '400px' });
-    window.__mobileHistObs.observe(sentinel);
-  }
+  }).join('');
 }
 window.renderHistoryTable = renderHistoryTable;
 
@@ -1726,6 +1852,7 @@ function renderAdaptiveAI(list) {
 
   // Filter strictly to rounds that had real live predictions AFTER the session reset cutoff
   const settled = list.filter(r => {
+    if (r.paused || r.circuitBreakerPaused) return false;
     if (!r.aiTarget || r.aiCorrect === null || r.aiCorrect === undefined) return false;
     if (cutoff && cutoff !== 'SESSION_START' && String(r.period) <= String(cutoff)) return false;
     return true;
@@ -1927,8 +2054,32 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
   let target = null;
   let predType = 'SIZE';
 
-  // Priority 1: Universal State latest settlement
-  if (universalState && String(universalState.latestSettledPeriod) === periodStr) {
+  const isLocalSource = (MobileState.inchargeConfig?.predictionSource || 'LOCAL') === 'LOCAL';
+
+  // Priority 1 (for LOCAL mode): The local prediction that was generated, locked, and displayed to the user
+  if (isLocalSource) {
+    const scheduled = (MobileState.scheduledPredictionsByPeriod?.[tf] || {})[periodStr];
+    if (scheduled && scheduled.target) {
+      target = scheduled.target;
+      predType = scheduled.type || (['RED','GREEN','VIOLET'].includes(target) ? 'COLOR' : 'SIZE');
+      if (scheduled.won !== undefined && scheduled.won !== null) {
+        isWin = !!scheduled.won;
+      }
+    }
+    if (!target) {
+      const active = MobileState.activePrediction;
+      if (active && active.target) {
+        const ap = String(active.period || '');
+        if (ap === periodStr || ap.slice(-5) === periodStr.slice(-5)) {
+          target = active.target;
+          predType = active.type || (['RED','GREEN','VIOLET'].includes(target) ? 'COLOR' : 'SIZE');
+        }
+      }
+    }
+  }
+
+  // Priority 2: Universal State latest settlement (only if not LOCAL or target not found locally)
+  if (!target && universalState && String(universalState.latestSettledPeriod) === periodStr) {
     if (universalState.latestSettledWon !== undefined && universalState.latestSettledWon !== null) {
       isWin = !!universalState.latestSettledWon;
     } else if (universalState.latestSettledResult) {
@@ -1940,8 +2091,8 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
     }
   }
 
-  // Priority 2: Cloud row from live_history
-  if (cloudRow && (isWin === null || !target)) {
+  // Priority 3: Cloud row from live_history
+  if (!target && cloudRow && (isWin === null || !target)) {
     if (cloudRow.aiCorrect !== undefined && cloudRow.aiCorrect !== null) {
       isWin = !!cloudRow.aiCorrect;
     } else if (cloudRow.result === 'WIN' || cloudRow.result === 'LOSS') {
@@ -1953,8 +2104,8 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
     }
   }
 
-  // Priority 3: Universal state inCharge history path
-  if ((isWin === null || !target) && universalState && Array.isArray(universalState.inChargeHistoryPath)) {
+  // Priority 4: Universal state inCharge history path
+  if (!target && universalState && Array.isArray(universalState.inChargeHistoryPath)) {
     const entry = universalState.inChargeHistoryPath.find(p => String(p.period) === periodStr);
     if (entry) {
       if (isWin === null) isWin = !!entry.won;
@@ -1963,8 +2114,8 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
     }
   }
 
-  // Priority 4: Scheduled prediction
-  if (isWin === null || !target) {
+  // Priority 5: Scheduled prediction (fallback for cloud mode if not matched)
+  if (!target) {
     const scheduled = (MobileState.scheduledPredictionsByPeriod?.[tf] || {})[periodStr];
     if (scheduled) {
       target = target || scheduled.target;
@@ -1972,8 +2123,8 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
     }
   }
 
-  // Priority 5: Active prediction if period matches
-  if (isWin === null || !target) {
+  // Priority 6: Active prediction if period matches
+  if (!target) {
     const active = MobileState.activePrediction;
     if (active && active.target) {
       const ap = String(active.period || '');
@@ -2037,6 +2188,9 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
     }
   }
 
+  // Check if this round was skipped/paused by Circuit Breaker
+  const wasPaused = !!(window.MobileBridgeState && (window.MobileBridgeState.circuitBreakerPauseRounds > 0));
+
   // Stamp history row with definitive in-charge prediction outcome
   const curHist = MobileState.historyByTf[tf] || [];
   let existingRow = curHist.find(r => String(r.period) === periodStr);
@@ -2044,21 +2198,31 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
     existingRow.number = number;
     existingRow.size = size;
     existingRow.color = color;
-    if (hasAuthenticPrediction) {
+    if (hasAuthenticPrediction && !wasPaused) {
       existingRow.aiTarget = target;
       existingRow.aiType = predType;
       existingRow.aiModel = MobileState.inChargeModel;
       existingRow.aiCorrect = isWin;
       existingRow.result = isWin ? 'WIN' : 'LOSS';
+      existingRow.paused = false;
+      existingRow.circuitBreakerPaused = false;
+    } else if (wasPaused) {
+      existingRow.paused = true;
+      existingRow.circuitBreakerPaused = true;
+      existingRow.aiTarget = null;
+      existingRow.aiCorrect = null;
+      existingRow.result = null;
     }
   } else {
     curHist.push({
       period: periodStr, number, size, color,
-      result: hasAuthenticPrediction ? (isWin ? 'WIN' : 'LOSS') : null,
-      aiTarget: hasAuthenticPrediction ? target : null,
-      aiType: hasAuthenticPrediction ? predType : null,
-      aiModel: hasAuthenticPrediction ? MobileState.inChargeModel : null,
-      aiCorrect: hasAuthenticPrediction ? isWin : null
+      paused: wasPaused,
+      circuitBreakerPaused: wasPaused,
+      result: (hasAuthenticPrediction && !wasPaused) ? (isWin ? 'WIN' : 'LOSS') : null,
+      aiTarget: (hasAuthenticPrediction && !wasPaused) ? target : null,
+      aiType: (hasAuthenticPrediction && !wasPaused) ? predType : null,
+      aiModel: (hasAuthenticPrediction && !wasPaused) ? MobileState.inChargeModel : null,
+      aiCorrect: (hasAuthenticPrediction && !wasPaused) ? isWin : null
     });
     curHist.sort((a, b) => String(a.period).localeCompare(String(b.period)));
   }
@@ -2066,7 +2230,7 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
   try { localStorage.setItem(`quant_history_${tf}`, JSON.stringify(curHist.slice(-500))); } catch(e) {}
   if (!MobileState.scheduledPredictionsByPeriod) MobileState.scheduledPredictionsByPeriod = {};
   if (!MobileState.scheduledPredictionsByPeriod[tf]) MobileState.scheduledPredictionsByPeriod[tf] = {};
-  if (hasAuthenticPrediction) {
+  if (hasAuthenticPrediction && !wasPaused) {
     MobileState.scheduledPredictionsByPeriod[tf][periodStr] = { target, type: predType, inChargeModel: MobileState.inChargeModel, won: isWin };
   }
 
@@ -2077,7 +2241,7 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
 
   // Resolve sim bot bet
   let simProfit = null;
-  if (hasAuthenticPrediction && MobileState.sim.running && MobileState.sim.pendingBet) {
+  if (hasAuthenticPrediction && !wasPaused && MobileState.sim.running && MobileState.sim.pendingBet) {
     const bet = MobileState.sim.pendingBet;
     if (!bet.period || String(bet.period) === periodStr) {
       simProfit = isWin ? (bet.stake * 0.96) : -bet.stake;
@@ -2086,41 +2250,38 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
   }
 
   // Resolve Mobile DhaniWin Loss Recovery Martingale Progression & Max 3-Loss Circuit Breaker
-  if (hasAuthenticPrediction && tf === MobileState.timeframe && window.MobileBridgeState) {
-    let isFreshTrip = false;
-    if (isWin) {
-      MobileBridgeState.wins += 1;
-      MobileBridgeState.consecutiveLosses = 0;
-      const profit = MobileBridgeState.currentStake * 0.96;
-      MobileBridgeState.sessionPnl += profit;
-      MobileBridgeState.currentLevel = 0; // Win: Reset to Base ₹2
-    } else if (isWin === false) {
-      MobileBridgeState.losses += 1;
-      MobileBridgeState.consecutiveLosses = (MobileBridgeState.consecutiveLosses || 0) + 1;
-      MobileBridgeState.sessionPnl -= MobileBridgeState.currentStake;
-
-      if (MobileBridgeState.consecutiveLosses >= 3) {
-        // 🛡️ TRIP MAX 3-LOSS CIRCUIT BREAKER
-        MobileBridgeState.circuitBreakerActive = true;
-        MobileBridgeState.circuitBreakerPauseRounds = 2; // Pause betting for 2 rounds
-        MobileBridgeState.currentLevel = 0; // Reset Martingale level strictly to Base
-        MobileBridgeState.currentStake = MobileBridgeState.baseStake || 2; // Reset stake to base (₹2)
+  if (tf === MobileState.timeframe && window.MobileBridgeState) {
+    if (wasPaused) {
+      // Round was paused by circuit breaker: do NOT alter PnL, do NOT alter wins/losses!
+      MobileBridgeState.circuitBreakerPauseRounds--;
+      if (MobileBridgeState.circuitBreakerPauseRounds <= 0) {
+        MobileBridgeState.circuitBreakerPauseRounds = 0;
+        MobileBridgeState.circuitBreakerActive = false;
+        showToast('✅ Circuit Breaker cool-off complete. Betting resumed.', 'info');
+      }
+    } else if (hasAuthenticPrediction) {
+      if (isWin) {
+        MobileBridgeState.wins += 1;
         MobileBridgeState.consecutiveLosses = 0;
-        isFreshTrip = true;
+        const profit = MobileBridgeState.currentStake * 0.96;
+        MobileBridgeState.sessionPnl += profit;
+        MobileBridgeState.currentLevel = 0; // Win: Reset to Base level
+        MobileBridgeState.currentStake = MobileBridgeState.baseStake || 2;
+      } else if (isWin === false) {
+        MobileBridgeState.losses += 1;
+        MobileBridgeState.consecutiveLosses = (MobileBridgeState.consecutiveLosses || 0) + 1;
+        MobileBridgeState.sessionPnl -= MobileBridgeState.currentStake;
 
-        // Re-evaluate active champion model with anti-slump filter
-        if (typeof determineOptimalArenaInChargeModel === 'function' && Array.isArray(window.ARENA_CANONICAL_MODELS)) {
-          const reEval = determineOptimalArenaInChargeModel(window.ARENA_CANONICAL_MODELS, null, true);
-          if (reEval?.model) {
-            MobileState.activeChampionModel = reEval.model;
-            if (typeof updatePredictionSourceUI === 'function') updatePredictionSourceUI();
-          }
-        }
-        showToast('🛡️ 3-Loss Circuit Breaker Engaged! Max 3 losses reached. Betting paused for 2 rounds. Stake reset to Base ₹' + (MobileBridgeState.baseStake || 2) + '. Zero losses > 3 permitted.', 'warn');
-      } else {
-        MobileBridgeState.currentLevel = Math.min(2, (MobileBridgeState.currentLevel || 0) + 1); // Loss: Advance recovery tier (capped at Level 3 max)
-        if (MobileBridgeState.consecutiveLosses === 2) {
-          // Pre-emptive hot-swap: Swap away from any slumping model before final recovery round
+        if (MobileBridgeState.consecutiveLosses >= 3) {
+          // 🛡️ TRIP MAX 3-LOSS CIRCUIT BREAKER
+          MobileBridgeState.circuitBreakerActive = true;
+          MobileBridgeState.circuitBreakerPauseRounds = 2; // Pause betting for strictly 2 rounds (max 2-3)
+          MobileBridgeState.currentLevel = 0; // Reset Martingale level strictly to Base
+          // Preserve MobileBridgeState.baseStake intact!
+          MobileBridgeState.currentStake = MobileBridgeState.baseStake || 2;
+          MobileBridgeState.consecutiveLosses = 0;
+
+          // Re-evaluate active champion model with anti-slump filter
           if (typeof determineOptimalArenaInChargeModel === 'function' && Array.isArray(window.ARENA_CANONICAL_MODELS)) {
             const reEval = determineOptimalArenaInChargeModel(window.ARENA_CANONICAL_MODELS, null, true);
             if (reEval?.model) {
@@ -2128,17 +2289,21 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
               if (typeof updatePredictionSourceUI === 'function') updatePredictionSourceUI();
             }
           }
-          showToast('🛡️ Stage 3 Defense Active: Denoised consensus engaged for final recovery round!', 'info');
+          showToast('🛡️ 3-Loss Circuit Breaker Engaged! Max 3 losses reached. Betting paused for 2 rounds. Stake reset to Base ₹' + (MobileBridgeState.baseStake || 2) + '. Zero losses > 3 permitted.', 'warn');
+        } else {
+          MobileBridgeState.currentLevel = Math.min(2, (MobileBridgeState.currentLevel || 0) + 1); // Loss: Advance recovery tier (capped at Level 3 max)
+          if (MobileBridgeState.consecutiveLosses === 2) {
+            // Stage 3 Defense Consensus Shield engaged for critical 3rd round
+            if (typeof determineOptimalArenaInChargeModel === 'function' && Array.isArray(window.ARENA_CANONICAL_MODELS)) {
+              const reEval = determineOptimalArenaInChargeModel(window.ARENA_CANONICAL_MODELS, null, true);
+              if (reEval?.model) {
+                MobileState.activeChampionModel = reEval.model;
+                if (typeof updatePredictionSourceUI === 'function') updatePredictionSourceUI();
+              }
+            }
+            showToast('🛡️ Stage 3 Defense Active: Denoised consensus shield engaged for final recovery round!', 'info');
+          }
         }
-      }
-    }
-
-    // Handle cool-off countdown on subsequent rounds
-    if (MobileBridgeState.circuitBreakerPauseRounds > 0 && !isFreshTrip) {
-      MobileBridgeState.circuitBreakerPauseRounds--;
-      if (MobileBridgeState.circuitBreakerPauseRounds === 0) {
-        MobileBridgeState.circuitBreakerActive = false;
-        showToast('✅ Circuit Breaker cool-off complete. Betting resumed.', 'info');
       }
     }
 
@@ -2354,6 +2519,14 @@ function updateIndividualModelSettlement(tf, periodStr, number, size, color, uni
     model.historyPath.unshift({ period: periodStr, won: won === true, predTarget: model.predTarget });
     if (model.historyPath.length > 20) model.historyPath.pop();
 
+    // Evaluate Blacklist Lockup & Quarantine Engine:
+    // When 4-5 consecutive losses occur (streak <= -4), lockup model for 10-20 rounds and run 20-round shadow trial
+    if (typeof ModelQuarantineEngine !== 'undefined') {
+      try {
+        ModelQuarantineEngine.evaluateQuarantineLockup(model, tf, history);
+      } catch(e) {}
+    }
+
     // Predict NEXT round
     if (typeof model.predict === 'function') {
       try {
@@ -2365,6 +2538,18 @@ function updateIndividualModelSettlement(tf, periodStr, number, size, color, uni
       } catch(e) {}
     }
   });
+
+  // Process shadow trial probation rounds for all quarantined models
+  if (typeof ModelQuarantineEngine !== 'undefined') {
+    try {
+      ModelQuarantineEngine.processShadowTrialRound(tf, {
+        period: periodStr,
+        number,
+        size,
+        color
+      });
+    } catch(e) {}
+  }
 
   const isUserReset = !!localStorage.getItem(`quant_user_ai_reset_${tf}`);
   if (isUserReset) {
@@ -2392,8 +2577,13 @@ function updateIndividualModelSettlement(tf, periodStr, number, size, color, uni
   if (MobileState.autoMode !== false) {
     const cloudState = MobileState.cloudUniversalState[tf];
     if (!cloudState?.inChargeModel) {
-      const sorted = [...models].sort((a, b) => (b.winRate || 0) - (a.winRate || 0));
-      if (sorted[0]) MobileState.inChargeModel = sorted[0].name;
+      if (typeof determineOptimalArenaInChargeModel === 'function') {
+        const opt = determineOptimalArenaInChargeModel(models, null, true);
+        if (opt?.model?.name) MobileState.inChargeModel = opt.model.name;
+      } else {
+        const sorted = [...models].sort((a, b) => (b.winRate || 0) - (a.winRate || 0));
+        if (sorted[0]) MobileState.inChargeModel = sorted[0].name;
+      }
     }
   }
 
@@ -2701,68 +2891,41 @@ function renderModelRosterUI() {
   const inchargeMode = MobileState.inchargeConfig?.mode || 'WINNING_STREAK_OVERRIDE';
   const minStreak = Number(MobileState.inchargeConfig?.minStreak || 3);
 
-  const getLastNWinRate = (m, n) => {
-    const p = (m.historyPath || []).slice(0, n);
-    if (p.length === 0) return 0;
-    return p.filter(x => x.won).length / p.length;
+  const calculateWilsonScore = (wins, total, z = 1.96) => {
+    if (total <= 0) return 0;
+    const p = wins / total;
+    const n = total;
+    const denominator = 1 + (z * z) / n;
+    const centre = p + (z * z) / (2 * n);
+    const spread = z * Math.sqrt((p * (1 - p) + (z * z) / (4 * n)) / n);
+    return Math.max(0, (centre - spread) / denominator);
+  };
+
+  const calculateModelRating = (m) => {
+    const total = Number(isUserReset && m.sessionEvaluated !== undefined ? m.sessionEvaluated : (m.totalEvaluated || 0));
+    const wins = Number(isUserReset && m.sessionWins !== undefined ? m.sessionWins : (m.wins || 0));
+    const streak = Number(isUserReset && m.sessionStreak !== undefined ? m.sessionStreak : (m.streak || 0));
+    const wilson = calculateWilsonScore(wins, total) * 100;
+    const histPath = m.historyPath || [];
+    const last10 = histPath.slice(0, 10);
+    const last10WR = last10.length > 0 ? (last10.filter(x => x.won).length / last10.length) * 100 : wilson;
+    let momentum = 50;
+    if (streak > 0) momentum = Math.min(100, 50 + streak * 10);
+    else if (streak < 0) momentum = Math.max(0, 50 + streak * 20);
+    const last5 = histPath.slice(0, 5);
+    const last5WR = last5.length >= 3 ? (last5.filter(x => x.won).length / last5.length) : 0.5;
+    let slumpPenalty = 1.0;
+    if (streak <= -2 || last5WR < 0.40) slumpPenalty = 0.40;
+    return ((wilson * 0.40) + (last10WR * 0.35) + (momentum * 0.25)) * slumpPenalty;
   };
 
   const sorted = [...allModels].sort((a, b) => {
-    if (inchargeMode === 'LAST_10_WIN_RATE') {
-      const wrA = getLastNWinRate(a, 10);
-      const wrB = getLastNWinRate(b, 10);
-      if (wrB !== wrA) return wrB - wrA;
-      const sDiff = Number(b.streak || 0) - Number(a.streak || 0);
-      if (sDiff !== 0) return sDiff;
-      return getWinRate(b) - getWinRate(a);
-    }
-    if (inchargeMode === 'LAST_20_WIN_RATE') {
-      const wrA = getLastNWinRate(a, 20);
-      const wrB = getLastNWinRate(b, 20);
-      if (wrB !== wrA) return wrB - wrA;
-      const sDiff = Number(b.streak || 0) - Number(a.streak || 0);
-      if (sDiff !== 0) return sDiff;
-      return getWinRate(b) - getWinRate(a);
-    }
-    if (inchargeMode === 'HIGHEST_STREAK') {
-      const sDiff = Number(b.streak || 0) - Number(a.streak || 0);
-      if (sDiff !== 0) return sDiff;
-      return getWinRate(b) - getWinRate(a);
-    }
-    if (inchargeMode === 'SESSION_WIN_RATE') {
-      const wrA = a.sessionWinRate !== undefined ? Number(a.sessionWinRate) : getWinRate(a);
-      const wrB = b.sessionWinRate !== undefined ? Number(b.sessionWinRate) : getWinRate(b);
-      if (wrB !== wrA) return wrB - wrA;
-      return (Number(b.streak || 0)) - (Number(a.streak || 0));
-    }
-    if (inchargeMode === 'SESSION_STREAK_OVERRIDE') {
-      const sA = Number(a.sessionStreak !== undefined ? a.sessionStreak : a.streak || 0);
-      const sB = Number(b.sessionStreak !== undefined ? b.sessionStreak : b.streak || 0);
-      const elA = sA >= minStreak;
-      const elB = sB >= minStreak;
-      if (elA && !elB) return -1;
-      if (!elA && elB) return 1;
-      if (elA && elB && sB !== sA) return sB - sA;
-      return getWinRate(b) - getWinRate(a);
-    }
-    if (inchargeMode === 'WINNING_STREAK_OVERRIDE') {
-      const sA = Number(a.streak || 0);
-      const sB = Number(b.streak || 0);
-      const elA = sA >= minStreak;
-      const elB = sB >= minStreak;
-      if (elA && !elB) return -1;
-      if (!elA && elB) return 1;
-      if (elA && elB && sB !== sA) return sB - sA;
-      const wrDiff = getWinRate(b) - getWinRate(a);
-      if (wrDiff !== 0) return wrDiff;
-      return (b.totalEvaluated || 0) - (a.totalEvaluated || 0);
-    }
-    // Default / OVERALL_WIN_RATE
-    const wrDiff = getWinRate(b) - getWinRate(a);
-    if (wrDiff !== 0) return wrDiff;
-    const evDiff = (b.totalEvaluated || 0) - (a.totalEvaluated || 0);
-    if (evDiff !== 0) return evDiff;
-    return (b.streak || 0) - (a.streak || 0);
+    const ratingA = calculateModelRating(a);
+    const ratingB = calculateModelRating(b);
+    if (ratingB !== ratingA) return ratingB - ratingA;
+    const sDiff = Number(b.streak || 0) - Number(a.streak || 0);
+    if (sDiff !== 0) return sDiff;
+    return (b.totalEvaluated || 0) - (a.totalEvaluated || 0);
   });
 
   // Auto-mode champion resolution
@@ -2903,9 +3066,14 @@ function renderModelRosterUI() {
         : '<span class="w-1.5 h-1.5 rounded-full bg-rose-400 inline-block shadow-[0_0_4px_rgba(244,63,94,0.5)]"></span>';
     }).join('');
 
-    const cardClass = isLead
-      ? 'p-2.5 rounded-2xl bg-black/60 border border-emerald-500/40 shadow-[0_0_16px_rgba(52,211,153,0.12)]'
-      : 'p-2.5 rounded-2xl bg-black/40 border border-white/[0.06] hover:border-white/[0.12] transition';
+    const isQuarantined = typeof ModelQuarantineEngine !== 'undefined' && ModelQuarantineEngine.isModelQuarantined(a, tf);
+    const quarantineRec = isQuarantined ? (ModelQuarantineEngine.getQuarantineStore(tf)?.[a.name] || null) : null;
+
+    const cardClass = isQuarantined
+      ? 'p-2.5 rounded-2xl bg-rose-950/20 border border-rose-500/40 shadow-[0_0_12px_rgba(244,63,94,0.15)] relative overflow-hidden'
+      : (isLead
+        ? 'p-2.5 rounded-2xl bg-black/60 border border-emerald-500/40 shadow-[0_0_16px_rgba(52,211,153,0.12)]'
+        : 'p-2.5 rounded-2xl bg-black/40 border border-white/[0.06] hover:border-white/[0.12] transition');
 
     const wr = a.winRatePct || `${(getWinRate(a) * 100).toFixed(1)}%`;
     const tColor = a.predTarget === 'BIG' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
@@ -2914,32 +3082,134 @@ function renderModelRosterUI() {
       : 'bg-rose-500/20 text-rose-300 border-rose-500/30';
 
     return `<div class="${cardClass} flex items-center justify-between font-mono text-[9px]">
-      <div class="flex items-center gap-2">
+      ${isQuarantined ? '<div class="absolute -right-8 -top-8 w-16 h-16 bg-rose-500/10 rounded-full blur-xl pointer-events-none"></div>' : ''}
+      <div class="flex items-center gap-2 relative z-10">
         <span class="text-[8px] text-zinc-500 w-5 font-bold">#${idx+1}</span>
         <div>
           <div class="flex items-center gap-1.5">
-            <span class="font-bold text-white max-w-[150px] truncate">${a.name}</span>
+            <span class="font-bold ${isQuarantined ? 'text-rose-200' : 'text-white'} max-w-[150px] truncate">${a.name}</span>
             ${isLead ? '<span class="px-1.5 py-0.2 rounded bg-amber-400 text-black text-[7px] font-black font-mono">IN CHARGE</span>' : ''}
+            ${isQuarantined ? '<span class="px-1.5 py-0.2 rounded bg-rose-500/25 text-rose-300 border border-rose-400/50 text-[7px] font-black flex items-center gap-1 animate-pulse"><i class="fa-solid fa-lock text-[6px]"></i> QUARANTINED</span>' : ''}
             <span class="px-1.5 py-0.2 rounded ${tColor} border text-[7px] font-black">${a.predTarget || 'BIG'}</span>
           </div>
           <div class="flex items-center gap-1.5 mt-0.5 text-[8px] text-zinc-400">
-            <span class="px-1 py-0.2 rounded bg-white/5 border border-white/10 uppercase">${a.cat || 'AI'}</span>
-            <span>WR: <b class="text-emerald-400">${wr}</b> (${a.wins||0}W/${a.losses||0}L)</span>
+            <span class="px-1 py-0.2 rounded ${isQuarantined ? 'bg-rose-500/10 text-rose-300 border-rose-500/20' : 'bg-white/5 border-white/10'} border uppercase">${a.cat || 'AI'}</span>
+            <span>WR: <b class="${isQuarantined ? 'text-rose-400' : 'text-emerald-400'}">${wr}</b> (${a.wins||0}W/${a.losses||0}L)</span>
             <div class="flex gap-0.5">${dotsHtml}</div>
+            ${isQuarantined && quarantineRec ? `<span class="text-rose-400/90 text-[7px] font-bold">🧪 Trial: ${quarantineRec.probationRoundsDone || 0}/20</span>` : ''}
           </div>
         </div>
       </div>
-      <div class="flex items-center gap-1.5">
+      <div class="flex items-center gap-1.5 relative z-10">
         <span class="px-1.5 py-0.5 rounded text-[8px] font-black ${streakClass}">${isWinStreak ? '🔥 ' : '❄️ '}${streakStr}</span>
-        <button onclick="setInChargeModel('${a.name.replace(/'/g, "\\'")}')"
-          class="px-2 py-1 rounded-xl ${isLead ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30'} text-[8px] font-black active:scale-95 transition">
-          ${isLead ? 'Selected' : 'Select'}
-        </button>
+        ${isQuarantined
+          ? `<button disabled title="Model is locked in quarantine"
+              class="px-2 py-1 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400/70 text-[8px] font-black cursor-not-allowed opacity-80 flex items-center gap-1">
+              <i class="fa-solid fa-ban text-[7px]"></i> Locked
+            </button>`
+          : `<button onclick="setInChargeModel('${a.name.replace(/'/g, "\\'")}')"
+              class="px-2 py-1 rounded-xl ${isLead ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30'} text-[8px] font-black active:scale-95 transition">
+              ${isLead ? 'Selected' : 'Select'}
+            </button>`
+        }
       </div>
     </div>`;
   }).join('');
+
+  // Render Quarantine Chamber & Forensics UI
+  renderQuarantineChamberUI(tf);
 }
 window.renderModelRosterUI = renderModelRosterUI;
+
+function renderQuarantineChamberUI(tf) {
+  tf = tf || MobileState.timeframe;
+  const listEl = $('quarantineChamberList');
+  const badgeEl = $('quarantinedCountBadge');
+  if (!listEl) return;
+
+  if (typeof ModelQuarantineEngine === 'undefined') return;
+
+  const records = ModelQuarantineEngine.getQuarantinedModelsList(tf);
+  const activeQuarantined = records.filter(r => r.status === 'QUARANTINED');
+
+  if (badgeEl) {
+    badgeEl.textContent = `${activeQuarantined.length} Quarantined`;
+    badgeEl.className = activeQuarantined.length > 0
+      ? 'text-[8px] font-mono px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse font-bold'
+      : 'text-[8px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
+  }
+
+  if (activeQuarantined.length === 0) {
+    listEl.innerHTML = `
+      <div class="p-3 rounded-xl bg-black/40 border border-white/[0.06] text-center font-mono text-[8.5px] text-zinc-400">
+        <i class="fa-solid fa-circle-check text-emerald-400 text-sm mb-1 block"></i>
+        All 101 models operating normally. Zero models locked in quarantine.
+      </div>
+    `;
+    return;
+  }
+
+  listEl.innerHTML = activeQuarantined.map(rec => {
+    const probationPct = Math.round(((rec.probationRoundsDone || 0) / (rec.probationTotalRounds || 20)) * 100);
+    const wr = Math.round((rec.currentProbationWR || 0) * 100);
+    const forensics = rec.forensics || {};
+    const rehab = rec.synapticRehab || {};
+
+    return `
+      <div class="p-3 rounded-2xl bg-black/60 border border-rose-500/30 space-y-2.5 font-mono text-[8.5px]">
+        <!-- Header: Model Info + Lockup Status -->
+        <div class="flex items-center justify-between pb-1.5 border-b border-white/[0.08]">
+          <div class="flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping"></span>
+            <span class="font-bold text-white text-[9.5px]">${rec.modelName}</span>
+            <span class="px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[7px] font-black">
+              LOCKUP (-${rec.triggerLossStreak}L)
+            </span>
+          </div>
+          <span class="text-[7.5px] text-zinc-400 font-bold">
+            ${rec.lockupRoundsRemaining > 0 ? `🔒 ${rec.lockupRoundsRemaining} rds lock left` : '🧪 In Shadow Trial'}
+          </span>
+        </div>
+
+        <!-- Forensic Investigation Box -->
+        <div class="p-2 rounded-xl bg-rose-950/20 border border-rose-500/20 space-y-1">
+          <div class="flex items-center justify-between text-[7px] uppercase font-bold text-rose-300">
+            <span><i class="fa-solid fa-microscope text-rose-400 mr-1"></i> Forensic Diagnosis</span>
+            <span>Analyzed ${forensics.analyzedRounds || 20} Rds</span>
+          </div>
+          <p class="text-[8px] text-rose-200/90 leading-tight">
+            ${forensics.rootCause || 'Statistical Pattern Entropy Inversion'}
+          </p>
+          <div class="text-[7.5px] text-zinc-400 pt-0.5 border-t border-white/[0.04]">
+            <b class="text-amber-300">Action:</b> ${forensics.remedy || 'Synaptic baseline recalibration'}
+          </div>
+        </div>
+
+        <!-- 20-Round Isolated Shadow Trial Progress -->
+        <div class="space-y-1">
+          <div class="flex items-center justify-between text-[7.5px] text-zinc-400">
+            <span>20-Round Shadow Trial Probation</span>
+            <span class="text-white font-bold">${rec.probationRoundsDone || 0}/20 Rds (${wr}% WR)</span>
+          </div>
+          <div class="w-full bg-black/60 h-2 rounded-full overflow-hidden p-0.5 border border-white/[0.08]">
+            <div class="h-full rounded-full ${wr >= 60 ? 'bg-emerald-400' : 'bg-amber-400'} transition-all duration-300" style="width: ${probationPct}%;"></div>
+          </div>
+          <div class="flex items-center justify-between text-[7px] text-zinc-500 pt-0.5">
+            <span>Pass Threshold: ≥60% (12/20 Wins)</span>
+            <span class="text-zinc-400">${rec.probationWins || 0}W / ${rec.probationLosses || 0}L</span>
+          </div>
+        </div>
+
+        <!-- Synaptic Neuro-Plasticity Adjustments -->
+        <div class="flex items-center justify-between pt-1 border-t border-white/[0.06] text-[7.5px]">
+          <span class="text-zinc-500">Neuro-Plasticity:</span>
+          <span class="text-purple-300 font-bold">Dopamine ${rehab.dopamineBoost || '+35%'} · Loss Pain ${rehab.painReduction || '-95%'}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+window.renderQuarantineChamberUI = renderQuarantineChamberUI;
 
 function setInChargeModel(name) {
   MobileState.inChargeModel = name;
@@ -3657,25 +3927,65 @@ function openDhaniRegister() {
 let _authVerificationInProgress = false;
 let _authVerificationTimeout = null;
 
-async function confirmDhaniLoggedInReal() {
+function toggleAlreadyLoggedPromptModal(show) {
+  const modal = document.getElementById('alreadyLoggedPromptModal');
+  if (!modal) return;
+  const isOpen = !modal.classList.contains('hidden') && modal.style.display !== 'none';
+  const targetOpen = show === undefined ? !isOpen : Boolean(show);
+  if (targetOpen) {
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+    const statusEl = document.getElementById('alreadyLoggedProbeStatus');
+    if (statusEl) statusEl.classList.add('hidden');
+    const yesBtn = document.getElementById('alreadyLoggedYesBtn');
+    if (yesBtn) yesBtn.disabled = false;
+  } else {
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+  }
+}
+window.toggleAlreadyLoggedPromptModal = toggleAlreadyLoggedPromptModal;
+window.openAlreadyLoggedPromptModal = () => toggleAlreadyLoggedPromptModal(true);
+
+async function handleAlreadyLoggedResponse(isYes) {
+  if (!isYes) {
+    toggleAlreadyLoggedPromptModal(false);
+    openDhaniLogin();
+    return;
+  }
+  // User answered YES: probe by attempting to enter the WinGo 30s page directly
+  await verifyLoginViaWinGoProbe();
+}
+window.handleAlreadyLoggedResponse = handleAlreadyLoggedResponse;
+
+async function verifyLoginViaWinGoProbe() {
   if (_authVerificationInProgress) return;
-  const btn = document.getElementById('floatingAlreadyLoggedInBtn');
-  const txt = document.getElementById('floatingAlreadyLoggedInText');
-  const originalHtml = txt ? txt.innerHTML : 'Already logged in before';
-
   _authVerificationInProgress = true;
-  if (txt) txt.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Verifying session...';
-  if (btn) btn.style.opacity = '0.85';
 
-  const completeVerification = (verified, detail = '') => {
+  const statusEl = document.getElementById('alreadyLoggedProbeStatus');
+  const yesBtn = document.getElementById('alreadyLoggedYesBtn');
+  const yesLabel = document.getElementById('alreadyLoggedYesLabel');
+  if (statusEl) statusEl.classList.remove('hidden');
+  if (yesBtn) yesBtn.disabled = true;
+  if (yesLabel) yesLabel.textContent = 'Verifying...';
+
+  // Set 60-second grace period immediately so spurious redirects or transient "login expired" error toasts don't trigger auto-logout
+  _authGracePeriodUntil = Date.now() + 60000;
+  try {
+    sessionStorage.setItem('dhaniwin_auth_grace_until', String(_authGracePeriodUntil));
+  } catch(e) {}
+
+  const finish = (verified, msg = '') => {
     if (!_authVerificationInProgress) return;
     _authVerificationInProgress = false;
     if (_authVerificationTimeout) {
       clearTimeout(_authVerificationTimeout);
       _authVerificationTimeout = null;
     }
-    if (txt) txt.innerHTML = originalHtml;
-    if (btn) btn.style.opacity = '1';
+    if (statusEl) statusEl.classList.add('hidden');
+    if (yesBtn) yesBtn.disabled = false;
+    if (yesLabel) yesLabel.textContent = 'Yes';
+    toggleAlreadyLoggedPromptModal(false);
 
     if (verified) {
       markUserLoggedIn();
@@ -3683,58 +3993,63 @@ async function confirmDhaniLoggedInReal() {
         localStorage.setItem('dhaniwin_user_has_logged_in_ever', '1');
         localStorage.setItem('dhaniwin_registered', '1');
       } catch(e) {}
-      _authGracePeriodUntil = Date.now() + 60000;
       setMobileBridgeStatus(true, 'Login Verified ✓');
-      showToast('🎉 Login Confirmed! Active DhaniWin session verified.', 'success');
+      showToast('🎉 Login Confirmed! Entered WinGo 30s successfully.', 'success');
       if (typeof toggleUnlockModal === 'function') toggleUnlockModal(false);
       if (typeof updateAppUnlockState === 'function') updateAppUnlockState();
       updateDhaniAuthBar();
-      loadMobileWebUrl(getDefaultDhaniUrl());
     } else {
-      if (btn) {
-        btn.classList.add('shake-anim');
-        setTimeout(() => btn.classList.remove('shake-anim'), 600);
-      }
-      showToast(detail || '⚠️ Active DhaniWin login not detected. Please login on the DhaniWin page first, then verify.', 'warn');
+      // Failed or error page returned - user is not logged in yet
+      _authGracePeriodUntil = 0;
+      try { sessionStorage.removeItem('dhaniwin_auth_grace_until'); } catch(e) {}
+      markUserLoggedOut();
+      showToast(msg || '⚠️ Not logged in yet! Please enter your DhaniWin credentials on the login page.', 'warn');
+      openDhaniLogin();
     }
   };
 
-  // Step 1: Probe the iframe bridge
+  // Attempt to enter the WinGo 30s game page
+  const wingoUrl = 'https://dhaniwin44.com/WinGo/WinGo_30S';
+  loadMobileWebUrl(wingoUrl);
+
+  // Probe via bridge postMessage to check if user has active session
   const iframe = document.getElementById('dhaniwinIframe');
   if (iframe && iframe.contentWindow) {
     try {
       iframe.contentWindow.postMessage({ type: 'DHANIWIN_REQUEST_AUTH_CHECK', timestamp: Date.now() }, '*');
     } catch(e) {}
   }
-  if (typeof syncMobileUserWallet === 'function') {
-    try { syncMobileUserWallet(); } catch(e) {}
-  }
 
-  // Register resolver for immediate bridge response
+  // Register resolver for bridge message
   window._pendingAuthCheckResolver = (res) => {
     if (res && res.loggedIn) {
-      completeVerification(true, 'Verified via In-App Bridge');
+      finish(true, 'Verified via In-App Bridge');
     } else {
-      completeVerification(false, res?.reason || '⚠️ No active DhaniWin session found.');
+      finish(false, res?.reason || '⚠️ Not logged in yet.');
     }
   };
 
-  // Wait up to 2.2s
+  // Timeout guard (2.8s): if bridge detects session or balance, approve; else reject as not logged in
   _authVerificationTimeout = setTimeout(() => {
     if (!_authVerificationInProgress) return;
-    if (MobileBridgeState.userBalance !== null && !isNaN(Number(MobileBridgeState.userBalance))) {
-      completeVerification(true, 'Verified via Live Bridge Balance');
+    if (MobileBridgeState.userBalance !== null && !isNaN(Number(MobileBridgeState.userBalance)) && MobileBridgeState.userBalance >= 0) {
+      finish(true, 'Verified via Live Bridge Balance');
     } else if (MobileBridgeState.bridgeVerified || MobileBridgeState.active) {
-      completeVerification(true, 'Verified via Active Bridge');
+      finish(true, 'Verified via Active Bridge');
     } else {
-      completeVerification(false, '⚠️ DhaniWin login not detected. Please enter your credentials on the DhaniWin page first.');
+      finish(false, '⚠️ Could not enter WinGo 30s. Please log in first.');
     }
-  }, 2200);
+  }, 2800);
+}
+window.verifyLoginViaWinGoProbe = verifyLoginViaWinGoProbe;
+
+async function confirmDhaniLoggedInReal() {
+  openAlreadyLoggedPromptModal();
 }
 window.confirmDhaniLoggedInReal = confirmDhaniLoggedInReal;
 
 function confirmDhaniLoggedIn() {
-  confirmDhaniLoggedInReal();
+  openAlreadyLoggedPromptModal();
 }
 window.confirmDhaniLoggedIn = confirmDhaniLoggedIn;
 
@@ -3796,124 +4111,262 @@ function initDockAutoCompact() {
   const dock = document.getElementById('mobileBottomDock');
   if (!dock) return;
 
-  let lastScrollY = window.scrollY;
-  const SCROLL_THRESHOLD = 8;
+  let lastScrollY = window.scrollY || 0;
+  const SCROLL_THRESHOLD = 6;
+
+  const syncShield = () => {
+    const shield = document.getElementById('dhaniwinTouchShield');
+    if (!shield) return;
+    const onWeb = document.getElementById('tab-web')?.style.display !== 'none';
+    const isCompact = dock.classList.contains('dock-compact') || dock.classList.contains('dock-hidden');
+    // When on DhaniWin tab and dock is full size: activate shield to capture touches/swipes anywhere on the view
+    // When dock is compact or hidden: release shield completely (pointerEvents = 'none') so user plays the game freely!
+    if (onWeb && !isCompact) {
+      shield.style.pointerEvents = 'auto';
+    } else {
+      shield.style.pointerEvents = 'none';
+    }
+  };
 
   const compact = () => {
     dock.classList.remove('dock-hidden');
     dock.classList.add('dock-compact');
     document.body.classList.add('nav-compact');
+    syncShield();
   };
   const expand = () => {
     dock.classList.remove('dock-hidden');
     dock.classList.remove('dock-compact');
     document.body.classList.remove('nav-compact');
+    syncShield();
   };
   const hide = () => {
     dock.classList.add('dock-hidden');
-  };
-  const unhide = () => {
-    dock.classList.remove('dock-hidden');
+    syncShield();
   };
 
-  // ── Window scroll: scrolling down = compact on Home tab, scrolling up = back to normal ──
+  // Expose methods on window for global access and bridge handlers
+  window._dockSetCompact = (isCompact) => {
+    if (isCompact) compact();
+    else expand();
+  };
+  window._dockSetHidden = (isHidden) => {
+    if (isHidden) hide();
+    else expand();
+  };
+  window._dockExpand = expand;
+  window._dockSyncShield = syncShield;
+
+  // ── 1. Window scroll: scrolling down = compact, scrolling up = full big size ──
   window.addEventListener('scroll', () => {
-    const onWeb = document.getElementById('tab-web')?.style.display !== 'none';
-    const allowAll = localStorage.getItem('dock_compact_all_tabs') === '1';
-    if (!onWeb && !allowAll) {
-      expand();
-      return;
-    }
+    const y = window.scrollY || 0;
 
-    const y = window.scrollY;
-
-    // At top of the screen: always restore full normal menu
-    if (y <= 20) {
+    // At top of screen: restore full normal menu
+    if (y <= 15) {
       expand();
       lastScrollY = y;
       return;
     }
 
     const delta = y - lastScrollY;
-    if (delta > SCROLL_THRESHOLD && y > 60) {
+    if (delta > SCROLL_THRESHOLD) {
       // User scrolled DOWN → make menu compact
       compact();
     } else if (delta < -SCROLL_THRESHOLD) {
-      // User scrolled UP → make menu come back and normal size
+      // User scrolled UP → make menu come back big
       expand();
     }
 
     lastScrollY = y;
   }, { passive: true });
 
-  // ── Tap outside bottom dock on Home tab hides the dock ──
-  document.addEventListener('pointerdown', (e) => {
-    const onWeb = document.getElementById('tab-web')?.style.display !== 'none';
-    const allowAll = localStorage.getItem('dock_compact_all_tabs') === '1';
-    if (!onWeb && !allowAll) return;
-    const dockEl = document.getElementById('mobileBottomDock');
-    if (!dockEl) return;
-    
-    // Tapping near bottom edge when hidden summons the dock back to normal
-    if (dockEl.classList.contains('dock-hidden') && e.clientY > window.innerHeight - 50) {
-      expand();
+  // ── 2. Global Viewport Touch & Swipe Gesture Engine ──
+  // Swipe Down = compact, Swipe Up = big / expand, Tap outside = hide / compact
+  let touchStartY = null;
+  let touchStartX = null;
+  let touchStartTime = 0;
+  let touchMoved = false;
+
+  const isProtectedElement = (target) => {
+    if (!target || typeof target.closest !== 'function') return false;
+    return !!target.closest('#dhaniwinFloatingOrb, #dhaniwinAssistantModal, #dhaniwinAssistantSheet, #mobileBottomDock, #homeTopAuthPill, #unlock0101Modal, .assistant-resize-handle, #dockRestoreHandle');
+  };
+
+  const handleTouchStart = (clientY, clientX, target) => {
+    if (isProtectedElement(target)) {
+      touchStartY = null;
+      touchStartX = null;
       return;
     }
+    touchStartY = clientY;
+    touchStartX = clientX;
+    touchStartTime = Date.now();
+    touchMoved = false;
+  };
 
-    if (dockEl.contains(e.target)) return;
-    const orb = document.getElementById('dhaniwinFloatingOrb');
-    if (orb && orb.contains(e.target)) return;
-    const modal = document.getElementById('dhaniwinAssistantModal');
-    if (modal && !modal.classList.contains('hidden') && modal.contains(e.target)) return;
-    const authBar = document.getElementById('dhaniAuthBar');
-    if (authBar && authBar.contains(e.target)) return;
+  const handleTouchMove = (clientY, clientX, target) => {
+    if (touchStartY === null) return;
+    if (isProtectedElement(target)) return;
 
-    // User tapped somewhere else in the Dhani app → hide dock
-    hide();
+    const dy = clientY - touchStartY;
+    const dx = clientX - (touchStartX || clientX);
+
+    // Require predominantly vertical movement
+    if (Math.abs(dy) < 10 || Math.abs(dy) < Math.abs(dx)) return;
+    touchMoved = true;
+
+    if (dy > 12) {
+      // Swiping DOWN (finger drags down) -> compact
+      compact();
+      touchStartY = clientY;
+    } else if (dy < -12) {
+      // Swiping UP (finger moves up towards top) -> make big & expand
+      expand();
+      touchStartY = clientY;
+    }
+  };
+
+  const handleTouchEnd = (target) => {
+    if (touchStartY === null) return;
+    const duration = Date.now() - touchStartTime;
+
+    // Clean tap outside dock/modal/orb across any tab/menu -> compact dock
+    if (!touchMoved && duration < 400 && !isProtectedElement(target)) {
+      compact();
+    }
+
+    touchStartY = null;
+    touchStartX = null;
+    touchMoved = false;
+  };
+
+  // Attach to window & document
+  document.addEventListener('touchstart', (e) => {
+    if (e.touches && e.touches[0]) handleTouchStart(e.touches[0].clientY, e.touches[0].clientX, e.target);
   }, { passive: true });
 
-  // ── Focus shifts to DhaniWin iframe (user tapped inside DhaniWin) ──
+  document.addEventListener('touchmove', (e) => {
+    if (e.touches && e.touches[0]) handleTouchMove(e.touches[0].clientY, e.touches[0].clientX, e.target);
+  }, { passive: true });
+
+  document.addEventListener('touchend', (e) => {
+    handleTouchEnd(e.target);
+  }, { passive: true });
+
+  // ── 3. High-Fidelity Touch Shield for DhaniWin Embedded View ──
+  // Captures touches and swipes anywhere over the embedded iframe when the dock is expanded.
+  const shield = document.getElementById('dhaniwinTouchShield');
+  if (shield) {
+    let sStartY = null;
+    let sStartX = null;
+
+    const onShieldDown = (clientY, clientX) => {
+      sStartY = clientY;
+      sStartX = clientX;
+      // Touching/tapping anywhere inside DhaniWin embedded view when dock is expanded immediately compacts it!
+      if (!dock.classList.contains('dock-compact')) {
+        compact();
+        // Immediately release shield so touches pass straight to iframe
+        shield.style.pointerEvents = 'none';
+      }
+    };
+
+    const onShieldMove = (clientY, clientX) => {
+      if (sStartY === null) return;
+      const dy = clientY - sStartY;
+      const dx = clientX - (sStartX || clientX);
+      if (Math.abs(dy) < 8 || Math.abs(dy) < Math.abs(dx)) return;
+      if (dy > 10) {
+        // Dragging DOWN -> compact
+        compact();
+        shield.style.pointerEvents = 'none';
+      } else if (dy < -10) {
+        // Dragging UP -> expand
+        expand();
+      }
+    };
+
+    const onShieldUp = () => {
+      sStartY = null;
+      sStartX = null;
+    };
+
+    shield.addEventListener('pointerdown', (e) => onShieldDown(e.clientY, e.clientX), { passive: true });
+    shield.addEventListener('pointermove', (e) => onShieldMove(e.clientY, e.clientX), { passive: true });
+    shield.addEventListener('pointerup', onShieldUp, { passive: true });
+    shield.addEventListener('pointercancel', onShieldUp, { passive: true });
+
+    shield.addEventListener('touchstart', (e) => {
+      if (e.touches && e.touches[0]) onShieldDown(e.touches[0].clientY, e.touches[0].clientX);
+    }, { passive: true });
+    shield.addEventListener('touchmove', (e) => {
+      if (e.touches && e.touches[0]) onShieldMove(e.touches[0].clientY, e.touches[0].clientX);
+    }, { passive: true });
+    shield.addEventListener('touchend', onShieldUp, { passive: true });
+    shield.addEventListener('click', (e) => onShieldDown(e.clientY, e.clientX), { passive: true });
+
+    shield.addEventListener('wheel', (e) => {
+      if (e.deltaY > 6) {
+        compact();
+        shield.style.pointerEvents = 'none';
+      } else if (e.deltaY < -6) {
+        expand();
+      }
+    }, { passive: true });
+  }
+
+  // Initial shield state sync
+  syncShield();
+
+  // Window blur: when the user taps inside the cross-origin iframe, the parent window immediately loses focus (blurs)
   window.addEventListener('blur', () => {
     const onWeb = document.getElementById('tab-web')?.style.display !== 'none';
     if (onWeb) {
-      setTimeout(() => {
-        if (document.activeElement === document.getElementById('dhaniwinIframe')) {
-          hide();
-        }
-      }, 50);
+      // User touched/clicked inside the DhaniWin iframe -> compact dock
+      compact();
     }
   });
 
-  // ── Touching the dock itself always expands it back to normal ──
+  // Check activeElement change when user clicks/taps into iframe
+  let lastActiveEl = null;
+  setInterval(() => {
+    const active = document.activeElement;
+    if (active && active.id === 'dhaniwinIframe' && lastActiveEl !== active) {
+      lastActiveEl = active;
+      const onWeb = document.getElementById('tab-web')?.style.display !== 'none';
+      if (onWeb) compact();
+    } else if (active !== lastActiveEl) {
+      lastActiveEl = active;
+    }
+  }, 250);
+
+  // ── 4. Bottom Swipe-up / Tap Restore Handle ──
+  const restoreHandle = document.getElementById('dockRestoreHandle');
+  if (restoreHandle) {
+    restoreHandle.addEventListener('click', expand);
+    restoreHandle.addEventListener('pointerdown', expand, { passive: true });
+
+    let rStartY = null;
+    restoreHandle.addEventListener('touchstart', (e) => {
+      if (e.touches && e.touches[0]) rStartY = e.touches[0].clientY;
+    }, { passive: true });
+    restoreHandle.addEventListener('touchmove', (e) => {
+      if (rStartY !== null && e.touches && e.touches[0]) {
+        const dy = e.touches[0].clientY - rStartY;
+        if (dy < -6) { // Swipe UP from bottom strip
+          expand();
+          rStartY = null;
+        }
+      }
+    }, { passive: true });
+    restoreHandle.addEventListener('touchend', () => { rStartY = null; }, { passive: true });
+  }
+
+  // ── 5. Interacting with the dock itself always expands it ──
   ['touchstart', 'pointerdown', 'mouseenter'].forEach(ev =>
     dock.addEventListener(ev, expand, { passive: true })
   );
 }
-
-// Expose for DHANIWIN_SCROLL and DHANIWIN_TOUCH bridge messages
-window._dockSetCompact = (isCompact) => {
-  const dock = document.getElementById('mobileBottomDock');
-  if (!dock) return;
-  if (isCompact) {
-    dock.classList.remove('dock-hidden');
-    dock.classList.add('dock-compact');
-    document.body.classList.add('nav-compact');
-  } else {
-    dock.classList.remove('dock-compact');
-    dock.classList.remove('dock-hidden');
-    document.body.classList.remove('nav-compact');
-  }
-};
-
-window._dockSetHidden = (isHidden) => {
-  const dock = document.getElementById('mobileBottomDock');
-  if (!dock) return;
-  if (isHidden) {
-    dock.classList.add('dock-hidden');
-  } else {
-    dock.classList.remove('dock-hidden');
-  }
-};
 
 const _runDockInit = () => {
   try { initHomeHeaderAutoHide(); } catch(e) { console.warn('[HeaderAutoHide]', e); }
@@ -3947,18 +4400,10 @@ function switchMobileTab(tab) {
     btn.classList.toggle('active', isActive);
   });
 
-  // Non-home tabs stay full size unless configured in settings
-  if (tab !== 'web' && localStorage.getItem('dock_compact_all_tabs') !== '1') {
-    const dock = document.getElementById('mobileBottomDock');
-    if (dock) {
-      dock.classList.remove('dock-compact');
-      document.body.classList.remove('nav-compact');
-    }
-  }
-
   // Header auto-hide applies only to the Home (web) tab
   if (tab !== 'web') document.body.classList.remove('home-header-hidden');
   updateDhaniAuthBar();
+  if (typeof window._dockSyncShield === 'function') window._dockSyncShield();
 
   // Lazy-init pattern view when pattern tab is shown
   if (tab === 'pattern') {
@@ -3982,7 +4427,7 @@ function switchMobileTab(tab) {
     }, 150);
   }
 
-  // Manage DhaniWin Web View & Floating Assistant Orb
+  // Manage DhaniWin Web View & Floating Assistant Orb (Shown on Home and Analyse tabs)
   const orb = $('dhaniwinFloatingOrb');
   if (tab === 'web' || tab === 'home') {
     if (orb) orb.style.display = 'block';
@@ -3999,6 +4444,7 @@ function switchMobileTab(tab) {
       }
     }
   } else {
+    // Hidden on AI Adaptive, Pattern, and other tabs
     if (orb) orb.style.display = 'none';
     if (typeof toggleDhaniwinAssistantModal === 'function') toggleDhaniwinAssistantModal(false);
   }
@@ -4110,7 +4556,7 @@ function setMobileTimeframe(tf) {
     fetchLiveAPIResults(tf);
   }
 
-  // Sync DhaniWin Web Tab Interval Pills & Notify Bridge
+  // Sync DhaniWin Web Tab Interval Pills
   ['30s', '1m', '3m', '5m'].forEach(t => {
     const wBtn = $(`webTf-${t}`);
     if (wBtn) {
@@ -4118,6 +4564,22 @@ function setMobileTimeframe(tf) {
         wBtn.className = 'flex-1 py-1.5 rounded-xl font-mono text-[10px] font-black transition active:scale-95 bg-amber-500/25 text-amber-300 border border-amber-400/40 shadow-sm';
       } else {
         wBtn.className = 'flex-1 py-1.5 rounded-xl font-mono text-[10px] font-black transition active:scale-95 text-white/50 hover:text-white hover:bg-white/5';
+      }
+    }
+  });
+
+  // Sync Ball Assistant Sheet Interval Badge & Pills
+  const asstBadge = $('assistantIntervalBadge');
+  if (asstBadge) {
+    asstBadge.textContent = tf.toUpperCase();
+  }
+  ['30s', '1m', '3m', '5m'].forEach(t => {
+    const aBtn = $(`asstTfBtn-${t}`);
+    if (aBtn) {
+      if (t === tf) {
+        aBtn.className = 'flex-1 py-1 rounded-lg font-mono text-[8px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 transition active:scale-95 text-center';
+      } else {
+        aBtn.className = 'flex-1 py-1 rounded-lg font-mono text-[8px] font-bold bg-white/5 text-zinc-400 border border-white/5 transition active:scale-95 text-center';
       }
     }
   });
@@ -4131,11 +4593,18 @@ function setMobileTimeframe(tf) {
 
   if (typeof postMobileBridge === 'function') {
     postMobileBridge({ type: 'WINGO_SWITCH_TIMEFRAME', timeframe: tf, timestamp: Date.now() });
+    postMobileBridge({ type: 'UPDATE_BET_SETTINGS', stake: MobileBridgeState.currentStake, maxStake: MobileBridgeState.maxStakeCap, timeframe: tf });
   }
 
   updateISTClock();
 }
 window.setMobileTimeframe = setMobileTimeframe;
+
+function setMobileTimeframeAndSyncBridge(tf) {
+  setMobileTimeframe(tf);
+  if (typeof playSoundEffect === 'function') playSoundEffect('click');
+}
+window.setMobileTimeframeAndSyncBridge = setMobileTimeframeAndSyncBridge;
 
 // ── 24A. Buy Me a Coffee Support Modal & Razorpay Integration ─────────────────
 
@@ -4383,11 +4852,38 @@ function toggleMobileSettings() {
 }
 window.toggleMobileSettings = toggleMobileSettings;
 
+function updateSoundMuteUI() {
+  const enabled = !!MobileState.soundEnabled;
+  const icon = $('floatingSoundMuteIcon');
+  const btn = $('floatingSoundMuteBtn');
+  if (icon) {
+    icon.className = enabled
+      ? 'fa-solid fa-volume-high text-[11px] text-emerald-400 transition-colors'
+      : 'fa-solid fa-volume-xmark text-[11px] text-rose-400 transition-colors';
+  }
+  if (btn) {
+    btn.title = enabled ? 'Win/Loss Sound: Enabled (Tap to Mute)' : 'Win/Loss Sound: Muted (Tap to Unmute)';
+    btn.classList.toggle('border-emerald-500/30', enabled);
+    btn.classList.toggle('border-rose-500/30', !enabled);
+  }
+  const el = $('settingSoundEffects');
+  if (el) el.checked = enabled;
+}
+window.updateSoundMuteUI = updateSoundMuteUI;
+
+function toggleQuickSoundMute() {
+  const next = !MobileState.soundEnabled;
+  toggleSoundEffects(next);
+  if (typeof showToast === 'function') {
+    showToast(next ? '🔔 Win/Loss sounds enabled' : '🔕 Win/Loss sounds muted', next ? 'info' : 'warn');
+  }
+}
+window.toggleQuickSoundMute = toggleQuickSoundMute;
+
 function toggleSoundEffects(on) {
   MobileState.soundEnabled = !!on;
   try { localStorage.setItem('quant_sound', on ? '1' : '0'); } catch(e) {}
-  const el = $('settingSoundEffects');
-  if (el) el.checked = !!on;
+  updateSoundMuteUI();
   if (on) {
     playSoundEffect('win', true);
   }
@@ -5172,6 +5668,11 @@ function handleMobileBridgeMessage(msg) {
     if (msg.type === 'DHANIWIN_BRIDGE_HANDSHAKE') {
       postMobileBridge({ type: 'UPDATE_BET_SETTINGS', stake: MobileBridgeState.currentStake, maxStake: MobileBridgeState.maxStakeCap, timeframe: MobileState.timeframe });
     }
+  } else if (msg.type === 'DHANIWIN_TIMEFRAME_CHANGE' && msg.timeframe) {
+    if (MobileState.timeframe !== msg.timeframe && ['30s', '1m', '3m', '5m'].includes(msg.timeframe)) {
+      console.log('[Mobile] ⚡ Synced timeframe from embedded game:', msg.timeframe);
+      setMobileTimeframe(msg.timeframe);
+    }
   } else if (msg.type === 'DHANIWIN_BET_CONFIRMATION') {
     setMobileBridgeStatus(true, `Confirmed: ${msg.target} ₹${msg.stake}`);
     MobileBridgeState.totalBets += 1;
@@ -5218,10 +5719,11 @@ function handleMobileBridgeMessage(msg) {
     markUserLoggedOut();
     handleDhaniSessionExpired(msg.reason || 'Session Expired • Please Login');
   } else if (msg.type === 'DHANIWIN_SCROLL') {
-    // Bridge convention: msg.direction='up' = content moved upward = user scrolled DOWN
-    //   → header hides, dock becomes small (compact)
-    // msg.direction='down' = content moved downward = user scrolled UP
-    //   → header shows, dock comes back completely unhidden and expanded
+    // Bridge convention:
+    // msg.direction='up' = finger swiped up = content scrolled DOWN
+    //   → header hides, dock slides into compact size
+    // msg.direction='down' = finger swiped down = content scrolled UP
+    //   → header shows, dock comes back completely unhidden and expands to full big size
     const userScrolledDown = msg.direction === 'up';
     setHomeHeaderHidden(userScrolledDown);
     const floatBtn = document.getElementById('floatingAlreadyLoggedInBtn');
@@ -5229,9 +5731,13 @@ function handleMobileBridgeMessage(msg) {
       if (typeof window._dockSetCompact === 'function') window._dockSetCompact(true);
       if (floatBtn) floatBtn.style.opacity = '0';
     } else {
-      // User scrolled UP: unhide dock and expand it back to full visibility
-      if (typeof window._dockSetHidden === 'function') window._dockSetHidden(false);
-      if (typeof window._dockSetCompact === 'function') window._dockSetCompact(false);
+      // User scrolled UP: immediately unhide dock and expand it back to full size
+      if (typeof window._dockExpand === 'function') {
+        window._dockExpand();
+      } else {
+        if (typeof window._dockSetHidden === 'function') window._dockSetHidden(false);
+        if (typeof window._dockSetCompact === 'function') window._dockSetCompact(false);
+      }
       if (floatBtn && floatBtn.style.display !== 'none') floatBtn.style.opacity = '1';
     }
   } else if (msg.type === 'DHANIWIN_AUTH_CHECK_RESULT') {
@@ -5239,11 +5745,11 @@ function handleMobileBridgeMessage(msg) {
       window._pendingAuthCheckResolver(msg);
       window._pendingAuthCheckResolver = null;
     }
-  } else if (msg.type === 'DHANIWIN_TOUCH') {
-    // Only hide dock if assistant modal is open or true fullscreen is toggled
-    const modal = document.getElementById('dhaniwinAssistantModal');
-    const isModalOpen = modal && !modal.classList.contains('hidden') && modal.classList.contains('sheet-open');
-    if (isModalOpen && typeof window._dockSetHidden === 'function') {
+  } else if (msg.type === 'DHANIWIN_TOUCH' || msg.type === 'DHANIWIN_PAGE_TAP') {
+    // Touching anywhere inside the DhaniWin page makes the bottom dock compact
+    if (typeof window._dockSetCompact === 'function') {
+      window._dockSetCompact(true);
+    } else if (typeof window._dockSetHidden === 'function') {
       window._dockSetHidden(true);
     }
   } else if (msg.type === 'DHANIWIN_AUTH_SUCCESS' || msg.type === 'DHANIWIN_LOGIN_DETECTED') {
@@ -5327,8 +5833,7 @@ if (typeof window !== 'undefined') {
       } catch(err) {}
     } else if (e.key === 'quant_sound') {
       MobileState.soundEnabled = e.newValue !== '0';
-      const soundCb = $('settingSoundEffects');
-      if (soundCb) soundCb.checked = MobileState.soundEnabled;
+      if (typeof updateSoundMuteUI === 'function') updateSoundMuteUI();
     }
   });
 }
@@ -5419,18 +5924,31 @@ function calculateAndRenderMobileStake() {
 
   const stakeEl = $('mobileWebStakeDisplay');
   const lvlEl = $('mobileWebLevelBadge');
+  const baseEl = $('assistantBaseStakeDisplay');
   if (stakeEl) stakeEl.textContent = '₹' + MobileBridgeState.currentStake;
+  if (baseEl) baseEl.textContent = '₹' + MobileBridgeState.baseStake;
   if (lvlEl) {
     if (unconstrainedStake > MobileBridgeState.maxStakeCap) {
       lvlEl.textContent = `Level ${MobileBridgeState.currentLevel + 1} (Capped @ ₹${MobileBridgeState.maxStakeCap})`;
       lvlEl.className = 'text-[8px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30';
     } else {
-      lvlEl.textContent = `Level ${MobileBridgeState.currentLevel + 1}` + (MobileBridgeState.currentLevel > 0 ? ` (Loss x${MobileBridgeState.currentLevel})` : ' (Base)');
+      lvlEl.textContent = `Level ${MobileBridgeState.currentLevel + 1}` + (MobileBridgeState.currentLevel > 0 ? ` (Recovery x${MobileBridgeState.currentLevel})` : ' (Base)');
       lvlEl.className = MobileBridgeState.currentLevel > 0 
         ? 'text-[8px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 animate-pulse'
         : 'text-[8px] font-mono font-bold px-1.5 py-0.5 rounded bg-white/10 text-amber-300 border border-white/10';
     }
   }
+
+  // Real-time broadcast to DhaniWin bridge iframe & BroadcastChannel
+  postMobileBridge({
+    type: 'UPDATE_BET_SETTINGS',
+    stake: MobileBridgeState.currentStake,
+    baseStake: MobileBridgeState.baseStake,
+    level: MobileBridgeState.currentLevel,
+    maxStake: MobileBridgeState.maxStakeCap,
+    timeframe: MobileState.timeframe
+  });
+
   if (typeof updateFloatingOrbUI === 'function') updateFloatingOrbUI();
   return MobileBridgeState.currentStake;
 }
@@ -5476,18 +5994,23 @@ function toggleMobileRealAutoBet(forceState) {
     MobileBridgeState.enabled = !MobileBridgeState.enabled;
   }
   const btn = $('mobileBridgeToggleBtn');
+  const lbl = $('mobileBridgeStatusLabel');
+  const dot = $('mobileBridgeDot');
   if (btn) {
     if (MobileBridgeState.enabled) {
-      btn.className = 'px-2.5 py-1 rounded-lg font-mono text-[8.5px] font-black bg-rose-500/25 text-rose-300 border border-rose-500/40 active:scale-95 transition shadow';
-      btn.textContent = '⏹ STOP PREP';
+      btn.className = 'w-full py-3.5 rounded-2xl font-mono text-xs font-black bg-rose-500/25 hover:bg-rose-500/35 text-rose-300 border border-rose-500/50 active:scale-95 transition shadow-[0_8px_24px_rgba(244,63,94,0.25)] flex items-center justify-center gap-2';
+      if (lbl) lbl.textContent = '⏹ STOP AUTO-PREP & AUTO-SHAKE';
+      if (dot) dot.className = 'w-2.5 h-2.5 rounded-full bg-rose-400 animate-pulse';
       setMobileBridgeStatus(MobileBridgeState.connected, 'Auto-Prep Active');
       dispatchMobileBetOrder();
     } else {
-      btn.className = 'px-2.5 py-1 rounded-lg font-mono text-[8.5px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 active:scale-95 transition shadow';
-      btn.textContent = '▶ ACTIVATE PREP';
+      btn.className = 'w-full py-3.5 rounded-2xl font-mono text-xs font-black bg-emerald-500/25 hover:bg-emerald-500/35 text-emerald-300 border border-emerald-500/50 active:scale-95 transition shadow-[0_8px_24px_rgba(16,185,129,0.25)] flex items-center justify-center gap-2';
+      if (lbl) lbl.textContent = '▶ ACTIVATE AUTO-PREP & AUTO-SHAKE';
+      if (dot) dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse';
       setMobileBridgeStatus(MobileBridgeState.connected, 'Standby');
     }
   }
+  if (typeof updateFloatingOrbUI === 'function') updateFloatingOrbUI();
 }
 window.toggleMobileRealAutoBet = toggleMobileRealAutoBet;
 window.toggleRealAutoBet = toggleMobileRealAutoBet;
@@ -5615,17 +6138,19 @@ window.copyMobileBridgeScript = copyMobileBridgeScript;
 function setAssistantBaseStake(amt) {
   const amount = Number(amt) || 2;
   MobileBridgeState.baseStake = amount;
+  MobileBridgeState.currentLevel = 0; // Fresh base stake starts at Level 0
   [1, 2, 5, 10, 50, 100].forEach(chip => {
     const btn = $(`chipBtn-${chip}`);
     if (btn) {
       if (chip === amount) {
-        btn.className = 'py-1 rounded-lg font-mono text-[9.5px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 active:scale-95';
+        btn.className = 'py-1 rounded-lg font-mono text-[8.5px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 active:scale-95 transition';
       } else {
-        btn.className = 'py-1 rounded-lg font-mono text-[9.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95';
+        btn.className = 'py-1 rounded-lg font-mono text-[8.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95 transition';
       }
     }
   });
   calculateAndRenderMobileStake();
+  if (typeof updateFloatingOrbUI === 'function') updateFloatingOrbUI();
   if (typeof playSoundEffect === 'function') playSoundEffect('click');
 }
 window.setAssistantBaseStake = setAssistantBaseStake;
@@ -5878,114 +6403,350 @@ function checkAndSendBestTimeNotification(winRate, wins, total, tf) {
 }
 window.checkAndSendBestTimeNotification = checkAndSendBestTimeNotification;
 
-// ── 30. Floating AssistiveTouch Circle Assistant & Modal Hub ──────────────────
+// ── 30. Floating AssistiveTouch Circle Assistant & Draggable/Resizable Box Hub ──────────
 let _assistantModalClosing = false;
+let _assistantBoxPos = null;
+let _assistantBoxSize = null;
+
+// Apple Liquid Glass size presets
+const ASSISTANT_SIZE_PRESETS = [
+  { name: 'compact', width: 230, height: 280 },
+  { name: 'normal',  width: 275, height: 360 },
+  { name: 'large',   width: 325, height: 440 }
+];
+
+function cycleAssistantBoxSizePreset(e) {
+  if (e && e.stopPropagation) e.stopPropagation();
+  const sheet = document.getElementById('dhaniwinAssistantSheet');
+  if (!sheet) return;
+
+  const curW = sheet.offsetWidth || 275;
+  let nextPreset = ASSISTANT_SIZE_PRESETS[1]; // default to normal
+  if (curW < 250) {
+    nextPreset = ASSISTANT_SIZE_PRESETS[1]; // go normal
+  } else if (curW < 300) {
+    nextPreset = ASSISTANT_SIZE_PRESETS[2]; // go large
+  } else {
+    nextPreset = ASSISTANT_SIZE_PRESETS[0]; // go compact
+  }
+
+  const maxW = Math.max(200, window.innerWidth - 16);
+  const maxH = Math.max(220, window.innerHeight - 60);
+  const targetW = Math.min(maxW, nextPreset.width);
+  const targetH = Math.min(maxH, nextPreset.height);
+
+  sheet.style.transition = 'width 0.28s cubic-bezier(0.16, 1, 0.3, 1), height 0.28s cubic-bezier(0.16, 1, 0.3, 1), max-height 0.28s cubic-bezier(0.16, 1, 0.3, 1), transform 0.28s cubic-bezier(0.16, 1, 0.3, 1)';
+  sheet.style.width = `${targetW}px`;
+  sheet.style.height = `${targetH}px`;
+  sheet.style.maxHeight = `${targetH}px`;
+
+  // Make sure it doesn't overflow screen bounds
+  const rect = sheet.getBoundingClientRect();
+  let left = rect.left;
+  let top = rect.top;
+  if (left + targetW > window.innerWidth - 8) left = Math.max(8, window.innerWidth - targetW - 8);
+  if (top + targetH > window.innerHeight - 12) top = Math.max(50, window.innerHeight - targetH - 12);
+  sheet.style.left = `${left}px`;
+  sheet.style.top = `${top}px`;
+
+  _assistantBoxSize = { width: targetW, height: targetH };
+  _assistantBoxPos = { left, top };
+  try {
+    localStorage.setItem('dhaniwin_assistant_box_size', JSON.stringify(_assistantBoxSize));
+    localStorage.setItem('dhaniwin_assistant_box_pos', JSON.stringify(_assistantBoxPos));
+  } catch(err) {}
+}
+window.cycleAssistantBoxSizePreset = cycleAssistantBoxSizePreset;
 
 function toggleDhaniwinAssistantModal(show) {
   const modal = $('dhaniwinAssistantModal');
   const sheet = $('dhaniwinAssistantSheet');
-  if (!modal) return;
+  const orb = $('dhaniwinFloatingOrb');
+  if (!modal || !sheet) return;
 
   const isOpen = !modal.classList.contains('hidden') && modal.classList.contains('sheet-open') && modal.style.display !== 'none';
   const targetOpen = show === undefined ? !isOpen : Boolean(show);
 
   if (targetOpen) {
     _assistantModalClosing = false;
-    // Hide main menu bottom dock when opening floating ball assistant
-    if (typeof window._dockSetHidden === 'function') {
-      window._dockSetHidden(true);
+
+    // Restore saved custom size or fall back to responsive defaults
+    if (!_assistantBoxSize) {
+      try {
+        const rawSize = localStorage.getItem('dhaniwin_assistant_box_size');
+        if (rawSize) _assistantBoxSize = JSON.parse(rawSize);
+      } catch(e) {}
     }
+    const maxAvailableWidth = Math.max(200, window.innerWidth - 16);
+    const maxAvailableHeight = Math.max(220, window.innerHeight - 60);
+
+    const boxWidth = Math.min(maxAvailableWidth, Math.max(200, (_assistantBoxSize?.width || 270)));
+    const boxHeight = Math.min(maxAvailableHeight, Math.max(220, (_assistantBoxSize?.height || 360)));
+
+    sheet.style.width = `${boxWidth}px`;
+    sheet.style.height = `${boxHeight}px`;
+    sheet.style.maxHeight = `${boxHeight}px`;
+
+    // Position the box on the LEFT side of the screen as requested
+    const orbRect = orb ? orb.getBoundingClientRect() : { left: window.innerWidth - 76, top: window.innerHeight - 150, width: 62, height: 62 };
+
+    let targetLeft;
+    let targetTop;
+
+    if (_assistantBoxPos) {
+      targetLeft = Math.max(8, Math.min(window.innerWidth - boxWidth - 8, _assistantBoxPos.left));
+      targetTop = Math.max(50, Math.min(window.innerHeight - boxHeight - 14, _assistantBoxPos.top));
+    } else {
+      // Open on the LEFT side of the screen (left: 12px)
+      targetLeft = 12;
+      targetTop = Math.max(50, Math.min(window.innerHeight - boxHeight - 14, orbRect.top - 80));
+    }
+
+    // Set box position
+    sheet.style.left = `${targetLeft}px`;
+    sheet.style.top = `${targetTop}px`;
+    sheet.style.right = 'auto';
+    sheet.style.bottom = 'auto';
+
+    // Calculate morph origin from ball center (morphs from the ball and back to the ball)
+    const orbCenterX = orbRect.left + (orbRect.width || 62) / 2;
+    const orbCenterY = orbRect.top + (orbRect.height || 62) / 2;
+    const originX = orbCenterX - targetLeft;
+    const originY = orbCenterY - targetTop;
+    sheet.style.transformOrigin = `${originX}px ${originY}px`;
+
     modal.classList.remove('hidden');
-    modal.style.display = 'flex';
-    // Force browser reflow to guarantee the opening animation triggers
-    void modal.offsetWidth;
-    modal.classList.add('sheet-open');
-    if (sheet) {
-      sheet.style.transform = '';
-      sheet.scrollTop = 0;
+    modal.style.display = 'block';
+
+    // Morph the orb: fade and shrink smoothly as the box expands
+    if (orb) {
+      orb.style.transition = 'transform 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease';
+      orb.style.transform = 'scale(0.3)';
+      orb.style.opacity = '0';
+      orb.style.pointerEvents = 'none';
     }
+
+    // Force browser reflow to guarantee smooth animation
+    void sheet.offsetWidth;
+    modal.classList.add('sheet-open');
+
+    // Update mini road on open
+    const history = MobileState.historyByTf[MobileState.timeframe] || [];
+    renderAssistantMiniRoad(history);
   } else {
     if (_assistantModalClosing) return;
     _assistantModalClosing = true;
     modal.classList.remove('sheet-open');
-    if (sheet) {
-      sheet.style.transform = 'translateY(100%)';
+
+    // Restore orb: smooth morph back to full ball shape
+    if (orb) {
+      orb.style.pointerEvents = 'auto';
+      orb.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.24s ease';
+      orb.style.transform = 'scale(1)';
+      orb.style.opacity = '1';
     }
-    // Restore main menu dock when closing floating ball assistant
-    if (typeof window._dockSetHidden === 'function') {
-      window._dockSetHidden(false);
-    }
+
     setTimeout(() => {
       if (_assistantModalClosing) {
         modal.classList.add('hidden');
         modal.style.display = 'none';
-        if (sheet) sheet.style.transform = '';
         _assistantModalClosing = false;
       }
-    }, 320);
+    }, 280);
   }
 }
 window.toggleDhaniwinAssistantModal = toggleDhaniwinAssistantModal;
 
-// ── Initialize Bottom Sheet Wipe-Down Gesture & Prevent Pull-to-Refresh Reload ──
-function initDhaniwinAssistantSheetGesture() {
-  const modal = document.getElementById('dhaniwinAssistantModal');
+// ── Draggable & Resizable Box Setup: Users can freely move & resize the assistant box ──
+function initDhaniwinAssistantSheetDrag() {
+  const header = document.getElementById('assistantSheetHeader');
   const sheet = document.getElementById('dhaniwinAssistantSheet');
-  const grabArea = document.getElementById('dhaniwinGrabHandleArea');
-  if (!modal || !sheet) return;
+  if (!header || !sheet) return;
 
-  let startY = 0;
-  let currentY = 0;
-  let isDragging = false;
+  // Restore saved box position & size if present
+  try {
+    const rawPos = localStorage.getItem('dhaniwin_assistant_box_pos');
+    if (rawPos) _assistantBoxPos = JSON.parse(rawPos);
+    const rawSize = localStorage.getItem('dhaniwin_assistant_box_size');
+    if (rawSize) _assistantBoxSize = JSON.parse(rawSize);
+  } catch(e) {}
 
-  const onTouchStart = (e) => {
-    if (!e.touches || e.touches.length !== 1) return;
-    startY = e.touches[0].clientY;
-    currentY = startY;
-    isDragging = false;
+  // 1. HEADER DRAG LOGIC (Moving the box around)
+  let isDraggingBox = false;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let dragInitialLeft = 0;
+  let dragInitialTop = 0;
+
+  const onDragDown = (e) => {
+    // If user clicked buttons or resize handles, ignore header drag
+    if (e.target.closest('button, .assistant-resize-handle')) return;
+    isDraggingBox = true;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    dragStartX = clientX;
+    dragStartY = clientY;
+
+    const rect = sheet.getBoundingClientRect();
+    dragInitialLeft = rect.left;
+    dragInitialTop = rect.top;
+    sheet.style.transition = 'none';
   };
 
-  const onTouchMove = (e) => {
-    if (!e.touches || e.touches.length !== 1) return;
-    currentY = e.touches[0].clientY;
-    const dy = currentY - startY;
+  const onDragMove = (e) => {
+    if (!isDraggingBox) return;
+    if (e.cancelable) e.preventDefault();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const dx = clientX - dragStartX;
+    const dy = clientY - dragStartY;
 
-    // Pulling down when sheet is scrolled to top, or touching the top grab handle area
-    if (dy > 0 && (sheet.scrollTop <= 0 || (grabArea && grabArea.contains(e.target)))) {
-      // PREVENT BROWSER PULL-TO-REFRESH PAGE RELOAD
-      if (e.cancelable) e.preventDefault();
-      isDragging = true;
-      modal.classList.add('sheet-dragging');
-      sheet.style.transform = `translateY(${Math.max(0, dy)}px)`;
+    const boxWidth = sheet.offsetWidth || 270;
+    const boxHeight = sheet.offsetHeight || 360;
+    const newLeft = Math.max(8, Math.min(window.innerWidth - boxWidth - 8, dragInitialLeft + dx));
+    const newTop = Math.max(50, Math.min(window.innerHeight - boxHeight - 14, dragInitialTop + dy));
+
+    sheet.style.left = `${newLeft}px`;
+    sheet.style.top = `${newTop}px`;
+  };
+
+  const onDragUp = () => {
+    if (!isDraggingBox) return;
+    isDraggingBox = false;
+    sheet.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+    const rect = sheet.getBoundingClientRect();
+    _assistantBoxPos = { left: rect.left, top: rect.top };
+    try {
+      localStorage.setItem('dhaniwin_assistant_box_pos', JSON.stringify(_assistantBoxPos));
+    } catch(err) {}
+  };
+
+  header.addEventListener('touchstart', onDragDown, { passive: true });
+  window.addEventListener('touchmove', onDragMove, { passive: false });
+  window.addEventListener('touchend', onDragUp, { passive: true });
+
+  header.addEventListener('mousedown', onDragDown);
+  window.addEventListener('mousemove', onDragMove);
+  window.addEventListener('mouseup', onDragUp);
+
+  // 2. APPLE-LIKE INTERACTIVE RESIZE LOGIC (Touching in the edge or corner makes it bigger/smaller)
+  let isResizing = false;
+  let activeResizeDir = '';
+  let resizeStartX = 0;
+  let resizeStartY = 0;
+  let resizeStartW = 0;
+  let resizeStartH = 0;
+  let resizeStartL = 0;
+  let resizeStartT = 0;
+
+  const MIN_WIDTH = 200;
+  const MIN_HEIGHT = 220;
+
+  const onResizeStart = (dir, e) => {
+    isResizing = true;
+    activeResizeDir = dir;
+    sheet.classList.add('assistant-sheet-resizing');
+
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    resizeStartX = clientX;
+    resizeStartY = clientY;
+
+    const rect = sheet.getBoundingClientRect();
+    resizeStartW = rect.width;
+    resizeStartH = rect.height;
+    resizeStartL = rect.left;
+    resizeStartT = rect.top;
+
+    sheet.style.transition = 'none';
+    if (e.stopPropagation) e.stopPropagation();
+    if (e.cancelable) e.preventDefault();
+  };
+
+  const onResizeMove = (e) => {
+    if (!isResizing) return;
+    if (e.cancelable) e.preventDefault();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const dx = clientX - resizeStartX;
+    const dy = clientY - resizeStartY;
+
+    const maxWidth = window.innerWidth - 16;
+    const maxHeight = window.innerHeight - 60;
+
+    let newW = resizeStartW;
+    let newH = resizeStartH;
+    let newL = resizeStartL;
+    let newT = resizeStartT;
+
+    // Horizontal adjustments
+    if (activeResizeDir.includes('r')) {
+      newW = Math.max(MIN_WIDTH, Math.min(maxWidth - resizeStartL, resizeStartW + dx));
+    } else if (activeResizeDir.includes('l')) {
+      const prospectiveW = resizeStartW - dx;
+      if (prospectiveW >= MIN_WIDTH) {
+        newW = prospectiveW;
+        newL = Math.max(8, resizeStartL + dx);
+      } else {
+        newW = MIN_WIDTH;
+        newL = resizeStartL + (resizeStartW - MIN_WIDTH);
+      }
     }
-  };
 
-  const onTouchEnd = () => {
-    if (!isDragging) return;
-    modal.classList.remove('sheet-dragging');
-    const dy = currentY - startY;
-    isDragging = false;
-
-    // Threshold: swipe down more than 65px closes the sheet smoothly
-    if (dy > 65) {
-      toggleDhaniwinAssistantModal(false);
-    } else {
-      // Rebound / snap back to open position
-      sheet.style.transition = 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)';
-      sheet.style.transform = 'translateY(0)';
-      setTimeout(() => {
-        sheet.style.transition = '';
-        sheet.style.transform = '';
-      }, 260);
+    // Vertical adjustments
+    if (activeResizeDir.includes('b')) {
+      newH = Math.max(MIN_HEIGHT, Math.min(maxHeight - resizeStartT, resizeStartH + dy));
+    } else if (activeResizeDir.includes('t')) {
+      const prospectiveH = resizeStartH - dy;
+      if (prospectiveH >= MIN_HEIGHT) {
+        newH = prospectiveH;
+        newT = Math.max(50, resizeStartT + dy);
+      } else {
+        newH = MIN_HEIGHT;
+        newT = resizeStartT + (resizeStartH - MIN_HEIGHT);
+      }
     }
+
+    // Apply dimensions to widget
+    sheet.style.width = `${Math.round(newW)}px`;
+    sheet.style.height = `${Math.round(newH)}px`;
+    sheet.style.maxHeight = `${Math.round(newH)}px`;
+    sheet.style.left = `${Math.round(newL)}px`;
+    sheet.style.top = `${Math.round(newT)}px`;
   };
 
-  sheet.addEventListener('touchstart', onTouchStart, { passive: true });
-  sheet.addEventListener('touchmove', onTouchMove, { passive: false });
-  sheet.addEventListener('touchend', onTouchEnd, { passive: true });
-  sheet.addEventListener('touchcancel', onTouchEnd, { passive: true });
+  const onResizeEnd = () => {
+    if (!isResizing) return;
+    isResizing = false;
+    sheet.classList.remove('assistant-sheet-resizing');
+    sheet.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+
+    const rect = sheet.getBoundingClientRect();
+    _assistantBoxSize = { width: Math.round(rect.width), height: Math.round(rect.height) };
+    _assistantBoxPos = { left: Math.round(rect.left), top: Math.round(rect.top) };
+
+    try {
+      localStorage.setItem('dhaniwin_assistant_box_size', JSON.stringify(_assistantBoxSize));
+      localStorage.setItem('dhaniwin_assistant_box_pos', JSON.stringify(_assistantBoxPos));
+    } catch(err) {}
+  };
+
+  // Bind handles
+  const handles = sheet.querySelectorAll('.assistant-resize-handle');
+  handles.forEach(h => {
+    const dir = h.dataset.resize;
+    if (!dir) return;
+
+    h.addEventListener('touchstart', (e) => onResizeStart(dir, e), { passive: false });
+    h.addEventListener('mousedown', (e) => onResizeStart(dir, e));
+  });
+
+  window.addEventListener('touchmove', onResizeMove, { passive: false });
+  window.addEventListener('touchend', onResizeEnd, { passive: true });
+  window.addEventListener('mousemove', onResizeMove);
+  window.addEventListener('mouseup', onResizeEnd);
 }
-window.initDhaniwinAssistantSheetGesture = initDhaniwinAssistantSheetGesture;
+window.initDhaniwinAssistantSheetDrag = initDhaniwinAssistantSheetDrag;
 
 let _dhaniwinTrueFullscreen = false;
 function toggleDhaniWinTrueFullscreen() {
@@ -6017,7 +6778,10 @@ function updateFloatingOrbUI() {
   const orb = $('dhaniwinFloatingOrb');
   if (!orb) return;
 
-  const target = MobileState.activePrediction?.target || 'BIG';
+  const gate = MobileState.predictionGate || checkPredictionGateStatus(MobileState.timeframe, MobileState.historyByTf[MobileState.timeframe]);
+  const isGateReady = gate.ready;
+
+  const target = MobileState.activePrediction?.target || (isGateReady ? 'BIG' : (gate.mode === 'TESTING' ? 'BIG' : 'BIG'));
   const targetEl = $('floatingOrbTarget');
   const stakeEl = $('floatingOrbStake');
   const iconEl = $('floatingOrbIcon');
@@ -6026,13 +6790,19 @@ function updateFloatingOrbUI() {
   const dotEl = $('floatingOrbDot');
 
   if (targetEl) targetEl.textContent = target;
-  if (stakeEl) stakeEl.textContent = '₹' + MobileBridgeState.currentStake;
+  if (stakeEl) {
+    stakeEl.textContent = isGateReady ? ('₹' + MobileBridgeState.currentStake) : (gate.streak >= 2 ? `🔥 ${gate.streak}W` : ('₹' + MobileBridgeState.currentStake));
+  }
 
   let shadowColor = 'rgba(16,185,129,0.55)';
   let targetClass = 'text-amber-300';
   let icon = '🎯';
 
-  if (target === 'BIG') {
+  if (!isGateReady) {
+    targetClass = 'text-amber-300';
+    shadowColor = 'rgba(245,158,11,0.5)';
+    icon = '🧪';
+  } else if (target === 'BIG') {
     targetClass = 'text-amber-300';
     shadowColor = 'rgba(245,158,11,0.6)';
     icon = '▲';
@@ -6050,12 +6820,12 @@ function updateFloatingOrbUI() {
     icon = '🔴';
   }
 
-  if (targetEl) targetEl.className = `text-[8.5px] font-black font-mono leading-tight ${targetClass}`;
+  if (targetEl) targetEl.className = `text-[8px] font-black font-mono leading-tight ${targetClass}`;
   if (iconEl) iconEl.textContent = icon;
   if (ringEl) ringEl.style.boxShadow = `0 4px 24px ${shadowColor}`;
 
   if (pingEl && dotEl) {
-    if (MobileBridgeState.enabled) {
+    if (isGateReady) {
       pingEl.className = 'absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black animate-ping';
       dotEl.className = 'absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black';
     } else {
@@ -6090,12 +6860,10 @@ function setupFloatingOrb() {
   let startLeft = 0;
   let startTop = 0;
   let hasMoved = false;
-  let pointerDownTime = 0;
 
   function onPointerDown(e) {
     isDragging = true;
     hasMoved = false;
-    pointerDownTime = Date.now();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     startX = clientX;
@@ -6114,12 +6882,9 @@ function setupFloatingOrb() {
     const dx = clientX - startX;
     const dy = clientY - startY;
 
-    // Generous threshold (> 12px) to prevent finger micro-jitter from mistaking taps for drags
-    if (Math.abs(dx) > 12 || Math.abs(dy) > 12) {
+    // Small threshold (4px) to distinguish a crisp tap from an intentional move
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
       hasMoved = true;
-    }
-
-    if (hasMoved) {
       if (e.cancelable && e.preventDefault) e.preventDefault();
       const newLeft = Math.max(8, Math.min(window.innerWidth - 68, startLeft + dx));
       const newTop = Math.max(10, Math.min(window.innerHeight - 80, startTop + dy));
@@ -6130,23 +6895,15 @@ function setupFloatingOrb() {
     }
   }
 
-  let _orbLastTapTime = 0;
-  function triggerOrbOpen() {
-    const now = Date.now();
-    if (now - _orbLastTapTime < 350) return; // Prevent double firing from touch+synthetic click
-    _orbLastTapTime = now;
-    toggleDhaniwinAssistantModal(true);
-  }
-
   function onPointerUp(e) {
     if (!isDragging) return;
     isDragging = false;
     orb.style.transition = 'transform 0.2s ease, left 0.3s cubic-bezier(0.25, 1, 0.5, 1), top 0.3s cubic-bezier(0.25, 1, 0.5, 1)';
 
-    const elapsed = Date.now() - pointerDownTime;
-    if (!hasMoved || elapsed < 260) {
-      // Clean tap detected: open assistant modal sheet
-      triggerOrbOpen();
+    // Crisp single tap immediately toggles assistant modal without needing long-press
+    if (!hasMoved) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      toggleDhaniwinAssistantModal(true);
       return;
     }
 
@@ -6163,7 +6920,7 @@ function setupFloatingOrb() {
 
     try {
       localStorage.setItem('dhaniwin_orb_pos', JSON.stringify({ left: targetLeft, top: targetTop }));
-    } catch(e) {}
+    } catch(err) {}
   }
 
   orb.addEventListener('touchstart', onPointerDown, { passive: true });
@@ -6174,13 +6931,7 @@ function setupFloatingOrb() {
   window.addEventListener('mousemove', onPointerMove);
   window.addEventListener('mouseup', onPointerUp);
 
-  // Direct click / enter key fallback
-  orb.addEventListener('click', (e) => {
-    if (!hasMoved) {
-      triggerOrbOpen();
-    }
-  });
-
+  initDhaniwinAssistantSheetDrag();
   updateFloatingOrbUI();
 }
 window.setupFloatingOrb = setupFloatingOrb;
@@ -6223,8 +6974,7 @@ function initMobileApp() {
   // Restore settings
   try {
     MobileState.soundEnabled = localStorage.getItem('quant_sound') !== '0';
-    const soundCb = $('settingSoundEffects');
-    if (soundCb) soundCb.checked = MobileState.soundEnabled;
+    updateSoundMuteUI();
     MobileState.hapticsEnabled = localStorage.getItem('quant_haptics') !== '0';
     MobileState.autoMode = localStorage.getItem('quant_arena_auto') !== '0';
     MobileState.chartMode = localStorage.getItem('quant_chart_mode') || 'candles';

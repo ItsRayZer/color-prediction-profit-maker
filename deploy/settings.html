@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <link rel="icon" type="image/jpeg" href="logo_0101.jpg">
   <title>01:01</title>
   <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -20,30 +19,30 @@
        ========================================================================== */
     :root {
       --ios-amoled-bg: #000000;
-      --ios-surface-glass: rgba(28, 28, 30, 0.72);
-      --ios-surface-pressed: rgba(44, 44, 46, 0.65);
-      --ios-hairline: rgba(255, 255, 255, 0.08);
-      --ios-separator: rgba(84, 84, 88, 0.36);
+      --ios-surface-glass: rgba(18, 18, 20, 0.88);
+      --ios-surface-pressed: rgba(32, 32, 36, 0.75);
+      --ios-hairline: rgba(255, 255, 255, 0.10);
+      --ios-separator: rgba(255, 255, 255, 0.08);
       
-      /* Apple Standard System Colors (iOS 18 Dark Mode) */
-      --apple-blue: #007aff;
-      --apple-blue-tint: #0a84ff;
-      --apple-green: #34c759;
-      --apple-green-tint: #30d158;
-      --apple-indigo: #5856d6;
-      --apple-indigo-tint: #5e5ce6;
-      --apple-orange: #ff9500;
-      --apple-orange-tint: #ff9f0a;
-      --apple-pink: #ff2d55;
-      --apple-pink-tint: #ff375f;
-      --apple-purple: #af52de;
-      --apple-purple-tint: #bf5af2;
-      --apple-red: #ff3b30;
+      /* Pure AMOLED Black & White Minimalist Palette */
+      --apple-blue: #ffffff;
+      --apple-blue-tint: #ffffff;
+      --apple-green: #ffffff;
+      --apple-green-tint: #ffffff;
+      --apple-indigo: #ffffff;
+      --apple-indigo-tint: #ffffff;
+      --apple-orange: #ffffff;
+      --apple-orange-tint: #ffffff;
+      --apple-pink: #ffffff;
+      --apple-pink-tint: #ffffff;
+      --apple-purple: #ffffff;
+      --apple-purple-tint: #ffffff;
+      --apple-red: #ffffff;
       --apple-red-tint: #ff453a;
-      --apple-teal: #30b0c7;
-      --apple-teal-tint: #64d2ff;
-      --apple-yellow: #ffcc00;
-      --apple-yellow-tint: #ffd60a;
+      --apple-teal: #ffffff;
+      --apple-teal-tint: #ffffff;
+      --apple-yellow: #ffffff;
+      --apple-yellow-tint: #ffffff;
       --apple-gray: #8e8e93;
       --apple-gray-2: #636366;
       --apple-gray-3: #48484a;
@@ -53,9 +52,9 @@
 
       /* Labels */
       --label-primary: #ffffff;
-      --label-secondary: rgba(235, 235, 245, 0.60);
-      --label-tertiary: rgba(235, 235, 245, 0.30);
-      --label-quaternary: rgba(235, 235, 245, 0.18);
+      --label-secondary: rgba(255, 255, 255, 0.65);
+      --label-tertiary: rgba(255, 255, 255, 0.35);
+      --label-quaternary: rgba(255, 255, 255, 0.18);
     }
 
     * {
@@ -825,10 +824,6 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
   </style>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="axofy-theme.css">
 </head>
 
 <body>
@@ -841,16 +836,13 @@
     <span id="appleToastText">Settings updated</span>
   </div>
 
-  <!-- STICKY TOP NAVIGATION BAR (Back & Done) -->
-  <header id="iosHeader" class="ios-navbar">
-    <a href="/mobile" onclick="if (window.history.length > 1) { event.preventDefault(); window.history.back(); }" class="ios-nav-back">
-      <i class="fa-solid fa-chevron-left" style="font-size: 15px;"></i>
-      <span>Back</span>
+  <!-- STICKY TOP NAVIGATION BAR (Minimalist Liquid Glass Circular Back Button Only) -->
+  <header id="iosHeader" class="ios-navbar" style="background: rgba(0,0,0,0.85); backdrop-filter: blur(28px); border-bottom: 0.5px solid rgba(255,255,255,0.08);">
+    <a href="/mobile" onclick="if (window.history.length > 1) { event.preventDefault(); window.history.back(); }" class="ios-nav-back" style="color: #ffffff; background: rgba(255, 255, 255, 0.08); border: 0.5px solid rgba(255, 255, 255, 0.16); width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(24px); box-shadow: 0 4px 16px rgba(0,0,0,0.5); text-decoration: none;" title="Back" aria-label="Back">
+      <i class="fa-solid fa-arrow-left" style="font-size: 14px;"></i>
     </a>
-    <span class="ios-nav-title">Settings</span>
-    <button onclick="if (window.history.length > 1) { window.history.back(); } else { window.location.href='/mobile'; }" class="ios-nav-action" style="font-weight: 600;">
-      Done
-    </button>
+    <span class="ios-nav-title" style="font-size: 16px; font-weight: 700; color: #ffffff; letter-spacing: -0.2px;">Settings</span>
+    <div style="width: 36px;"></div>
   </header>
 
   <main class="ios-main-content">
@@ -987,6 +979,21 @@
             </div>
           </div>
           <span class="ios-tag-micro tag-neutral">VERIFIED</span>
+        </div>
+
+        <!-- DhaniWin Bridge diagnostic (orb-bridge user state) -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-green">
+              <i class="fa-solid fa-link"></i>
+            </div>
+            <div>
+              <div class="ios-label-primary">DhaniWin Bridge</div>
+              <div class="ios-label-secondary" id="bridgeDiagLine">Checking login…</div>
+              <div class="ios-label-secondary" id="bridgeDiagDetail">Balance — · Source — · Mode — · Sync —</div>
+            </div>
+          </div>
+          <span class="ios-tag-micro tag-neutral" id="bridgeDiagTag">…</span>
         </div>
 
       </div>
@@ -2349,7 +2356,7 @@
       const ep1mInput = document.getElementById('endpointInput1m');
       const btn = document.getElementById('btnVerifyAndSaveWebsite');
 
-      const targetSite = siteInput ? siteInput.value.trim() : '';
+      let targetSite = siteInput ? siteInput.value.trim() : '';
       const targetEp30 = ep30Input ? ep30Input.value.trim() : '';
       const targetEp1m = ep1mInput ? ep1mInput.value.trim() : '';
 
@@ -2358,75 +2365,40 @@
         return;
       }
 
-      if (!targetSite) {
-        showWebsiteNotice('error', '⚠️ Please enter the platform website URL.');
-        return;
-      }
-      if (!targetEp30) {
-        showWebsiteNotice('error', '⚠️ To change the default website, you must provide the matching API endpoint.');
-        return;
-      }
-
-      if (!targetSite.startsWith('http://') && !targetSite.startsWith('https://')) {
-        showWebsiteNotice('error', '⚠️ Website URL must start with http:// or https://');
-        return;
-      }
-      if (!targetEp30.startsWith('http://') && !targetEp30.startsWith('https://')) {
-        showWebsiteNotice('error', '⚠️ API Endpoint URL must start with http:// or https://');
-        return;
+      if (targetSite && !targetSite.startsWith('http://') && !targetSite.startsWith('https://')) {
+        targetSite = 'https://' + targetSite;
+        if (siteInput) siteInput.value = targetSite;
       }
 
       if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Testing API & Verifying...';
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Saving Platform URL...';
       }
-      showWebsiteNotice('info', '🔍 Testing live draw connection to custom API endpoint...');
 
       try {
-        const testUrl = targetEp30 + (targetEp30.includes('?') ? '&' : '?') + 'pageNo=1&_=' + Date.now();
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 6000);
-        const resp = await fetch(testUrl, { signal: ctrl.signal });
-        clearTimeout(timer);
-
-        if (!resp.ok) {
-          throw new Error('Server responded with HTTP status ' + resp.status);
+        // Save the custom website URL immediately
+        if (targetSite) {
+          localStorage.setItem('custom_default_website_url', targetSite);
         }
 
-        const data = await resp.json();
-        let list = [];
-        if (Array.isArray(data)) list = data;
-        else if (data?.data?.list) list = data.data.list;
-        else if (data?.list) list = data.list;
-        else if (typeof data === 'object') list = Object.values(data).filter(v => v && typeof v === 'object');
-
-        if (list.length === 0) {
-          throw new Error('API returned 0 round records / empty issue data');
+        // If user also provided custom API endpoints, save them; otherwise preserve default lottery history
+        if (targetEp30) {
+          const endpoints = { '30s': targetEp30 };
+          if (targetEp1m) endpoints['1m'] = targetEp1m;
+          localStorage.setItem('quant_custom_api_endpoints', JSON.stringify(endpoints));
         }
-
-        // VERIFICATION SUCCESSFUL!
-        localStorage.setItem('custom_default_website_url', targetSite);
-        const endpoints = { '30s': targetEp30 };
-        if (targetEp1m) endpoints['1m'] = targetEp1m;
-        localStorage.setItem('quant_custom_api_endpoints', JSON.stringify(endpoints));
 
         loadDefaultWebsiteUI();
-        showWebsiteNotice('success', '🎉 Verification Successful! ' + list.length + ' live round records verified. Custom platform set as default on Home tab.');
-        showToast('Custom website and API verified successfully!');
-
+        showWebsiteNotice('success', '✓ Custom platform saved successfully! Game view updated while preserving lottery history.');
+        showToast('Custom game URL applied successfully!');
       } catch (err) {
-        console.error('[Website Verify Error]', err);
-        // Auto-revert to old default website if error / no data
-        localStorage.removeItem('custom_default_website_url');
-        localStorage.removeItem('quant_custom_api_endpoints');
-        loadDefaultWebsiteUI();
-
-        showWebsiteNotice('error', '❌ Verification Failed: ' + (err.message || 'API endpoint did not return valid data') + '. Automatically reverted to default DhaniWin platform.');
-        showToast('Verification failed: Reverted to default DhaniWin', false);
+        console.error('[Website Save Error]', err);
+        showWebsiteNotice('error', '❌ Could not save custom URL: ' + err.message);
+        showToast('Failed to save URL', false);
       } finally {
         if (btn) {
           btn.disabled = false;
-          btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Verify & Set As Default Website';
+          btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Save Custom Game URL';
         }
       }
     }
@@ -2493,33 +2465,33 @@
     <!-- Group 1: Default Platform Website -->
     <div class="setting-category" style="margin-top: 10px;">
       <div class="ios-group-title">
-        <span>Home Screen Default Website</span>
+        <span>Custom Game Platform Website</span>
         <span id="badgeCurrentSite" class="ios-tag-micro tag-neutral">LOCKED DEFAULT</span>
       </div>
       <div class="ios-inset-group">
         <div class="ios-row-stack">
           <div class="ios-endpoint-header">
-            <span class="ios-label-primary">Embedded Web URL</span>
+            <span class="ios-label-primary">Game / Platform Web URL</span>
           </div>
           <input type="url" id="customWebsiteUrlInput" class="ios-endpoint-input" placeholder="https://dhaniwin44.com/" value="">
         </div>
       </div>
       <div class="ios-group-footer">
-        This replaces the default DhaniWin website embedded on the Home tab. To change this, you must also provide the matching API endpoint below so 01:01 can pull live prediction rounds.
+        Enter your platform or mirror domain. Lottery results and prediction history will remain active.
       </div>
     </div>
 
-    <!-- Group 2: Matching Custom API Endpoints -->
+    <!-- Group 2: Matching Custom API Endpoints (Optional) -->
     <div class="setting-category">
       <div class="ios-group-title">
-        <span>Required Custom API Endpoint</span>
-        <span class="ios-tag-micro tag-neutral">WinGo Draw JSON</span>
+        <span>Custom Draw API Endpoint (Optional)</span>
+        <span class="ios-tag-micro tag-neutral">Optional</span>
       </div>
       <div class="ios-inset-group">
         <!-- 30s Endpoint -->
         <div class="ios-row-stack">
           <div class="ios-endpoint-header">
-            <span class="ios-label-primary">30s Interval Draw Endpoint (Required)</span>
+            <span class="ios-label-primary">30s Interval Draw Endpoint</span>
             <span id="badgeEndpoint30s" class="ios-tag-micro tag-neutral">DEFAULT</span>
           </div>
           <input type="url" id="endpointInput30s" class="ios-endpoint-input" placeholder="https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json">
@@ -2528,14 +2500,14 @@
         <!-- 1m Endpoint -->
         <div class="ios-row-stack">
           <div class="ios-endpoint-header">
-            <span class="ios-label-primary">1m Interval Draw Endpoint (Optional)</span>
+            <span class="ios-label-primary">1m Interval Draw Endpoint</span>
             <span id="badgeEndpoint1m" class="ios-tag-micro tag-neutral">DEFAULT</span>
           </div>
           <input type="url" id="endpointInput1m" class="ios-endpoint-input" placeholder="https://draw.ar-lottery01.com/WinGo/WinGo_1M/GetHistoryIssuePage.json">
         </div>
       </div>
       <div class="ios-group-footer">
-        Verification tests whether the API endpoint returns live round issue data. If the API returns no data or fails, 01:01 will automatically revert to default DhaniWin.
+        Leave blank to keep existing high-precision lottery history feed.
       </div>
     </div>
 
@@ -2546,14 +2518,95 @@
     <div style="padding: 0 16px; display: flex; flex-direction: column; gap: 10px;">
       <button type="button" id="btnVerifyAndSaveWebsite" onclick="verifyAndSaveCustomWebsite()" class="ios-action-btn primary" style="width: 100%; justify-content: center; height: 44px; font-size: 13.5px; border-radius: 14px;">
         <i class="fa-solid fa-circle-check"></i>
-        <span>Verify &amp; Set As Default Website</span>
+        <span>Save Custom Game URL</span>
       </button>
 
       <button type="button" onclick="restoreDefaultWebsiteAndApi()" class="ios-action-btn secondary" style="width: 100%; justify-content: center; height: 40px; font-size: 12.5px; border-radius: 14px;">
         <i class="fa-solid fa-rotate-left"></i>
-        <span>Restore Original DhaniWin Default</span>
+        <span>Restore Original Default</span>
       </button>
     </div>
   </div>
+
+  <script>
+    // ── DhaniWin Bridge diagnostic ──────────────────────────────────
+    // Shows the login + exact-balance system working, from the same
+    // sources orb-bridge uses: the bridge's published user state on
+    // BroadcastChannel('dhaniwin_quant_channel'), the RTDB /user_state
+    // node, and the local snapshot orb-bridge persists on the app page
+    // (o101_bridge_state_v1). VERIFIED means: state <=60s old,
+    // isLoggedIn=true, apiProven=true (the bridge proved the session
+    // from DhaniWin's own authenticated wallet API traffic).
+    (function initBridgeDiagnostic() {
+      var RTDB = 'https://zer0one-376d1-default-rtdb.asia-southeast1.firebasedatabase.app';
+      var startedAt = Date.now();
+      var last = null;       // { state, receivedAt }
+      var lastLogoutAt = 0;
+
+      function accept(st) {
+        if (!st || typeof st !== 'object' || typeof st.isLoggedIn !== 'boolean' && st.balance === undefined && st.apiProven === undefined) return;
+        last = { state: st, receivedAt: Date.now() };
+      }
+      try {
+        var raw = localStorage.getItem('o101_bridge_state_v1');
+        if (raw) {
+          var snap = JSON.parse(raw);
+          if (snap && snap.updatedAt && Date.now() - snap.updatedAt < 120000) {
+            accept({ isLoggedIn: snap.state === 'VERIFIED' || snap.state === 'NOT_LOGGED_IN' ? snap.state === 'VERIFIED' : null,
+                     balance: snap.balance, balanceSource: snap.balanceSource,
+                     apiProven: snap.state === 'VERIFIED', fetchMode: snap.fetchMode });
+            if (snap.state === 'NOT_LOGGED_IN') lastLogoutAt = snap.updatedAt;
+          }
+        }
+      } catch (e) {}
+      try {
+        if (typeof BroadcastChannel !== 'undefined') {
+          var ch = new BroadcastChannel('dhaniwin_quant_channel');
+          ch.onmessage = function (ev) {
+            var m = ev && ev.data;
+            if (!m || typeof m !== 'object') return;
+            if (m.type === 'DHANIWIN_USER_STATE') accept(m);
+            if (m.type === 'DHANIWIN_USER_LOGGED_OUT' || m.type === 'DHANIWIN_SESSION_OUT') { lastLogoutAt = Date.now(); accept({ isLoggedIn: false }); }
+          };
+        }
+      } catch (e) {}
+      function poll() {
+        try {
+          fetch(RTDB + '/user_state.json', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) { if (d) accept(d); }).catch(function () {});
+        } catch (e) {}
+      }
+      poll();
+      setInterval(poll, 5000);
+
+      function render() {
+        var tag = document.getElementById('bridgeDiagTag');
+        var line = document.getElementById('bridgeDiagLine');
+        var detail = document.getElementById('bridgeDiagDetail');
+        if (!tag || !line || !detail) return;
+        var now = Date.now();
+        var st = last ? last.state : null;
+        var ageMs = last ? Math.max(0, now - last.receivedAt) : null;
+        var ageText = ageMs !== null ? Math.round(ageMs / 1000) + 's ago' : 'never';
+        var state = 'UNKNOWN';
+        if (st && ageMs <= 60000 && st.isLoggedIn === true && st.apiProven === true) state = 'VERIFIED';
+        else if (st && st.isLoggedIn === false) state = 'NOT_LOGGED_IN';
+        else if (lastLogoutAt && (!st || lastLogoutAt >= last.receivedAt)) state = 'NOT_LOGGED_IN';
+        else if (!last && now - startedAt >= 15000) state = 'NO_SIGNAL';
+        var bal = st && st.balance !== null && st.balance !== undefined && isFinite(Number(st.balance))
+          ? '₹' + Number(st.balance).toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '—';
+        var src = st && st.balanceSource === 'api' ? 'exact · API' : st && st.balanceSource === 'dom' ? 'from page' : '—';
+        var mode = st && st.fetchMode ? st.fetchMode : '—';
+        tag.textContent = state === 'VERIFIED' ? 'VERIFIED' : state === 'NOT_LOGGED_IN' ? 'LOGGED OUT' : state === 'NO_SIGNAL' ? 'NO SIGNAL' : 'CHECKING';
+        tag.className = 'ios-tag-micro ' + (state === 'VERIFIED' ? 'tag-active' : state === 'NOT_LOGGED_IN' ? 'tag-warning' : 'tag-neutral');
+        line.textContent = state === 'VERIFIED' ? 'Login verified · ' + bal + ' (' + src + ') · sync ' + ageText
+          : state === 'NOT_LOGGED_IN' ? 'Not logged in on DhaniWin'
+          : state === 'NO_SIGNAL' ? 'No bridge signal — open DhaniWin with the bridge active'
+          : 'Checking login… waiting for the bridge\'s API-proven user state';
+        detail.textContent = 'Balance ' + bal + ' · Source ' + src + ' · Mode ' + mode + ' · Sync ' + ageText;
+      }
+      render();
+      setInterval(render, 1000);
+    })();
+  </script>
 </body>
 </html>

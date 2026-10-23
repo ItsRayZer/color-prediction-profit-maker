@@ -7,7 +7,12 @@
  *     listener + MobileBridgeState poll consume.
  *  B. NO_SIGNAL: no sync of any kind 15s after load must say the
  *     bridge is silent instead of "Checking login…" forever.
- *  C. Smart Ball mini window wiring (mobile.html + orb-bridge).
+ *  C. Smart Ball mini window wiring — SUPERSEDED at the 2026-10-24
+ *     rebase: the owner's live app has the real floating ball window,
+ *     which replaces the mini window (section C tests below now pin
+ *     the live window + its governance wiring instead).
+ *  D. REBASE v2 login rule: legacy USER_SYNC traffic can never verify;
+ *     only the bridge's API-proven DHANIWIN_USER_STATE can.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -54,28 +59,42 @@ test('signalFromBridgeMessage: non-login traffic is ignored', () => {
   assert.equal(signalFromBridgeMessage({}), null);
 });
 
-test('channel path: USER_SYNC messages through the merge verify with two kinds', () => {
+// The runtime feed: bridgeState signals go to observeBridgeState,
+// legacy signals to observe — exactly what orb-bridge's feed does.
+function makeFeed(v) {
+  return (msg, t) => {
+    const s = signalFromBridgeMessage(msg);
+    if (!s) return;
+    if (s.bridgeState) v.observeBridgeState(s.bridgeState, t);
+    else v.observe(s, t);
+  };
+}
+
+test('channel path: USER_SYNC traffic can never verify under the v2 rule; USER_STATE can', () => {
   // This simulates the BroadcastChannel listener: raw bridge messages
-  // -> signalFromBridgeMessage -> LoginVerifier.observe.
+  // -> signalFromBridgeMessage -> LoginVerifier.
   const v = new LoginVerifier({ startedAt: T0 });
-  const feed = msg => { const s = signalFromBridgeMessage(msg); if (s) v.observe(s, T0); };
-  feed({ type: 'DHANIWIN_BRIDGE_HANDSHAKE', url: 'https://dhaniwin44.com/' });
+  const feed = makeFeed(v);
+  feed({ type: 'DHANIWIN_BRIDGE_HANDSHAKE', url: 'https://dhaniwin44.com/' }, T0);
   assert.equal(v.status(T0).state, LOGIN_STATES.UNKNOWN, 'handshake is not a login signal');
-  feed({ type: 'DHANIWIN_USER_SYNC', isLoggedIn: true, balance: null, token: null, url: 'https://dhaniwin44.com/WinGo' });
-  assert.equal(v.status(T0).state, LOGIN_STATES.UNKNOWN, 'bridge flag alone is still one kind');
-  feed({ type: 'DHANIWIN_USER_SYNC', isLoggedIn: true, balance: 432.5, token: null, url: 'https://dhaniwin44.com/WinGo' });
+  feed({ type: 'DHANIWIN_USER_SYNC', isLoggedIn: true, balance: null, token: null, url: 'https://dhaniwin44.com/WinGo' }, T0);
+  assert.equal(v.status(T0).state, LOGIN_STATES.UNKNOWN, 'bridge flag alone is not proof');
+  feed({ type: 'DHANIWIN_USER_SYNC', isLoggedIn: true, balance: 432.5, token: 'a.b.c', url: 'https://dhaniwin44.com/WinGo' }, T0);
+  assert.equal(v.status(T0).state, LOGIN_STATES.UNKNOWN, 'even flag + balance + token from legacy syncs is not API proof');
+  feed({ type: 'DHANIWIN_USER_STATE', isLoggedIn: true, balance: 432.5, balanceSource: 'api', apiProven: true, fetchMode: 'active', userId: '998877', ts: T0, seq: 7 }, T0);
   const s = v.status(T0);
-  assert.equal(s.state, LOGIN_STATES.VERIFIED, 'flag + fresh balance from channel syncs verifies');
+  assert.equal(s.state, LOGIN_STATES.VERIFIED, 'the API-proven published user state verifies');
   assert.equal(s.balance, 432.5);
+  assert.equal(s.fetchMode, 'active');
 });
 
 test('channel path: logout message through the merge drops to NOT_LOGGED_IN', () => {
   const v = new LoginVerifier({ startedAt: T0 });
-  const feed = (msg, t) => { const s = signalFromBridgeMessage(msg); if (s) v.observe(s, t); };
-  feed({ type: 'DHANIWIN_USER_SYNC', isLoggedIn: true, balance: 100, token: 'a.b.c', url: 'https://dhaniwin44.com/' }, T0);
+  const feed = makeFeed(v);
+  feed({ type: 'DHANIWIN_USER_STATE', isLoggedIn: true, balance: 100, balanceSource: 'api', apiProven: true, fetchMode: 'intercept', ts: T0, seq: 1 }, T0);
   assert.equal(v.status(T0).state, LOGIN_STATES.VERIFIED);
   feed({ type: 'DHANIWIN_USER_LOGGED_OUT', url: 'https://dhaniwin44.com/login' }, T0 + 1000);
-  assert.equal(v.status(T0 + 1000).state, LOGIN_STATES.NOT_LOGGED_IN);
+  assert.equal(v.status(T0 + 1000).state, LOGIN_STATES.NOT_LOGGED_IN, 'a newer explicit logout beats the still-fresh verified state');
 });
 
 // ── B. NO_SIGNAL ────────────────────────────────────────────────────
@@ -101,18 +120,22 @@ test('LoginVerifier: any observation permanently ends the NO_SIGNAL possibility'
 test('LoginVerifier: sync age is reported for the evidence line', () => {
   const v = new LoginVerifier({ startedAt: T0 });
   assert.equal(v.status(T0).syncAgeMs, null, 'no sync yet: no age');
-  v.observe({ isLoggedIn: true, balance: 432 }, T0 + 1000);
+  v.observeBridgeState({ type: 'DHANIWIN_USER_STATE', isLoggedIn: true, balance: 432, balanceSource: 'api', apiProven: true, fetchMode: 'intercept', ts: T0 + 1000, seq: 1 }, T0 + 1000);
   const s = v.status(T0 + 9000);
   assert.equal(s.syncAgeMs, 8000);
+  assert.equal(s.stateAgeMs, 8000, 'bridge-state age is reported separately from legacy sync age');
   assert.equal(s.state, LOGIN_STATES.VERIFIED);
 });
 
 // ── Evidence line text ─────────────────────────────────────────────
-test('loginEvidenceLine: verified shows balance and sync age', () => {
-  const line = loginEvidenceLine({ state: LOGIN_STATES.VERIFIED, balance: 432, syncAgeMs: 8000, everSynced: true });
+test('loginEvidenceLine: verified shows balance, source label and sync age', () => {
+  const line = loginEvidenceLine({ state: LOGIN_STATES.VERIFIED, balance: 432, balanceSource: 'api', stateAgeMs: 8000, syncAgeMs: 8000, everSynced: true });
   assert.ok(line.startsWith('Login verified'));
   assert.ok(line.includes('₹432'), line);
+  assert.ok(line.includes('exact · API'), line);
   assert.ok(line.includes('sync 8s ago'), line);
+  const domLine = loginEvidenceLine({ state: LOGIN_STATES.VERIFIED, balance: 432, balanceSource: 'dom', stateAgeMs: 8000, everSynced: true });
+  assert.ok(domLine.includes('from page'), domLine, 'a DOM-sourced balance is labelled, never passed off as exact');
 });
 
 test('loginEvidenceLine: NO_SIGNAL names the missing bridge, not "checking"', () => {
@@ -143,7 +166,11 @@ test('signalFromBridgeStateSnapshot: never fabricates a negative or a balance', 
   assert.equal(loggedOut.sig.isLoggedIn, null, 'poll path is positive-only: false from state is NOT an explicit negative');
 });
 
-test('poll path: a changed snapshot feeds the verifier to VERIFIED', () => {
+test('poll path: app-state snapshots feed evidence but can never verify (v2 rule)', () => {
+  // PORTED at the rebase: the snapshot merge itself is unchanged
+  // (signature-gated, positive-only — polling still cannot fake
+  // freshness), but what it feeds is now evidence only. Verification
+  // comes exclusively from the bridge's published user state.
   const v = new LoginVerifier({ startedAt: T0 });
   let last = null;
   const poll = (snap, t) => {
@@ -157,37 +184,36 @@ test('poll path: a changed snapshot feeds the verifier to VERIFIED', () => {
   assert.equal(v.status(T0).state, LOGIN_STATES.UNKNOWN);
   assert.equal(poll({ userBalance: 0, authToken: null, loggedIn: null }, T0 + 2000), 'skipped', 'static snapshot is not re-fed');
   assert.equal(poll({ userBalance: 432.5, authToken: 'a.b.c', loggedIn: true }, T0 + 4000), 'fed');
-  assert.equal(v.status(T0 + 4000).state, LOGIN_STATES.VERIFIED);
-  // Stale check: a repeated identical poll must NOT extend freshness.
-  assert.equal(poll({ userBalance: 432.5, authToken: 'a.b.c', loggedIn: true }, T0 + 4000 + 65000), 'skipped');
-  assert.equal(v.status(T0 + 4000 + 65000).state, LOGIN_STATES.VERIFIED, 'at +65s only the balance kind (60s) expired; flag+token (90s) still count — the two-signal rule is unchanged');
+  assert.equal(v.status(T0 + 4000).state, LOGIN_STATES.UNKNOWN, 'app-state wealth of signals is still not API proof');
+  assert.ok(v.status(T0 + 4000).evidence.length >= 1, 'the snapshot signals are carried as evidence');
   assert.equal(poll({ userBalance: 432.5, authToken: 'a.b.c', loggedIn: true }, T0 + 4000 + 95000), 'skipped');
-  assert.equal(v.status(T0 + 4000 + 95000).state, LOGIN_STATES.UNKNOWN, 'past every freshness window the state decays: polling never faked a refresh');
+  assert.equal(v.status(T0 + 4000 + 95000).state, LOGIN_STATES.UNKNOWN, 'past every freshness window nothing lingers: polling never faked a refresh');
 });
 
-// ── C. Mini window wiring ──────────────────────────────────────────
-test('Mini window: mobile.html carries the window, hidden at start, with all controls', () => {
+// ── C. Live ball window (rebase) ───────────────────────────────────
+test('Live ball window: mobile.html carries the owner\'s real floating window', () => {
+  // The round-2 mini window is GONE: the base swap restored the live
+  // app's own floating assistant window, byte-exact except the one
+  // slim bridge status line.
   const mobile = fs.readFileSync('mobile.html', 'utf8');
-  const win = mobile.match(/<div id="smartBallWindow"[^>]*>/);
-  assert.ok(win, '#smartBallWindow exists');
-  assert.ok(win[0].includes('hidden'), '#smartBallWindow starts hidden');
-  for (const id of ['smartBallWindowHeader', 'smartBallLoginDot', 'smartBallExpandBtn', 'smartBallCloseBtn', 'smartBallCall', 'smartBallReason', 'smartBallLadder', 'smartBallPnl', 'smartBallLoginLine', 'smartBallResizeGrip']) {
-    assert.ok(mobile.includes(`id="${id}"`), `mobile.html has #${id}`);
+  assert.ok(!mobile.includes('id="smartBallWindow"'), 'round-2 mini window is removed');
+  assert.ok(mobile.includes('id="dhaniwinAssistantModal"'), 'live assistant modal present');
+  assert.ok(mobile.includes('id="dhaniwinAssistantSheet"'), 'live floating sheet present');
+  assert.ok(mobile.includes('assistant-resize-handle'), 'live window keeps its resize handles');
+  for (const id of ['mobileWebTargetDisplay', 'assistantConfBadge', 'assistantBaseStakeDisplay', 'mobileWebStakeDisplay', 'assistantPeriodNum', 'assistantCountdown', 'assistantMiniRoad', 'mobileWebLevelBadge']) {
+    assert.ok(mobile.includes(`id="${id}"`), `live window has #${id}`);
   }
-  // The window shows ONLY the governed essentials — no ranking/menu clones.
-  const slice = mobile.slice(mobile.indexOf('id="smartBallWindow"'), mobile.indexOf('id="dhaniwinAssistantModal"'));
-  assert.ok(!slice.includes('bridgeRankingList'), 'mini window stays minimal');
+  assert.ok(mobile.includes('id="bridgeStatusLine"'), 'the one slim bridge status line was added inside the window');
 });
 
-test('Mini window: orb-bridge routes ball taps to it and exposes openMini/closeMini', () => {
+test('Live ball window: orb-bridge drives its prediction area, mini routing is gone', () => {
   const bridge = fs.readFileSync('systems/orb-bridge.js', 'utf8');
-  assert.ok(bridge.includes('__o101MiniRouted'), 'ball tap routing wraps the sheet toggle');
-  assert.ok(bridge.includes('toggleMini()'), 'ball tap toggles the mini window');
-  assert.ok(bridge.includes('lastRouteAt') && bridge.includes('< 350'), 'double-fire from one tap is coalesced (app fires the toggle twice per tap)');
-  assert.ok(bridge.includes('openMini') && bridge.includes('closeMini'), '__smartBall exposes openMini/closeMini');
-  assert.ok(bridge.includes("localStorage.getItem(MINI_KEY)") || bridge.includes('o101_smartball_window_v1'), 'geometry persists in localStorage');
-  assert.ok(bridge.includes('smartBallResizeGrip'), 'resize grip is wired');
-  assert.ok(bridge.includes('smartBallWindowHeader'), 'drag header is wired');
+  assert.ok(!bridge.includes('smartBallWindow'), 'mini window code removed from the bridge');
+  assert.ok(!bridge.includes('openMini'), '__smartBall no longer exposes the mini window');
+  for (const id of ['mobileWebTargetDisplay', 'assistantConfBadge', 'assistantBaseStakeDisplay', 'mobileWebStakeDisplay', 'bridgeStatusLine']) {
+    assert.ok(bridge.includes(id), `bridge drives #${id}`);
+  }
+  assert.ok(bridge.includes('renderWindowStatus'), 'governed status line renderer present');
 });
 
 test('Verifier feed: orb-bridge subscribes to the BroadcastChannel and polls MobileBridgeState', () => {
@@ -196,10 +222,12 @@ test('Verifier feed: orb-bridge subscribes to the BroadcastChannel and polls Mob
   assert.ok(bridge.includes('signalFromBridgeMessage'), 'channel + window messages share one merge');
   assert.ok(bridge.includes('pollBridgeState') && bridge.includes('MobileBridgeState'), 'read-only state poll present');
   assert.ok(bridge.includes('signalFromBridgeStateSnapshot'), 'poll uses the tested snapshot merge');
+  assert.ok(bridge.includes('pollRtdbUserState') && bridge.includes('/user_state.json'), 'RTDB user-state poll present (the fourth feed)');
 });
 
-test('Mini window: index.html has no orb, so no mini window there (mobile only)', () => {
+test('Rebase: index.html has no orb and does not load orb-bridge (desktop keeps its own arena)', () => {
   const index = fs.readFileSync('index.html', 'utf8');
   assert.ok(!index.includes('dhaniwinFloatingOrb'), 'index.html has no floating orb element');
-  assert.ok(!index.includes('id="smartBallWindow"'), 'mini window is mobile-only, as reported');
+  assert.ok(!index.includes('id="smartBallWindow"'), 'no mini window on desktop either');
+  assert.ok(!index.includes('systems/orb-bridge.js'), 'orb-bridge is mobile-only after the rebase');
 });

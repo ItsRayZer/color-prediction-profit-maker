@@ -281,29 +281,30 @@ body {
 .dock-btn { transition: transform 0.15s ease, padding 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
 
 #mobileBottomDock {
-  transition: max-width 0.38s cubic-bezier(0.16, 1, 0.3, 1), 
-              bottom 0.38s cubic-bezier(0.16, 1, 0.3, 1), 
-              opacity 0.25s ease,
-              transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1), 
+              bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1), 
+              opacity 0.22s ease,
+              transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, max-width, bottom, opacity;
 }
 
 #mobileBottomDock.dock-hidden {
-  transform: translateX(-50%) translateY(calc(100% + 24px + var(--safe-bottom)));
-  opacity: 0;
-  pointer-events: none;
+  transform: translateX(-50%) translateY(calc(100% + 40px + var(--safe-bottom))) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 #mobileBottomDock.dock-compact {
-  max-width: 220px;
+  max-width: 210px;
   bottom: calc(8px + var(--safe-bottom));
-  opacity: 0.95;
+  opacity: 0.96;
 }
 #mobileBottomDock.dock-compact .dock-container {
   padding: 3px 6px;
-  background-color: rgba(20, 20, 22, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  background-color: rgba(18, 18, 22, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow:
-    0 10px 32px rgba(0, 0, 0, 0.65),
+    0 10px 32px rgba(0, 0, 0, 0.75),
     inset 0 1px 0 rgba(255, 255, 255, 0.15),
     inset 0 0 14px rgba(255, 255, 255, 0.05);
 }
@@ -311,7 +312,7 @@ body {
   padding: 6px 3px; 
 }
 #mobileBottomDock.dock-compact .dock-btn i {
-  font-size: 14.5px;
+  font-size: 15px;
 }
 #mobileBottomDock.dock-compact .dock-btn span.tab-title,
 #mobileBottomDock.dock-compact .dock-indicator {
@@ -320,6 +321,57 @@ body {
   margin-top: 0;
   transform: translateY(3px);
   pointer-events: none;
+}
+
+/* ── Minimalist Apple Dock Restore Indicator / Pull Handle ── */
+.dock-restore-handle {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 140px;
+  height: calc(34px + var(--safe-bottom, 0px));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99997;
+  cursor: pointer;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dock-restore-bar {
+  width: 52px;
+  height: 4.5px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6), inset 0 0.5px 0 rgba(255, 255, 255, 0.4);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+#mobileBottomDock.dock-hidden ~ .dock-restore-handle,
+#mobileBottomDock.dock-compact ~ .dock-restore-handle {
+  opacity: 1;
+  pointer-events: auto;
+}
+.dock-restore-handle:active .dock-restore-bar {
+  transform: translateY(-2px) scale(1.1);
+  background: rgba(255, 255, 255, 0.75);
+}
+
+/* ── DhaniWin High-Fidelity Touch Shield ── */
+#dhaniwinTouchShield {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  pointer-events: auto;
+  background: transparent;
+  touch-action: pan-y;
+}
+/* When dock is compact or hidden, immediately release touch shield so user interacts with DhaniWin without restriction */
+body.nav-compact #dhaniwinTouchShield,
+#mobileBottomDock.dock-compact ~ #tab-web #dhaniwinTouchShield,
+#mobileBottomDock.dock-hidden ~ #tab-web #dhaniwinTouchShield {
+  pointer-events: none !important;
 }
 
 body.nav-compact header.liquid-glass-header {
@@ -378,28 +430,56 @@ body.home-header-hidden #tab-web {
 }
 body.home-header-hidden #homeHeaderPullHandle { display: block; }
 
-/* ── Top-middle Login & Register pill (underneath top bar) ── */
+/* ── Top-middle Login & Register pill (right close down to top bar in middle) ── */
 .home-top-auth-pill {
   position: fixed;
-  top: calc(var(--app-header-h, 54px) + 8px);
+  top: calc(var(--app-header-h, 52px) + 2px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 55;
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 5px 8px;
+  gap: 6px;
+  padding: 4px 7px;
   border-radius: 9999px;
-  background: rgba(18, 18, 22, 0.84);
+  background: rgba(14, 14, 18, 0.92);
   backdrop-filter: blur(28px) saturate(190%);
   -webkit-backdrop-filter: blur(28px) saturate(190%);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.18);
   transition: opacity 0.25s ease, transform 0.25s ease, top 0.25s ease;
 }
 
 body.home-header-hidden .home-top-auth-pill {
-  top: 10px;
+  top: 4px;
+}
+
+/* ── Floating Quick Win/Loss Sound Mute Button (Homepage / Dhani Embedded View) ── */
+.home-sound-mute-btn {
+  position: fixed;
+  top: calc(var(--app-header-h, 52px) + 6px);
+  right: 12px;
+  z-index: 55;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  background: rgba(14, 14, 20, 0.85);
+  backdrop-filter: blur(20px) saturate(190%);
+  -webkit-backdrop-filter: blur(20px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.25s ease, transform 0.25s ease, top 0.25s ease, border-color 0.2s ease, background-color 0.2s ease;
+  user-select: none;
+  cursor: pointer;
+}
+.home-sound-mute-btn:active {
+  transform: scale(0.90);
+}
+body.home-header-hidden .home-sound-mute-btn {
+  top: 8px;
 }
 
 /* ── Floating "Already Logged In Before" pill (above bottom menu dock in the middle) ── */
@@ -1157,37 +1237,119 @@ a[href*="tradingview.com"] {
   animation: subtleFloat 3s ease-in-out infinite;
 }
 
-/* ── DhaniWin Floating Ball Assistant Modal (Smooth iOS Bottom Sheet) ── */
+/* ── DhaniWin Floating Ball Assistant Modal (Luxury Apple AMOLED Square Widget) ── */
 #dhaniwinAssistantModal {
-  opacity: 0;
+  opacity: 1;
   pointer-events: none;
-  transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1);
   overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  background: rgba(0, 0, 0, 0.78);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
 }
 #dhaniwinAssistantModal.sheet-open {
-  opacity: 1;
-  pointer-events: auto;
+  pointer-events: none;
 }
 #dhaniwinAssistantModal #dhaniwinAssistantSheet {
-  transform: translateY(100%);
-  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform;
-  overscroll-behavior-y: contain;
-  background: rgba(11, 11, 15, 0.94);
-  backdrop-filter: blur(44px) saturate(210%);
-  -webkit-backdrop-filter: blur(44px) saturate(210%);
-  border-top: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 -24px 64px -12px rgba(0, 0, 0, 0.95);
+  transform: scale(0.2) translate3d(0, 0, 0);
+  opacity: 0;
+  border-radius: 36px;
+  transform-origin: center center;
+  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity, left, top;
+  background: rgba(11, 11, 16, 0.95);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  box-shadow: 0 16px 50px -8px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.12);
+  pointer-events: auto;
+  position: relative;
+  touch-action: none;
 }
 #dhaniwinAssistantModal.sheet-open #dhaniwinAssistantSheet {
-  transform: translateY(0);
+  transform: scale(1) translate3d(0, 0, 0);
+  opacity: 1;
+  border-radius: 22px;
 }
-#dhaniwinAssistantModal.sheet-dragging #dhaniwinAssistantSheet {
-  transition: none !important;
+
+/* ── Apple-Grade Interactive Edge & Corner Resize Handles ── */
+.assistant-resize-handle {
+  position: absolute;
+  z-index: 50;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Edges */
+.resize-edge-r {
+  top: 14px;
+  right: -5px;
+  bottom: 14px;
+  width: 14px;
+  cursor: ew-resize;
+}
+.resize-edge-l {
+  top: 14px;
+  left: -5px;
+  bottom: 14px;
+  width: 14px;
+  cursor: ew-resize;
+}
+.resize-edge-b {
+  bottom: -5px;
+  left: 14px;
+  right: 14px;
+  height: 14px;
+  cursor: ns-resize;
+}
+.resize-edge-t {
+  top: -5px;
+  left: 14px;
+  right: 14px;
+  height: 14px;
+  cursor: ns-resize;
+}
+
+/* Corners */
+.resize-corner-br {
+  right: 0;
+  bottom: 0;
+  width: 24px;
+  height: 24px;
+  cursor: nwse-resize;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 3px;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.resize-corner-bl {
+  left: -5px;
+  bottom: -5px;
+  width: 24px;
+  height: 24px;
+  cursor: nesw-resize;
+}
+.resize-corner-tr {
+  right: -5px;
+  top: -5px;
+  width: 24px;
+  height: 24px;
+  cursor: nesw-resize;
+}
+.resize-corner-tl {
+  left: -5px;
+  top: -5px;
+  width: 24px;
+  height: 24px;
+  cursor: nwse-resize;
+}
+
+.assistant-resize-handle:hover svg {
+  color: rgba(255, 255, 255, 0.7);
+  transform: scale(1.15);
+}
+
+.assistant-sheet-resizing {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  box-shadow: 0 20px 60px -4px rgba(0, 0, 0, 0.95), 0 0 0 1.5px rgba(245, 158, 11, 0.5) !important;
 }
 
 /* Luxury AMOLED Glass Cards & Micro-Pills */

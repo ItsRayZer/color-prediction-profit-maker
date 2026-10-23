@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         DhaniWin Quant AI Live Scraper & Auto-Bet Bridge
 // @namespace    https://dhaniwin.99.com/
-// @version      3.1
-// @description  Scrapes live WinGo draws, auto-navigates to WinGo, and pre-selects bet amount & target color/size from Quant AI
+// @version      3.2
+// @description  Scrapes live WinGo draws, auto-navigates to WinGo, and pre-selects bet amount & target color/size from Quant AI. v3.2: publishes an API-proven user state (login + exact balance) on channel/postMessage/RTDB and actively re-queries the learned wallet endpoint with the live session.
 // @match        *://*.dhaniwin44.com/*
 // @match        *://*.dhaniwin.99.com/*
 // @match        *://*.dhaniwin99.com/*
@@ -25,6 +25,183 @@
   let hasAppBetSettings = false;
   let _justLoggedInGrace = 0;
   let _lastScrapedBalance = null;
+
+  // Native fetch captured BEFORE the interception hook below replaces
+  // window.fetch. The bridge's own calls (RTDB publish, active wallet
+  // re-query) use this so they never intercept themselves.
+  const _nativeFetch = (typeof window !== 'undefined' && typeof window.fetch === 'function')
+    ? window.fetch.bind(window) : null;
+  const RTDB_BASE_URL = 'https://zer0one-376d1-default-rtdb.asia-southeast1.firebasedatabase.app';
+  const LEARNED_ENDPOINT_KEY = 'o101_learned_wallet_endpoint_v1';
+
+  // [O101-STATE-CORE-BEGIN]
+  // ── User State core (PURE — no DOM, no storage, no network) ────────
+  // The bridge is the only component that can see the real DhaniWin
+  // account, so it is the only truth source for login + balance.
+  // Login proof rule: a session token present in page storage AND an
+  // authenticated wallet/user API payload that actually succeeded.
+  // A token alone is NOT proof; a number scraped off the page is NOT
+  // an exact balance. Balances keep their provenance: 'api' (from the
+  // site's own authenticated API payload — the exact figure) vs 'dom'
+  // (scraped from the page, labelled "from page"). The session token
+  // itself is NEVER part of the built state.
+  function extractUserIdFromJson(data, depth = 0) {
+    if (!data || typeof data !== 'object' || depth > 3) return null;
+    const idKeys = ['userid', 'user_id', 'uid', 'memberid', 'member_id', 'tenantaccount', 'accountid', 'id'];
+    for (const k of Object.keys(data)) {
+      const lk = k.toLowerCase().replace(/[^a-z0-9_]/g, '');
+      if (idKeys.includes(lk)) {
+        const v = data[k];
+        if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+        if (typeof v === 'string' && v.trim() !== '' && v.length <= 32) return v.trim();
+      }
+    }
+    const subKeys = ['data', 'result', 'payload', 'body', 'userInfo', 'user_info', 'user', 'member', 'account'];
+    for (const sk of subKeys) {
+      if (data[sk] && typeof data[sk] === 'object') {
+        const nested = extractUserIdFromJson(data[sk], depth + 1);
+        if (nested !== null) return nested;
+      }
+    }
+    return null;
+  }
+
+  // Decide how the session token rides on a balance-bearing request,
+  // from the request's own headers (list of [name, value] pairs as the
+  // page itself sent them). Only the header NAME and scheme are kept —
+  // never the token value.
+  function detectTokenAttachment(headerPairs) {
+    const pairs = Array.isArray(headerPairs) ? headerPairs : [];
+    for (const pair of pairs) {
+      if (!Array.isArray(pair) || pair.length < 2) continue;
+      const name = String(pair[0] || '');
+      const value = String(pair[1] || '');
+      const ln = name.toLowerCase();
+      if (ln === 'authorization' || ln === 'x-token' || ln === 'access-token' || ln === 'auth-token' || ln === 'token' || ln.includes('auth') || ln.includes('token')) {
+        return { mode: 'header', headerName: name, scheme: /^bearer\s/i.test(value) ? 'Bearer' : '' };
+      }
+    }
+    return { mode: 'cookie' };
+  }
+
+  function createUserStateTracker() {
+    const t = {
+      tokenPresent: false,
+      onAuthPage: false,
+      apiProven: false,
+      lastProofAt: null,       // last authenticated API payload (intercept or active)
+      apiBalance: null,
+      apiBalanceAt: null,
+      domBalance: null,
+      domBalanceAt: null,
+      userId: null,
+      endpoint: null,          // learned balance-bearing request descriptor (no token value)
+      pollAuthFailed: false,   // active re-query got 401/403/auth-error
+      pollEmptyCount: 0,       // consecutive active re-queries with no balance in payload
+      explicitLogoutAt: null,
+
+      noteToken(present, now) { t.tokenPresent = !!present; },
+      noteAuthPage(isAuth) { t.onAuthPage = !!isAuth; },
+      noteLogout(now) {
+        t.explicitLogoutAt = now;
+        t.apiProven = false;
+        t.apiBalance = null;
+        t.apiBalanceAt = null;
+        t.pollAuthFailed = false;
+      },
+      noteApiPayload(payload, now) {
+        // An authenticated wallet/user payload succeeded: this IS the
+        // login proof, and its balance is the exact figure.
+        t.apiProven = true;
+        t.lastProofAt = now;
+        t.pollAuthFailed = false;
+        t.pollEmptyCount = 0;
+        if (payload && payload.balance !== null && payload.balance !== undefined && Number.isFinite(Number(payload.balance))) {
+          t.apiBalance = Number(payload.balance);
+          t.apiBalanceAt = now;
+        }
+        if (payload && payload.userId) t.userId = String(payload.userId);
+      },
+      noteDomBalance(balance, now) {
+        if (balance === null || balance === undefined || !Number.isFinite(Number(balance))) return;
+        t.domBalance = Number(balance);
+        t.domBalanceAt = now;
+      },
+      noteEndpoint(desc) {
+        if (!desc || !desc.url) return;
+        t.endpoint = {
+          url: String(desc.url),
+          method: String(desc.method || 'GET').toUpperCase(),
+          tokenMode: desc.tokenMode === 'header' ? 'header' : 'cookie',
+          headerName: desc.headerName ? String(desc.headerName) : null,
+          scheme: desc.scheme ? String(desc.scheme) : ''
+        };
+      },
+      noteActivePoll(result, now) {
+        if (!result) return;
+        if (result.verdict === 'ok') {
+          t.noteApiPayload({ balance: result.balance, userId: result.userId }, now);
+        } else if (result.verdict === 'auth') {
+          // The session itself rejected the re-query: logged out.
+          t.pollAuthFailed = true;
+          t.apiProven = false;
+          t.explicitLogoutAt = now;
+        } else if (result.verdict === 'empty') {
+          t.pollEmptyCount += 1;
+        }
+      },
+      fetchMode() {
+        if (!t.endpoint) return t.apiProven ? 'intercept' : 'pending';
+        if (t.pollAuthFailed || t.pollEmptyCount >= 3) return 'intercept';
+        return 'active';
+      },
+      isLoggedIn() {
+        if (t.onAuthPage || !t.tokenPresent || !t.apiProven) return false;
+        if (t.explicitLogoutAt !== null && (t.lastProofAt === null || t.explicitLogoutAt > t.lastProofAt)) return false;
+        return true;
+      },
+      buildState(now) {
+        let balance = null;
+        let balanceSource = null;
+        const apiFresh = t.apiBalance !== null && t.apiBalanceAt !== null && (now - t.apiBalanceAt) <= 45000;
+        if (apiFresh) { balance = t.apiBalance; balanceSource = 'api'; }
+        else if (t.domBalance !== null) { balance = t.domBalance; balanceSource = 'dom'; }
+        else if (t.apiBalance !== null) { balance = t.apiBalance; balanceSource = 'api'; }
+        return {
+          isLoggedIn: t.isLoggedIn(),
+          balance,
+          balanceSource,
+          apiProven: t.apiProven,
+          fetchMode: t.fetchMode(),
+          userId: t.userId
+        };
+      }
+    };
+    return t;
+  }
+  // [O101-STATE-CORE-END]
+
+  const _userState = createUserStateTracker();
+  // Restore a previously learned wallet endpoint (URL + method + how
+  // the token attaches — never a token value) so active polling can
+  // start immediately on the next visit.
+  try {
+    const savedEp = localStorage.getItem(LEARNED_ENDPOINT_KEY);
+    if (savedEp) _userState.noteEndpoint(JSON.parse(savedEp));
+  } catch (e) {}
+
+  function persistLearnedEndpoint() {
+    try {
+      if (_userState.endpoint) localStorage.setItem(LEARNED_ENDPOINT_KEY, JSON.stringify(_userState.endpoint));
+    } catch (e) {}
+  }
+
+  function readSessionToken() {
+    try {
+      return localStorage.getItem('ar_token') || localStorage.getItem('token')
+        || localStorage.getItem('accessToken') || localStorage.getItem('authorization') || null;
+    } catch (e) { return null; }
+  }
 
   // ── 0. Real Balance Engine (Network XHR/Fetch Interception + DOM Scanner) ────
   function extractBalanceFromJson(data, depth = 0) {
@@ -61,6 +238,49 @@
     }
 
     return null;
+  }
+
+  // Normalise fetch/XHR headers (Headers instance, pair array, or
+  // plain object) into [name, value] pairs for token-attachment
+  // detection. Values are inspected in-memory only, never stored.
+  function headerPairsFrom(headers) {
+    const pairs = [];
+    try {
+      if (!headers) return pairs;
+      if (typeof headers.forEach === 'function' && typeof headers.get === 'function') {
+        headers.forEach((v, k) => pairs.push([k, v]));
+      } else if (Array.isArray(headers)) {
+        for (const p of headers) if (Array.isArray(p) && p.length >= 2) pairs.push([String(p[0]), String(p[1])]);
+      } else if (typeof headers === 'object') {
+        for (const k of Object.keys(headers)) pairs.push([k, String(headers[k])]);
+      }
+    } catch (e) {}
+    return pairs;
+  }
+
+  // One authenticated wallet/user API payload: login proof for the
+  // tracker, legacy notification for the app, and — when it came from
+  // a successful balance-bearing request — the endpoint to learn for
+  // session-powered active re-query.
+  function onApiWalletPayload(data, via, reqDesc, httpOk) {
+    if (!data || typeof data !== 'object') return;
+    const bal = extractBalanceFromJson(data);
+    const userId = extractUserIdFromJson(data);
+    if (bal === null && !userId) return;
+    _userState.noteApiPayload({ balance: bal, userId }, Date.now());
+    if (bal !== null) onRealBalanceDetected(bal, via);
+    if (httpOk && bal !== null && reqDesc && reqDesc.url && !String(reqDesc.url).includes('firebasedatabase.app')) {
+      const att = detectTokenAttachment(reqDesc.headerPairs || []);
+      _userState.noteEndpoint({
+        url: String(reqDesc.url),
+        method: reqDesc.method || 'GET',
+        tokenMode: att.mode,
+        headerName: att.headerName || null,
+        scheme: att.scheme || ''
+      });
+      persistLearnedEndpoint();
+    }
+    publishUserState('api-payload');
   }
 
   function onRealBalanceDetected(balance, source) {
@@ -146,6 +366,16 @@
       const origFetch = window.fetch;
       if (origFetch) {
         window.fetch = async function(...args) {
+          // Describe THIS request (raw URL for endpoint learning,
+          // method, header pairs) before it is sent.
+          let _reqDesc = null;
+          try {
+            const rawUrl = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
+            const init = (args[1] && typeof args[1] === 'object') ? args[1] : {};
+            const method = init.method || (args[0] && args[0].method) || 'GET';
+            const hdrs = init.headers || (args[0] && args[0].headers) || null;
+            _reqDesc = { url: rawUrl, method, headerPairs: headerPairsFrom(hdrs) };
+          } catch(e) {}
           try {
             const url = (typeof args[0] === 'string' ? args[0] : args[0]?.url || '').toLowerCase();
             // Intercept logout calls immediately
@@ -153,6 +383,7 @@
               console.log('[Quant AI Bridge] 🚪 Logout API call intercepted:', url);
               _wasLoggedInBefore = false;
               _justLoggedInGrace = 0;
+              _userState.noteLogout(Date.now());
               try { localStorage.removeItem('ar_token'); } catch(e) {}
               try { sessionStorage.removeItem('dhaniwin_auth_grace_until'); } catch(e) {}
               notifyApp({
@@ -161,12 +392,18 @@
                 reason: 'Logout API call',
                 timestamp: Date.now()
               });
+              publishUserState('logout-api');
             }
           } catch(e) {}
 
           const response = await origFetch.apply(this, args);
           try {
             const url = (typeof args[0] === 'string' ? args[0] : args[0]?.url || '').toLowerCase();
+            if (url.includes('firebasedatabase.app')) {
+              // The bridge's own RTDB traffic (and the app's sync
+              // reads) must never be mistaken for wallet payloads.
+              return response;
+            }
             if (url.includes('login') || url.includes('register')) {
               const clone = response.clone();
               clone.json().then(data => {
@@ -177,6 +414,9 @@
                   _wasLoggedInBefore = true;
                   notifyApp({ type: 'DHANIWIN_AUTH_SUCCESS', data });
                   setTimeout(goHomeAfterLogin, 600);
+                  // A wallet endpoint may already be learned: prove the
+                  // session actively instead of waiting for page traffic.
+                  setTimeout(() => { activeWalletPoll(); }, 900);
                 }
               }).catch(() => {});
             }
@@ -185,10 +425,7 @@
             if (url.includes('wallet') || url.includes('user') || url.includes('balance') || url.includes('money') || url.includes('financial') || url.includes('ar-lottery')) {
               const clone = response.clone();
               clone.json().then(data => {
-                const bal = extractBalanceFromJson(data);
-                if (bal !== null) {
-                  onRealBalanceDetected(bal, 'fetch-api');
-                }
+                onApiWalletPayload(data, 'fetch-api', _reqDesc, response.ok);
               }).catch(() => {});
             }
           } catch(e) {}
@@ -201,20 +438,32 @@
     try {
       const origOpen = XMLHttpRequest.prototype.open;
       const origSend = XMLHttpRequest.prototype.send;
+      const origSetHeader = XMLHttpRequest.prototype.setRequestHeader;
       XMLHttpRequest.prototype.open = function(method, url, ...rest) {
         this._reqUrl = (typeof url === 'string') ? url : '';
+        this._reqMethod = method || 'GET';
+        this._o101HeaderPairs = [];
         return origOpen.call(this, method, url, ...rest);
+      };
+      XMLHttpRequest.prototype.setRequestHeader = function(name, value) {
+        try {
+          if (!Array.isArray(this._o101HeaderPairs)) this._o101HeaderPairs = [];
+          this._o101HeaderPairs.push([String(name), String(value)]);
+        } catch(e) {}
+        return origSetHeader.call(this, name, value);
       };
       XMLHttpRequest.prototype.send = function(...args) {
         this.addEventListener('load', function() {
           try {
             const urlLower = (this._reqUrl || '').toLowerCase();
+            if (urlLower.includes('firebasedatabase.app')) return;
             if (urlLower.includes('wallet') || urlLower.includes('user') || urlLower.includes('balance') || urlLower.includes('money') || urlLower.includes('financial')) {
               const parsed = JSON.parse(this.responseText);
-              const bal = extractBalanceFromJson(parsed);
-              if (bal !== null) {
-                onRealBalanceDetected(bal, 'xhr-api');
-              }
+              onApiWalletPayload(parsed, 'xhr-api', {
+                url: this._reqUrl,
+                method: this._reqMethod || 'GET',
+                headerPairs: this._o101HeaderPairs || []
+              }, this.status >= 200 && this.status < 300);
             }
           } catch(e) {}
         });
@@ -236,6 +485,7 @@
           console.log('[Quant AI Bridge] 🚪 User clicked logout button in DhaniWin UI');
           _wasLoggedInBefore = false;
           _justLoggedInGrace = 0;
+          _userState.noteLogout(Date.now());
           try { localStorage.removeItem('ar_token'); } catch(e) {}
           try { sessionStorage.removeItem('dhaniwin_auth_grace_until'); } catch(e) {}
           notifyApp({
@@ -244,6 +494,7 @@
             reason: 'User clicked logout button',
             timestamp: Date.now()
           });
+          publishUserState('logout-click');
         }
       } catch(e) {}
     }, true);
@@ -477,6 +728,9 @@
       balance = scrapeRealBalanceFromDOM();
       if (balance !== null) {
         _lastScrapedBalance = balance;
+        // Page-scraped figure: recorded as DOM provenance, never as
+        // an exact (API) balance.
+        _userState.noteDomBalance(balance, Date.now());
       }
     }
 
@@ -496,6 +750,9 @@
         interval: activeTimeframe,
         timestamp: Date.now()
       });
+      // Login just detected: actively prove it against the learned
+      // wallet endpoint instead of waiting for incidental traffic.
+      setTimeout(() => { activeWalletPoll(); }, 400);
     } else if (!isLoggedIn && (_wasLoggedInBefore || isAuthPage)) {
       // Do not fire session-out during post-login grace transition
       let storedGrace = 0;
@@ -513,6 +770,13 @@
         timestamp: Date.now()
       });
     }
+
+    // Feed the truth tracker (legacy USER_SYNC below keeps its exact
+    // legacy semantics for the app's own UI; the published user state
+    // is the strict, API-proven layer).
+    _userState.noteToken(!isAuthPage && !!token, Date.now());
+    _userState.noteAuthPage(isAuthPage);
+    publishUserState('tick');
 
     notifyApp({
       type: 'DHANIWIN_USER_SYNC',
@@ -950,7 +1214,14 @@
       const refreshBtn = document.querySelector('.van-icon-replay, [class*="refresh"], [class*="reload"], .wallet-refresh, .refresh-btn');
       if (refreshBtn) simulateClick(refreshBtn);
       const domBal = scrapeRealBalanceFromDOM();
-      if (domBal !== null) onRealBalanceDetected(domBal, 'dom-sync');
+      if (domBal !== null) {
+        _userState.noteDomBalance(domBal, Date.now());
+        onRealBalanceDetected(domBal, 'dom-sync');
+      }
+      // Actively re-query the learned wallet endpoint too — the app
+      // asked for a sync, so give it the API-proven answer, not just
+      // whatever the page happens to show.
+      activeWalletPoll();
       scrapeUserSession();
     } else if (msg.type === 'DHANIWIN_REQUEST_AUTH_CHECK') {
       console.log('[Quant AI Bridge] 🔍 Auth check requested by app...');
@@ -993,6 +1264,109 @@
 
     return { loggedIn: false, reason: 'No active session token or member profile detected' };
   }
+
+  // ── 12. User State Engine: publish + session-powered active polling ──
+  // The published state is how the app KNOWS login + exact balance
+  // instead of guessing: it goes out on every transport the bridge has
+  // (BroadcastChannel + window postMessage via notifyApp, and Firebase
+  // RTDB /user_state following the codebase's plain-.json convention —
+  // written on change plus a 15s heartbeat so its freshness is
+  // provable). The state NEVER contains the session token.
+  //
+  // ACTIVE POLLING: interception alone is passive — it only learns
+  // the balance when the page happens to call the wallet API. So the
+  // bridge also RE-QUERIES the learned balance-bearing endpoint from
+  // inside this page, with the user's already-logged-in session (the
+  // same data path Telegram bots use with an account token, minus any
+  // password: no credential is ever collected or stored — the query
+  // rides the live session/cookies of this very page, and when the
+  // token rides in a header it is read fresh from page storage at
+  // query time and never leaves this page's context). A successful
+  // authenticated response is both the exact balance AND the login
+  // proof. A 401/403/auth-error response is a logged-out signal and
+  // drops the bridge back to interception-only until a fresh
+  // intercepted wallet call succeeds again.
+  let _userStateSeq = 0;
+  let _lastRtdbPutKey = '';
+  let _lastRtdbPutAt = 0;
+
+  function publishUserState(reason) {
+    try {
+      const st = _userState.buildState(Date.now());
+      const payload = { type: 'DHANIWIN_USER_STATE', ...st, ts: Date.now(), seq: ++_userStateSeq };
+      notifyApp(payload);
+      const key = JSON.stringify([st.isLoggedIn, st.balance, st.balanceSource, st.apiProven, st.fetchMode, st.userId]);
+      const now = Date.now();
+      if (key !== _lastRtdbPutKey || now - _lastRtdbPutAt >= 15000) {
+        _lastRtdbPutKey = key;
+        _lastRtdbPutAt = now;
+        rtdbPutUserState(st, payload.ts, payload.seq);
+      }
+    } catch (e) {}
+  }
+
+  function rtdbPutUserState(st, ts, seq) {
+    if (!_nativeFetch) return;
+    try {
+      _nativeFetch(`${RTDB_BASE_URL}/user_state.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...st, ts, seq })
+      }).catch(() => {});
+    } catch (e) {}
+  }
+
+  let _activePollInFlight = false;
+  async function activeWalletPoll() {
+    const desc = _userState.endpoint;
+    if (!desc || !_nativeFetch || _activePollInFlight) return;
+    if (_userState.pollAuthFailed) return; // intercept-only until a fresh intercepted success re-arms
+    _activePollInFlight = true;
+    try {
+      const headers = {};
+      if (desc.tokenMode === 'header' && desc.headerName) {
+        const token = readSessionToken();
+        if (!token) return; // no live session to power the query
+        headers[desc.headerName] = (desc.scheme ? desc.scheme + ' ' : '') + token;
+      }
+      const resp = await _nativeFetch(desc.url, { method: desc.method, headers, credentials: 'include' });
+      if (resp.status === 401 || resp.status === 403) {
+        _userState.noteActivePoll({ verdict: 'auth' }, Date.now());
+        publishUserState('poll-auth-fail');
+        return;
+      }
+      let data = null;
+      try { data = await resp.json(); } catch (e) {}
+      if (data && typeof data === 'object') {
+        const code = (data.code !== undefined ? data.code : data.status);
+        const msg = String(data.msg || data.message || '');
+        if (code === 401 || code === 403 || (data.success === false && /token|unauthor|login|session/i.test(msg))) {
+          _userState.noteActivePoll({ verdict: 'auth' }, Date.now());
+          publishUserState('poll-auth-fail');
+          return;
+        }
+        const bal = extractBalanceFromJson(data);
+        const userId = extractUserIdFromJson(data);
+        if (bal !== null || userId) {
+          _userState.noteActivePoll({ verdict: 'ok', balance: bal, userId }, Date.now());
+          if (bal !== null) onRealBalanceDetected(bal, 'active-poll');
+          publishUserState('poll-ok');
+          return;
+        }
+      }
+      _userState.noteActivePoll({ verdict: 'empty' }, Date.now());
+      publishUserState('poll-empty');
+    } catch (e) {
+      // Network error is NOT a logout signal; interception remains
+      // the source until the endpoint answers again.
+    } finally {
+      _activePollInFlight = false;
+    }
+  }
+
+  setInterval(() => publishUserState('heartbeat'), 15000);
+  setInterval(() => { activeWalletPoll(); }, 20000);
+  setTimeout(() => publishUserState('init'), 1200);
 
   if (channel) channel.onmessage = (ev) => handleIncomingOrder(ev.data);
   window.addEventListener('message', (ev) => handleIncomingOrder(ev.data));
