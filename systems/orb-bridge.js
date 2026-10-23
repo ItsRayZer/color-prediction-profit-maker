@@ -240,18 +240,32 @@ export function nextRoundPicks(models, history, genFn) {
 // ─────────────────────────────────────────────────────────────────────
 // The DhaniWin bridge script already computes isLoggedIn inside the
 // embedded site and posts DHANIWIN_USER_SYNC / DHANIWIN_REAL_BALANCE.
+// CRITICAL TRANSPORT FACT: the bridge's notifyApp() sends primarily on
+// BroadcastChannel('dhaniwin_quant_channel'); its window.postMessage
+// copies go only to window.opener / window.parent. A listener on
+// window 'message' alone therefore STARVES in the normal setup (the
+// exact bug the owner hit: the pill sat on "Checking login…" forever,
+// which reads as guessing). The runtime below subscribes to the
+// BroadcastChannel itself AND polls the app's MobileBridgeState.
 // One flickering message is NOT proof of login. VERIFIED requires TWO
 // independent positive signal kinds (bridge isLoggedIn=true, a fresh
 // balance, a session token) with a sync seen inside the stale window.
 // An explicit negative (isLoggedIn=false, auth page, logout event)
 // drops to NOT_LOGGED_IN immediately; silence for >90s decays a
-// VERIFIED back to UNKNOWN — never the other way round.
-export const LOGIN_STATES = { VERIFIED: 'VERIFIED', NOT_LOGGED_IN: 'NOT_LOGGED_IN', UNKNOWN: 'UNKNOWN' };
+// VERIFIED back to UNKNOWN — never the other way round. And if NO
+// sync of any kind has EVER arrived 15s after load, the state is
+// NO_SIGNAL — the pill must say the bridge is silent instead of
+// pretending to check forever.
+export const LOGIN_STATES = { VERIFIED: 'VERIFIED', NOT_LOGGED_IN: 'NOT_LOGGED_IN', UNKNOWN: 'UNKNOWN', NO_SIGNAL: 'NO_SIGNAL' };
+export const NO_SIGNAL_AFTER_MS = 15000;
 
 export class LoginVerifier {
-  constructor({ balanceFreshMs = 60000, staleMs = 90000 } = {}) {
+  constructor({ balanceFreshMs = 60000, staleMs = 90000, noSignalAfterMs = NO_SIGNAL_AFTER_MS, startedAt = null } = {}) {
     this.balanceFreshMs = balanceFreshMs;
     this.staleMs = staleMs;
+    this.noSignalAfterMs = noSignalAfterMs;
+    this.startedAt = startedAt !== null && Number.isFinite(Number(startedAt)) ? Number(startedAt) : Date.now();
+    this.everObserved = false;
     this.lastSyncAt = null;
     this.lastBalanceAt = null;
     this.lastBridgeLoginAt = null;
@@ -267,6 +281,7 @@ export class LoginVerifier {
    */
   observe(sig = {}, now = Date.now()) {
     const t = Number.isFinite(Number(now)) ? Number(now) : Date.now();
+    this.everObserved = true;
     if (sig.explicitLogout || sig.isAuthPage || sig.isLoggedIn === false) {
       this.negativeAt = t;
       if (sig.isLoggedIn === false || sig.isAuthPage) this.lastSyncAt = t;
@@ -291,8 +306,9 @@ export class LoginVerifier {
 
   status(now = Date.now()) {
     const t = Number.isFinite(Number(now)) ? Number(now) : Date.now();
+    const syncAgeMs = this.lastSyncAt !== null ? Math.max(0, t - this.lastSyncAt) : null;
     if (this.negativeAt !== null && (this.lastPositiveAt === null || this.negativeAt >= this.lastPositiveAt)) {
-      return { state: LOGIN_STATES.NOT_LOGGED_IN, balance: this.balance, evidence: ['explicit negative (logout / auth page / isLoggedIn=false)'], lastSyncAt: this.lastSyncAt };
+      return { state: LOGIN_STATES.NOT_LOGGED_IN, balance: this.balance, evidence: ['explicit negative (logout / auth page / isLoggedIn=false)'], lastSyncAt: this.lastSyncAt, syncAgeMs, everSynced: this.lastSyncAt !== null };
     }
     const kinds = [];
     if (this.lastBridgeLoginAt !== null && t - this.lastBridgeLoginAt <= this.staleMs) kinds.push('bridge isLoggedIn=true');
@@ -300,9 +316,80 @@ export class LoginVerifier {
     if (this.lastTokenAt !== null && t - this.lastTokenAt <= this.staleMs) kinds.push('session token present');
     const syncFresh = this.lastSyncAt !== null && t - this.lastSyncAt <= this.staleMs;
     if (kinds.length >= 2 && syncFresh) {
-      return { state: LOGIN_STATES.VERIFIED, balance: this.balance, evidence: kinds, lastSyncAt: this.lastSyncAt };
+      return { state: LOGIN_STATES.VERIFIED, balance: this.balance, evidence: kinds, lastSyncAt: this.lastSyncAt, syncAgeMs, everSynced: true };
     }
-    return { state: LOGIN_STATES.UNKNOWN, balance: this.balance, evidence: kinds, lastSyncAt: this.lastSyncAt };
+    // No sync of ANY kind has ever arrived and the grace window has
+    // passed: say the bridge is silent instead of "checking" forever.
+    if (!this.everObserved && t - this.startedAt >= this.noSignalAfterMs) {
+      return { state: LOGIN_STATES.NO_SIGNAL, balance: this.balance, evidence: [], lastSyncAt: null, syncAgeMs: null, everSynced: false };
+    }
+    return { state: LOGIN_STATES.UNKNOWN, balance: this.balance, evidence: kinds, lastSyncAt: this.lastSyncAt, syncAgeMs, everSynced: this.lastSyncAt !== null };
+  }
+}
+
+/**
+ * Map one raw bridge message (the exact objects dhaniwin-bridge.js
+ * posts on BroadcastChannel / window.postMessage, and mobile.js
+ * consumes) to a LoginVerifier signal — or null when the message is
+ * not a login signal. Pure: shared by the window-message listener,
+ * the BroadcastChannel listener and the tests.
+ */
+export function signalFromBridgeMessage(msg) {
+  if (!msg || typeof msg !== 'object' || typeof msg.type !== 'string') return null;
+  const url = String(msg.url || '').toLowerCase();
+  const isAuthPage = url.includes('/login') || url.includes('/register');
+  const balance = msg.balance !== null && msg.balance !== undefined && Number.isFinite(Number(msg.balance)) ? Number(msg.balance) : null;
+  switch (msg.type) {
+    case 'DHANIWIN_USER_SYNC':
+      return {
+        isLoggedIn: typeof msg.isLoggedIn === 'boolean' ? msg.isLoggedIn : null,
+        balance,
+        hasToken: !!msg.token,
+        isAuthPage
+      };
+    case 'DHANIWIN_REAL_BALANCE':
+      return balance !== null ? { balance } : null;
+    case 'DHANIWIN_LOGIN_DETECTED':
+      return { isLoggedIn: true };
+    case 'DHANIWIN_USER_LOGGED_OUT':
+    case 'DHANIWIN_SESSION_OUT':
+      return { explicitLogout: true };
+    default:
+      return null;
+  }
+}
+
+/**
+ * Derive a verifier signal from a snapshot of the app's own bridge
+ * state (window.MobileBridgeState, mobile.js line ~4940: userBalance
+ * is only ever set from real bridge sync messages; authToken from a
+ * sync or a restored session token). POLLING this state must never
+ * fabricate a negative, so `loggedIn` is positive-only: the caller
+ * passes true when the app's own login flag is set, otherwise null.
+ * Returns { sig, signature } — feed the verifier ONLY when the
+ * signature changes, so a static snapshot cannot fake freshness.
+ */
+export function signalFromBridgeStateSnapshot(snapshot = {}) {
+  const bal = Number(snapshot.userBalance);
+  const sig = {
+    isLoggedIn: snapshot.loggedIn === true ? true : null,
+    balance: Number.isFinite(bal) && bal > 0 ? bal : null,
+    hasToken: !!snapshot.authToken
+  };
+  return { sig, signature: JSON.stringify([sig.balance, sig.hasToken, sig.isLoggedIn]) };
+}
+
+/** One-line evidence text for the login pill / mini window. Pure. */
+export function loginEvidenceLine(login) {
+  if (!login) return 'Checking login…';
+  const inrFmt = n => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  const age = login.syncAgeMs !== null && login.syncAgeMs !== undefined
+    ? ` · sync ${Math.max(0, Math.round(login.syncAgeMs / 1000))}s ago` : '';
+  switch (login.state) {
+    case LOGIN_STATES.VERIFIED: return `Login verified · ${inrFmt(login.balance)}${age}`;
+    case LOGIN_STATES.NOT_LOGGED_IN: return 'Not logged in';
+    case LOGIN_STATES.NO_SIGNAL: return 'No bridge signal — open DhaniWin with the bridge active';
+    default: return login.everSynced ? `Checking login…${age}` : 'Checking login…';
   }
 }
 
@@ -545,42 +632,70 @@ function initBridge() {
     return { balance: null, source: 'none' };
   }
 
-  // Also hear the bridge feed directly (same messages mobile.js uses).
-  const isAuthUrl = url => {
-    const u = String(url || '').toLowerCase();
-    return u.includes('/login') || u.includes('/register');
-  };
-  window.addEventListener('message', ev => {
-    const msg = ev && ev.data;
-    if (!msg || typeof msg.type !== 'string') return;
-    const now = Date.now();
-    if (msg.type === 'DHANIWIN_USER_SYNC') {
-      verifier.observe({
-        isLoggedIn: typeof msg.isLoggedIn === 'boolean' ? msg.isLoggedIn : null,
-        balance: msg.balance !== null && msg.balance !== undefined && Number.isFinite(Number(msg.balance)) ? Number(msg.balance) : null,
-        hasToken: !!msg.token,
-        isAuthPage: isAuthUrl(msg.url)
-      }, now);
-    } else if (msg.type === 'DHANIWIN_REAL_BALANCE') {
-      verifier.observe({ balance: Number(msg.balance) }, now);
-    } else if (msg.type === 'DHANIWIN_LOGIN_DETECTED') {
-      verifier.observe({ isLoggedIn: true }, now);
-    } else if (msg.type === 'DHANIWIN_USER_LOGGED_OUT') {
-      verifier.observe({ explicitLogout: true }, now);
-    } else {
-      return;
-    }
+  // Hear the bridge feed on EVERY transport it actually uses. The
+  // bridge's notifyApp() sends primarily on BroadcastChannel
+  // ('dhaniwin_quant_channel') — window.postMessage copies reach only
+  // opener/parent, so the old window-'message'-only listener starved
+  // and the verifier sat on UNKNOWN forever. Feed all three sources:
+  // the channel, window messages, and a read-only poll of the app's
+  // own MobileBridgeState (state mobile.js already received counts).
+  function feedBridgeMessage(msg) {
+    const sig = signalFromBridgeMessage(msg);
+    if (!sig) return;
+    verifier.observe(sig, Date.now());
     const b = Number(msg.balance);
     if (Number.isFinite(b) && b > 0) {
       state.balance = b;
       state.balanceSource = BALANCE_SOURCES.BRIDGE;
     }
-  });
+    const login = verifier.status(Date.now());
+    state.login = login;
+    renderLogin(login);
+  }
+  window.addEventListener('message', ev => { feedBridgeMessage(ev && ev.data); });
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const bridgeChannel = new BroadcastChannel('dhaniwin_quant_channel');
+      bridgeChannel.onmessage = ev => { feedBridgeMessage(ev && ev.data); };
+    }
+  } catch (e) { /* channel unavailable: window messages + poll still feed */ }
+
+  // Read-only poll of the app's bridge state (mobile only). Feeds the
+  // verifier ONLY when the derived signature changes, so a static
+  // snapshot can never fake sync freshness. Positive-only: the app's
+  // login flag is set exclusively by bridge-confirmed events inside
+  // mobile.js (markUserLoggedIn), never guessed here.
+  let lastPolledSignature = null;
+  function pollBridgeState() {
+    try {
+      const mbs = window.MobileBridgeState;
+      if (!mbs) return;
+      let loggedIn = null;
+      try { loggedIn = typeof window.isUserLoggedIn === 'function' && window.isUserLoggedIn() ? true : null; } catch (e) {}
+      const { sig, signature } = signalFromBridgeStateSnapshot({
+        userBalance: mbs.userBalance,
+        authToken: mbs.authToken,
+        loggedIn
+      });
+      if (signature === lastPolledSignature) return;
+      lastPolledSignature = signature;
+      if (sig.balance === null && !sig.hasToken && sig.isLoggedIn === null) return; // empty state: no information
+      verifier.observe(sig, Date.now());
+      if (sig.balance !== null) { state.balance = sig.balance; state.balanceSource = BALANCE_SOURCES.BRIDGE; }
+      const login = verifier.status(Date.now());
+      state.login = login;
+      renderLogin(login);
+    } catch (e) { /* polling must never break the app */ }
+  }
+  setInterval(pollBridgeState, 2000);
+  setTimeout(pollBridgeState, 1000);
 
   // ── Speaking (orb's line) ────────────────────────────────────────
   function say(text) {
     const el = $('smartBallLine');
     if (el && text) el.textContent = text;
+    const mini = $('smartBallReason');
+    if (mini && text) mini.textContent = text;
     state.lastLine = text;
   }
 
@@ -633,17 +748,17 @@ function initBridge() {
   function loginLine(login) {
     if (login.state === LOGIN_STATES.VERIFIED) return `Login verified · ${inr(login.balance)} on DhaniWin.`;
     if (login.state === LOGIN_STATES.NOT_LOGGED_IN) return 'Not logged in. Open the DhaniWin tab and log in first — no signal or stake until login is verified.';
-    return 'Checking login… waiting for two independent confirmations from the DhaniWin tab.';
+    if (login.state === LOGIN_STATES.NO_SIGNAL) return 'No bridge signal yet. Open DhaniWin with the bridge active so I can verify your login — I will not guess it.';
+    return 'Checking login… waiting for two independent confirmations from the DhaniWin bridge.';
   }
 
   function renderLogin(login) {
-    const text = login.state === LOGIN_STATES.VERIFIED
-      ? `Login verified · ${inr(login.balance)}`
-      : login.state === LOGIN_STATES.NOT_LOGGED_IN ? 'Not logged in' : 'Checking login…';
+    const text = loginEvidenceLine(login);
     document.querySelectorAll('.bridge-login-pill').forEach(el => {
       el.textContent = text;
       el.setAttribute('data-state', login.state);
     });
+    renderMiniLogin(login);
     if (state.loginState !== login.state) {
       state.loginState = login.state;
       say(loginLine(login));
@@ -816,15 +931,15 @@ function initBridge() {
         contenders,
         cooldown: state.cooldownRound
       });
-      // Login is a hard stop: while NOT_LOGGED_IN there is no signal and
+      // Login is a hard stop: unless VERIFIED there is no signal and
       // no stake suggestion, whatever the engines think.
-      if (login.state === LOGIN_STATES.NOT_LOGGED_IN) {
-        gate = {
-          ...gate,
-          decision: GATE_DECISIONS.SKIP,
-          prob: null,
-          reason: 'Not logged in: login on the DhaniWin tab first. No signal or stake is suggested until login is verified with two independent confirmations.'
-        };
+      if (login.state !== LOGIN_STATES.VERIFIED) {
+        const reason = login.state === LOGIN_STATES.NOT_LOGGED_IN
+          ? 'Not logged in: login on the DhaniWin tab first. No signal or stake is suggested until login is verified with two independent confirmations.'
+          : login.state === LOGIN_STATES.NO_SIGNAL
+            ? 'No bridge signal: open DhaniWin with the bridge active. No signal or stake is suggested until login is verified with two independent confirmations.'
+            : 'Login not verified yet: waiting for two independent confirmations from the DhaniWin bridge. No signal or stake is suggested until then.';
+        gate = { ...gate, decision: GATE_DECISIONS.SKIP, prob: null, reason };
       }
       state.gate = gate;
       // Remember the displayed pick so its outcome can settle
@@ -833,6 +948,7 @@ function initBridge() {
 
       // Orb face + badges reflect the GOVERNED signal, not raw engine output.
       renderSignal(gate, incharge, login);
+      renderMini();
       const gateKey = latestPeriod + ':' + gate.decision + ':' + (gate.pick || '');
       if (state.gatePeriodKey !== gateKey) {
         state.gatePeriodKey = gateKey;
@@ -861,6 +977,223 @@ function initBridge() {
       if (conf) conf.textContent = confText;
       const lvl = $('mobileWebLevelBadge');
       if (lvl && state.session) lvl.textContent = bet ? `Level ${state.session.level + 1} (bridge ladder)` : 'Bridge: no bet this round';
+    }
+  }
+
+  // ── Smart Ball MINI WINDOW (mobile only — markup in mobile.html) ──
+  // The ball used to open only the full assistant sheet. The owner
+  // wants a small, squat, minimal, resizable floating window on ball
+  // tap instead. Every ball tap in the app funnels through the global
+  // toggleDhaniwinAssistantModal(true) (the orb's inline onclick and
+  // mobile.js setupFloatingOrb's triggerOrbOpen), so the bridge routes
+  // that one global to the mini window; the expand button inside the
+  // mini window calls the ORIGINAL function to open the full sheet.
+  // mobile.js is not modified.
+  const MINI_KEY = 'o101_smartball_window_v1';
+  const MINI_MIN_W = 240, MINI_MIN_H = 160;
+  const mini = { open: false, x: null, y: null, w: 300, h: 210, restored: false };
+  let miniOpenSheet = null;
+
+  function miniEl() { return $('smartBallWindow'); }
+
+  function miniLoad() {
+    try {
+      const raw = localStorage.getItem(MINI_KEY);
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d && typeof d === 'object') {
+          if (Number.isFinite(d.w)) mini.w = d.w;
+          if (Number.isFinite(d.h)) mini.h = d.h;
+          if (Number.isFinite(d.x)) mini.x = d.x;
+          if (Number.isFinite(d.y)) mini.y = d.y;
+          mini.open = !!d.open;
+        }
+      }
+    } catch (e) {}
+    mini.restored = true;
+  }
+  function miniSave() {
+    try { localStorage.setItem(MINI_KEY, JSON.stringify({ open: mini.open, x: mini.x, y: mini.y, w: mini.w, h: mini.h })); } catch (e) {}
+  }
+  function miniClampSize() {
+    mini.w = Math.min(Math.max(mini.w, MINI_MIN_W), Math.max(MINI_MIN_W, Math.floor(window.innerWidth * 0.92)));
+    mini.h = Math.min(Math.max(mini.h, MINI_MIN_H), Math.max(MINI_MIN_H, Math.floor(window.innerHeight * 0.70)));
+  }
+  function miniClampPos() {
+    if (mini.x === null || mini.y === null) return;
+    mini.x = Math.min(Math.max(mini.x, 4), Math.max(4, window.innerWidth - mini.w - 4));
+    mini.y = Math.min(Math.max(mini.y, 4), Math.max(4, window.innerHeight - mini.h - 4));
+  }
+  function miniApply() {
+    const el = miniEl();
+    if (!el) return;
+    miniClampSize();
+    miniClampPos();
+    el.style.width = mini.w + 'px';
+    el.style.height = mini.h + 'px';
+    if (mini.x !== null && mini.y !== null) {
+      el.style.left = mini.x + 'px';
+      el.style.top = mini.y + 'px';
+      el.style.right = 'auto';
+      el.style.bottom = 'auto';
+    }
+  }
+  function openMini() {
+    const el = miniEl();
+    if (!el) return;
+    if (!mini.restored) miniLoad();
+    mini.open = true;
+    miniApply();
+    el.classList.remove('hidden');
+    renderMini();
+    miniSave();
+  }
+  function closeMini() {
+    const el = miniEl();
+    if (!el) return;
+    mini.open = false;
+    el.classList.add('hidden');
+    miniSave();
+  }
+  function toggleMini() { if (mini.open) closeMini(); else openMini(); }
+
+  function renderMiniLogin(login) {
+    const line = $('smartBallLoginLine');
+    if (line && login) line.textContent = loginEvidenceLine(login);
+    const dot = $('smartBallLoginDot');
+    if (dot && login) {
+      dot.setAttribute('data-state', login.state);
+      dot.style.background = login.state === LOGIN_STATES.VERIFIED ? '#4cd27a'
+        : login.state === LOGIN_STATES.NOT_LOGGED_IN ? '#ff5d55'
+          : login.state === LOGIN_STATES.NO_SIGNAL ? '#f0b24a' : '#8b8b93';
+    }
+  }
+
+  function renderMini() {
+    if (!mini.open) return;
+    const gate = state.gate;
+    const call = $('smartBallCall');
+    if (call) {
+      if (!gate) call.textContent = '—';
+      else if (gate.decision === GATE_DECISIONS.BET) {
+        const verified = state.login && state.login.state === LOGIN_STATES.VERIFIED;
+        call.textContent = 'BET · ' + (gate.pick || '') + (verified && state.session ? ' · ' + inr(state.session.nextStake) : '');
+      } else call.textContent = 'SKIP';
+    }
+    const ladder = $('smartBallLadder');
+    if (ladder) {
+      ladder.textContent = state.session
+        ? `Ladder step ${state.session.level + 1}/${state.session.ladderLevels} · next ${inr(state.session.nextStake)}`
+        : 'Ladder —';
+    }
+    const pnl = $('smartBallPnl');
+    if (pnl) {
+      const v = state.session ? (state.session.sessionPnL || 0) : 0;
+      pnl.textContent = 'Session P&L ' + (v > 0 ? '+' : v < 0 ? '−' : '') + inr(Math.abs(v));
+    }
+    if (state.login) renderMiniLogin(state.login);
+  }
+
+  function initMiniWindow() {
+    const el = miniEl();
+    if (!el) return; // index.html has no orb and no mini window — mobile only
+    miniLoad();
+    miniApply();
+    if (mini.open) { el.classList.remove('hidden'); renderMini(); }
+
+    const header = $('smartBallWindowHeader');
+    if (header) {
+      header.addEventListener('pointerdown', e => {
+        if (e.target.closest('button')) return;
+        e.preventDefault();
+        const rect = el.getBoundingClientRect();
+        const sx = e.clientX, sy = e.clientY, ox = rect.left, oy = rect.top;
+        mini.x = ox; mini.y = oy; miniApply();
+        const move = mv => {
+          mini.x = ox + (mv.clientX - sx);
+          mini.y = oy + (mv.clientY - sy);
+          miniClampPos();
+          el.style.left = mini.x + 'px';
+          el.style.top = mini.y + 'px';
+          el.style.right = 'auto';
+          el.style.bottom = 'auto';
+        };
+        const up = () => {
+          window.removeEventListener('pointermove', move);
+          window.removeEventListener('pointerup', up);
+          miniSave();
+        };
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', up);
+      });
+    }
+    const grip = $('smartBallResizeGrip');
+    if (grip) {
+      grip.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        const rect = el.getBoundingClientRect();
+        if (mini.x === null) { mini.x = rect.left; mini.y = rect.top; miniApply(); }
+        const sx = e.clientX, sy = e.clientY, sw = mini.w, sh = mini.h;
+        const move = mv => {
+          mini.w = sw + (mv.clientX - sx);
+          mini.h = sh + (mv.clientY - sy);
+          miniClampSize();
+          el.style.width = mini.w + 'px';
+          el.style.height = mini.h + 'px';
+        };
+        const up = () => {
+          window.removeEventListener('pointermove', move);
+          window.removeEventListener('pointerup', up);
+          miniSave();
+        };
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', up);
+      });
+    }
+    const closeBtn = $('smartBallCloseBtn');
+    if (closeBtn) closeBtn.addEventListener('click', e => { e.stopPropagation(); closeMini(); });
+    const expandBtn = $('smartBallExpandBtn');
+    if (expandBtn) expandBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      closeMini();
+      if (typeof miniOpenSheet === 'function') miniOpenSheet();
+      else if (typeof window.toggleDhaniwinAssistantModal === 'function') window.toggleDhaniwinAssistantModal(true);
+    });
+    window.addEventListener('resize', () => { if (mini.open) miniApply(); });
+    window.addEventListener('orientationchange', () => { if (mini.open) miniApply(); });
+
+    // Route ball taps to the mini window (see section comment above).
+    const routeBall = () => {
+      const orig = window.toggleDhaniwinAssistantModal;
+      if (typeof orig !== 'function' || orig.__o101MiniRouted) return true;
+      let allowSheet = false;
+      let lastRouteAt = 0;
+      const routed = function (show) {
+        if (show === true && !allowSheet) {
+          // One physical tap fires this global TWICE (mobile.js's
+          // debounced triggerOrbOpen AND the orb's inline onclick).
+          // Opening the sheet was idempotent, toggling is not — so
+          // coalesce repeats inside the app's own 350ms debounce.
+          const now = Date.now();
+          if (now - lastRouteAt < 350) return undefined;
+          lastRouteAt = now;
+          toggleMini();
+          return undefined;
+        }
+        if (show === false) closeMini();
+        return orig.apply(this, arguments);
+      };
+      routed.__o101MiniRouted = true;
+      window.toggleDhaniwinAssistantModal = routed;
+      miniOpenSheet = () => { allowSheet = true; try { orig(true); } finally { allowSheet = false; } };
+      return true;
+    };
+    if (!routeBall()) {
+      // mobile.js defines the toggle after this module in some load
+      // orders — keep retrying briefly until it appears.
+      let tries = 0;
+      const iv = setInterval(() => { if (routeBall() || ++tries > 40) clearInterval(iv); }, 250);
     }
   }
 
@@ -923,10 +1256,14 @@ function initBridge() {
     },
     verifyLogin: () => verifier.status(Date.now()),
     loginState: () => state.loginState,
+    openMini,
+    closeMini,
+    toggleMini,
     store,
     _state: state
   };
 
+  try { initMiniWindow(); } catch (e) { /* mini window must never break the app */ }
   setInterval(() => { try { cycle(); } catch (e) {} }, 3000);
   setTimeout(() => { try { cycle(); } catch (e) {} }, 1200);
 }
