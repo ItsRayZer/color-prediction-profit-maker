@@ -110,6 +110,10 @@
       }
     }
   </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="axofy-theme.css">
 </head>
 <body class="bg-[#09090b] text-white overflow-x-hidden min-h-screen">
 
@@ -193,6 +197,7 @@
         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
         <span>LIVE</span>
       </div>
+      <span class="bridge-login-pill px-2 py-0.5 rounded-full bg-white/[0.06] border border-white/[0.10] text-zinc-300 font-mono text-[9px]" data-state="UNKNOWN">Checking login…</span>
       <button onclick="openDhaniAccountMenu()" class="w-7 h-7 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center transition active:scale-95" title="DhaniWin Account (Login / Logout)">
         <i id="headerAccountIcon" class="fa-solid fa-right-to-bracket text-xs text-sky-300"></i>
       </button>
@@ -516,6 +521,19 @@
          PAGE 2: ADAPTIVE AI (Apple Liquid Glass Intelligence)
     ══════════════════════════════════════════════════════════╗ -->
     <section id="tab-ai" class="mobile-page space-y-3" style="display:none;">
+    <!-- RANKING (adaptive AI, orb-bridge) + BLACKLIST section -->
+    <div id="bridgeRankingWrap" class="space-y-2">
+      <div class="flex items-center justify-between px-1">
+        <span class="text-[10px] font-black uppercase tracking-wider text-white">Ranking · Adaptive AI</span>
+        <span id="bridgeRankingMeta" class="text-[8px] font-mono text-zinc-500">background engine</span>
+      </div>
+      <div id="bridgeRankingList" class="space-y-1"></div>
+      <div class="flex items-center justify-between px-1 pt-3">
+        <span class="text-[10px] font-black uppercase tracking-wider text-rose-300">Blacklist</span>
+        <span class="text-[8px] font-mono text-zinc-500">auto-benched · shadow scoring continues</span>
+      </div>
+      <div id="bridgeBlacklistList" class="space-y-1"></div>
+    </div>
       
       <!-- 1. Champion In Charge Card -->
       <div class="liquid-glass-card p-3.5 space-y-2.5">
@@ -625,7 +643,7 @@
         <div class="space-y-1 pt-0.5">
           <div class="flex items-center justify-between text-[8px] font-mono text-zinc-400">
             <span>Directional (Dragon)</span>
-            <span id="regimeScoreText" class="text-amber-300 font-bold">78% Strength</span>
+            <span id="regimeScoreText" class="text-amber-300 font-bold">—% Strength</span>
             <span>Oscillating (Chop)</span>
           </div>
           <div class="w-full bg-black/60 h-2 rounded-full overflow-hidden p-0.5 border border-white/[0.08]">
@@ -818,7 +836,7 @@
       <!-- Outer Glowing Pulsing Ring & Inner AMOLED Ball -->
       <div id="floatingOrbRing" class="absolute inset-[3px] rounded-full bg-gradient-to-tr from-amber-500/80 via-emerald-500/90 to-cyan-500/80 p-[1.5px] shadow-[0_4px_24px_rgba(16,185,129,0.45)]">
         <div class="w-full h-full rounded-full bg-[#09090d]/95 backdrop-blur-xl flex flex-col items-center justify-center text-center">
-          <span id="floatingOrbIcon" class="text-[11px] leading-none mb-0.5">🎯</span>
+          <img id="floatingOrbIcon" src="logo_0101.jpg" alt="01:01" class="w-[18px] h-[18px] rounded-full object-cover mb-0.5" onerror="this.style.display='none'">
           <span id="floatingOrbTarget" class="text-[9px] font-black font-mono text-amber-300 leading-tight tracking-tight">BIG</span>
           <span id="floatingOrbStake" class="text-[8px] font-bold font-mono text-emerald-400 leading-none">₹2</span>
         </div>
@@ -895,12 +913,16 @@
               <span class="text-[7.5px] font-mono uppercase tracking-widest text-zinc-400">01:01 CALL</span>
               <div class="flex items-center gap-2 mt-0.5">
                 <span id="mobileWebTargetDisplay" class="text-3xl font-black tracking-tight text-amber-300 drop-shadow-[0_0_12px_rgba(245,158,11,0.35)]">BIG</span>
-                <span id="assistantConfBadge" class="text-[9px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/35">84%</span>
+                <span id="assistantConfBadge" class="text-[9px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/35">—%</span>
               </div>
               <span id="mobileWebLevelBadge" class="text-[7.5px] font-mono text-zinc-400 mt-0.5">Level 1 (Base)</span>
             </div>
           </div>
         </div>
+
+        <!-- SMART BALL LINE (orb-bridge / predictBot) -->
+        <p id="smartBallLine" class="text-[10px] leading-relaxed text-zinc-200 bg-white/[0.04] border border-white/[0.08] rounded-2xl px-3 py-2.5"></p>
+        <p class="bridge-login-pill text-[9px] font-mono text-zinc-300 bg-white/[0.04] border border-white/[0.08] rounded-full px-2.5 py-1 inline-block" data-state="UNKNOWN">Checking login…</p>
 
         <!-- 4. Macro Sequence Road (Last 8 Draws) -->
         <div class="space-y-1.5">
@@ -1111,10 +1133,10 @@
   <!-- ════════════════════════════════════════════════════════════
        BUY ME A COFFEE / SUPPORT POPUP MODAL (Compact & Daily)
   ════════════════════════════════════════════════════════════ -->
-  <div id="coffeeSupportModal" class="fixed inset-0 z-[100000] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4 transition-all duration-300 opacity-0 pointer-events-none" onclick="if(event.target===this) closeCoffeeSupportModal(false)">
+  <div id="coffeeSupportModal" class="fixed inset-0 z-[100000] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4 transition-all duration-300 opacity-0 pointer-events-none" onclick="if(event.target===this) dismissCoffeeSupportModalToday()">
     <div class="w-full max-w-[290px] bg-[#0c0c0e] border border-white/[0.18] rounded-[24px] overflow-hidden shadow-2xl relative flex flex-col items-center animate-scale-up select-none cursor-pointer group" onclick="openRazorpayCheckout(); closeCoffeeSupportModal(true);">
       <!-- Close Button (Top-Right) -->
-      <button onclick="event.stopPropagation(); closeCoffeeSupportModal(false);" class="absolute top-2.5 right-2.5 z-30 w-7 h-7 rounded-full bg-black/70 hover:bg-black/90 text-white/80 hover:text-white border border-white/25 flex items-center justify-center text-xs transition active:scale-95 shadow-md" title="Close">
+      <button onclick="event.stopPropagation(); dismissCoffeeSupportModalToday();" class="absolute top-2.5 right-2.5 z-30 w-7 h-7 rounded-full bg-black/70 hover:bg-black/90 text-white/80 hover:text-white border border-white/25 flex items-center justify-center text-xs transition active:scale-95 shadow-md" title="Close">
         <i class="fa-solid fa-xmark"></i>
       </button>
 
@@ -1133,7 +1155,7 @@
           ✨ After buying a coffee, this won't come again for a while
         </p>
         <div class="w-full flex items-center justify-between text-[9.5px] text-zinc-400 px-1 pt-0.5 font-mono">
-          <button onclick="event.stopPropagation(); closeCoffeeSupportModal(false);" class="hover:text-white transition">Maybe Later</button>
+          <button onclick="event.stopPropagation(); dismissCoffeeSupportModalToday();" class="hover:text-white transition">Maybe Later</button>
           <button onclick="event.stopPropagation(); confirmCoffeePaidPrompt();" class="text-amber-400 font-bold hover:text-amber-300 transition flex items-center gap-1 cursor-pointer">
             <i class="fa-solid fa-check text-[9px]"></i>
             <span>I Have Paid</span>
@@ -1363,19 +1385,11 @@
         <span class="dock-indicator"></span>
       </button>
 
-      <!-- 3. AI Adaptive Tab (Model Roster & Champion) -->
+      <!-- 3. Ranking Tab (Adaptive AI ranking + Blacklist, from orb-bridge) -->
       <button type="button" onclick="switchMobileTab('ai')" class="dock-btn" data-tab="ai">
         <div class="dock-btn-pill"></div>
         <i class="fa-solid fa-brain"></i>
-        <span class="tab-title">AI Adaptive</span>
-        <span class="dock-indicator"></span>
-      </button>
-
-      <!-- 4. Pattern Tab (Live Pattern Intelligence) -->
-      <button type="button" onclick="switchMobileTab('pattern')" class="dock-btn" data-tab="pattern">
-        <div class="dock-btn-pill"></div>
-        <i class="fa-solid fa-shapes"></i>
-        <span class="tab-title">Pattern</span>
+        <span class="tab-title">Ranking</span>
         <span class="dock-indicator"></span>
       </button>
 
@@ -1404,5 +1418,6 @@
 
   <!-- Isolated Pattern Intelligence Layer (4th Tab) -->
   <script type="module" src="./src/pattern/index.js"></script>
+<script type="module" src="./systems/orb-bridge.js"></script>
 </body>
 </html>

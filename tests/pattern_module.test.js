@@ -244,15 +244,18 @@ test('TEST 9 — PREDICTION ISOLATION: Models Retain Exact Prediction Output and
   assert.equal(predictionB.confidence, 0.74);
 });
 
-test('TEST 10 — MENU INTEGRITY: Menus 1, 2, 3 Unchanged, Pattern Appears as Item 4', () => {
+test('TEST 10 — MENU INTEGRITY: 3-destination dock (owner spec 2026-10-23)', () => {
+  // SUPERSEDES the original 4-tab assertion: the owner reduced the main
+  // menu to exactly 3 destinations — Home, Analyse, Ranking. The Pattern
+  // section itself still exists in the DOM (feature kept, just no longer
+  // a dock destination).
   const mobileHtmlPath = path.resolve('mobile.html');
   const content = fs.readFileSync(mobileHtmlPath, 'utf8');
 
   // Verify dock-container buttons order:
   // 1. Home (data-tab="web")
   // 2. Analyse (data-tab="home")
-  // 3. AI Adaptive (data-tab="ai")
-  // 4. Pattern (data-tab="pattern")
+  // 3. Ranking (data-tab="ai")
   const dockRegex = /<nav id="mobileBottomDock"[\s\S]*?<\/nav>/;
   const dockMatch = content.match(dockRegex);
   assert.ok(dockMatch, 'mobileBottomDock must exist');
@@ -260,12 +263,11 @@ test('TEST 10 — MENU INTEGRITY: Menus 1, 2, 3 Unchanged, Pattern Appears as It
   const dockHtml = dockMatch[0];
   const tabMatches = [...dockHtml.matchAll(/data-tab="([^"]+)"/g)].map(m => m[1]);
 
-  assert.equal(tabMatches.length, 4, 'Must contain exactly 4 navigation tabs');
+  assert.equal(tabMatches.length, 3, 'Owner spec: exactly 3 navigation tabs');
   assert.equal(tabMatches[0], 'web', 'Menu 1 must be Home (web)');
   assert.equal(tabMatches[1], 'home', 'Menu 2 must be Analyse (home)');
-  assert.equal(tabMatches[2], 'ai', 'Menu 3 must be AI Adaptive (ai)');
-  assert.equal(tabMatches[3], 'pattern', 'Menu 4 must be Pattern (pattern)');
+  assert.equal(tabMatches[2], 'ai', 'Menu 3 must be Ranking (ai)');
 
-  // Verify section #tab-pattern exists
+  // Verify section #tab-pattern exists (feature retained off-menu)
   assert.ok(content.includes('id="tab-pattern"'), 'tab-pattern section must exist in DOM');
 });

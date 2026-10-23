@@ -1456,9 +1456,9 @@ function renderHistoryTable(list) {
   if (badge) badge.textContent = `${list.length} Draws`;
 
   // Show most recent first
-  const display = [...list].reverse().slice(0, 30);
+  const display = [...list].reverse(); // FULL stored history (was silently capped at 30)
 
-  tbody.innerHTML = display.map(r => {
+  const buildRow = (r) => {
     const isWin = r.aiCorrect === true || r.result === 'WIN';
     const isLoss = r.aiCorrect === false || r.result === 'LOSS';
     const hasResult = r.aiTarget && (r.aiCorrect !== null && r.aiCorrect !== undefined);
@@ -1484,7 +1484,28 @@ function renderHistoryTable(list) {
       <td class="py-1.5 px-1 font-mono text-[8px] text-zinc-400">${r.color ? r.color.split(',')[0] : '—'}</td>
       <td class="py-1.5 px-1 text-right">${resultBadge}</td>
     </tr>`;
-  }).join('');
+  };
+  // Chunked rendering of the FULL history: first chunk now, more appended on
+  // scroll (sentinel row) — every stored round is reachable, never capped.
+  let rendered = 0;
+  const CHUNK = 120;
+  const sentinel = document.createElement('tr');
+  sentinel.innerHTML = '<td colspan="5" class="py-2 text-center text-zinc-600 text-[8px] font-mono">scroll for more…</td>';
+  const renderChunk = () => {
+    const part = display.slice(rendered, rendered + CHUNK);
+    if (!part.length) return;
+    sentinel.insertAdjacentHTML('beforebegin', part.map(buildRow).join(''));
+    rendered += part.length;
+    if (rendered >= display.length) { sentinel.remove(); if (window.__mobileHistObs) window.__mobileHistObs.disconnect(); }
+  };
+  tbody.innerHTML = '';
+  tbody.appendChild(sentinel);
+  renderChunk();
+  if (window.__mobileHistObs) window.__mobileHistObs.disconnect();
+  if (display.length > CHUNK && 'IntersectionObserver' in window) {
+    window.__mobileHistObs = new IntersectionObserver(es => { if (es[0].isIntersecting) renderChunk(); }, { rootMargin: '400px' });
+    window.__mobileHistObs.observe(sentinel);
+  }
 }
 window.renderHistoryTable = renderHistoryTable;
 
@@ -4200,7 +4221,21 @@ function confirmCoffeePaidPrompt() {
 }
 window.confirmCoffeePaidPrompt = confirmCoffeePaidPrompt;
 
+function isCoffeeDismissedToday() {
+  try {
+    return localStorage.getItem('coffee_dismissed_date') === new Date().toLocaleDateString('en-CA');
+  } catch(e) {
+    return false;
+  }
+}
+window.isCoffeeDismissedToday = isCoffeeDismissedToday;
+
 function dismissCoffeeSupportModalToday() {
+  // "Maybe Later" / close must actually dismiss for the day: the popup is a
+  // full-screen z-100000 overlay, so while it is up it swallows EVERY tap
+  // (orb, settings, dock). Re-showing it on every refresh made the whole
+  // app feel broken. Dismissal is now persisted for the calendar day.
+  try { localStorage.setItem('coffee_dismissed_date', new Date().toLocaleDateString('en-CA')); } catch(e) {}
   closeCoffeeSupportModal(false);
 }
 window.dismissCoffeeSupportModalToday = dismissCoffeeSupportModalToday;
@@ -4211,9 +4246,13 @@ function initCoffeeSupportPopup() {
     if (isCoffeePaidActive()) {
       return;
     }
-    // Otherwise, show on every refresh after smooth 1.8s delay
+    // Dismissed today ("Maybe Later") -> leave the app alone until tomorrow.
+    if (isCoffeeDismissedToday()) {
+      return;
+    }
+    // Otherwise, show once per day after smooth 1.8s delay
     setTimeout(() => {
-      if (!isCoffeePaidActive()) {
+      if (!isCoffeePaidActive() && !isCoffeeDismissedToday()) {
         openCoffeeSupportModal();
       }
     }, 1800);

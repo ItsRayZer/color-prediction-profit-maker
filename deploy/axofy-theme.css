@@ -1,0 +1,127 @@
+/* ════════════════════════════════════════════════════════════════════
+   01:01 — AXOFY THEME LAYER
+   Cosmetic only: colours, fonts, radii, shadows, borders.
+   No layout, position, display or behaviour changes.
+   Tokens copied from the Axofy app (axofy.shop/app):
+   bg #040405 · text #f4f4f6 · muted #8b8b93 · gold #ffd166
+   glass rgba(255,255,255,.09) · edge rgba(255,255,255,.12)
+   ok #4cd27a · warn #f0b24a · bad #ff5d55
+   Sans: "Plus Jakarta Sans" · Display: "Instrument Serif"
+   Matte finish — no shine/gloss effects.
+   ════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --axo-bg: #040405;
+  --axo-panel: #17171c;
+  --axo-text: #f4f4f6;
+  --axo-muted: #8b8b93;
+  --axo-glass: rgba(255, 255, 255, .09);
+  --axo-edge: rgba(255, 255, 255, .12);
+  --axo-gold: #ffd166;
+  --axo-gold-dim: #f5c469;
+  --axo-ok: #4cd27a;
+  --axo-warn: #f0b24a;
+  --axo-bad: #ff5d55;
+  --axo-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --axo-serif: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --axo-radius: 22px;
+
+  /* ── Variable mapping: settings.html (iOS settings page) ── */
+  --ios-amoled-bg: #040405;
+  --ios-surface-glass: rgba(23, 23, 28, 0.78);
+  --ios-surface-pressed: rgba(255, 255, 255, 0.09);
+  --ios-hairline: rgba(255, 255, 255, 0.12);
+  --ios-separator: rgba(255, 255, 255, 0.12);
+
+  /* ── Variable mapping: mobile.css (mobile app) ── */
+  --glass-bg: rgba(23, 23, 28, 0.82);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-specular: inset 0 0 0 rgba(255, 255, 255, 0); /* matte: specular stripped */
+  --accent-amber: #ffd166;
+  --accent-emerald: #4cd27a;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--axo-bg) !important;
+  color: var(--axo-text);
+  font-family: var(--axo-sans);
+}
+
+/* Display headings in the Axofy serif */
+h1, h2,
+.ios-large-title,
+.brand-name {
+  font-family: var(--axo-serif);
+  font-weight: 400;
+  letter-spacing: .01em;
+}
+
+/* ── App surfaces (Tailwind config colours used by index/terminal) ── */
+.bg-app-bg { background-color: var(--axo-bg) !important; }
+.bg-app-surface { background-color: var(--axo-panel) !important; }
+.bg-app-card { background-color: var(--axo-panel) !important; }
+.bg-app-cardLight { background-color: #1c1c21 !important; }
+
+/* Dominant hard-coded dark surfaces across the old pages → Axofy panel tone */
+.bg-\[\#141416\], .bg-\[\#111113\], .bg-\[\#111111\], .bg-\[\#121214\] {
+  background-color: var(--axo-panel) !important;
+}
+.bg-\[\#09090b\], .bg-\[\#0a0a0a\], .bg-\[\#000000\] {
+  background-color: var(--axo-bg) !important;
+}
+
+/* Headers: matte near-black glass with the Axofy hairline edge */
+header {
+  background-color: rgba(4, 4, 5, .82) !important;
+  border-bottom-color: var(--axo-edge) !important;
+}
+
+/* Primary accent: amber utilities across the old pages become Axofy gold.
+   Colour-only remap — the same elements keep their layout and behaviour. */
+.text-amber-300, .text-amber-400 { color: var(--axo-gold) !important; }
+.border-amber-400, .border-amber-500\/30, .border-amber-500\/40 { border-color: rgba(255, 209, 102, .45) !important; }
+.bg-amber-500\/20, .bg-amber-500\/25 { background-color: rgba(255, 209, 102, .16) !important; }
+.focus\:border-amber-400:focus { border-color: var(--axo-gold) !important; }
+
+/* Status colours aligned to Axofy tokens */
+.text-emerald-300, .text-emerald-400 { color: var(--axo-ok) !important; }
+.text-rose-300, .text-rose-400 { color: var(--axo-bad) !important; }
+
+/* Cards and glass panels: Axofy radius + matte edge.
+   Radius is capped by each element's own design via its existing class
+   where it is smaller; this only lifts the common panel classes. */
+.apple-glass-card,
+.liquid-glass-card,
+.ios-group {
+  border-color: var(--axo-edge) !important;
+  border-radius: var(--axo-radius) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .5) !important;
+}
+
+/* Mobile bottom dock: matte glass, gold active state already flows
+   through --accent-amber above. */
+#mobileBottomDock .dock-container {
+  background: rgba(23, 23, 28, .88) !important;
+  border-color: var(--axo-edge) !important;
+}
+
+/* Assistant orb sheet: matte Axofy glass surface */
+#dhaniwinAssistantSheet {
+  background-color: #0b0b0f;
+  border-top-color: var(--axo-edge) !important;
+}
+
+/* Settings panel (desktop slide-over) surface */
+#settingsPanel {
+  background-color: var(--axo-panel) !important;
+  border-left-color: var(--axo-edge) !important;
+}
+
+/* Scrollbars + selection in theme */
+::selection { background: rgba(255, 209, 102, .35); }
+* { scrollbar-color: #2e2e30 transparent; }
+::-webkit-scrollbar-thumb { background: #2e2e30; }
