@@ -1422,6 +1422,47 @@
           </div>
         </div>
 
+        <!-- Axo Subtitles (CC) — closes ONLY the subtitle strip; the
+             ball, the face and the governed flow keep running, and
+             the prediction shows inside the Axo ball instead. -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-teal">
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M7 12h3M13 12h4"/></svg>
+            </div>
+            <div>
+              <div class="ios-label-primary">Axo Subtitles</div>
+              <div class="ios-label-secondary">Off = prediction shows inside the Axo ball, silently</div>
+            </div>
+          </div>
+          <div class="ios-row-right">
+            <label class="ios-switch">
+              <input type="checkbox" id="swAxoSubs" checked onchange="toggleAxoSubs(this.checked)">
+              <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Axo Language — drives the spoken voice language
+             (speechSynthesis tag). Subtitles stay the governed
+             English strings; no translated template exists yet. -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-blue">
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18"/></svg>
+            </div>
+            <div>
+              <div class="ios-label-primary">Axo Language</div>
+              <div class="ios-label-secondary">Spoken voice language (EN / Hindi / Malayalam)</div>
+            </div>
+          </div>
+          <div class="ios-row-right" style="display:flex; gap:4px;">
+            <button id="axoLangBtn-en" onclick="setAxoLang('en')" class="ios-seg-btn">EN</button>
+            <button id="axoLangBtn-hi" onclick="setAxoLang('hi')" class="ios-seg-btn">HI</button>
+            <button id="axoLangBtn-ml" onclick="setAxoLang('ml')" class="ios-seg-btn">ML</button>
+          </div>
+        </div>
+
         <!-- Haptics -->
         <div class="ios-row">
           <div class="ios-row-left">
@@ -2168,6 +2209,19 @@
       const swAxoMode = document.getElementById('swAxoMode');
       if (swAxoMode) swAxoMode.checked = axoModeVal;
 
+      // Axo Subtitles (CC)
+      const axoSubsVal = localStorage.getItem('o101_axo_subs') !== '0';
+      const swAxoSubs = document.getElementById('swAxoSubs');
+      if (swAxoSubs) swAxoSubs.checked = axoSubsVal;
+
+      // Axo Language (EN default; unknown reads as EN)
+      const axoLangVal = localStorage.getItem('o101_axo_lang');
+      const axoLang = (axoLangVal === 'hi' || axoLangVal === 'ml') ? axoLangVal : 'en';
+      ['en', 'hi', 'ml'].forEach(c => {
+        const btn = document.getElementById('axoLangBtn-' + c);
+        if (btn) btn.classList.toggle('active', c === axoLang);
+      });
+
       // Haptics
       const hapVal = localStorage.getItem('quant_haptics') !== '0';
       const swHap = document.getElementById('swHaptics');
@@ -2313,6 +2367,21 @@
     function toggleAxoMode(checked) {
       localStorage.setItem('o101_axo_mode', checked ? 'ai' : 'normal');
       showToast(checked ? 'Axo AI Mode On' : 'Axo Normal Mode (templates only)');
+    }
+
+    function toggleAxoSubs(checked) {
+      localStorage.setItem('o101_axo_subs', checked ? '1' : '0');
+      showToast(checked ? 'Axo Subtitles On' : 'Axo Subtitles Off — prediction shows in the ball');
+    }
+
+    function setAxoLang(code) {
+      const next = (code === 'hi' || code === 'ml') ? code : 'en';
+      localStorage.setItem('o101_axo_lang', next);
+      ['en', 'hi', 'ml'].forEach(c => {
+        const btn = document.getElementById('axoLangBtn-' + c);
+        if (btn) btn.classList.toggle('active', c === next);
+      });
+      showToast(next === 'en' ? 'Axo Language: English' : (next === 'hi' ? 'Axo Language: Hindi' : 'Axo Language: Malayalam'));
     }
 
     function toggleHaptics(checked) {

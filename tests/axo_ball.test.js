@@ -62,10 +62,12 @@ test('pin 1 — settleGovernedPick: a non-BET round produces no events and no so
 test('pin 1 — SIGNAL_SKIP has no Axo face and is never spoken', () => {
   assert.deepEqual(axoEventEffects(BOT_EVENTS.SIGNAL_SKIP), { face: null, spoken: false });
   // Runtime pin: speakEvent returns a skip line as STATE ONLY, before
-  // any say()/face/voice work can happen.
+  // any say()/face/voice work can happen. (The subtitle write is
+  // say(full) since the fix round — the BET line with its road
+  // suffix — so the pin matches any say( call, not the old literal.)
   const fn = orbSrc.slice(orbSrc.indexOf('function speakEvent'), orbSrc.indexOf('function speakSettledEvents'));
   const skipAt = fn.indexOf('SIGNAL_SKIP');
-  const sayAt = fn.indexOf('say(line)');
+  const sayAt = fn.indexOf('say(');
   assert.ok(skipAt > -1 && sayAt > skipAt, 'the skip early-return precedes the subtitle write');
   assert.ok(fn.includes('state.lastLine = line'), 'the skip line survives only as internal state');
 });

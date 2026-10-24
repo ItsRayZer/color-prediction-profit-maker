@@ -870,7 +870,7 @@
       style="bottom: 90px; right: 16px; width: 62px; height: 62px; z-index: 99998; display: none;"
       role="button"
       tabindex="0"
-      title="01:01 AI Assistant">
+      title="Axo — tap to open the assistant">
       
       <!-- Clock-Like Radial SVG Countdown Ring -->
       <svg class="absolute -inset-[3px] w-[68px] h-[68px] -rotate-90 pointer-events-none" viewBox="0 0 68 68">
@@ -878,18 +878,21 @@
         <circle id="orbTimerRing" cx="34" cy="34" r="31" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" fill="none" stroke-dasharray="194.8" stroke-dashoffset="0" style="transition: stroke-dashoffset 0.25s linear, stroke 0.3s ease, filter 0.3s ease;" />
       </svg>
 
-      <!-- Outer Glowing Pulsing Ring & Inner AMOLED Ball -->
-      <div id="floatingOrbRing" class="absolute inset-[3px] rounded-full bg-gradient-to-tr from-amber-500/80 via-emerald-500/90 to-cyan-500/80 p-[1.5px] shadow-[0_4px_24px_rgba(16,185,129,0.45)] pointer-events-none">
-        <div class="w-full h-full rounded-full bg-[#09090d]/95 backdrop-blur-xl flex flex-col items-center justify-center text-center pointer-events-none">
-          <span id="floatingOrbIcon" class="text-[11px] leading-none mb-0.5 pointer-events-none">🎯</span>
-          <span id="floatingOrbTarget" class="text-[9px] font-black font-mono text-amber-300 leading-tight tracking-tight pointer-events-none">BIG</span>
-          <span id="floatingOrbStake" class="text-[8px] font-bold font-mono text-emerald-400 leading-none pointer-events-none">₹2</span>
-        </div>
+      <!-- Axo ball (fix round 2026-10-24): the ball IS Axo — its real
+           face fills the disc, matte, no gradient, no glow, no emoji.
+           The pick pill overlays the bottom of the face; the
+           under-bar below the ball carries period + mini road, so
+           the prediction stays visible even with subtitles closed. -->
+      <div id="floatingOrbRing" class="absolute inset-[3px] rounded-full bg-[#0b0b10] border border-white/15 pointer-events-none overflow-hidden">
+        <img id="floatingOrbAxoFace" alt="" aria-hidden="true" draggable="false" class="absolute inset-0 w-full h-full object-cover rounded-full pointer-events-none">
+        <span id="floatingOrbTarget" class="absolute left-1/2 -translate-x-1/2 bottom-0.5 px-1.5 py-0.5 rounded-full bg-black/85 border border-white/15 text-[8px] font-black font-mono leading-none pointer-events-none text-amber-200">—</span>
       </div>
+      <div id="floatingOrbUnderBar" class="absolute left-1/2 -translate-x-1/2 whitespace-nowrap px-1.5 py-0.5 rounded-full bg-black/85 border border-white/15 text-[6.5px] font-mono text-zinc-300 pointer-events-none" style="top: calc(100% + 2px);">—</div>
       <!-- Pulse Status Indicator Dot -->
       <span id="floatingOrbDotPing" class="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black animate-ping pointer-events-none"></span>
       <span id="floatingOrbDot" class="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black pointer-events-none"></span>
     </div>
+
 
     <!-- ════════════════════════════════════════════════════════════
          REDESIGNED APPLE / GEN-Z ASSISTANT MODAL (AMOLED Liquid Glass)
@@ -957,12 +960,25 @@
                narration vs Normal (governed templates only). Voice
                has its own chip on the face. Fixed height. -->
           <div id="axoControlRow" class="flex items-center justify-between px-1 h-[26px] shrink-0">
-            <span class="text-[7px] font-mono text-zinc-500 tracking-wider">AXO</span>
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="text-[7px] font-mono text-zinc-500 tracking-wider shrink-0">AXO</span>
+              <!-- Tap-for-voice affordance: visible ONLY while a line
+                   waits for the first ball/panel gesture. Tapping it
+                   unlocks voice and speaks the queued line. -->
+              <button type="button" id="axoVoiceBlockedBadge" onclick="window.__smartBall && window.__smartBall.unlockAxoVoice()" class="hidden text-[7px] font-mono font-black px-2 py-0.5 rounded-full bg-amber-500/25 text-amber-300 border border-amber-500/40 active:scale-95 transition animate-pulse" title="Tap to enable Axo voice">TAP FOR VOICE</button>
+            </div>
             <div class="flex items-center gap-1.5">
               <button type="button" id="axoCcChip" aria-pressed="true" title="Subtitles on/off — Axo keeps running" onclick="window.__smartBall && window.__smartBall.toggleAxoSubs()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 active:scale-95 transition">CC</button>
               <button type="button" id="axoModeChip" aria-pressed="true" title="Axo mode: AI narration or Normal (templates only)" onclick="window.__smartBall && window.__smartBall.toggleAxoMode()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 active:scale-95 transition">AI</button>
+              <button type="button" id="axoLangChip" title="Axo language — tap to change" onclick="window.__smartBall && window.__smartBall.toggleAxoLang()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 border border-white/10 active:scale-95 transition">EN</button>
             </div>
           </div>
+          <!-- 0b. Axo road strip (orb-bridge): the round sequence road
+               in one view — each settled result with the governed
+               pick for that period, plus the NEXT period pick.
+               Fixed height, so it never resizes the sheet. -->
+          <div id="axoRoadStrip" class="flex items-center gap-0.5 px-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] h-[30px] overflow-x-auto shrink-0" style="-webkit-overflow-scrolling: touch;"></div>
+
           <div id="smartBallLine" aria-live="polite" class="px-2.5 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[8.5px] font-mono text-zinc-200 leading-relaxed h-[34px] overflow-y-auto"></div>
           
           <!-- 1. Live Period & Timer Bar with Active Interval -->
@@ -1033,6 +1049,13 @@
               <span class="text-[7.5px] font-mono text-zinc-500 px-1 py-0.5">Loading results...</span>
             </div>
           </div>
+
+          <!-- 3b. Long runs (orb-bridge background analysis): what the
+               FULL history already contains, longest first. Observed
+               history only — never a prediction, never a guarantee,
+               and never an input to any verdict, stake or gate. -->
+          <div id="axoLongRuns" class="space-y-1 px-1 py-1 rounded-xl bg-white/[0.03] border border-white/[0.06]"></div>
+
 
           <!-- 4. 1-Tap Base Bet Quick Select & Loss Recovery Status -->
           <div class="space-y-1 pt-0.5">

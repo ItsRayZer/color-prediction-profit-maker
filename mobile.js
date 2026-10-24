@@ -1577,10 +1577,11 @@ function renderHeroSequentialBallRoad(list) {
     return;
   }
 
-  // Universal ordering: NEW results are at LEFT, OLD results to RIGHT
-  const display = [...list].reverse().slice(0, 25);
+  // Universal ordering: NEW results are at LEFT, OLD results to RIGHT.
+  // FULL history — no count cap (fix round 2026-10-24), chunked.
+  const display = [...list].reverse();
 
-  container.innerHTML = display.map((r, idx) => {
+  const cells = display.map((r, idx) => {
     const n = Number(r.number);
     let ballBg = 'ball-red';
     if (n === 0) ballBg = 'ball-split-0';
@@ -1599,7 +1600,8 @@ function renderHeroSequentialBallRoad(list) {
       </div>
       <span class="text-[7px] font-mono text-zinc-500 font-semibold">${periodShort}</span>
     </div>`;
-  }).join('');
+  });
+  renderRoadCellsChunked(container, cells);
 }
 window.renderHeroSequentialBallRoad = renderHeroSequentialBallRoad;
 
@@ -1649,10 +1651,10 @@ function renderHistoryTable(list) {
   const badge = $('historyCountBadge');
   if (badge) badge.textContent = `${list.length} Draws`;
 
-  // Show most recent first
-  const display = [...list].reverse().slice(0, 30);
+  // Show most recent first — FULL history, no count cap (fix round).
+  const display = [...list].reverse();
 
-  tbody.innerHTML = display.map(r => {
+  const rows = display.map(r => {
     const isWin = r.aiCorrect === true || r.result === 'WIN';
     const isLoss = r.aiCorrect === false || r.result === 'LOSS';
     const hasResult = r.aiTarget && (r.aiCorrect !== null && r.aiCorrect !== undefined);
@@ -1678,7 +1680,8 @@ function renderHistoryTable(list) {
       <td class="py-1.5 px-1 font-mono text-[8px] text-zinc-400">${r.color ? r.color.split(',')[0] : '—'}</td>
       <td class="py-1.5 px-1 text-right">${resultBadge}</td>
     </tr>`;
-  }).join('');
+  });
+  renderRoadCellsChunked(tbody, rows);
 }
 window.renderHistoryTable = renderHistoryTable;
 
@@ -1740,11 +1743,13 @@ function renderMobileHistoryGraph(list) {
   setText('mobileGraphSmallPct', `${smallPct}%`);
   setText('mobileGraphWinRatio', winPct);
 
-  // Show recent rounds: newest on top, like PC number road
-  const display = [...list].reverse().slice(0, 30);
+  // Show recent rounds: newest on top, like PC number road — FULL
+  // history, no count cap (fix round), chunked; the connector draws
+  // once every row exists.
+  const display = [...list].reverse();
   const COLS = 'grid-template-columns:46px repeat(10,1fr) 20px 20px';
 
-  container.innerHTML = display.map((row, idx) => {
+  const rows = display.map((row, idx) => {
     const n = Number(row.number);
     const periodShort = String(row.period).slice(-4);
 
@@ -1779,10 +1784,10 @@ function renderMobileHistoryGraph(list) {
       <div class="flex items-center justify-center">${bsBadge}</div>
       <div class="flex items-center justify-center">${aiBadge}</div>
     </div>`;
-  }).join('');
+  });
 
-  // Draw connector SVG
-  drawMobileGraphConnector(display);
+  // Draw connector SVG once all rows exist (chunked render completes).
+  renderRoadCellsChunked(container, rows, { onComplete: () => drawMobileGraphConnector(display) });
 }
 window.renderMobileHistoryGraph = renderMobileHistoryGraph;
 
@@ -1953,8 +1958,8 @@ function renderAdaptiveAI(list) {
   const ratioEl = $('aiBentoScoreRatio');
   if (ratioEl) ratioEl.textContent = settled.length === 0 ? '0W · 0L' : `${l20Wins}W · ${last20.length - l20Wins}L`;
 
-  // Sequential Road (bead chain) - strictly real live settled predictions
-  renderSequentialRoad(settled.slice(-25));
+  // Sequential Road (bead chain) - strictly real live settled predictions — FULL, no cap
+  renderSequentialRoad(settled);
 
   // 8-Engine Neural Matrix
   renderNeuralMatrix(list);
@@ -6554,11 +6559,98 @@ function updateAssistantLossLimit(val) {
 }
 window.updateAssistantLossLimit = updateAssistantLossLimit;
 
+// ── Fix round 2026-10-24: full-history chunked road rendering ─────
+// The history/sequence road used to hide behind render caps (8, 25,
+// 30). Every road/table below now renders the FULL list, newest
+// first, in chunks: the first chunk synchronously, the rest in
+// idle-time slices, plus an immediate top-up when the user scrolls
+// near the end — so a long history never janks and nothing is ever
+// hidden behind a count. A re-render invalidates pending chunks via
+// the container's generation token. This mirrors systems/historyRoad.js
+// (fullRoadList / chunkList), the tested spec — a classic script
+// cannot import that module, so the behaviour is implemented here.
+function renderRoadCellsChunked(container, cellHtmlArray, opts) {
+  if (!container) return;
+  const chunkSize = (opts && opts.chunkSize) || 60;
+  const onComplete = (opts && opts.onComplete) || null;
+  const token = Number(container.dataset.roadToken || 0) + 1;
+  container.dataset.roadToken = String(token);
+  const alive = () => String(container.dataset.roadToken) === String(token);
+  container.innerHTML = cellHtmlArray.slice(0, chunkSize).join('');
+  let rendered = Math.min(chunkSize, cellHtmlArray.length);
+  const finish = () => { if (onComplete) { try { onComplete(); } catch (e) {} } };
+  if (rendered >= cellHtmlArray.length) { finish(); return; }
+  const appendMore = () => {
+    if (!alive() || rendered >= cellHtmlArray.length) return;
+    const next = cellHtmlArray.slice(rendered, rendered + chunkSize);
+    rendered += next.length;
+    container.insertAdjacentHTML('beforeend', next.join(''));
+    if (rendered >= cellHtmlArray.length) finish();
+  };
+  const pump = () => {
+    if (!alive()) return;
+    appendMore();
+    if (rendered < cellHtmlArray.length) {
+      if (typeof requestIdleCallback === 'function') requestIdleCallback(pump, { timeout: 200 });
+      else setTimeout(pump, 0);
+    }
+  };
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(pump, { timeout: 200 });
+  else setTimeout(pump, 0);
+  // Fast scrollers get the rest immediately at the scroll edge.
+  container.onscroll = () => {
+    if (container.scrollWidth - container.scrollLeft - container.clientWidth < 120) {
+      while (rendered < cellHtmlArray.length) appendMore();
+    }
+  };
+}
+window.renderRoadCellsChunked = renderRoadCellsChunked;
+
+// ── Fix round 2026-10-24: ball + sheet viewport clamping ──────────
+// The floating ball (68px ring footprint + under-bar = 86px tall)
+// must never sit outside the viewport: clamped on load, on drag
+// end, on resize and on orientation change. The module's
+// window.__o101ClampBall (systems/orb-bridge.js) is the single
+// source of truth when present; the inline math below is identical.
+function clampBallRectFallback(rect) {
+  return {
+    left: Math.min(Math.max(8, rect.left), Math.max(8, window.innerWidth - 68 - 8)),
+    top: Math.min(Math.max(10, rect.top), Math.max(10, window.innerHeight - 86 - 12))
+  };
+}
+function clampFloatingOrb() {
+  const orb = $('dhaniwinFloatingOrb');
+  if (!orb || orb.style.display === 'none') return;
+  const rect = orb.getBoundingClientRect();
+  const clamp = window.__o101ClampBall || clampBallRectFallback;
+  const next = clamp({ left: rect.left, top: rect.top, width: 68, height: 86, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 10, bottomMargin: 12 });
+  orb.style.left = `${next.left}px`;
+  orb.style.top = `${next.top}px`;
+  orb.style.right = 'auto';
+  orb.style.bottom = 'auto';
+}
+window.clampFloatingOrb = clampFloatingOrb;
+
+function clampAssistantSheetToViewport() {
+  if (window.__assistantBoxBusy) return;
+  const modal = $('dhaniwinAssistantModal');
+  const sheet = $('dhaniwinAssistantSheet');
+  if (!modal || !sheet) return;
+  if (modal.classList.contains('hidden') || !modal.classList.contains('sheet-open')) return;
+  const rect = sheet.getBoundingClientRect();
+  const left = Math.max(8, Math.min(window.innerWidth - rect.width - 8, rect.left));
+  const top = Math.max(50, Math.min(window.innerHeight - rect.height - 14, rect.top));
+  sheet.style.left = `${left}px`;
+  sheet.style.top = `${top}px`;
+}
+window.clampAssistantSheetToViewport = clampAssistantSheetToViewport;
+
 function renderAssistantMiniRoad(list) {
   const container = $('assistantMiniRoad');
   if (!container || !list || list.length === 0) return;
-  const display = [...list].reverse().slice(0, 8);
-  container.innerHTML = display.map((r) => {
+  // FULL history, newest first — no count cap (fix round 2026-10-24).
+  const display = [...list].reverse();
+  const cells = display.map((r) => {
     const n = Number(r.number);
     let ballBg = 'ball-red';
     if (n === 0) ballBg = 'ball-split-0';
@@ -6581,7 +6673,8 @@ function renderAssistantMiniRoad(list) {
       ${badge}
       <span class="text-[6.5px] font-mono text-zinc-500 mt-0.5">${String(r.period).slice(-3)}</span>
     </div>`;
-  }).join('');
+  });
+  renderRoadCellsChunked(container, cells);
 }
 window.renderAssistantMiniRoad = renderAssistantMiniRoad;
 
@@ -7178,48 +7271,22 @@ function updateFloatingOrbUI() {
   const gate = MobileState.predictionGate || checkPredictionGateStatus(MobileState.timeframe, MobileState.historyByTf[MobileState.timeframe]);
   const isGateReady = gate.ready;
 
-  const target = MobileState.activePrediction?.target || (isGateReady ? 'BIG' : (gate.mode === 'TESTING' ? 'BIG' : 'BIG'));
-  const targetEl = $('floatingOrbTarget');
-  const stakeEl = $('floatingOrbStake');
-  const iconEl = $('floatingOrbIcon');
-  const ringEl = $('floatingOrbRing');
+  // Governed verdict owns the ball's pick pill whenever the bridge
+  // has published a lock (orb-bridge renderAxoOrb): the native
+  // prediction must never overwrite Axo's governed pick. Without a
+  // lock, the native prediction is the fallback text only — never a
+  // className overwrite (the pill's positioning classes are sacred)
+  // and never an emoji or glow (matte Axo ball).
   const pingEl = $('floatingOrbDotPing');
   const dotEl = $('floatingOrbDot');
-
-  if (targetEl) targetEl.textContent = target;
-  if (stakeEl) {
-    stakeEl.textContent = isGateReady ? ('₹' + MobileBridgeState.currentStake) : (gate.streak >= 2 ? `🔥 ${gate.streak}W` : ('₹' + MobileBridgeState.currentStake));
+  if (!window.__o101Verdict) {
+    const target = MobileState.activePrediction?.target || 'BIG';
+    const targetEl = $('floatingOrbTarget');
+    if (targetEl) {
+      targetEl.textContent = target;
+      targetEl.style.color = target === 'SMALL' ? '#bae6fd' : '#fde68a';
+    }
   }
-
-  let shadowColor = 'rgba(16,185,129,0.55)';
-  let targetClass = 'text-amber-300';
-  let icon = '🎯';
-
-  if (!isGateReady) {
-    targetClass = 'text-amber-300';
-    shadowColor = 'rgba(245,158,11,0.5)';
-    icon = '🧪';
-  } else if (target === 'BIG') {
-    targetClass = 'text-amber-300';
-    shadowColor = 'rgba(245,158,11,0.6)';
-    icon = '▲';
-  } else if (target === 'SMALL') {
-    targetClass = 'text-sky-300';
-    shadowColor = 'rgba(56,189,248,0.6)';
-    icon = '▼';
-  } else if (target === 'GREEN') {
-    targetClass = 'text-emerald-300';
-    shadowColor = 'rgba(16,185,129,0.6)';
-    icon = '🟢';
-  } else if (target === 'RED') {
-    targetClass = 'text-rose-300';
-    shadowColor = 'rgba(244,63,94,0.6)';
-    icon = '🔴';
-  }
-
-  if (targetEl) targetEl.className = `text-[8px] font-black font-mono leading-tight ${targetClass}`;
-  if (iconEl) iconEl.textContent = icon;
-  if (ringEl) ringEl.style.boxShadow = `0 4px 24px ${shadowColor}`;
 
   if (pingEl && dotEl) {
     if (isGateReady) {
@@ -7230,6 +7297,10 @@ function updateFloatingOrbUI() {
       dotEl.className = 'absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-amber-400 border-2 border-black';
     }
   }
+
+  // The orb becomes visible on tab switch — clamp then, too, so a
+  // restored position can never sit half off an edge on first sight.
+  clampFloatingOrb();
 }
 window.updateFloatingOrbUI = updateFloatingOrbUI;
 
@@ -7237,19 +7308,30 @@ function setupFloatingOrb() {
   const orb = $('dhaniwinFloatingOrb');
   if (!orb) return;
 
-  // Restore saved position if available
+  // Restore saved position if available, then clamp: a position
+  // saved on a wider viewport (or before the browser chrome settled)
+  // must never leave the ball half off an edge. The same clamp runs
+  // on resize / orientation change below.
   try {
     const rawPos = localStorage.getItem('dhaniwin_orb_pos');
     if (rawPos) {
       const pos = JSON.parse(rawPos);
       if (typeof pos.left === 'number' && typeof pos.top === 'number') {
-        orb.style.left = `${Math.min(window.innerWidth - 66, Math.max(10, pos.left))}px`;
-        orb.style.top = `${Math.min(window.innerHeight - 80, Math.max(10, pos.top))}px`;
+        orb.style.left = `${pos.left}px`;
+        orb.style.top = `${pos.top}px`;
         orb.style.right = 'auto';
         orb.style.bottom = 'auto';
       }
     }
   } catch(e) {}
+  clampFloatingOrb();
+  if (!window.__o101OrbClampListeners) {
+    window.__o101OrbClampListeners = true;
+    window.addEventListener('resize', () => { clampFloatingOrb(); clampAssistantSheetToViewport(); });
+    window.addEventListener('orientationchange', () => {
+      setTimeout(() => { clampFloatingOrb(); clampAssistantSheetToViewport(); }, 300);
+    });
+  }
 
   let isDragging = false;
   let startX = 0;
@@ -7283,10 +7365,11 @@ function setupFloatingOrb() {
     if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
       hasMoved = true;
       if (e.cancelable && e.preventDefault) e.preventDefault();
-      const newLeft = Math.max(8, Math.min(window.innerWidth - 68, startLeft + dx));
-      const newTop = Math.max(10, Math.min(window.innerHeight - 80, startTop + dy));
-      orb.style.left = `${newLeft}px`;
-      orb.style.top = `${newTop}px`;
+      // Drag stays bounded: the ball can never leave the viewport.
+      const clamp = window.__o101ClampBall || clampBallRectFallback;
+      const next = clamp({ left: startLeft + dx, top: startTop + dy, width: 68, height: 86, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 10, bottomMargin: 12 });
+      orb.style.left = `${next.left}px`;
+      orb.style.top = `${next.top}px`;
       orb.style.right = 'auto';
       orb.style.bottom = 'auto';
     }
@@ -7304,11 +7387,15 @@ function setupFloatingOrb() {
       return;
     }
 
-    // Magnetic edge snap (left or right)
+    // Magnetic edge snap (left or right), still fully inside: the
+    // right snap accounts for the 68px ring + 8px margin, and the
+    // top clamp for the 86px footprint (ball + under-bar) + margin.
     const rect = orb.getBoundingClientRect();
     const midX = window.innerWidth / 2;
-    const targetLeft = rect.left < midX ? 12 : window.innerWidth - 72;
-    const targetTop = Math.max(14, Math.min(window.innerHeight - 88, rect.top));
+    const clamp = window.__o101ClampBall || clampBallRectFallback;
+    const snapped = clamp({ left: rect.left < midX ? 12 : window.innerWidth - 76, top: rect.top, width: 68, height: 86, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 10, bottomMargin: 12 });
+    const targetLeft = snapped.left;
+    const targetTop = snapped.top;
 
     orb.style.left = `${targetLeft}px`;
     orb.style.top = `${targetTop}px`;

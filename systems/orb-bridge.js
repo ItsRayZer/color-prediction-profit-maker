@@ -41,6 +41,7 @@ import {
 } from './bankroll.js';
 import { botLine, BOT_EVENTS, answerQuestion } from './predictBot.js';
 import { AxoAiClient, buildAxoPayload, localRegimeLabel, localSessionSummary, AXO_AI_ENDPOINT } from './axo-ai.js';
+import { analyseHistoryChunked } from './longAnalysis.js';
 import { AutoPilot, AUTOPILOT_SETTINGS_KEY, STOP_REASONS as AP_STOP_REASONS, autoBaseBet } from './autoPilot.js';
 import { PatternStore } from './patternStore.js';
 
@@ -886,6 +887,208 @@ export function verifiedLineApplies(login) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// Axo fix round (2026-10-24, owner's phone feedback) — pure layer
+// ─────────────────────────────────────────────────────────────────────
+// 1. VOICE GATE. Mobile browsers (Chrome/Brave on Android) keep
+//    speechSynthesis silent until a user gesture, and every gameplay
+//    tap lands inside the DhaniWin iframe — which never bubbles a
+//    gesture to this document. That is why Axo never spoke on the
+//    owner's phone while subtitles worked: the old code dropped
+//    pre-gesture lines ("never queued") and the unlock gesture never
+//    arrived. The gate below queues the latest line until the first
+//    tap on the ball/panel (same document) and never swallows a
+//    blocked utterance silently: the caller shows the tap affordance
+//    while a line is queued.
+// 2. SUBTITLE-CLOSED QUIET STATE (owner's 2026-10-24 refinement).
+//    CC off means the prediction shows inside the Axo ball, silently.
+//    The voice toggle VALUE is never flipped by opening/closing the
+//    panel — speech is only suppressed while subtitles are closed,
+//    and resumes (if the voice switch is on) when CC comes back.
+//    This refines the earlier "voice is not bundled" rule for exactly
+//    this state; the switches themselves stay independent.
+// 3. LANGUAGE. 'o101_axo_lang' (new key, never reused from voice or
+//    subs): en (default) / hi / ml. It drives the speechSynthesis
+//    language tag + voice choice. Subtitles stay the governed
+//    English strings — no translated template exists, so none is
+//    invented; the language control is one-word changeable on the
+//    owner's say if he ever supplies real templates.
+// 4. BALL CLAMP. The floating ball (62px circle + ring + under-bar)
+//    must never sit outside the viewport: clamped on load, drag end,
+//    resize and orientation change, with safe margins.
+// 5. ROAD. Every BET prediction's subtitle carries the sequence road
+//    + the period number, and the road strip cells pair each settled
+//    result with the governed pick recorded for that period.
+export const AXO_LANG_KEY = 'o101_axo_lang';
+export const AXO_LANGS = {
+  en: { code: 'en', tag: 'en-IN', label: 'EN' },
+  hi: { code: 'hi', tag: 'hi-IN', label: 'HI' },
+  ml: { code: 'ml', tag: 'ml-IN', label: 'ML' }
+};
+export const AXO_LANG_ORDER = ['en', 'hi', 'ml'];
+
+/** Axo voice language code ('en' default; unknown reads as 'en'). */
+export function axoLangFrom(storage) {
+  try {
+    if (!storage || typeof storage.getItem !== 'function') return 'en';
+    const v = storage.getItem(AXO_LANG_KEY);
+    return AXO_LANGS[v] ? v : 'en';
+  } catch (e) { return 'en'; }
+}
+
+/** speechSynthesis language tag for a language code. */
+export function axoSpeechTag(code) {
+  return (AXO_LANGS[code] || AXO_LANGS.en).tag;
+}
+
+/** Next language in the EN → HI → ML cycle. */
+export function axoNextLang(code) {
+  const idx = AXO_LANG_ORDER.indexOf(code);
+  return AXO_LANG_ORDER[(idx < 0 ? 0 : idx + 1) % AXO_LANG_ORDER.length];
+}
+
+/**
+ * The voice decision for one narration attempt. 'speak' = say it now,
+ * 'queue' = voice is on but no gesture yet (caller queues + shows
+ * the tap affordance), 'silent' = voice switch off, or subtitles
+ * closed (the quiet in-ball state) — never a swallowed line.
+ */
+export function axoMaySpeak({ voiceOn = true, subsOn = true, unlocked = false } = {}) {
+  if (!voiceOn || !subsOn) return { action: 'silent' };
+  if (!unlocked) return { action: 'queue' };
+  return { action: 'speak' };
+}
+
+/**
+ * The voice gate's queue state (pure, testable). The runtime syncs
+ * voiceOn/subsOn live at every attempt and flushes `unlock()` on the
+ * first ball/panel tap. A line queued while blocked is dropped the
+ * moment the state goes silent — a stale line must never speak after
+ * the user muted or closed subtitles.
+ */
+export class AxoVoiceGate {
+  constructor({ voiceOn = true, subsOn = true, unlocked = false } = {}) {
+    this.voiceOn = voiceOn;
+    this.subsOn = subsOn;
+    this.unlocked = unlocked;
+    this.pending = null;
+  }
+  sync({ voiceOn, subsOn }) {
+    if (voiceOn !== undefined) this.voiceOn = voiceOn;
+    if (subsOn !== undefined) this.subsOn = subsOn;
+    if (!this.voiceOn || !this.subsOn) this.pending = null;
+  }
+  attempt(line) {
+    const d = axoMaySpeak({ voiceOn: this.voiceOn, subsOn: this.subsOn, unlocked: this.unlocked });
+    if (d.action === 'queue') { this.pending = line || null; return { action: 'queue', line: this.pending }; }
+    if (d.action === 'silent') { this.pending = null; return { action: 'silent', line: null }; }
+    return { action: 'speak', line: line || null };
+  }
+  unlock() {
+    this.unlocked = true;
+    const line = this.pending;
+    this.pending = null;
+    return line;
+  }
+  get blocked() { return this.voiceOn && this.subsOn && !this.unlocked; }
+  get hasPending() { return this.pending !== null; }
+}
+
+// Floating ball footprint: 62px circle + 3px ring each side (68px)
+// + the fixed under-bar (period + mini road) below it.
+export const AXO_ORB_WIDTH = 68;
+export const AXO_ORB_HEIGHT = 86;
+
+/**
+ * Clamp a ball rect inside the viewport with safe margins. Pure.
+ * When the viewport is narrower than the ball + margins, the ball
+ * pins to the margin — the least-bad position, never off-screen.
+ */
+export function clampBallRect({ left = 0, top = 0, width = AXO_ORB_WIDTH, height = AXO_ORB_HEIGHT, vw = 0, vh = 0, margin = 8, topMargin = 10, bottomMargin = 12 } = {}) {
+  const maxLeft = Math.max(margin, vw - width - margin);
+  const maxTop = Math.max(topMargin, vh - height - bottomMargin);
+  return {
+    left: Math.min(Math.max(margin, left), maxLeft),
+    top: Math.min(Math.max(topMargin, top), maxTop)
+  };
+}
+
+const roadSizeWord = r => {
+  if (r === 'BIG' || r === 'SMALL') return r;
+  const n = Number(r);
+  return Number.isFinite(n) ? (n >= 5 ? 'BIG' : 'SMALL') : null;
+};
+const roadSizeLetter = r => {
+  const w = roadSizeWord(r);
+  return w === 'BIG' ? 'B' : (w === 'SMALL' ? 'S' : null);
+};
+
+/**
+ * The road suffix every BET subtitle carries: the last `count`
+ * settled sizes as words (speakable) + the period being predicted.
+ * Period prefers the open period, falling back to the last settled
+ * period; with no history and no period the suffix is empty.
+ */
+export function roadSuffix({ history = [], period = null, count = 8 } = {}) {
+  const settled = (history || []).filter(r => r && !r.gap && r.number !== null && r.number !== undefined);
+  const last = settled.slice(-count);
+  const road = last.map(r => roadSizeWord(r.size !== undefined && r.size !== null ? r.size : r.number)).filter(Boolean).join(', ');
+  const p = period !== null && period !== undefined ? String(period)
+    : (settled.length ? String(settled[settled.length - 1].period) : null);
+  if (road && p) return `Road: ${road} · Period ${p}`;
+  if (p) return `Period ${p}`;
+  return '';
+}
+
+/** Append the road suffix to a prediction line (no-op when empty). */
+export function withRoadSuffix(line, roadInfo = {}) {
+  const s = roadSuffix(roadInfo);
+  return s ? `${String(line || '').trim()} ${s}` : String(line || '');
+}
+
+/**
+ * Road strip cells (newest first, matching the app's NEW→OLD roads).
+ * Each settled cell pairs the real result with the governed pick
+ * recorded for that period (dispositions carry `pick` since this
+ * round); `correct` is true/false, or null when no governed pick
+ * exists (engine SKIP / no disposition). `next` is the open period
+ * being predicted, with the current governed pick.
+ */
+export function roadCells({ history = [], dispositions = {}, tf = '', openPeriod = null, nextPick = null, count = 8 } = {}) {
+  const settled = (history || []).filter(r => r && !r.gap && r.number !== null && r.number !== undefined);
+  const last = settled.slice(-count);
+  const cells = [...last].reverse().map(r => {
+    const disp = dispositions[`${tf}:${r.period}`] || null;
+    const pick = disp && disp.pick ? disp.pick : null;
+    const result = roadSizeWord(r.size !== undefined && r.size !== null ? r.size : r.number);
+    return {
+      period: String(r.period),
+      number: Number(r.number),
+      result,
+      resultLetter: roadSizeLetter(result),
+      pick,
+      pickLetter: pick ? roadSizeLetter(pick) : null,
+      correct: pick && result ? pick === result : null
+    };
+  });
+  const next = openPeriod !== null && openPeriod !== undefined
+    ? { period: String(openPeriod), next: true, pick: nextPick || null, pickLetter: nextPick ? roadSizeLetter(nextPick) : null }
+    : null;
+  return { cells, next };
+}
+
+/**
+ * The in-ball prediction view for the subtitle-closed state: Axo
+ * face + pick + period, minimal, never the old classic ball art.
+ * SKIP renders as SKIP (silence law still holds — no voice, no
+ * subtitle); no verdict renders the neutral dash.
+ */
+export function orbPredictionView({ verdict = null, pick = null, period = null } = {}) {
+  if (verdict === 'BET' && pick) return { pickText: pick, periodText: period ? `#${period}` : '', state: 'bet' };
+  if (verdict === 'SKIP') return { pickText: 'SKIP', periodText: period ? `#${period}` : '', state: 'skip' };
+  return { pickText: '—', periodText: period ? `#${period}` : '', state: 'none' };
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Trend / pattern conflict detection (pure, testable)
 // ─────────────────────────────────────────────────────────────────────
 // Learning signals may strengthen a pick (the pattern hit-rate blend
@@ -1013,7 +1216,9 @@ function initBridge() {
 
   // Axo runtime state: current face, the missed-bet ledger, the
   // HARD_STOP announcement edge, the first-gesture voice unlock and
-  // the (dark-by-default) AI narration client.
+  // the (dark-by-default) AI narration client. The voice gate is the
+  // fix-round queue: pre-gesture lines wait in it instead of being
+  // dropped, and the tap affordance shows while one waits.
   const axo = {
     face: null,
     visibleEl: 'front',  // which of the two stacked <img>s is showing
@@ -1023,6 +1228,11 @@ function initBridge() {
     missed: new MissedBetTracker(),
     hardStopAnnounced: false,
     voiceUnlocked: false,
+    voiceGate: new AxoVoiceGate({ voiceOn: true, subsOn: true, unlocked: false }),
+    lastRoadKey: null,
+    lastOrbKey: null,
+    lastLongRuns: null,
+    lastLongRunsKey: null,
     ai: new AxoAiClient({ endpoint: AXO_AI_ENDPOINT })
   };
 
@@ -1290,6 +1500,11 @@ function initBridge() {
     axo.faceSeq++;
     const host = $('axoFaceHost');
     if (host) host.setAttribute('data-axo-face', name);
+    // The floating ball wears the SAME face: the ball IS Axo, never
+    // the old classic ball art. A plain src swap (no crossfade pair
+    // on the 62px ball) keeps it in step with the sheet header.
+    const orbFace = $('floatingOrbAxoFace');
+    if (orbFace) orbFace.src = faces[name];
     const front = $('axoFaceFront'), back = $('axoFaceBack');
     if (!front || !back) return;
     const vis = axo.visibleEl === 'back' ? back : front;
@@ -1343,15 +1558,28 @@ function initBridge() {
     }, delay);
   }
 
+  // Voice unlock: Chrome/Brave keep speechSynthesis silent until a
+  // user gesture, and gameplay taps land inside the DhaniWin iframe
+  // (never bubbling to this document) — so the unlock gesture must
+  // come from the ball/panel itself, which lives in this document.
+  // The first such tap resumes the engine AND flushes the queued
+  // line; nothing attempted before it is ever silently dropped.
+  function unlockAxoVoice() {
+    axoWake();
+    if (axo.voiceUnlocked && !axo.voiceGate.hasPending) return;
+    axo.voiceUnlocked = true;
+    try { if (window.speechSynthesis) window.speechSynthesis.resume(); } catch (e) {}
+    const queued = axo.voiceGate.unlock();
+    renderAxoVoiceBadge();
+    if (queued) speakUtterance(queued);
+  }
+
   document.addEventListener('pointerdown', () => {
     axoWake();
-    if (!axo.voiceUnlocked) {
-      // Chrome/Brave keep speechSynthesis silent until a user
-      // gesture; the first tap unlocks it. Lines attempted before
-      // this were subtitle-only and are never queued (PLAN.md §4).
-      axo.voiceUnlocked = true;
-      try { if (window.speechSynthesis) window.speechSynthesis.resume(); } catch (e) {}
-    }
+    if (!axo.voiceUnlocked || axo.voiceGate.hasPending) unlockAxoVoice();
+  }, true);
+  document.addEventListener('keydown', () => {
+    if (!axo.voiceUnlocked || axo.voiceGate.hasPending) unlockAxoVoice();
   }, true);
 
   // ── Axo: voice ───────────────────────────────────────────────────
@@ -1361,27 +1589,54 @@ function initBridge() {
     try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {}
   }
 
-  /** Speak exactly the subtitle string (normalised for ears). */
-  function axoSpeak(text) {
-    if (!text || !axo.voiceUnlocked || !axoVoiceOn()) return;
+  /** The tap affordance: visible only while a line waits for a gesture. */
+  function renderAxoVoiceBadge() {
+    const badge = $('axoVoiceBlockedBadge');
+    if (!badge) return;
+    const show = axo.voiceGate.blocked && axo.voiceGate.hasPending;
+    badge.classList.toggle('hidden', !show);
+  }
+
+  /** The raw utterance: language tag + voice from the persisted
+   *  language choice. A rejected voice entry never kills the line —
+   *  it falls back to the language tag alone. */
+  function speakUtterance(text) {
     const synth = window.speechSynthesis;
     if (!synth || typeof synth.speak !== 'function' || typeof SpeechSynthesisUtterance === 'undefined') return;
     try {
       const u = new SpeechSynthesisUtterance(normaliseSpeechText(text));
+      const tag = axoSpeechTag(axoLangFrom(safeStorage()));
+      const prefix = tag.split('-')[0].toLowerCase();
       let voice = null;
       try {
         const voices = typeof synth.getVoices === 'function' ? synth.getVoices() : [];
-        voice = (voices || []).find(v => v && v.lang && String(v.lang).toLowerCase().indexOf('en-in') === 0) || null;
+        voice = (voices || []).find(v => v && v.lang && String(v.lang).toLowerCase().indexOf(prefix) === 0) || null;
       } catch (e) {}
       if (voice) {
-        // A voice entry the platform rejects must never kill the
-        // utterance — fall back to the language tag alone.
-        try { u.voice = voice; u.lang = voice.lang; } catch (e) { u.lang = 'en-IN'; }
-      } else { u.lang = 'en-IN'; }
+        try { u.voice = voice; u.lang = voice.lang; } catch (e) { u.lang = tag; }
+      } else { u.lang = tag; }
       u.rate = 1.02;
       u.pitch = 1.0;
+      try { synth.cancel(); } catch (e) {}
       synth.speak(u);
     } catch (e) { /* voice must never break the app */ }
+  }
+
+  /**
+   * Speak exactly the subtitle string (normalised for ears) — or
+   * queue it when no gesture has arrived yet, or stay silent when
+   * muted / subtitles closed (the quiet in-ball state). The gate's
+   * voice/subs flags are read live at every attempt, so a Settings
+   * change in another document takes effect on the next line.
+   */
+  function axoSpeak(text) {
+    if (!text) return;
+    axo.voiceGate.sync({ voiceOn: axoVoiceOn(), subsOn: axoSubsOn() });
+    const d = axo.voiceGate.attempt(text);
+    if (d.action === 'queue') { renderAxoVoiceBadge(); return; }
+    if (d.action === 'silent') { renderAxoVoiceBadge(); return; }
+    renderAxoVoiceBadge();
+    speakUtterance(d.line);
   }
 
   function renderAxoVoiceChip() {
@@ -1399,15 +1654,18 @@ function initBridge() {
   function setAxoVoice(on) {
     try { localStorage.setItem(AXO_VOICE_KEY, on ? '1' : '0'); } catch (e) {}
     if (!on) axoCancelSpeech();
+    axo.voiceGate.sync({ voiceOn: on });
     renderAxoVoiceChip();
+    renderAxoVoiceBadge();
   }
 
   // ── Axo: subtitles (CC) + mode ───────────────────────────────────
-  // CC is its own act: it hides ONLY the subtitle strip. The ball,
-  // the face, the voice and the governed flow are untouched, and
-  // with subtitles off the ball is the classic ball — the governed
-  // hero verdict (renderHeroVerdict / renderSignal) never reads the
-  // subtitle element, so the prediction shows exactly as before Axo.
+  // CC hides ONLY the subtitle strip; the governed flow, the face
+  // and the toggle VALUES are untouched. Subtitle-closed is a quiet
+  // state by the owner's refinement: the prediction shows inside
+  // the Axo ball (pick + period + road) with no sound, and opening
+  // the panel never flips CC or voice back — both stay exactly as
+  // the user left them until he toggles them.
   function axoSubsOn() { return axoSubsEnabled(safeStorage()); }
 
   function renderAxoCcChip() {
@@ -1432,7 +1690,10 @@ function initBridge() {
 
   function setAxoSubs(on) {
     try { localStorage.setItem(AXO_SUBS_KEY, on ? '1' : '0'); } catch (e) {}
+    axo.voiceGate.sync({ subsOn: on });
     applyAxoSubs();
+    renderAxoVoiceBadge();
+    renderAxoOrb();
   }
 
   function axoMode() { return axoModeFrom(safeStorage()); }
@@ -1456,6 +1717,24 @@ function initBridge() {
     renderAxoModeChip();
   }
 
+  // ── Axo: language (EN / HI / ML, persisted, one-word changeable) ─
+  function axoLang() { return axoLangFrom(safeStorage()); }
+
+  function renderAxoLangChip() {
+    const chip = $('axoLangChip');
+    if (!chip) return;
+    chip.textContent = (AXO_LANGS[axoLang()] || AXO_LANGS.en).label;
+    chip.setAttribute('title', `Axo language: ${axoLang()} — tap to change`);
+  }
+
+  function setAxoLang(code) {
+    const next = AXO_LANGS[code] ? code : 'en';
+    try { localStorage.setItem(AXO_LANG_KEY, next); } catch (e) {}
+    renderAxoLangChip();
+  }
+
+  function toggleAxoLang() { setAxoLang(axoNextLang(axoLang())); }
+
   /** Every AI narration call passes the mode gate (Normal = zero
    *  AI calls, templates only). Mode is read live, so a switch
    *  takes effect on the next event without a reload. */
@@ -1469,11 +1748,18 @@ function initBridge() {
     if (!e) return;
     if (e.key === AXO_VOICE_KEY) {
       if (e.newValue === '0') axoCancelSpeech();
+      axo.voiceGate.sync({ voiceOn: e.newValue !== '0' });
       renderAxoVoiceChip();
+      renderAxoVoiceBadge();
     } else if (e.key === AXO_SUBS_KEY) {
+      axo.voiceGate.sync({ subsOn: e.newValue !== '0' });
       applyAxoSubs();
+      renderAxoVoiceBadge();
+      renderAxoOrb();
     } else if (e.key === AXO_MODE_KEY) {
       renderAxoModeChip();
+    } else if (e.key === AXO_LANG_KEY) {
+      renderAxoLangChip();
     }
   });
 
@@ -1504,9 +1790,18 @@ function initBridge() {
       state.lastLine = line;
       return line;
     }
-    say(line);
-    axoOnEvent(event, line);
-    return line;
+    // Every BET prediction's subtitle carries the sequence road +
+    // the period number, and the voice speaks exactly that string.
+    const full = event === BOT_EVENTS.SIGNAL_BET
+      ? withRoadSuffix(line, {
+          history: settledHistory(state.tf || currentTf()),
+          period: openPeriodFor(state.tf || currentTf()),
+          count: 8
+        })
+      : line;
+    say(full);
+    axoOnEvent(event, full);
+    return full;
   }
 
   /**
@@ -2387,7 +2682,11 @@ function initBridge() {
     if (openP) {
       const dKey = tf + ':' + openP;
       if (!state.dispositions[dKey]) {
-        state.dispositions[dKey] = { decision: engineGate.decision, fired: ap.hasFired(tf, openP), apOn: ap.enabled };
+        // The governed pick rides along so the road strip can pair
+        // each settled result with the pick the governor made for it.
+        // A SKIP carries NO pick: the governor picked nothing that
+        // round, and the strip must never invent one for it.
+        state.dispositions[dKey] = { decision: engineGate.decision, pick: engineGate.decision === GATE_DECISIONS.BET ? (engineGate.pick || null) : null, fired: ap.hasFired(tf, openP), apOn: ap.enabled };
         const keys = Object.keys(state.dispositions);
         if (keys.length > 60) delete state.dispositions[keys[0]];
       }
@@ -2401,6 +2700,11 @@ function initBridge() {
     // incharge or not — one verdict surface, owned by the governor.
     renderHeroVerdict(gate);
     renderWindowStatus();
+    // Axo surfaces follow the same verdict: the road strip, the
+    // in-ball prediction, and (throttled) the long-run analysis.
+    renderAxoRoad();
+    renderAxoOrb();
+    scheduleLongAnalysis();
     // Auto-Pilot staging (speaks the BET line itself when it stages,
     // exactly once per staged round).
     apStageCycle(tf, gate, login, openP);
@@ -2462,10 +2766,10 @@ function initBridge() {
     // No stake suggestion while login is unverified (UNKNOWN or worse).
     const loginVerified = !!login && login.state === LOGIN_STATES.VERIFIED;
     if (state.page === 'mobile') {
-      const orbTarget = $('floatingOrbTarget');
-      if (orbTarget) orbTarget.textContent = bet ? gate.pick : 'SKIP';
-      const orbStake = $('floatingOrbStake');
-      if (orbStake) orbStake.textContent = bet && loginVerified && state.session ? inr(state.session.nextStake) : '—';
+      // The floating ball's pick pill is written by renderAxoOrb
+      // (the ONE ball writer, from the published hero verdict) —
+      // never here, so the native and governed writers cannot fight
+      // over the ball. The stake lives in the sheet hero only.
       // Ladder Base/Bet in the live window come from bankroll.js (the
       // governed ladder). No stake is shown while login is unverified.
       // Level integrity (owner's rule, 2026-10-24): the Level pill,
@@ -2487,6 +2791,112 @@ function initBridge() {
           ? `Level ${state.session.level + 1} (Recovery)`
           : 'Level 1 (Base)';
       }
+    }
+  }
+
+  // ── Axo surfaces: road strip, in-ball prediction, long runs ─────
+  // The road strip pairs each settled result with the governed pick
+  // for that period (dispositions carry the pick); the NEXT cell is
+  // the open period + the current governed pick. Fixed height, one
+  // view, minimal mono — and keyed, so an unchanged road costs no
+  // DOM write on the 3s cycle.
+  function renderAxoRoad() {
+    const strip = $('axoRoadStrip');
+    if (!strip || state.page !== 'mobile') return;
+    const tf = state.tf || currentTf();
+    const history = settledHistory(tf);
+    const openP = openPeriodFor(tf);
+    const gate = state.gate;
+    const { cells, next } = roadCells({
+      history, dispositions: state.dispositions, tf,
+      openPeriod: openP, nextPick: gate && gate.decision === GATE_DECISIONS.BET ? gate.pick : null,
+      count: 8
+    });
+    const key = JSON.stringify([tf, openP, gate ? gate.decision + ':' + (gate.pick || '') : '', cells.map(c => c.period + ':' + (c.pick || '-') + ':' + c.result).join(',')]);
+    if (key === axo.lastRoadKey) return;
+    axo.lastRoadKey = key;
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const cellHtml = c => {
+      const pickCls = c.correct === true ? 'text-emerald-300' : (c.correct === false ? 'text-rose-300' : 'text-zinc-500');
+      return `<div class="flex flex-col items-center shrink-0 px-1" title="Period #${esc(c.period)} — result ${esc(c.result)}, governed pick ${esc(c.pick || 'none')}">
+        <span class="text-[10px] font-mono font-black text-white leading-none">${esc(c.number)}</span>
+        <span class="text-[7px] font-mono font-bold ${pickCls} leading-none mt-0.5">${esc(c.pickLetter || '–')}</span>
+      </div>`;
+    };
+    const nextHtml = next
+      ? `<div class="flex flex-col items-center shrink-0 px-1.5 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30" title="Next period #${esc(next.period)}">
+          <span class="text-[7px] font-mono font-black text-amber-300 leading-none">NEXT ${esc(next.period.slice(-4))}</span>
+          <span class="text-[10px] font-mono font-black text-amber-200 leading-none mt-0.5">${esc(next.pickLetter || '–')}</span>
+        </div>`
+      : '';
+    strip.innerHTML = cells.length || next
+      ? nextHtml + cells.map(cellHtml).join('<div class="shrink-0 w-px h-4 bg-white/10 self-center"></div>')
+      : '<span class="text-[7.5px] font-mono text-zinc-500 px-1">No settled rounds yet.</span>';
+  }
+
+  // The in-ball prediction (subtitle-closed state included): the Axo
+  // ball's pick pill + under-bar (period + last-5 road letters).
+  // Keyed like the strip. The ball never shows the old classic art:
+  // its face is Axo's (setAxoFace), its text is the governed verdict.
+  function renderAxoOrb() {
+    if (state.page !== 'mobile') return;
+    const pill = $('floatingOrbTarget');
+    const bar = $('floatingOrbUnderBar');
+    if (!pill && !bar) return;
+    const v = window.__o101Verdict || null;
+    const tf = state.tf || currentTf();
+    const openP = openPeriodFor(tf);
+    const history = settledHistory(tf);
+    const road = history.slice(-5).map(r => {
+      const w = (r.size === 'BIG' || r.size === 'SMALL') ? r.size : (Number(r.number) >= 5 ? 'BIG' : 'SMALL');
+      return w === 'BIG' ? 'B' : 'S';
+    }).join(' ');
+    const view = orbPredictionView({ verdict: v ? v.decision : null, pick: v ? v.pick : null, period: openP });
+    const key = JSON.stringify([view.pickText, view.periodText, road, axoSubsOn()]);
+    if (key === axo.lastOrbKey) return;
+    axo.lastOrbKey = key;
+    if (pill) {
+      pill.textContent = view.pickText;
+      pill.className = 'text-[8px] font-black font-mono leading-none pointer-events-none '
+        + (view.state === 'bet' ? 'text-amber-200' : (view.state === 'skip' ? 'text-zinc-300' : 'text-zinc-500'));
+    }
+    if (bar) {
+      bar.textContent = [view.periodText, road].filter(Boolean).join(' · ') || '—';
+    }
+  }
+
+  // Background long analysis (display only): re-runs in idle-time
+  // chunks only when the settled count for this timeframe changes.
+  // It never feeds a verdict, a stake or a gate — the block below the
+  // road strip just shows what the history already contains.
+  function scheduleLongAnalysis() {
+    const block = $('axoLongRuns');
+    if (!block || state.page !== 'mobile') return;
+    const tf = state.tf || currentTf();
+    const history = settledHistory(tf);
+    const key = tf + ':' + history.length;
+    if (key === axo.lastLongRunsKey) return;
+    axo.lastLongRunsKey = key;
+    block.innerHTML = '<div class="text-[7.5px] font-mono text-zinc-500 px-1 py-1">Analysing history…</div>';
+    try {
+      analyseHistoryChunked(history, {
+        onDone: result => {
+          axo.lastLongRuns = result;
+          const top = (result.findings || []).slice(0, 6);
+          const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+          block.innerHTML = `<div class="flex items-center justify-between px-1">
+              <span class="text-[7px] font-mono font-bold tracking-wider text-zinc-400">LONG RUNS · ${result.rounds} ROUNDS</span>
+              <span class="text-[6.5px] font-mono text-zinc-500">observed history only</span>
+            </div>`
+            + (top.length ? top.map(f => `<div class="flex items-center justify-between px-1 py-0.5">
+                <span class="text-[8px] font-mono font-bold text-white truncate">${esc(f.label)}</span>
+                <span class="text-[7px] font-mono text-zinc-500 shrink-0 ml-2">${f.startPeriod ? '…#' + esc(String(f.startPeriod).slice(-4)) : ''}${f.endPeriod ? ' → …#' + esc(String(f.endPeriod).slice(-4)) : ''}${f.count ? ` · ${f.count}×` : ''}</span>
+              </div>`).join('')
+              : '<div class="text-[7.5px] font-mono text-zinc-500 px-1 py-1">No long runs yet — the history is still short.</div>');
+        }
+      });
+    } catch (e) {
+      block.innerHTML = '<div class="text-[7.5px] font-mono text-zinc-500 px-1 py-1">Analysis unavailable.</div>';
     }
   }
 
@@ -2566,6 +2976,10 @@ function initBridge() {
     refreshAxoSubs: applyAxoSubs,
     toggleAxoMode: () => setAxoMode(axoMode() === 'ai' ? 'normal' : 'ai'),
     refreshAxoModeChip: renderAxoModeChip,
+    toggleAxoLang,
+    refreshAxoLangChip: renderAxoLangChip,
+    unlockAxoVoice,
+    axoLang,
     askAxo,
     axo: {
       face: () => axo.face,
@@ -2574,7 +2988,9 @@ function initBridge() {
       missed: axo.missed,
       aiConfigured: () => axo.ai.configured,
       mode: axoMode,
-      subs: axoSubsOn
+      subs: axoSubsOn,
+      voice: axoVoiceOn,
+      lang: axoLang
     },
     disposition: (tf, period) => state.dispositions[String(tf) + ':' + String(period)] || null,
     _state: state
@@ -2596,11 +3012,18 @@ function initBridge() {
   window.__o101GovernedDisposition = (tf, period) => state.dispositions[String(tf) + ':' + String(period)] || null;
 
   // Axo comes up on the base face with the chips synced to the
-  // persisted voice / subtitle / mode settings; blink/sleep run
-  // from here.
+  // persisted voice / subtitle / mode / language settings; the
+  // tap-for-voice badge starts hidden (nothing queued yet); the
+  // ball clamp is published for the classic script's orb drag
+  // (mobile.js cannot import this module — same function, one
+  // source of truth, inline fallback when the module is absent).
+  // Blink/sleep run from here.
+  window.__o101ClampBall = clampBallRect;
   renderAxoVoiceChip();
+  renderAxoVoiceBadge();
   applyAxoSubs();
   renderAxoModeChip();
+  renderAxoLangChip();
   setAxoFace('base');
   axoBlinkLoop();
 
