@@ -49,6 +49,21 @@ console.log('Copied index.html -> deploy/index.html (source, unprocessed)');
   console.log(`Copied ${dir} -> deploy/${dir}`);
 });
 
+  // LOAD-BEARING — deploy/package.json declares the module system
+  // for everything inside deploy/. Vercel's rootDirectory IS deploy/,
+  // so the repo-root package.json's "type": "module" is invisible to
+  // the function runtime. Without this file Vercel's builder compiled
+  // the Axo hop's ESM core to CommonJS ("Compiling ... from ESM to
+  // CommonJS...") and the live preview answered 500
+  // FUNCTION_INVOCATION_FAILED on every /api/axo-ai call, even after
+  // the twin was renamed to .mjs. Do NOT remove this file. It is
+  // regenerated on every copy-assets run, so a stale or missing copy
+  // is repaired by re-running this script. The file contains only
+  // {"type": "module"} — no dependencies, no secrets, nothing served
+  // that matters if a client fetches it.
+  fs.writeFileSync(path.join(deployDir, 'package.json'), JSON.stringify({ type: 'module' }, null, 2) + '\n');
+  console.log('Generated deploy/package.json ({"type": "module"} — load-bearing for the Vercel function runtime)');
+
   // Copy individual files
   // 2026-10-24 rebase: 'axofy-theme.css' dropped from the copy list —
   // the rebased app is the owner's live app, which has no Axofy theme.
