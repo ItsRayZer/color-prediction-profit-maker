@@ -946,6 +946,98 @@ export function axoNextLang(code) {
   return AXO_LANG_ORDER[(idx < 0 ? 0 : idx + 1) % AXO_LANG_ORDER.length];
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Axo fix round #2 (2026-10-24, owner's bug report) — pure layer
+// ─────────────────────────────────────────────────────────────────────
+// 1. SHORT PERIOD. No surface ever shows a full period number — only
+//    the last 4 digits. Internal period identity (locks, disposition
+//    keys, history records) always stays the full string; ONLY the
+//    rendered text shortens, through this one helper.
+// 2. NO LOGIN GATE. The display gate is the governed engine gate plus
+//    the HARD_STOP overlay only — login state is not an input at all,
+//    so it can never flip a BET to SKIP again. The base bet resolves
+//    from the verified balance when fresh, else the manual chip base.
+// 3. SUBTITLE SURFACES. Subtitle-on default shows the prediction as
+//    the floating subtitle line under the closed ball (never cramped
+//    inside it); subtitle-off shows the minimal in-ball display;
+//    the panel-open state hides the floating line (the sheet's own
+//    line shows the same text).
+// 4. CENTERED OVERLAY. The opened sheet's geometry: centered in the
+//    viewport, never smaller than the overlay minimums.
+// 5. VOICE MATCHING. Website voice matching (axofy.shop axo-site.js):
+//    exact tag, then tag-prefix, then language-prefix.
+
+/** Display-only short period: the last 4 digits, never the full number. */
+export function shortPeriod(period) {
+  if (period === null || period === undefined) return '';
+  const s = String(period);
+  return s ? s.slice(-4) : '';
+}
+
+/**
+ * The base bet the governed ladder should run. AUTO uses the fresh
+ * verified balance when one exists and falls back to the manual chip
+ * base when it does not — login state never stalls staging.
+ * null = no base knowable at all (no chip value either).
+ */
+export function resolveBaseBet({ autoBase = false, verifiedBalance = null, riskMode = 'balanced', chipBase = null } = {}) {
+  const chip = Number(chipBase);
+  const chipOk = Number.isFinite(chip) && chip > 0 ? Math.floor(chip) : null;
+  if (autoBase) {
+    if (verifiedBalance !== null && verifiedBalance !== undefined) return autoBaseBet(verifiedBalance, riskMode);
+    return chipOk;
+  }
+  return chipOk;
+}
+
+/**
+ * The display gate for a locked engine verdict: HARD_STOP overlays
+ * a SKIP, nothing else does. Login state is deliberately NOT a
+ * parameter — it cannot change what is shown or staged.
+ */
+export function displayGateFor(engineGate, { hardStopped = false } = {}) {
+  if (hardStopped) return { ...engineGate, decision: GATE_DECISIONS.SKIP, prob: null, reason: HARD_STOP_REASON };
+  return engineGate;
+}
+
+/** Website voice matching: exact tag, then tag-prefix, then language-prefix. */
+export function pickAxoVoice(voices, tag) {
+  const list = Array.isArray(voices) ? voices : [];
+  const want = String(tag || '').toLowerCase();
+  if (!want) return null;
+  const prefix = want.split('-')[0];
+  const norm = v => String((v && v.lang) || '').toLowerCase();
+  return list.find(v => norm(v) === want)
+    || list.find(v => norm(v).indexOf(want) === 0)
+    || list.find(v => norm(v).indexOf(prefix) === 0)
+    || null;
+}
+
+/**
+ * Which prediction surfaces show, from CC + panel state. Default
+ * (subtitles on, panel closed) = the floating subtitle line only;
+ * the in-ball pill shows only when subtitles are closed.
+ */
+export function subtitleSurfaces({ subsOn = true, panelOpen = false } = {}) {
+  return {
+    floatingVisible: !!subsOn && !panelOpen,
+    sheetHidden: !subsOn,
+    pillVisible: !subsOn
+  };
+}
+
+/** Centered overlay geometry: middle of the viewport, overlay minimums enforced. */
+export function centeredSheetGeometry({ vw = 0, vh = 0, width = 360, height = 480, minWidth = 360, minHeight = 480 } = {}) {
+  const w = Math.min(Math.max(minWidth, width), Math.max(minWidth, vw - 24));
+  const h = Math.min(Math.max(minHeight, height), Math.max(minHeight, vh - 60));
+  return {
+    width: w,
+    height: h,
+    left: Math.max(8, Math.floor((vw - w) / 2)),
+    top: Math.max(50, Math.floor((vh - h) / 2))
+  };
+}
+
 /**
  * The voice decision for one narration attempt. 'speak' = say it now,
  * 'queue' = voice is on but no gesture yet (caller queues + shows
@@ -1032,10 +1124,10 @@ export function roadSuffix({ history = [], period = null, count = 8 } = {}) {
   const settled = (history || []).filter(r => r && !r.gap && r.number !== null && r.number !== undefined);
   const last = settled.slice(-count);
   const road = last.map(r => roadSizeWord(r.size !== undefined && r.size !== null ? r.size : r.number)).filter(Boolean).join(', ');
-  const p = period !== null && period !== undefined ? String(period)
-    : (settled.length ? String(settled[settled.length - 1].period) : null);
-  if (road && p) return `Road: ${road} · Period ${p}`;
-  if (p) return `Period ${p}`;
+  const p = period !== null && period !== undefined ? shortPeriod(period)
+    : (settled.length ? shortPeriod(settled[settled.length - 1].period) : '');
+  if (road && p) return `Road: ${road} · #${p}`;
+  if (p) return `#${p}`;
   return '';
 }
 
@@ -1083,9 +1175,9 @@ export function roadCells({ history = [], dispositions = {}, tf = '', openPeriod
  * subtitle); no verdict renders the neutral dash.
  */
 export function orbPredictionView({ verdict = null, pick = null, period = null } = {}) {
-  if (verdict === 'BET' && pick) return { pickText: pick, periodText: period ? `#${period}` : '', state: 'bet' };
-  if (verdict === 'SKIP') return { pickText: 'SKIP', periodText: period ? `#${period}` : '', state: 'skip' };
-  return { pickText: '—', periodText: period ? `#${period}` : '', state: 'none' };
+  if (verdict === 'BET' && pick) return { pickText: pick, periodText: period ? `#${shortPeriod(period)}` : '', state: 'bet' };
+  if (verdict === 'SKIP') return { pickText: 'SKIP', periodText: period ? `#${shortPeriod(period)}` : '', state: 'skip' };
+  return { pickText: '—', periodText: period ? `#${shortPeriod(period)}` : '', state: 'none' };
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -1574,11 +1666,19 @@ function initBridge() {
     if (queued) speakUtterance(queued);
   }
 
+  // Website pattern (axofy.shop axo-site.js): resume the engine on
+  // EVERY capture-phase gesture, not only while locked — a paused
+  // engine mid-utterance resumes the same way — and flush a queued
+  // line the moment one waits. Gameplay taps inside the DhaniWin
+  // iframe never reach this document, so the ball/panel tap is the
+  // unlock that matters; the queue covers everything before it.
   document.addEventListener('pointerdown', () => {
     axoWake();
+    try { if (window.speechSynthesis) window.speechSynthesis.resume(); } catch (e) {}
     if (!axo.voiceUnlocked || axo.voiceGate.hasPending) unlockAxoVoice();
   }, true);
   document.addEventListener('keydown', () => {
+    try { if (window.speechSynthesis) window.speechSynthesis.resume(); } catch (e) {}
     if (!axo.voiceUnlocked || axo.voiceGate.hasPending) unlockAxoVoice();
   }, true);
 
@@ -1606,11 +1706,15 @@ function initBridge() {
     try {
       const u = new SpeechSynthesisUtterance(normaliseSpeechText(text));
       const tag = axoSpeechTag(axoLangFrom(safeStorage()));
-      const prefix = tag.split('-')[0].toLowerCase();
+      // Website voice matching (axofy.shop axo-site.js): exact tag,
+      // then tag-prefix, then language-prefix — so en-IN finds an
+      // en-IN voice before falling back to any en-* voice. Voices
+      // are read fresh on every utterance (mobile engines publish
+      // them asynchronously), so a first-call empty list never sticks.
       let voice = null;
       try {
         const voices = typeof synth.getVoices === 'function' ? synth.getVoices() : [];
-        voice = (voices || []).find(v => v && v.lang && String(v.lang).toLowerCase().indexOf(prefix) === 0) || null;
+        voice = pickAxoVoice(voices, tag);
       } catch (e) {}
       if (voice) {
         try { u.voice = voice; u.lang = voice.lang; } catch (e) { u.lang = tag; }
@@ -1686,6 +1790,7 @@ function initBridge() {
     const el = $('smartBallLine');
     if (el) el.classList.toggle('hidden', !axoSubsOn());
     renderAxoCcChip();
+    syncAxoSubtitleSurfaces();
   }
 
   function setAxoSubs(on) {
@@ -1764,10 +1869,53 @@ function initBridge() {
   });
 
   // ── Speaking (orb's line) ────────────────────────────────────────
+  /** The panel is open when the assistant modal is visible. The
+   *  floating subtitle lives only in the closed-ball state: with the
+   *  panel open, the sheet's own subtitle line shows the same text. */
+  function axoPanelOpen() {
+    const modal = $('dhaniwinAssistantModal');
+    if (!modal) return false;
+    return !modal.classList.contains('hidden') && modal.style.display !== 'none';
+  }
+
+  /** Keep the floating subtitle strip glued to the closed ball,
+   *  clamped inside the viewport with margins — above the ball, or
+   *  below it when the ball sits near the top edge. */
+  function positionAxoFloatingSubtitle() {
+    const floating = $('axoFloatingSubtitle');
+    const orb = $('dhaniwinFloatingOrb');
+    if (!floating || !orb || floating.classList.contains('hidden')) return;
+    const r = orb.getBoundingClientRect();
+    const w = Math.min(230, Math.max(120, window.innerWidth - 32));
+    floating.style.width = w + 'px';
+    floating.style.left = Math.max(16, Math.min(window.innerWidth - w - 16, r.left + r.width / 2 - w / 2)) + 'px';
+    const h = floating.offsetHeight || 40;
+    const above = r.top - h - 10;
+    floating.style.top = (above >= 8 ? above : Math.min(window.innerHeight - h - 12, r.bottom + 10)) + 'px';
+  }
+
+  /** Sync the three prediction surfaces with the CC + panel state
+   *  (pure decision in subtitleSurfaces): subtitle-on default shows
+   *  the prediction as the floating subtitle line under the closed
+   *  ball — never cramped inside it; subtitle-off shows the minimal
+   *  in-ball display instead, silently. Called from say(),
+   *  applyAxoSubs(), and the panel open/close hook in mobile.js;
+   *  renderAxoOrb re-positions the strip on every cycle so it
+   *  follows the ball after a drag or rotation. */
+  function syncAxoSubtitleSurfaces() {
+    const s = subtitleSurfaces({ subsOn: axoSubsOn(), panelOpen: axoPanelOpen() });
+    const floating = $('axoFloatingSubtitle');
+    if (floating) floating.classList.toggle('hidden', !s.floatingVisible);
+    renderAxoOrb();
+  }
+
   function say(text) {
     const el = $('smartBallLine');
     if (el && text) el.textContent = text;
+    const floating = $('axoFloatingSubtitle');
+    if (floating && text) floating.textContent = text;
     state.lastLine = text;
+    syncAxoSubtitleSurfaces();
   }
 
   /** Face + voice for one governed event (spoken set only). */
@@ -1964,8 +2112,8 @@ function initBridge() {
   // ── Login status: window line + ball announcements ───────────────
   function loginLine(login) {
     if (login.state === LOGIN_STATES.VERIFIED) return `Login verified · ${inr(login.balance)} on DhaniWin (bridge API proof).`;
-    if (login.state === LOGIN_STATES.NOT_LOGGED_IN) return 'Not logged in. Open the DhaniWin tab and log in first — no signal or stake until login is verified.';
-    if (login.state === LOGIN_STATES.NO_SIGNAL) return 'No bridge signal yet. Open DhaniWin with the bridge active so I can verify your login — I will not guess it.';
+    if (login.state === LOGIN_STATES.NOT_LOGGED_IN) return 'Not logged into DhaniWin — signals and stakes still show here; an order needs DhaniWin login and will report its real result.';
+    if (login.state === LOGIN_STATES.NO_SIGNAL) return 'No bridge signal yet — signals still show here; open DhaniWin with the bridge active to send orders.';
     return 'Checking login… waiting for the bridge\'s API-proven user state.';
   }
 
@@ -2138,7 +2286,7 @@ function initBridge() {
     list.innerHTML = rows.map(r => `<div class="flex items-start justify-between gap-2 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06]">
       <div class="min-w-0">
         <div class="text-[10px] font-bold text-white truncate">${esc(r.name)} <span class="text-zinc-500 font-mono text-[8px]">${esc(r.patternId)} · ${esc(r.timeframe)}</span></div>
-        <div class="text-[8px] font-mono text-zinc-500">last fired · period …${esc(String(r.lastPeriod).slice(-5))}</div>
+        <div class="text-[8px] font-mono text-zinc-500">last fired · period …${esc(shortPeriod(r.lastPeriod))}</div>
       </div>
       <div class="text-right shrink-0">
         <div class="text-[10px] font-black font-mono ${r.hitRate >= 0.5102 ? 'text-emerald-300' : 'text-zinc-300'}">${(r.hitRate * 100).toFixed(1)}%</div>
@@ -2175,13 +2323,17 @@ function initBridge() {
 
   /** The base bet the governed ladder should run: AUTO (from the fresh
    *  verified balance at the risk mode) or the window's chip value.
-   *  null = cannot know right now (AUTO with no fresh verified balance). */
+   *  Fix round #2: AUTO without a fresh verified balance falls back
+   *  to the manual chip base instead of stalling — login state never
+   *  blocks staging. null = no chip value either. */
   function desiredBaseBet(login) {
-    if (ap.state.autoBase) {
-      return freshVerifiedBalance(login) ? autoBaseBet(login.balance, ap.state.riskMode) : null;
-    }
     const chip = window.MobileBridgeState ? Number(window.MobileBridgeState.baseStake) : NaN;
-    return Number.isFinite(chip) && chip > 0 ? Math.floor(chip) : null;
+    return resolveBaseBet({
+      autoBase: ap.state.autoBase,
+      verifiedBalance: freshVerifiedBalance(login) ? login.balance : null,
+      riskMode: ap.state.riskMode,
+      chipBase: chip
+    });
   }
 
   /** Keep the ONE governed session's base in step with chips / AUTO /
@@ -2201,7 +2353,7 @@ function initBridge() {
     const sig = JSON.stringify([desired, ap.state.riskMode, ap.state.autoBase]);
     if (sig === state.baseSignature) return;
     state.baseSignature = sig;
-    if (desired === null) return; // AUTO without a fresh verified balance: keep the session; staging blocks itself
+    if (desired === null) return; // No base knowable at all (no chip value): keep the session as-is.
     if (desired === state.session.baseBet && ap.state.riskMode === state.session.mode) return;
     const balForPlan = freshVerifiedBalance(login) ? login.balance : state.session.balance;
     state.session = replanSession(state.session, balForPlan, { mode: ap.state.riskMode, baseBet: desired });
@@ -2245,7 +2397,7 @@ function initBridge() {
     transportOrder(res.order);
     const dKey = res.order.timeframe + ':' + res.order.period;
     if (state.dispositions[dKey]) state.dispositions[dKey].fired = true;
-    say(`Fired: ${res.order.target} ${inr(res.order.stake)} for period …${String(res.order.period).slice(-5)} — sent to the bridge on the tap you just gave.`);
+    say(`Fired: ${res.order.target} ${inr(res.order.stake)} for period …${shortPeriod(res.order.period)} — sent to the bridge on the tap you just gave.`);
     renderAutoPilot();
     return res;
   }
@@ -2313,11 +2465,10 @@ function initBridge() {
   /** Per-cycle Auto-Pilot staging against the DISPLAY gate. */
   function apStageCycle(tf, gate, login, openP) {
     if (!ap.enabled) return;
-    if (login.state !== LOGIN_STATES.VERIFIED) {
-      ap.notePaused(true, 'Paused: login not verified — staging resumes when the bridge verifies login.');
-      renderAutoPilot();
-      return;
-    }
+    // Fix round #2: login is not a staging gate. Staging proceeds on
+    // the governed session base (AUTO falls back to the chip base
+    // without a fresh verified balance); only the DhaniWin page
+    // itself can refuse an order, and it reports honestly.
     ap.notePaused(false);
     if (guard.hardStopped) { ap.forceStop(AP_STOP_REASONS.HARD_STOP); renderAutoPilot(); return; }
     if (gate.decision !== GATE_DECISIONS.BET) {
@@ -2326,7 +2477,6 @@ function initBridge() {
       return;
     }
     if (!openP || !state.session) return;
-    if (ap.state.autoBase && !freshVerifiedBalance(login)) { renderAutoPilot(); return; }
     const res = ap.stage({
       period: openP, timeframe: tf, target: gate.pick, session: state.session,
       periodDurationMs: TF_DURATION_MS[tf] || 60000
@@ -2656,21 +2806,15 @@ function initBridge() {
       };
     });
 
-    // Display overlays on the LOCKED engine verdict: HARD_STOP first,
-    // then the login hard stop. Overlays change what is shown and
-    // staged, never the locked verdict itself.
+    // Display overlay on the LOCKED engine verdict: HARD_STOP only.
+    // Login is NOT a display gate (fix round #2, owner's order): the
+    // governed signal and stake show regardless of bridge login
+    // state; only a real order through the DhaniWin page needs its
+    // own login, and a failed order reports its real failure.
+    // Overlays change what is shown and staged, never the locked
+    // verdict itself.
     const engineGate = locked.gate;
-    let gate = engineGate;
-    if (guard.hardStopped) {
-      gate = { ...engineGate, decision: GATE_DECISIONS.SKIP, prob: null, reason: HARD_STOP_REASON };
-    } else if (login.state !== LOGIN_STATES.VERIFIED) {
-      const reason = login.state === LOGIN_STATES.NOT_LOGGED_IN
-        ? 'Not logged in: login on the DhaniWin tab first. No signal or stake is suggested until the bridge proves login from its wallet API traffic.'
-        : login.state === LOGIN_STATES.NO_SIGNAL
-          ? 'No bridge signal: open DhaniWin with the bridge active. No signal or stake is suggested until the bridge proves login from its wallet API traffic.'
-          : 'Login not verified yet: waiting for the bridge\'s API-proven user state. No signal or stake is suggested until then.';
-      gate = { ...engineGate, decision: GATE_DECISIONS.SKIP, prob: null, reason };
-    }
+    const gate = displayGateFor(engineGate, { hardStopped: guard.hardStopped });
     state.gate = gate;
     // Remember the locked pick so its outcome can settle calibration,
     // the streak guard and (when fired) the bankroll when the round lands.
@@ -2763,15 +2907,17 @@ function initBridge() {
 
   function renderSignal(gate, incharge, login) {
     const bet = gate.decision === GATE_DECISIONS.BET;
-    // No stake suggestion while login is unverified (UNKNOWN or worse).
-    const loginVerified = !!login && login.state === LOGIN_STATES.VERIFIED;
+    // Fix round #2: the stake suggestion is never login-gated. The
+    // figures shown are always the governed session's own (or '—'
+    // when no session exists) — never invented, never blocked.
     if (state.page === 'mobile') {
       // The floating ball's pick pill is written by renderAxoOrb
       // (the ONE ball writer, from the published hero verdict) —
       // never here, so the native and governed writers cannot fight
       // over the ball. The stake lives in the sheet hero only.
       // Ladder Base/Bet in the live window come from bankroll.js (the
-      // governed ladder). No stake is shown while login is unverified.
+      // governed ladder) and show whenever a session exists,
+      // regardless of login state.
       // Level integrity (owner's rule, 2026-10-24): the Level pill,
       // the Base/Bet lines, Auto-Pilot staging and settlement ALL read
       // this one governed session — the pill no longer shows the live
@@ -2780,11 +2926,10 @@ function initBridge() {
       // one-source-of-truth order.)
       const baseEl = $('assistantBaseStakeDisplay');
       if (baseEl) {
-        baseEl.textContent = ap.state.autoBase && !loginVerified ? '—'
-          : state.session ? inr(state.session.baseBet) : '—';
+        baseEl.textContent = state.session ? inr(state.session.baseBet) : '—';
       }
       const betEl = $('mobileWebStakeDisplay');
-      if (betEl) betEl.textContent = bet && loginVerified && state.session ? inr(state.session.nextStake) : '—';
+      if (betEl) betEl.textContent = bet && state.session ? inr(state.session.nextStake) : '—';
       const levelEl = $('mobileWebLevelBadge');
       if (levelEl) {
         levelEl.textContent = state.session && state.session.level > 0
@@ -2818,14 +2963,14 @@ function initBridge() {
     const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     const cellHtml = c => {
       const pickCls = c.correct === true ? 'text-emerald-300' : (c.correct === false ? 'text-rose-300' : 'text-zinc-500');
-      return `<div class="flex flex-col items-center shrink-0 px-1" title="Period #${esc(c.period)} — result ${esc(c.result)}, governed pick ${esc(c.pick || 'none')}">
+      return `<div class="flex flex-col items-center shrink-0 px-1" title="Period #${esc(shortPeriod(c.period))} — result ${esc(c.result)}, governed pick ${esc(c.pick || 'none')}">
         <span class="text-[10px] font-mono font-black text-white leading-none">${esc(c.number)}</span>
         <span class="text-[7px] font-mono font-bold ${pickCls} leading-none mt-0.5">${esc(c.pickLetter || '–')}</span>
       </div>`;
     };
     const nextHtml = next
-      ? `<div class="flex flex-col items-center shrink-0 px-1.5 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30" title="Next period #${esc(next.period)}">
-          <span class="text-[7px] font-mono font-black text-amber-300 leading-none">NEXT ${esc(next.period.slice(-4))}</span>
+      ? `<div class="flex flex-col items-center shrink-0 px-1.5 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30" title="Next period #${esc(shortPeriod(next.period))}">
+          <span class="text-[7px] font-mono font-black text-amber-300 leading-none">NEXT ${esc(shortPeriod(next.period))}</span>
           <span class="text-[10px] font-mono font-black text-amber-200 leading-none mt-0.5">${esc(next.pickLetter || '–')}</span>
         </div>`
       : '';
@@ -2855,14 +3000,24 @@ function initBridge() {
     const key = JSON.stringify([view.pickText, view.periodText, road, axoSubsOn()]);
     if (key === axo.lastOrbKey) return;
     axo.lastOrbKey = key;
+    // Subtitle-on default: the prediction lives in the floating
+    // subtitle line, never cramped in the ball — so the pill and
+    // under-bar hide and only the status dots remain. Subtitle-off
+    // restores the minimal in-ball display (silent). Positioning
+    // classes are never overwritten here: only text, colour (via
+    // style) and visibility change, so the pill can never lose its
+    // place on the ball.
+    const subsOn = axoSubsOn();
     if (pill) {
       pill.textContent = view.pickText;
-      pill.className = 'text-[8px] font-black font-mono leading-none pointer-events-none '
-        + (view.state === 'bet' ? 'text-amber-200' : (view.state === 'skip' ? 'text-zinc-300' : 'text-zinc-500'));
+      pill.style.color = view.state === 'bet' ? '#fde68a' : (view.state === 'skip' ? '#d4d4d8' : '#71717a');
+      pill.classList.toggle('hidden', subsOn);
     }
     if (bar) {
       bar.textContent = [view.periodText, road].filter(Boolean).join(' · ') || '—';
+      bar.classList.toggle('hidden', subsOn);
     }
+    positionAxoFloatingSubtitle();
   }
 
   // Background long analysis (display only): re-runs in idle-time
@@ -2890,7 +3045,7 @@ function initBridge() {
             </div>`
             + (top.length ? top.map(f => `<div class="flex items-center justify-between px-1 py-0.5">
                 <span class="text-[8px] font-mono font-bold text-white truncate">${esc(f.label)}</span>
-                <span class="text-[7px] font-mono text-zinc-500 shrink-0 ml-2">${f.startPeriod ? '…#' + esc(String(f.startPeriod).slice(-4)) : ''}${f.endPeriod ? ' → …#' + esc(String(f.endPeriod).slice(-4)) : ''}${f.count ? ` · ${f.count}×` : ''}</span>
+                <span class="text-[7px] font-mono text-zinc-500 shrink-0 ml-2">${f.startPeriod ? '…#' + esc(shortPeriod(f.startPeriod)) : ''}${f.endPeriod ? ' → …#' + esc(shortPeriod(f.endPeriod)) : ''}${f.count ? ` · ${f.count}×` : ''}</span>
               </div>`).join('')
               : '<div class="text-[7.5px] font-mono text-zinc-500 px-1 py-1">No long runs yet — the history is still short.</div>');
         }
@@ -2974,6 +3129,7 @@ function initBridge() {
     refreshAxoVoiceChip: renderAxoVoiceChip,
     toggleAxoSubs: () => setAxoSubs(!axoSubsOn()),
     refreshAxoSubs: applyAxoSubs,
+    syncAxoSubtitleSurfaces,
     toggleAxoMode: () => setAxoMode(axoMode() === 'ai' ? 'normal' : 'ai'),
     refreshAxoModeChip: renderAxoModeChip,
     toggleAxoLang,

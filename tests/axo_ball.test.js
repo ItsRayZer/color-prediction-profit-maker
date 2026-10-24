@@ -235,9 +235,12 @@ test('pin 8 — the voice setting: default on, 0 mutes, and the wiring is live i
 });
 
 // ── Pin 9: face module ───────────────────────────────────────────
-test('pin 9 — the face module embeds exactly the 12 faces as WebP data URIs, under 90 KB', () => {
+test('pin 9 — the face module embeds exactly the 12 faces as WebP data URIs, under 120 KB', () => {
   const fileBytes = fs.statSync('systems/axo-faces.js').size;
-  assert.ok(fileBytes < 90000, `module is ${fileBytes} B (< 90 KB)`);
+  // Fix round #2: genuine alpha transparency costs bytes over the old
+  // opaque module (68 KB) — the cap moves to 120 KB, still far under
+  // balls.js's ~355 KB.
+  assert.ok(fileBytes < 120000, `module is ${fileBytes} B (< 120 KB)`);
   const src = fs.readFileSync('systems/axo-faces.js', 'utf8');
   const ctx = {};
   ctx.window = ctx;

@@ -330,6 +330,16 @@ function isUserLoggedIn() {
 }
 window.isUserLoggedIn = isUserLoggedIn;
 
+/** Display-only short period: the last 4 digits, never the full
+ *  number (fix round #2). Internal period identity (locks, keys,
+ *  history records) always stays the full string. */
+function shortPeriodStr(p) {
+  if (p === null || p === undefined) return '';
+  const s = String(p);
+  return s ? s.slice(-4) : '';
+}
+window.shortPeriodStr = shortPeriodStr;
+
 let _authGracePeriodUntil = 0;
 
 function isAuthGracePeriodActive() {
@@ -677,7 +687,7 @@ function updateISTClock() {
 
   // Hero card
   const periodEl = $('heroPeriodNum');
-  if (periodEl) periodEl.textContent = periodStr.slice(-6) || periodStr;
+  if (periodEl) periodEl.textContent = shortPeriodStr(periodStr) || periodStr;
 
   const countdown = $('heroCountdown');
   if (countdown) {
@@ -696,7 +706,7 @@ function updateISTClock() {
 
   // DhaniWin Assistant Hub Card
   const assistPeriod = $('assistantPeriodNum');
-  if (assistPeriod) assistPeriod.textContent = '#' + (periodStr.slice(-5) || periodStr);
+  if (assistPeriod) assistPeriod.textContent = '#' + (shortPeriodStr(periodStr) || periodStr);
 
   const assistCountdown = $('assistantCountdown');
   if (assistCountdown) {
@@ -1674,7 +1684,7 @@ function renderHistoryTable(list) {
     }
 
     return `<tr class="hover:bg-white/[0.02] transition">
-      <td class="py-1.5 px-1 font-mono text-[8.5px] text-zinc-400">${String(r.period).slice(-6)}</td>
+      <td class="py-1.5 px-1 font-mono text-[8.5px] text-zinc-400">${shortPeriodStr(r.period)}</td>
       <td class="py-1.5 px-1 font-mono font-black ${numColor}">${r.number}</td>
       <td class="py-1.5 px-1 font-mono font-bold ${sizeColor}">${r.size}</td>
       <td class="py-1.5 px-1 font-mono text-[8px] text-zinc-400">${r.color ? r.color.split(',')[0] : '—'}</td>
@@ -2007,7 +2017,7 @@ function selectSequenceBead(idx) {
   const settled = (MobileState.historyByTf[tf] || []).filter(r => r.aiCorrect !== null && r.aiCorrect !== undefined);
   const r = settled[idx];
   if (!r) return;
-  setText('detailPeriod', String(r.period).slice(-6));
+  setText('detailPeriod', shortPeriodStr(r.period));
   setText('detailPred', r.aiTarget || '—');
   setText('detailActual', `${r.number} (${r.size})`);
   const badge = $('detailResultBadge');
@@ -2426,14 +2436,9 @@ function showWinLossCelebration(isWin, target, number, size, color, periodStr, s
   if (tf && tf !== activeTf) return;
   if (!isWin && isWin !== false) return;
 
-  // CRITICAL REQUIREMENT 2: Never show win/loss animations or sounds before login/registration is confirmed!
-  if (!isUserLoggedIn()) {
-    console.log('[Win/Loss Celebration] Suppressed: User is not logged in / verified yet.');
-    return;
-  }
+  // Fix round #2: celebrations are display feedback, never login-gated.
 
-
-  // CRITICAL REQUIREMENT 3: Single-instance concurrency - strictly never show more than 1 celebration/sound at a time
+  // CRITICAL REQUIREMENT 2: Single-instance concurrency - strictly never show more than 1 celebration/sound at a time
   dismissCelebrationBanner();
   if (typeof dismissAppleMoneyRain === 'function') dismissAppleMoneyRain();
   if (typeof stopAllSoundEffects === 'function') stopAllSoundEffects();
@@ -2481,7 +2486,7 @@ function showWinLossCelebration(isWin, target, number, size, color, periodStr, s
     subtext.textContent = `Hit ${size} (#${number}) · Target was ${target}`;
   }
   if (periodBadge) {
-    periodBadge.textContent = `#${String(periodStr).slice(-5)}`;
+    periodBadge.textContent = `#${shortPeriodStr(periodStr)}`;
   }
 
   // Sound & haptic (Only plays for active timeframe, strictly single-instance)
@@ -2527,7 +2532,7 @@ function triggerAITargetBoxAnimation(result, data) {
   if (header) { header.textContent = isWin ? 'PREDICTION WIN' : 'PREDICTION LOSS'; header.className = `text-[8px] font-sans uppercase font-black tracking-wider ${isWin ? 'text-emerald-400' : 'text-rose-400'}`; }
   if (icon) { icon.className = `text-sm ${isWin ? 'fa-solid fa-check-circle text-emerald-400' : 'fa-solid fa-times-circle text-rose-400'}`; }
   if (text) { text.textContent = `${data?.target || '?'} → ${data?.size || '?'} (#${data?.number ?? '?'})`; text.className = `${isWin ? 'text-emerald-300' : 'text-rose-300'}`; }
-  if (sub) { sub.textContent = `Period #${String(data?.period || '').slice(-5)}`; }
+  if (sub) { sub.textContent = `Period #${shortPeriodStr(data?.period || '')}`; }
 
   if (_animTimeout) clearTimeout(_animTimeout);
   _animTimeout = setTimeout(() => {
@@ -3782,7 +3787,7 @@ function initSimBet(target, period) {
   }
 
   MobileState.sim.pendingBet = { target, period: String(period), stake };
-  logSimEntry(`🔮 Placed ${target} · ₹${stake} · Period #${String(period).slice(-5)}`);
+  logSimEntry(`🔮 Placed ${target} · ₹${stake} · Period #${shortPeriodStr(period)}`);
 }
 window.initSimBet = initSimBet;
 
@@ -4671,11 +4676,7 @@ if (document.readyState === 'loading') {
 }
 
 function switchMobileTab(tab) {
-  // If user is not logged in and attempts to access prediction tabs, trigger Unlock 01:01 modal
-  if (tab !== 'web' && !isUserLoggedIn()) {
-    toggleUnlockModal(true);
-    return;
-  }
+  // Fix round #2: every tab is usable without login — no unlock modal gate.
   try { localStorage.setItem('active_mobile_tab', tab); } catch(e) {}
 
   ['home', 'ai', 'sim', 'web', 'pattern'].forEach(t => {
@@ -4768,29 +4769,13 @@ function updateAppUnlockState() {
   const unlockModal = $('unlock0101Modal');
   if (loggedIn && unlockModal && !unlockModal.classList.contains('hidden')) {
     unlockModal.classList.add('hidden');
-  } else if (!loggedIn) {
-    // If user is logged out while currently on a protected prediction tab, switch back to web and show unlock modal
-    const activeTab = localStorage.getItem('active_mobile_tab') || 'web';
-    if (activeTab !== 'web') {
-      const webSec = $('tab-web');
-      if (webSec && webSec.style.display === 'none') {
-        switchMobileTab('web');
-      }
-      if (typeof toggleUnlockModal === 'function') toggleUnlockModal(true);
-    }
   }
-
+  // Fix round #2: logged-out never forces a tab switch, never shows
+  // the unlock modal, and never badges tabs with a lock — nothing is
+  // locked behind login.
   document.querySelectorAll('.dock-btn').forEach(btn => {
-    const t = btn.dataset.tab;
     const indicator = btn.querySelector('.dock-indicator');
-    if (indicator) {
-      if (t !== 'web' && !loggedIn) {
-        indicator.textContent = '🔒';
-        indicator.style.fontSize = '8px';
-      } else {
-        indicator.textContent = '';
-      }
-    }
+    if (indicator) indicator.textContent = '';
   });
 }
 window.updateAppUnlockState = updateAppUnlockState;
@@ -6313,58 +6298,20 @@ function stopAndResetMobileRecovery() {
 }
 window.stopAndResetMobileRecovery = stopAndResetMobileRecovery;
 
-// ── Login gate for every real-bet path ─────────────────────────────
-// The ONLY login truth for staging or firing a real bet is the
-// bridge verifier in orb-bridge: VERIFIED ⟺ a bridge user state
-// ≤60s old with isLoggedIn AND apiProven. A stored token, the legacy
-// "logged in" flags, or a merely-connected bridge NEVER count —
-// that gap is what made the app feel "fake logined": clicks staged
-// bets while nothing was verified. Fail closed: if the verifier is
-// unavailable (orb-bridge not loaded), bets are refused, because
-// there is no proof. Auto-Pilot already gates itself on the same
-// status inside orb-bridge; this extends the identical rule to the
-// manual click paths (auto-prep toggle, quick targets, stake chips,
-// the legacy dispatch) so behaviour is uniform.
-function isLoginVerifiedForBet() {
-  try {
-    const sb = window.__smartBall;
-    if (!sb || typeof sb.verifyLogin !== 'function') return false;
-    const st = sb.verifyLogin();
-    return !!st && st.state === 'VERIFIED';
-  } catch (e) { return false; }
-}
-window.isLoginVerifiedForBet = isLoginVerifiedForBet;
-
-const LOGIN_NOT_VERIFIED_LINE = 'Login not verified yet';
-// Refusal surface for an unverified bet-path tap: state the existing
-// reason and offer the path to log in (the auth bar carries the
-// Login / Register actions). No staging, no animation-as-placed, no
-// P&L movement, no success feedback — and per the silence rules no
-// sound either.
-function refuseBetUnverified() {
-  setMobileBridgeStatus(false, LOGIN_NOT_VERIFIED_LINE);
-  showToast('🔒 Login not verified yet — open DhaniWin and log in. Bets unlock when the bridge verifies your login.', 'warn');
-  // The sheet's own spoken line is the visible surface where the
-  // chips / confirm live, so the reason lands where the tap happened.
-  try {
-    if (window.__smartBall && typeof window.__smartBall.say === 'function') {
-      window.__smartBall.say('Login not verified yet — open DhaniWin and log in. Bets unlock when the bridge verifies your login.');
-    }
-  } catch (e) {}
-  if (typeof showDhaniAuthBar === 'function') showDhaniAuthBar(true);
-}
-window.refuseBetUnverified = refuseBetUnverified;
+// ── Login is NOT a gate (fix round #2, owner's order) ─────────────
+// The app is fully usable without login. The bridge login state is
+// display-only (auth pill, status lines); it never blocks staging,
+// firing, auto-prep, quick targets or stake chips. A real order
+// still travels only through the DhaniWin page on the user's own
+// tap, and DhaniWin itself refuses an order when its own session is
+// absent — that real failure is shown, never a fake success. The
+// "Ready" state still comes only from the bridge's
+// DHANIWIN_BET_PREPARED ack, never from dispatch time. (This
+// replaces the fix-round-2 VERIFIED gate: the owner found the gate
+// itself caused bugs, and ordered it removed.)
 
 function toggleMobileRealAutoBet(forceState) {
-  const turningOn = forceState !== undefined ? !!forceState : !MobileBridgeState.enabled;
-  if (turningOn && !isLoginVerifiedForBet()) {
-    // Arming auto-prep IS a bet-path action: refused while login is
-    // not VERIFIED. The toggle stays off; nothing is dispatched.
-    MobileBridgeState.enabled = false;
-    refuseBetUnverified();
-    if (typeof updateFloatingOrbUI === 'function') updateFloatingOrbUI();
-    return;
-  }
+  // Fix round #2: arming auto-prep is never login-gated.
   if (forceState !== undefined) {
     MobileBridgeState.enabled = !!forceState;
   } else {
@@ -6393,15 +6340,10 @@ window.toggleMobileRealAutoBet = toggleMobileRealAutoBet;
 window.toggleRealAutoBet = toggleMobileRealAutoBet;
 
 function dispatchMobileBetOrder(targetOverride) {
-  // VERIFIED gate (uniform with Auto-Pilot): no order is staged or
-  // sent while login is anything other than VERIFIED — no target
-  // paint, no "ready" claim, nothing on the wire. The refusal states
-  // the reason and offers the login path.
-  if (!isLoginVerifiedForBet()) {
-    refuseBetUnverified();
-    return;
-  }
-
+  // Fix round #2: dispatch is never login-gated. The safety guards
+  // below (circuit breaker, stop-loss / take-profit, solvency) all
+  // still apply, and the status stays a neutral sent-state — the
+  // "Ready" claim still comes only from the bridge's BET_PREPARED ack.
   // Check if 3-Loss Circuit Breaker is active / cool-off pause in progress
   if (MobileBridgeState.circuitBreakerPauseRounds > 0) {
     setMobileBridgeStatus(false, `🛡️ Circuit Breaker: Paused (${MobileBridgeState.circuitBreakerPauseRounds}R left)`);
@@ -6525,13 +6467,8 @@ window.copyMobileBridgeScript = copyMobileBridgeScript;
 
 function setAssistantBaseStake(amt) {
   // The sheet chips set the REAL base stake (they feed both the
-  // governed ladder and the legacy dispatch), so they are a bet path:
-  // while login is not VERIFIED a chip tap changes nothing and states
-  // the reason, exactly like every other bet-path tap.
-  if (!isLoginVerifiedForBet()) {
-    refuseBetUnverified();
-    return;
-  }
+  // governed ladder and the legacy dispatch). Fix round #2: a chip
+  // tap is never login-gated — it just sets the base.
   const amount = Number(amt) || 2;
   MobileBridgeState.baseStake = amount;
   MobileBridgeState.currentLevel = 0; // Fresh base stake starts at Level 0
@@ -6966,33 +6903,29 @@ function toggleDhaniwinAssistantModal(show) {
     const maxAvailableWidth = Math.max(200, window.innerWidth - 16);
     const maxAvailableHeight = Math.max(220, window.innerHeight - 60);
 
-    const boxWidth = Math.min(maxAvailableWidth, Math.max(200, (_assistantBoxSize?.width || 270)));
-    const boxHeight = Math.min(maxAvailableHeight, Math.max(220, (_assistantBoxSize?.height || 360)));
+    const boxWidth = Math.min(maxAvailableWidth, Math.max(360, (_assistantBoxSize?.width || 360)));
+    const boxHeight = Math.min(maxAvailableHeight, Math.max(480, (_assistantBoxSize?.height || 480)));
 
     sheet.style.width = `${boxWidth}px`;
     sheet.style.height = `${boxHeight}px`;
     sheet.style.maxHeight = `${boxHeight}px`;
 
-    // Position the box on the LEFT side of the screen as requested
+    // Fix round #2: the opened Axo is a BIG centered floating overlay
+    // in the middle of the window — never tucked into a small corner
+    // box. Saved drag positions are ignored on open (dragging after
+    // open still works); the size keeps its saved value but never
+    // opens smaller than the overlay minimums.
     const orbRect = orb ? orb.getBoundingClientRect() : { left: window.innerWidth - 76, top: window.innerHeight - 150, width: 62, height: 62 };
 
-    let targetLeft;
-    let targetTop;
-
-    if (_assistantBoxPos) {
-      targetLeft = Math.max(8, Math.min(window.innerWidth - boxWidth - 8, _assistantBoxPos.left));
-      targetTop = Math.max(50, Math.min(window.innerHeight - boxHeight - 14, _assistantBoxPos.top));
-    } else {
-      // Open on the LEFT side of the screen (left: 12px)
-      targetLeft = 12;
-      targetTop = Math.max(50, Math.min(window.innerHeight - boxHeight - 14, orbRect.top - 80));
-    }
+    const targetLeft = Math.max(8, Math.floor((window.innerWidth - boxWidth) / 2));
+    const targetTop = Math.max(50, Math.floor((window.innerHeight - boxHeight) / 2));
 
     // Set box position
     sheet.style.left = `${targetLeft}px`;
     sheet.style.top = `${targetTop}px`;
     sheet.style.right = 'auto';
     sheet.style.bottom = 'auto';
+    sheet.classList.add('axo-big-overlay');
 
     // Calculate morph origin from ball center (morphs from the ball and back to the ball)
     const orbCenterX = orbRect.left + (orbRect.width || 62) / 2;
@@ -7016,6 +6949,10 @@ function toggleDhaniwinAssistantModal(show) {
     void sheet.offsetWidth;
     modal.classList.add('sheet-open');
 
+    // The floating subtitle hides while the panel is open (the
+    // sheet's own line shows the same text).
+    if (window.__smartBall && typeof window.__smartBall.syncAxoSubtitleSurfaces === 'function') window.__smartBall.syncAxoSubtitleSurfaces();
+
     // Update mini road on open
     const history = MobileState.historyByTf[MobileState.timeframe] || [];
     renderAssistantMiniRoad(history);
@@ -7023,6 +6960,7 @@ function toggleDhaniwinAssistantModal(show) {
     if (_assistantModalClosing) return;
     _assistantModalClosing = true;
     modal.classList.remove('sheet-open');
+    sheet.classList.remove('axo-big-overlay');
 
     // Restore orb: smooth morph back to full ball shape
     if (orb) {
@@ -7037,6 +6975,8 @@ function toggleDhaniwinAssistantModal(show) {
         modal.classList.add('hidden');
         modal.style.display = 'none';
         _assistantModalClosing = false;
+        // Panel fully closed: the floating subtitle may show again.
+        if (window.__smartBall && typeof window.__smartBall.syncAxoSubtitleSurfaces === 'function') window.__smartBall.syncAxoSubtitleSurfaces();
       }
     }, 280);
   }
@@ -7327,9 +7267,9 @@ function setupFloatingOrb() {
   clampFloatingOrb();
   if (!window.__o101OrbClampListeners) {
     window.__o101OrbClampListeners = true;
-    window.addEventListener('resize', () => { clampFloatingOrb(); clampAssistantSheetToViewport(); });
+    window.addEventListener('resize', () => { clampFloatingOrb(); clampAssistantSheetToViewport(); if (window.__smartBall && typeof window.__smartBall.syncAxoSubtitleSurfaces === 'function') window.__smartBall.syncAxoSubtitleSurfaces(); });
     window.addEventListener('orientationchange', () => {
-      setTimeout(() => { clampFloatingOrb(); clampAssistantSheetToViewport(); }, 300);
+      setTimeout(() => { clampFloatingOrb(); clampAssistantSheetToViewport(); if (window.__smartBall && typeof window.__smartBall.syncAxoSubtitleSurfaces === 'function') window.__smartBall.syncAxoSubtitleSurfaces(); }, 300);
     });
   }
 

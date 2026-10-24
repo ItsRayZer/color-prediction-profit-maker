@@ -92,12 +92,14 @@ const HISTORY = [
 test('pin 2 — BET subtitle carries the sequence road + the open period number', () => {
   const line = withRoadSuffix('New signal: BIG from the leader.', { history: HISTORY, period: '50781' });
   assert.match(line, /Road: BIG, SMALL, BIG, SMALL, BIG, BIG, SMALL/);
-  assert.match(line, /Period 50781/);
+  assert.match(line, /#0781/);
+  assert.ok(!line.includes('50781'), 'the full period number never appears in a rendered surface');
   assert.ok(line.startsWith('New signal: BIG'), 'the governed line itself is untouched, the suffix is appended');
 });
 
 test('pin 2 — road suffix falls back to the last settled period, and empties with no data', () => {
-  assert.match(roadSuffix({ history: HISTORY }), /Period 50780/);
+  assert.match(roadSuffix({ history: HISTORY }), /#0780/);
+  assert.ok(!roadSuffix({ history: HISTORY }).includes('50780'), 'the full period number never appears in a rendered surface');
   assert.equal(roadSuffix({ history: [] }), '');
   assert.equal(withRoadSuffix('line', { history: [] }), 'line');
 });
@@ -176,7 +178,7 @@ test('pin 6 — a queued line is dropped when the state goes silent, never spoke
 test('pin 7 — subtitle-closed: the prediction renders inside Axo, silently, toggles untouched', () => {
   const view = orbPredictionView({ verdict: 'BET', pick: 'BIG', period: '50781' });
   assert.equal(view.pickText, 'BIG');
-  assert.equal(view.periodText, '#50781');
+  assert.equal(view.periodText, '#0781', 'fix round #2: short period only, never the full number');
   assert.equal(orbPredictionView({ verdict: 'SKIP', pick: null, period: '50781' }).pickText, 'SKIP');
   assert.equal(orbPredictionView({ verdict: null }).pickText, '—');
   // Speech is suppressed while subtitles are closed, but the voice

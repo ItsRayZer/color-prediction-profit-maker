@@ -11,13 +11,11 @@
  *    the outer bound; the fallback is one-shot; and every status
  *    surface names the failure (proxy unreachable, direct mode,
  *    bridge inactive, login cannot be verified in this mode).
- *  Fix 2 — no bet-path click works while login is not VERIFIED.
- *    The legacy manual paths (auto-prep toggle, quick targets, the
- *    dispatch itself, the sheet stake chips) staged orders with no
- *    login gate at all — the owner's "fake logined". They now share
- *    Auto-Pilot's exact rule: VERIFIED ⟺ bridge state ≤60s old,
- *    isLoggedIn, apiProven. Dispatch also no longer paints the hero
- *    or claims "Ready" before the bridge's BET_PREPARED ack.
+ *  Fix 2 — REVERSED by fix round #2 (owner's order, 2026-10-24):
+ *    the VERIFIED gate is deleted. The owner found the gate itself
+ *    caused bugs and ordered the app fully usable without login.
+ *    Dispatch still never paints the hero or claims "Ready" before
+ *    the bridge's BET_PREPARED ack (that honesty rule stands).
  *  Fix 3 — CF_WORKER_BASE lives in exactly one place (mobile.js),
  *    with a localStorage 'o101_worker_base' runtime override that
  *    wins over the constant so a corrected address can be tested
@@ -232,75 +230,48 @@ test('wording surfaces: sheet + settings print the identical proxy-failure sente
   assert.ok(SETTINGS.includes("localStorage.getItem('o101_dhani_proxy_failed')"), 'settings reads the persisted failure key');
 });
 
-// ── Fix 2: the VERIFIED gate (behavioural, exact shipped code) ──────
-function loadGate() {
-  const span = sliceFn(MOBILE, 'function isLoginVerifiedForBet()', 'window.refuseBetUnverified = refuseBetUnverified;');
-  const ctx = {};
-  ctx.window = ctx;
-  vm.createContext(ctx);
-  const script = `
-    const __calls = { status: [], toast: [], authBar: 0 };
-    function setMobileBridgeStatus(c, l) { __calls.status.push([c, l]); }
-    function showToast(m, k) { __calls.toast.push([m, k]); }
-    function showDhaniAuthBar(f) { if (f) __calls.authBar += 1; }
-    ${span}
-    globalThis.__g = { isLoginVerifiedForBet, refuseBetUnverified, calls: __calls };
-  `;
-  vm.runInContext(script, ctx);
-  return ctx;
-}
+// ── Fix 2 REVERSED (fix round #2, owner's order): the VERIFIED gate
+// is GONE. The helpers and the refusal surface are deleted, and
+// dispatch / auto-prep / chips / tabs proceed without any login
+// check. What survives unchanged: the safety guards (circuit
+// breaker, stop-loss / take-profit, solvency), the neutral
+// sent-state, and "Ready" only from the bridge's BET_PREPARED ack
+// (pinned below in 'no fake feedback').
 
-test('gate: VERIFIED only from the bridge verifier — everything else fails closed', () => {
-  const ctx = loadGate();
-  const g = ctx.__g;
-  assert.equal(g.isLoginVerifiedForBet(), false, 'no orb-bridge at all → refused (no proof, no bets)');
-  ctx.__smartBall = { verifyLogin: () => ({ state: 'UNKNOWN' }) };
-  assert.equal(g.isLoginVerifiedForBet(), false, 'UNKNOWN → refused');
-  ctx.__smartBall = { verifyLogin: () => ({ state: 'NOT_LOGGED_IN' }) };
-  assert.equal(g.isLoginVerifiedForBet(), false, 'NOT_LOGGED_IN → refused');
-  ctx.__smartBall = { verifyLogin: () => ({ state: 'NO_SIGNAL' }) };
-  assert.equal(g.isLoginVerifiedForBet(), false, 'NO_SIGNAL → refused');
-  ctx.__smartBall = { verifyLogin: () => { throw new Error('boom'); } };
-  assert.equal(g.isLoginVerifiedForBet(), false, 'a throwing verifier → refused, never an exception');
-  ctx.__smartBall = { verifyLogin: () => ({ state: 'VERIFIED' }) };
-  assert.equal(g.isLoginVerifiedForBet(), true, 'VERIFIED → allowed');
+test('no login gate: the verifier and refusal helpers are deleted from mobile.js', () => {
+  assert.ok(!MOBILE.includes('isLoginVerifiedForBet'), 'no verifier helper left');
+  assert.ok(!MOBILE.includes('refuseBetUnverified'), 'no refusal surface left');
+  assert.ok(!MOBILE.includes('Login not verified yet'), 'no not-verified refusal wording left');
 });
 
-test('gate: the refusal states the reason and offers the login path, with no success feedback', () => {
-  const ctx = loadGate();
-  const said = [];
-  ctx.__smartBall = { verifyLogin: () => ({ state: 'UNKNOWN' }), say: t => said.push(t) };
-  ctx.__g.refuseBetUnverified();
-  assert.deepEqual(J(ctx.__g.calls.status), [[false, 'Login not verified yet']], 'status shows the existing not-verified state');
-  assert.equal(ctx.__g.calls.authBar, 1, 'the login path (auth bar) is offered');
-  assert.equal(ctx.__g.calls.toast.length, 1);
-  assert.ok(/Login not verified yet/.test(ctx.__g.calls.toast[0][0]), 'toast states the reason');
-  assert.notEqual(ctx.__g.calls.toast[0][1], 'success', 'never dressed as success');
-  assert.equal(said.length, 1, 'the sheet line speaks the refusal where the tap happened');
-  assert.ok(/Login not verified yet/.test(said[0]), 'sheet line states the reason');
-});
-
-test('gate wiring: dispatch refuses before anything is built or sent', () => {
+test('no login gate wiring: dispatch builds and posts without any login check', () => {
   const body = sliceFn(MOBILE, 'function dispatchMobileBetOrder(targetOverride)', 'window.dispatchMobileBetOrder = dispatchMobileBetOrder;');
-  const gateAt = body.indexOf('if (!isLoginVerifiedForBet())');
-  assert.ok(gateAt > -1, 'dispatch checks the gate');
-  assert.ok(gateAt < body.indexOf('postMobileBridge(orderPayload)'), 'gate runs before the order is posted');
-  assert.ok(gateAt < body.indexOf('const orderPayload'), 'gate runs before the order is even built');
-  assert.ok(body.slice(gateAt, gateAt + 120).includes('refuseBetUnverified()'), 'refusal surface used');
+  assert.ok(!body.includes('isLoginVerifiedForBet'), 'dispatch has no login check');
+  assert.ok(!body.includes('refuseBetUnverified'), 'dispatch has no refusal');
+  assert.ok(body.includes('const orderPayload'), 'the order is still built');
+  assert.ok(body.includes('postMobileBridge(orderPayload)'), 'the order is still posted');
+  assert.ok(body.includes('circuitBreakerPauseRounds'), 'the circuit-breaker guard survives');
+  assert.ok(body.includes('waiting for the bridge'), 'the neutral sent-state survives');
 });
 
-test('gate wiring: arming auto-prep is refused unverified; turning off is never gated', () => {
+test('no login gate wiring: arming auto-prep has no login check', () => {
   const body = sliceFn(MOBILE, 'function toggleMobileRealAutoBet(forceState)', 'window.toggleMobileRealAutoBet = toggleMobileRealAutoBet;');
-  assert.ok(body.includes('turningOn && !isLoginVerifiedForBet()'), 'turn-on checks the gate');
-  const refusal = body.slice(body.indexOf('turningOn && !isLoginVerifiedForBet()'));
-  assert.ok(refusal.includes('MobileBridgeState.enabled = false'), 'the toggle stays off on refusal');
-  assert.ok(body.indexOf('refuseBetUnverified()') < body.indexOf('dispatchMobileBetOrder()'), 'refusal precedes any dispatch');
+  assert.ok(!body.includes('isLoginVerifiedForBet'), 'turn-on has no login check');
+  assert.ok(!body.includes('refuseBetUnverified'), 'turn-on has no refusal');
+  assert.ok(body.includes('dispatchMobileBetOrder()'), 'arming still dispatches');
 });
 
-test('gate wiring: the sheet stake chips are a gated bet path', () => {
+test('no login gate wiring: the sheet stake chips set the base without any login check', () => {
   const body = sliceFn(MOBILE, 'function setAssistantBaseStake(amt)', 'window.setAssistantBaseStake = setAssistantBaseStake;');
-  assert.ok(body.indexOf('if (!isLoginVerifiedForBet())') > -1, 'chips check the gate');
-  assert.ok(body.indexOf('isLoginVerifiedForBet()') < body.indexOf('MobileBridgeState.baseStake = amount'), 'gate runs before the stake changes');
+  assert.ok(!body.includes('isLoginVerifiedForBet'), 'chips have no login check');
+  assert.ok(body.indexOf('MobileBridgeState.baseStake = amount') > -1, 'the chip still sets the base');
+});
+
+test('no login gate wiring: prediction tabs are never blocked, and no tab wears a lock', () => {
+  assert.ok(!MOBILE.includes("if (tab !== 'web' && !isUserLoggedIn())"), 'the tab gate is gone');
+  const unlockBody = sliceFn(MOBILE, 'function updateAppUnlockState()', 'window.updateAppUnlockState = updateAppUnlockState;');
+  assert.ok(!unlockBody.includes('toggleUnlockModal(true)'), 'logged-out never reopens the unlock modal');
+  assert.ok(!unlockBody.includes('🔒'), 'no lock badge is ever set on a tab');
 });
 
 test('no fake feedback: dispatch never paints the hero or claims Ready before the bridge ack', () => {

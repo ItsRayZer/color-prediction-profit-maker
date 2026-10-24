@@ -18,6 +18,19 @@ extensions that lie about their bytes); masters keep their honest
 names here. The 10 original frames have black baked in (RGB); angry
 and pleading carry true alpha (RGBA) — both encode fine as WebP.
 
+TRANSPARENT-SOURCE PROCEDURE (fix round #2, 2026-10-24): the
+repo-local axo-faces/ masters are black-baked, so a transparent
+module must be built from the Axo website's RGBA frame masters
+(read-only reference in ~/workspace/axofy-fix2/assets/). Stage them
+under the expected filenames and run the script against the stage:
+  mkdir /tmp/axo-transparent-masters
+  ln -s <assets>/axo-assistant.png base.jpg
+  ln -s <assets>/axo-frame-<name>.png <name>.webp   (all 12 keys)
+  python3 scripts/gen-axo-faces.py /tmp/axo-transparent-masters systems/axo-faces.js
+Then verify every frame decodes to RGBA with alpha_min 0 (PIL) and
+update the generated file's header comment to record the source.
+Axofy files are never modified — only symlinked, read-only.
+
 Usage: python3 scripts/gen-axo-faces.py [masters_dir] [out_file]
 Defaults: masters ../axo-faces (relative to the repo root),
 out systems/axo-faces.js.
