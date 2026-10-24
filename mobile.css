@@ -1253,11 +1253,18 @@ a[href*="tradingview.com"] {
   transform: scale(0.97);
 }
 
-/* Fix round #3 — the OPENED Axo floats OUTSIDE the panel card: a big
-   centered overlay (see #axoFloatingOverlay in mobile.html), never
-   an embedded header face. The panel header carries no face while
-   open (JS hides #axoFaceHost); the sheet itself stays centered by
-   toggleDhaniwinAssistantModal (JS geometry). */
-#dhaniwinAssistantSheet.axo-big-overlay #axoFaceHost{display:none !important}
-#axoFloatingOverlay{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:100001;pointer-events:none;background:transparent}
-#axoFloatingOverlay #axoFloatingFace{display:block;width:min(64vw,300px);height:auto;object-fit:contain;background:transparent}
+/* Fix round #4 — the OPENED Axo is SMALL, Axofy-app pattern: a
+   circular avatar straddling the sheet's top-center edge (see
+   #axoTopAvatar in mobile.html), never a giant centered overlay
+   and never covering panel content. While open, the sheet lets
+   the avatar paint outside its top edge and gives the header top
+   clearance, so the "Axo" name + prediction badge sit in clear
+   space above the header content; the panel header carries no
+   face while open (JS hides #axoFaceHost). The avatar is
+   pointer-events none, so it can never block a tap. */
+#dhaniwinAssistantSheet.axo-top-avatar-open{overflow:visible}
+#dhaniwinAssistantSheet.axo-top-avatar-open #assistantSheetHeader{padding-top:76px;border-radius:22px 22px 0 0}
+#axoTopAvatar{position:absolute;left:50%;top:0;transform:translate(-50%,-50%);z-index:30;display:flex;flex-direction:column;align-items:center;pointer-events:none;background:transparent}
+#axoTopAvatar #axoTopAvatarFace{display:block;width:64px;height:64px;border-radius:50%;object-fit:contain;background:transparent}
+#axoTopAvatar #axoTopAvatarName{margin-top:2px;font-size:13px;font-weight:650;line-height:1.2;color:#f4f4f6;text-shadow:0 1px 6px rgba(0,0,0,.9)}
+#axoTopAvatar #axoTopAvatarBadge{margin-top:2px;padding:2px 8px;border-radius:999px;background:rgba(0,0,0,.85);border:1px solid rgba(255,255,255,.15);font-size:8px;font-family:ui-monospace,monospace;font-weight:700;color:#f4f4f6;white-space:nowrap}

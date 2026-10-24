@@ -779,6 +779,33 @@ export function verdictIconFor(pick, decision) {
   return { kind: null, svg: '' };
 }
 
+/**
+ * Fix round #4: the small prediction badge on the opened Axo
+ * avatar shows the governed verdict as WRITTEN text — the size
+ * (Big/Small), the colour (Red/Green/Violet), or Skip. Anything
+ * else (no verdict, unknown pick) yields '' so the badge shows
+ * nothing — never a stale or invented prediction.
+ */
+export function predictionBadgeText(pick, decision) {
+  if (decision === 'SKIP') return 'Skip';
+  if (decision !== 'BET') return '';
+  const p = String(pick || '').toUpperCase();
+  if (p === 'BIG') return 'Big';
+  if (p === 'SMALL') return 'Small';
+  if (p === 'GREEN') return 'Green';
+  if (p === 'RED') return 'Red';
+  if (p === 'VIOLET') return 'Violet';
+  return '';
+}
+
+/** Badge text for one hero-view render (BET/SKIP/NONE). */
+export function badgeFromView(view) {
+  if (!view) return '';
+  if (view.decision === 'SKIP') return 'Skip';
+  if (view.decision === 'BET') return predictionBadgeText(view.pick, 'BET');
+  return '';
+}
+
 /** { face, spoken } for a bot event — null/false off the table. */
 export function axoEventEffects(event) {
   const face = AXO_SPOKEN_FACES[event] || null;
@@ -1630,10 +1657,12 @@ function initBridge() {
     // on the 62px ball) keeps it in step with the sheet header.
     const orbFace = $('floatingOrbAxoFace');
     if (orbFace) orbFace.src = faces[name];
-    // Fix round #3: the OPENED Axo floats outside the panel as its
-    // own overlay — it wears the same face, synced on every change.
-    const floatFace = $('axoFloatingFace');
-    if (floatFace) floatFace.src = faces[name];
+    // Fix round #4: the OPENED Axo is a SMALL avatar straddling
+    // the sheet's top-center edge (Axofy-app pattern) — it wears
+    // the same face, synced on every change. The giant centered
+    // overlay from round #3 is deleted; this is its replacement.
+    const topFace = $('axoTopAvatarFace');
+    if (topFace) topFace.src = faces[name];
     const front = $('axoFaceFront'), back = $('axoFaceBack');
     if (!front || !back) return;
     const vis = axo.visibleEl === 'back' ? back : front;
@@ -1974,6 +2003,18 @@ function initBridge() {
     }
   }
 
+  /** Fix round #4: the small prediction badge on the opened Axo
+   *  avatar — written verdict text, or nothing at all. It is
+   *  independent of CC (it is the avatar's badge, not the subtitle
+   *  strip) and hides with the avatar cluster when the panel is
+   *  closed. Empty text always hides it: never stale, never made up. */
+  function setAxoPredictionBadge(text) {
+    const badge = $('axoTopAvatarBadge');
+    if (!badge) return;
+    badge.textContent = text || '';
+    badge.style.display = text ? 'inline-block' : 'none';
+  }
+
   /** Face + voice for one governed event (spoken set only). */
   function axoOnEvent(event, line) {
     const fx = axoEventEffects(event);
@@ -1998,6 +2039,7 @@ function initBridge() {
       const full = sp ? `Skip · #${sp}` : 'Skip';
       say(full);
       setVerdictIcon('skip');
+      setAxoPredictionBadge('Skip');
       axoOnEvent(event, full);
       return full;
     }
@@ -2013,7 +2055,12 @@ function initBridge() {
     say(full);
     // Fix round #3: every verdict carries its icon — size arrow,
     // colour dot, or skip mark — beside the subtitle, never spoken.
-    if (event === BOT_EVENTS.SIGNAL_BET) setVerdictIcon(verdictIconFor(ctx.pick, 'BET').kind);
+    // Fix round #4: the opened avatar's badge carries the same
+    // verdict as written text.
+    if (event === BOT_EVENTS.SIGNAL_BET) {
+      setVerdictIcon(verdictIconFor(ctx.pick, 'BET').kind);
+      setAxoPredictionBadge(predictionBadgeText(ctx.pick, 'BET'));
+    }
     axoOnEvent(event, full);
     return full;
   }
@@ -2972,7 +3019,10 @@ function initBridge() {
     // Fix round #3: the hero verdict carries its icon too — size
     // arrow, colour dot, or skip mark — re-asserted on every cycle
     // so the hero never shows a stale verdict's icon.
+    // Fix round #4: the opened avatar's badge follows the same
+    // cycle, and clears whenever there is no live verdict.
     setVerdictIcon(view.decision === 'BET' ? verdictIconFor(view.pick, 'BET').kind : (view.decision === 'SKIP' ? 'skip' : null));
+    setAxoPredictionBadge(badgeFromView(view));
     const conf = $('assistantConfBadge');
     if (conf) conf.textContent = view.confText;
   }
@@ -3228,6 +3278,7 @@ function initBridge() {
       setFace: setAxoFace,
       speakEvent,
       setVerdictIcon,
+      setPredictionBadge: setAxoPredictionBadge,
       missed: axo.missed,
       aiConfigured: () => axo.ai.configured,
       mode: axoMode,

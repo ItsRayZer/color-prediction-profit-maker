@@ -180,14 +180,14 @@ test('pin 7 — the ball is uncropped and transparent, and the floating subtitle
   const ringLine = mobileHtml.split('\n').find(l => l.includes('id="floatingOrbRing"'));
   assert.ok(!ringLine.includes('bg-[#0b0b10]') && !ringLine.includes('overflow-hidden'), 'no disc background and no crop on the ring');
   assert.ok(mobileHtml.includes('id="axoFloatingSubtitle"'), 'the floating subtitle element exists');
-  assert.ok(mobileHtml.includes('axo-big-overlay') || mobileCss.includes('axo-big-overlay'), 'the overlay mode exists');
+  assert.ok(mobileHtml.includes('id="axoTopAvatar"'), 'the small top avatar exists (round #4 replaced the overlay)');
 });
 
-test('pin 7 — the opened Axo floats OUTSIDE the panel (fix round #3, replaces the in-panel big face)', () => {
-  assert.ok(mobileCss.includes('#axoFloatingOverlay{'), 'the floating overlay rules exist');
-  assert.ok(mobileCss.includes('#dhaniwinAssistantSheet.axo-big-overlay #axoFaceHost{display:none'), 'the panel header hides its face while open');
-  assert.ok(mobileHtml.includes('id="axoFloatingOverlay"'), 'the overlay element exists');
-  assert.ok(mobileJs.includes("sheet.classList.add('axo-big-overlay')"), 'opening adds the overlay class');
-  assert.ok(mobileJs.includes("sheet.classList.remove('axo-big-overlay')"), 'closing removes it');
+test('pin 7 — SUPERSEDED by round #4: the giant overlay is gone, the small top avatar replaces it', () => {
+  assert.ok(!mobileCss.includes('#axoFloatingOverlay{'), 'no floating overlay rules');
+  assert.ok(!mobileHtml.includes('id="axoFloatingOverlay"'), 'no overlay element');
+  assert.ok(mobileHtml.includes('id="axoTopAvatar"'), 'the small top-center avatar exists');
+  assert.ok(mobileJs.includes("sheet.classList.add('axo-top-avatar-open')"), 'opening adds the top-avatar class');
+  assert.ok(mobileJs.includes("sheet.classList.remove('axo-top-avatar-open')"), 'closing removes it');
   assert.ok(mobileJs.includes('Math.floor((window.innerWidth - boxWidth) / 2)'), 'opening centers horizontally');
 });

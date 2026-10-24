@@ -6660,11 +6660,13 @@ function toggleDhaniwinAssistantModal(show) {
     sheet.style.height = `${boxHeight}px`;
     sheet.style.maxHeight = `${boxHeight}px`;
 
-    // Fix round #2: the opened Axo is a BIG centered floating overlay
-    // in the middle of the window — never tucked into a small corner
-    // box. Saved drag positions are ignored on open (dragging after
-    // open still works); the size keeps its saved value but never
-    // opens smaller than the overlay minimums.
+    // Fix round #4: the opened Axo is SMALL, Axofy-app pattern —
+    // a circular avatar straddling the sheet's top-center edge,
+    // never a giant overlay, never covering panel content. The
+    // sheet's open class gives the header top clearance for the
+    // name + prediction badge. Saved drag positions are ignored
+    // on open (dragging after open still works); the size keeps
+    // its saved value but never opens smaller than the minimums.
     const orbRect = orb ? orb.getBoundingClientRect() : { left: window.innerWidth - 76, top: window.innerHeight - 150, width: 62, height: 62 };
 
     const targetLeft = Math.max(8, Math.floor((window.innerWidth - boxWidth) / 2));
@@ -6675,14 +6677,13 @@ function toggleDhaniwinAssistantModal(show) {
     sheet.style.top = `${targetTop}px`;
     sheet.style.right = 'auto';
     sheet.style.bottom = 'auto';
-    sheet.classList.add('axo-big-overlay');
+    sheet.classList.add('axo-top-avatar-open');
 
-    // Fix round #3: the OPENED Axo floats OUTSIDE the panel card —
-    // big, centered, transparent — while the panel header carries no
-    // face at all. The overlay is pointer-events none, so the panel
-    // beneath stays fully interactive.
-    const axoOverlay = $('axoFloatingOverlay');
-    if (axoOverlay) axoOverlay.style.display = 'block';
+    // The top-center avatar shows; the panel header carries no
+    // face while open. The avatar is pointer-events none, so the
+    // panel beneath stays fully interactive.
+    const axoTop = $('axoTopAvatar');
+    if (axoTop) axoTop.style.display = 'flex';
     const faceHost = $('axoFaceHost');
     if (faceHost) faceHost.style.display = 'none';
 
@@ -6719,12 +6720,12 @@ function toggleDhaniwinAssistantModal(show) {
     if (_assistantModalClosing) return;
     _assistantModalClosing = true;
     modal.classList.remove('sheet-open');
-    sheet.classList.remove('axo-big-overlay');
+    sheet.classList.remove('axo-top-avatar-open');
 
-    // Panel closing: the floating Axo goes away and the header face
-    // returns, so the closed ball is Axo again.
-    const axoOverlayClose = $('axoFloatingOverlay');
-    if (axoOverlayClose) axoOverlayClose.style.display = 'none';
+    // Panel closing: the top-center avatar goes away and the
+    // header face returns, so the closed ball is Axo again.
+    const axoTopClose = $('axoTopAvatar');
+    if (axoTopClose) axoTopClose.style.display = 'none';
     const faceHostClose = $('axoFaceHost');
     if (faceHostClose) faceHostClose.style.display = '';
 

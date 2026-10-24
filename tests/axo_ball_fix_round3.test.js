@@ -29,28 +29,17 @@ const mobileJs = fs.readFileSync('mobile.js', 'utf8');
 const mobileCss = fs.readFileSync('mobile.css', 'utf8');
 const settingsHtml = fs.readFileSync('settings.html', 'utf8');
 
-// ── Pin 1: opened Axo floats OUTSIDE the panel ───────────────────
-test('pin 1 — the opened Axo is a top-level overlay outside the panel card', () => {
-  const overlayAt = mobileHtml.indexOf('id="axoFloatingOverlay"');
-  const modalAt = mobileHtml.indexOf('id="dhaniwinAssistantModal"');
-  assert.ok(overlayAt > -1, 'the floating overlay element exists');
-  assert.ok(modalAt > -1, 'the panel modal still exists');
-  assert.ok(overlayAt < modalAt, 'the overlay is a sibling BEFORE the modal, never a child of the panel');
-  assert.ok(mobileHtml.includes('id="axoFloatingFace"'), 'the overlay carries the Axo face image');
-  // Centering + transparency + non-blocking, in markup and in CSS.
-  const overlayTag = mobileHtml.slice(overlayAt, mobileHtml.indexOf('>', overlayAt));
-  assert.ok(/left:50%/.test(overlayTag) && /top:50%/.test(overlayTag), 'overlay centered on screen');
-  assert.ok(/translate\(-50%,-50%\)/.test(overlayTag), 'overlay centered by transform');
-  assert.ok(/pointer-events:none/.test(overlayTag), 'overlay never blocks panel taps');
-  assert.ok(/background:transparent/.test(overlayTag), 'overlay background transparent');
-  assert.ok(mobileCss.includes('#axoFloatingOverlay{'), 'overlay rules live in mobile.css');
-  assert.ok(mobileCss.includes('#dhaniwinAssistantSheet.axo-big-overlay #axoFaceHost{display:none'), 'the panel header hides its face while open');
-  // The toggle wires it: open shows the overlay + hides the host,
-  // close restores both.
-  const toggle = mobileJs.slice(mobileJs.indexOf('function toggleDhaniwinAssistantModal'), mobileJs.indexOf('window.toggleDhaniwinAssistantModal'));
-  assert.ok(toggle.includes("axoFloatingOverlay')") && toggle.includes("style.display = 'block'"), 'open shows the overlay');
-  assert.ok(toggle.includes("axoFaceHost')") && toggle.includes("style.display = 'none'"), 'open hides the header face');
-  assert.ok(toggle.includes("style.display = 'none'") && toggle.includes("style.display = ''"), 'close hides the overlay and restores the host');
+// ── Pin 1 (SUPERSEDED by fix round #4): the giant centered
+// overlay is deleted; the opened Axo is now the small top-center
+// avatar. The full pin set lives in axo_ball_fix_round4.test.js;
+// this pin only guards the deletion so the overlay can never
+// creep back, and keeps the surviving round #3 guarantees (voice
+// chip ids intact, closed ball clamped is pin 1b below).
+test('pin 1 — SUPERSEDED by round #4: the giant overlay is gone, the small top avatar replaces it', () => {
+  assert.ok(!mobileHtml.includes('axoFloatingOverlay'), 'no giant overlay element');
+  assert.ok(!mobileHtml.includes('axoFloatingFace'), 'no giant overlay face');
+  assert.ok(mobileHtml.includes('id="axoTopAvatar"'), 'the small top-center avatar exists');
+  assert.ok(!mobileCss.includes('#axoFloatingOverlay{'), 'no overlay rules');
   // The voice chip survived the move: it lives in the header
   // controls cluster now, same ids, so toggleAxoVoice is untouched.
   assert.ok(mobileHtml.includes('id="axoVoiceChip"') && mobileHtml.includes('id="axoVoiceChipIcon"'), 'voice chip ids intact');

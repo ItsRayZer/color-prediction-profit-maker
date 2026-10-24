@@ -871,7 +871,7 @@
          Positioned by orb-bridge (clamped to the viewport); hidden
          when subtitles are off (in-ball display instead) or when the
          panel is open (the sheet's own line shows the same text). -->
-    <div id="axoFloatingSubtitle" aria-live="polite" class="hidden fixed pointer-events-none px-2.5 py-1.5 rounded-xl bg-black/75 border border-white/10 text-[11px] font-mono text-zinc-100 leading-relaxed text-center" style="z-index: 99998;"><span id="axoSubtitleIcon" class="inline-block align-middle mr-1"></span><span id="axoSubtitleText"></span></div>
+    <div id="axoFloatingSubtitle" aria-live="polite" class="hidden fixed pointer-events-none px-2.5 py-1.5 rounded-full bg-black/75 border border-white/10 text-[11px] font-mono text-zinc-100 leading-relaxed text-center" style="z-index: 99998;"><span id="axoSubtitleIcon" class="inline-block align-middle mr-1"></span><span id="axoSubtitleText"></span></div>
 
 
     <!-- ════════════════════════════════════════════════════════════
@@ -880,19 +880,25 @@
     <!-- ════════════════════════════════════════════════════════════
          REDESIGNED APPLE / AMOLED LUXURY SQUARE FLOATING ASSISTANT
     ════════════════════════════════════════════════════════════ -->
-    <!-- Floating Axo overlay (fix round #3): when the ball is opened,
-         Axo floats OUTSIDE the panel card — big, centered on screen,
-         transparent background, full Axo visible, pointer-events none
-         so the panel beneath stays interactive. It is NOT a child of
-         the panel; the panel header carries no face while open. -->
-    <div id="axoFloatingOverlay" aria-hidden="true" style="display:none; position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:100001; pointer-events:none; background:transparent;">
-      <img id="axoFloatingFace" alt="" aria-hidden="true" draggable="false" style="display:block; width:min(64vw,300px); height:auto; object-fit:contain; background:transparent;">
-    </div>
-
     <div id="dhaniwinAssistantModal" class="fixed inset-0 pointer-events-none hidden" style="z-index: 100000; overscroll-behavior: contain;">
       <!-- Non-blocking backdrop (No blur, no click blocker, transparent so user can interact and bet freely) -->
       <div id="dhaniwinAssistantBackdrop" class="hidden pointer-events-none"></div>
       <div id="dhaniwinAssistantSheet" class="pointer-events-auto flex flex-col bg-[#0b0b10]/95 border border-white/[0.12] rounded-[22px] overflow-hidden shadow-[0_16px_50px_rgba(0,0,0,0.85)]" style="position: fixed; width: min(270px, calc(100vw - 24px)); max-height: 380px; overscroll-behavior: contain; touch-action: none;">
+        <!-- Fix round #4 — opened Axo, Axofy-app pattern: a SMALL
+             circular avatar straddling the sheet's top-center edge
+             (avatar centered above the card, "Axo" label beneath it,
+             the header's own X stays top-right). It NEVER covers
+             panel content: pointer-events none, and the open class
+             gives the header top clearance for the name + badge.
+             The badge carries the governed prediction as written
+             text (Big/Small/colour/Skip) — empty when no verdict
+             is live, never stale, never invented. The giant
+             centered overlay from round #3 is deleted. -->
+        <div id="axoTopAvatar" aria-hidden="true" style="display:none;">
+          <img id="axoTopAvatarFace" alt="" aria-hidden="true" draggable="false">
+          <span id="axoTopAvatarName">Axo</span>
+          <span id="axoTopAvatarBadge" style="display:none;"></span>
+        </div>
         
         <!-- Apple Resize Handles (Edges and Corners) -->
         <div class="assistant-resize-handle resize-edge-r" data-resize="r" title="Drag to resize"></div>
@@ -941,9 +947,13 @@
 
         <!-- Scrollable Body Content (Compact & Sleek) -->
         <div class="p-2.5 space-y-2 overflow-y-auto assistant-sheet-body" style="-webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y;">
-          <!-- 0. Axo line (orb-bridge say()): the assistant's current
-               line — every spoken line appears here verbatim. Fixed
-               height, so a new line never resizes the sheet. -->
+          <!-- 0. Axo subtitle (orb-bridge say()): the assistant's
+               current line — every spoken line appears here
+               verbatim. Fix round #4: styled like the Axofy app's
+               compact pill — small, matte black, rounded-full, first
+               in the body so it reads as the line under the avatar.
+               Fixed height, so a new line never resizes the sheet. -->
+          <div id="smartBallLine" aria-live="polite" class="px-2.5 py-1.5 rounded-full bg-black/75 border border-white/10 text-[8.5px] font-mono text-zinc-100 leading-relaxed text-center h-[34px] overflow-y-auto"><span id="axoSheetVerdictIcon" class="inline-block align-middle mr-1"></span><span id="axoSheetVerdictText"></span></div>
           <!-- 0a. Axo controls (orb-bridge): CC closes ONLY the
                subtitle strip (Axo keeps running); MODE switches AI
                narration vs Normal (governed templates only). Voice
@@ -968,8 +978,6 @@
                Fixed height, so it never resizes the sheet. -->
           <div id="axoRoadStrip" class="flex items-center gap-0.5 px-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] h-[30px] overflow-x-auto shrink-0" style="-webkit-overflow-scrolling: touch;"></div>
 
-          <div id="smartBallLine" aria-live="polite" class="px-2.5 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[8.5px] font-mono text-zinc-200 leading-relaxed h-[34px] overflow-y-auto"><span id="axoSheetVerdictIcon" class="inline-block align-middle mr-1"></span><span id="axoSheetVerdictText"></span></div>
-          
           <!-- 1. Live Period & Timer Bar with Active Interval -->
           <div class="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08]">
             <div class="flex flex-col">
