@@ -36,8 +36,10 @@ fs.copyFileSync(srcHtml, destHtml);
 console.log('Copied index.html -> deploy/index.html (source, unprocessed)');
 
 // Copy static assets needed by index.html
-// ('api' carries the Vercel twin of the Axo AI hop into the
-// preview project's rootDirectory; 'functions' carries the
+// ('api' carries the Vercel twin of the Axo AI hop
+// (api/axo-ai.mjs — .mjs is load-bearing for Vercel's ESM
+// detection) into the preview project's rootDirectory;
+// 'functions' carries the
 // Cloudflare Pages production hop — functions/api/axo-ai.js +
 // the shared core — into the uploaded tree.)
 ['systems', 'algorithms', 'src', 'sounds', 'api', 'functions'].forEach(dir => {
