@@ -738,6 +738,11 @@ export const AXO_VOICE_KEY = 'o101_axo_voice';
  *  absent from this map is not spoken and changes no face. */
 export const AXO_SPOKEN_FACES = {
   SIGNAL_BET: 'wow',
+  // Fix round #3 (2026-10-24, owner's order): EVERY round is
+  // announced — size, colour, or skip. The old skip-silence rule is
+  // REPLACED: a SKIP now speaks and shows like any other verdict,
+  // with the neutral base face (no emotion invented for sitting out).
+  SIGNAL_SKIP: 'base',
   WIN: 'celebrate',
   LOSS: 'sad',
   LADDER_UP: 'thinking',
@@ -747,6 +752,32 @@ export const AXO_SPOKEN_FACES = {
   STOP_LOSS: 'sad',
   STOP_WIN: 'celebrate'
 };
+
+/**
+ * Minimal verdict icons: SVG/CSS shapes only, NEVER emoji. Big/Small
+ * are arrows, colours are dots, a skip is a circle-slash. Icons are
+ * visual only — they are never part of a spoken string.
+ */
+export const VERDICT_ICONS = {
+  big: '<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 L20 15 H4 Z" fill="#fbbf24"/></svg>',
+  small: '<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20 L4 9 H20 Z" fill="#38bdf8"/></svg>',
+  green: '<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="#34d399"/></svg>',
+  red: '<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="#fb7185"/></svg>',
+  violet: '<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="#a78bfa"/></svg>',
+  skip: '<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="#d4d4d8" stroke-width="2.5"/><line x1="6" y1="18" x2="18" y2="6" stroke="#d4d4d8" stroke-width="2.5" stroke-linecap="round"/></svg>'
+};
+
+/** Icon kind + SVG for one governed verdict (pick domain: BIG, SMALL, GREEN, RED, VIOLET). */
+export function verdictIconFor(pick, decision) {
+  if (decision === 'SKIP') return { kind: 'skip', svg: VERDICT_ICONS.skip };
+  const p = String(pick || '').toUpperCase();
+  if (p === 'BIG') return { kind: 'big', svg: VERDICT_ICONS.big };
+  if (p === 'SMALL') return { kind: 'small', svg: VERDICT_ICONS.small };
+  if (p === 'GREEN') return { kind: 'green', svg: VERDICT_ICONS.green };
+  if (p === 'RED') return { kind: 'red', svg: VERDICT_ICONS.red };
+  if (p === 'VIOLET') return { kind: 'violet', svg: VERDICT_ICONS.violet };
+  return { kind: null, svg: '' };
+}
 
 /** { face, spoken } for a bot event — null/false off the table. */
 export function axoEventEffects(event) {
@@ -1171,8 +1202,10 @@ export function roadCells({ history = [], dispositions = {}, tf = '', openPeriod
 /**
  * The in-ball prediction view for the subtitle-closed state: Axo
  * face + pick + period, minimal, never the old classic ball art.
- * SKIP renders as SKIP (silence law still holds — no voice, no
- * subtitle); no verdict renders the neutral dash.
+ * SKIP renders as SKIP (the in-ball display is the silent fallback
+ * while subtitles are closed; when subtitles are on, the skip is
+ * announced via subtitle + voice at verdict time); no verdict
+ * renders the neutral dash.
  */
 export function orbPredictionView({ verdict = null, pick = null, period = null } = {}) {
   if (verdict === 'BET' && pick) return { pickText: pick, periodText: period ? `#${shortPeriod(period)}` : '', state: 'bet' };
@@ -1597,6 +1630,10 @@ function initBridge() {
     // on the 62px ball) keeps it in step with the sheet header.
     const orbFace = $('floatingOrbAxoFace');
     if (orbFace) orbFace.src = faces[name];
+    // Fix round #3: the OPENED Axo floats outside the panel as its
+    // own overlay — it wears the same face, synced on every change.
+    const floatFace = $('axoFloatingFace');
+    if (floatFace) floatFace.src = faces[name];
     const front = $('axoFaceFront'), back = $('axoFaceBack');
     if (!front || !back) return;
     const vis = axo.visibleEl === 'back' ? back : front;
@@ -1911,11 +1948,30 @@ function initBridge() {
 
   function say(text) {
     const el = $('smartBallLine');
-    if (el && text) el.textContent = text;
+    // The sheet line and the floating strip each carry an icon slot
+    // beside the text (fix round #3): write the text span only, so
+    // a subtitle write never wipes the verdict icon.
+    const sheetText = $('axoSheetVerdictText');
+    if (sheetText && text) sheetText.textContent = text;
+    else if (el && text) el.textContent = text;
     const floating = $('axoFloatingSubtitle');
-    if (floating && text) floating.textContent = text;
+    const floatingText = $('axoSubtitleText');
+    if (floatingText && text) floatingText.textContent = text;
+    else if (floating && text) floating.textContent = text;
     state.lastLine = text;
     syncAxoSubtitleSurfaces();
+  }
+
+  /** Write one verdict icon into every icon slot that exists. Icons
+   *  are visual only and never enter a spoken string; a null kind
+   *  clears all slots. Each surface's own visibility logic (sheet
+   *  open/closed, subtitles on/off) still governs display. */
+  function setVerdictIcon(kind) {
+    const svg = (kind && VERDICT_ICONS[kind]) || '';
+    for (const id of ['axoSubtitleIcon', 'axoSheetVerdictIcon', 'axoHeroVerdictIcon', 'orbVerdictIcon']) {
+      const slot = $(id);
+      if (slot) slot.innerHTML = svg;
+    }
   }
 
   /** Face + voice for one governed event (spoken set only). */
@@ -1931,12 +1987,19 @@ function initBridge() {
     const ctx = contextSnapshot(extra);
     const { line } = botLine(event, ctx);
     if (event === BOT_EVENTS.SIGNAL_SKIP) {
-      // SILENCE LAW (owner's standing order): a SKIP writes no
-      // subtitle, sets no face and speaks nothing. The line survives
-      // only as internal state — even though the subtitle element
-      // now exists, a skip must never reach it.
-      state.lastLine = line;
-      return line;
+      // Fix round #3 (2026-10-24, owner's order): EVERY round is
+      // announced — a SKIP speaks and shows like any other verdict.
+      // This REPLACES the old skip-silence rule. Minimal line: the
+      // word Skip + the short period only (no road suffix, no gate
+      // reason); the skip icon rides alongside, never spoken. The
+      // per-period gateKey lock in the governance cycle already
+      // fires this exactly once per (timeframe, period).
+      const sp = shortPeriod(openPeriodFor(state.tf || currentTf()));
+      const full = sp ? `Skip · #${sp}` : 'Skip';
+      say(full);
+      setVerdictIcon('skip');
+      axoOnEvent(event, full);
+      return full;
     }
     // Every BET prediction's subtitle carries the sequence road +
     // the period number, and the voice speaks exactly that string.
@@ -1948,6 +2011,9 @@ function initBridge() {
         })
       : line;
     say(full);
+    // Fix round #3: every verdict carries its icon — size arrow,
+    // colour dot, or skip mark — beside the subtitle, never spoken.
+    if (event === BOT_EVENTS.SIGNAL_BET) setVerdictIcon(verdictIconFor(ctx.pick, 'BET').kind);
     axoOnEvent(event, full);
     return full;
   }
@@ -2652,7 +2718,7 @@ function initBridge() {
             // a MISSED BET (PLAN.md §6) — the locked pick went
             // unplayed. Calibration still measures the pick; no
             // ladder movement, no P&L change. An engine SKIP never
-            // reaches this branch, so the skip silence law holds.
+            // reaches this branch, so a skip can never count as missed.
             tracker.record(state.lastPick.prob, !!won);
             ap.resolveUnfired(tf, latestPeriod, 'skipped');
             if (axo.missed.shouldFire(tf + ':' + latestPeriod, { gateDecision: decision, fired })) {
@@ -2694,7 +2760,9 @@ function initBridge() {
             }
             renderAutoPilot();
           } else {
-            // SKIP verdict: silent by rule.
+            // SKIP verdict at settlement: no settled-event
+            // announcements — the skip was already announced at
+            // verdict time (fix round #3: every round announced).
             tracker.record(state.lastPick.prob, !!won);
             ap.resolveUnfired(tf, latestPeriod, 'skipped');
           }
@@ -2901,6 +2969,10 @@ function initBridge() {
       // jump because another writer left a different size class on it.
       targetEl.className = HERO_TARGET_CLASSES[view.decision === 'BET' ? (view.pick || 'NONE') : view.decision] || HERO_TARGET_CLASSES.NONE;
     }
+    // Fix round #3: the hero verdict carries its icon too — size
+    // arrow, colour dot, or skip mark — re-asserted on every cycle
+    // so the hero never shows a stale verdict's icon.
+    setVerdictIcon(view.decision === 'BET' ? verdictIconFor(view.pick, 'BET').kind : (view.decision === 'SKIP' ? 'skip' : null));
     const conf = $('assistantConfBadge');
     if (conf) conf.textContent = view.confText;
   }
@@ -2963,9 +3035,15 @@ function initBridge() {
     const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     const cellHtml = c => {
       const pickCls = c.correct === true ? 'text-emerald-300' : (c.correct === false ? 'text-rose-300' : 'text-zinc-500');
-      return `<div class="flex flex-col items-center shrink-0 px-1" title="Period #${esc(shortPeriod(c.period))} — result ${esc(c.result)}, governed pick ${esc(c.pick || 'none')}">
+      // Fix round #3: a skipped round shows the skip mark, never an
+      // invented pick — the strip stays honest about what the
+      // governor actually called that period.
+      const disp = state.dispositions[`${tf}:${c.period}`] || null;
+      const skipped = disp && disp.decision === GATE_DECISIONS.SKIP;
+      const pickHtml = skipped ? VERDICT_ICONS.skip : esc(c.pickLetter || '–');
+      return `<div class="flex flex-col items-center shrink-0 px-1" title="Period #${esc(shortPeriod(c.period))} — result ${esc(c.result)}, governed pick ${esc(c.pick || (skipped ? 'skip' : 'none'))}">
         <span class="text-[10px] font-mono font-black text-white leading-none">${esc(c.number)}</span>
-        <span class="text-[7px] font-mono font-bold ${pickCls} leading-none mt-0.5">${esc(c.pickLetter || '–')}</span>
+        <span class="text-[7px] font-mono font-bold ${pickCls} leading-none mt-0.5">${pickHtml}</span>
       </div>`;
     };
     const nextHtml = next
@@ -3012,6 +3090,14 @@ function initBridge() {
       pill.textContent = view.pickText;
       pill.style.color = view.state === 'bet' ? '#fde68a' : (view.state === 'skip' ? '#d4d4d8' : '#71717a');
       pill.classList.toggle('hidden', subsOn);
+    }
+    // Fix round #3: the in-ball display carries the verdict icon
+    // beside the pill (skip mark for a skipped round); it hides
+    // with the pill while subtitles are on.
+    const orbIcon = $('orbVerdictIcon');
+    if (orbIcon) {
+      orbIcon.innerHTML = view.state === 'bet' ? (verdictIconFor(v ? v.pick : null, 'BET').svg || '') : (view.state === 'skip' ? VERDICT_ICONS.skip : '');
+      orbIcon.classList.toggle('hidden', subsOn);
     }
     if (bar) {
       bar.textContent = [view.periodText, road].filter(Boolean).join(' · ') || '—';
@@ -3141,6 +3227,7 @@ function initBridge() {
       face: () => axo.face,
       setFace: setAxoFace,
       speakEvent,
+      setVerdictIcon,
       missed: axo.missed,
       aiConfigured: () => axo.ai.configured,
       mode: axoMode,

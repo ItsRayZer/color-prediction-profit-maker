@@ -27,7 +27,7 @@
     if (window.self !== window.top) {
       document.documentElement.classList.add('in-embedded-frame');
       var s = document.createElement('style');
-      s.textContent = 'header, #dhaniwinFloatingOrb, #mobileBottomDock, #dhaniAuthBar, #homeTopAuthPill, #floatingAlreadyLoggedInBtn, #dhaniwinAssistantModal, #floatingSoundMuteBtn { display: none !important; } body { padding: 0 !important; background: transparent !important; }';
+      s.textContent = 'header, #dhaniwinFloatingOrb, #mobileBottomDock, #dhaniwinAssistantModal, #floatingSoundMuteBtn { display: none !important; } body { padding: 0 !important; background: transparent !important; }';
       document.head.appendChild(s);
     }
   </script>
@@ -193,9 +193,6 @@
         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
         <span>LIVE</span>
       </div>
-      <button onclick="openDhaniAccountMenu()" class="w-7 h-7 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center transition active:scale-95" title="DhaniWin Account (Login / Logout)">
-        <i id="headerAccountIcon" class="fa-solid fa-right-to-bracket text-xs text-sky-300"></i>
-      </button>
       <a href="settings.html" onclick="toggleMobileSettings();" id="headerSettingsBtn" class="w-7 h-7 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-white/70 flex items-center justify-center transition active:scale-95" title="Settings (AMOLED Minimalist • Universal)">
         <i class="fa-solid fa-gear text-xs"></i>
       </a>
@@ -819,27 +816,6 @@
       <!-- Pull handle: visible when our top bar is hidden; tap / swipe down to show it -->
       <button id="homeHeaderPullHandle" type="button" aria-label="Show top bar"></button>
 
-      <!-- Top-Middle Minimalist Auth Bar (Login & Register right close down to top bar in middle) -->
-      <div id="homeTopAuthPill" class="home-top-auth-pill" style="display:none;">
-        <button type="button" onclick="openDhaniLogin()" class="apple-auth-btn apple-auth-login">
-          <i class="fa-solid fa-arrow-right-to-bracket text-[10px]"></i>
-          <span>Login</span>
-        </button>
-        <button type="button" onclick="openDhaniRegister()" class="apple-auth-btn apple-auth-register">
-          <i class="fa-solid fa-user-plus text-[10px]"></i>
-          <span>Register</span>
-        </button>
-        <button type="button" onclick="dismissDhaniAuthBar()" class="apple-auth-close" title="Close" aria-label="Dismiss auth bar">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-
-      <!-- Floating "Already logged in?" trigger button -->
-      <button id="floatingAlreadyLoggedInBtn" type="button" onclick="openAlreadyLoggedPromptModal()" style="display:none;" title="Have you been already logged in?">
-        <i class="fa-solid fa-circle-question text-[11px] text-emerald-400"></i>
-        <span id="floatingAlreadyLoggedInText">Already logged in?</span>
-      </button>
-
       <!-- Quick Win/Loss Sound Mute / Unmute Floating Button (Homepage / Dhani Embedded View) -->
       <button id="floatingSoundMuteBtn"
         type="button"
@@ -849,11 +825,6 @@
         aria-label="Toggle win/loss sound">
         <i id="floatingSoundMuteIcon" class="fa-solid fa-volume-high text-[11px] text-emerald-400 transition-colors"></i>
       </button>
-
-      <!-- Backward-compatible hidden container for state binding -->
-      <div id="dhaniAuthBar" style="display:none;">
-        <span id="dhaniAuthBarText" style="display:none;">Not logged in</span>
-      </div>
 
     </section>
 
@@ -886,6 +857,7 @@
            with subtitles closed (silent in-ball display). -->
       <div id="floatingOrbRing" class="absolute inset-[3px] pointer-events-none">
         <img id="floatingOrbAxoFace" alt="" aria-hidden="true" draggable="false" class="absolute inset-0 w-full h-full object-contain pointer-events-none">
+        <span id="orbVerdictIcon" class="absolute left-1/2 -translate-x-1/2 top-0.5 pointer-events-none"></span>
         <span id="floatingOrbTarget" class="absolute left-1/2 -translate-x-1/2 bottom-0.5 px-1.5 py-0.5 rounded-full bg-black/85 border border-white/15 text-[8px] font-black font-mono leading-none pointer-events-none text-amber-200">—</span>
       </div>
       <div id="floatingOrbUnderBar" class="absolute left-1/2 -translate-x-1/2 whitespace-nowrap px-1.5 py-0.5 rounded-full bg-black/85 border border-white/15 text-[6.5px] font-mono text-zinc-300 pointer-events-none" style="top: calc(100% + 2px);">—</div>
@@ -899,7 +871,7 @@
          Positioned by orb-bridge (clamped to the viewport); hidden
          when subtitles are off (in-ball display instead) or when the
          panel is open (the sheet's own line shows the same text). -->
-    <div id="axoFloatingSubtitle" aria-live="polite" class="hidden fixed pointer-events-none px-2.5 py-1.5 rounded-xl bg-black/75 border border-white/10 text-[11px] font-mono text-zinc-100 leading-relaxed text-center" style="z-index: 99998;"></div>
+    <div id="axoFloatingSubtitle" aria-live="polite" class="hidden fixed pointer-events-none px-2.5 py-1.5 rounded-xl bg-black/75 border border-white/10 text-[11px] font-mono text-zinc-100 leading-relaxed text-center" style="z-index: 99998;"><span id="axoSubtitleIcon" class="inline-block align-middle mr-1"></span><span id="axoSubtitleText"></span></div>
 
 
     <!-- ════════════════════════════════════════════════════════════
@@ -908,6 +880,15 @@
     <!-- ════════════════════════════════════════════════════════════
          REDESIGNED APPLE / AMOLED LUXURY SQUARE FLOATING ASSISTANT
     ════════════════════════════════════════════════════════════ -->
+    <!-- Floating Axo overlay (fix round #3): when the ball is opened,
+         Axo floats OUTSIDE the panel card — big, centered on screen,
+         transparent background, full Axo visible, pointer-events none
+         so the panel beneath stays interactive. It is NOT a child of
+         the panel; the panel header carries no face while open. -->
+    <div id="axoFloatingOverlay" aria-hidden="true" style="display:none; position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); z-index:100001; pointer-events:none; background:transparent;">
+      <img id="axoFloatingFace" alt="" aria-hidden="true" draggable="false" style="display:block; width:min(64vw,300px); height:auto; object-fit:contain; background:transparent;">
+    </div>
+
     <div id="dhaniwinAssistantModal" class="fixed inset-0 pointer-events-none hidden" style="z-index: 100000; overscroll-behavior: contain;">
       <!-- Non-blocking backdrop (No blur, no click blocker, transparent so user can interact and bet freely) -->
       <div id="dhaniwinAssistantBackdrop" class="hidden pointer-events-none"></div>
@@ -937,9 +918,6 @@
             <div id="axoFaceHost" class="relative shrink-0" style="width:64px;height:64px">
               <img id="axoFaceBack" alt="" aria-hidden="true" draggable="false" class="absolute inset-0 w-full h-full object-contain opacity-0" style="transition: opacity 140ms ease">
               <img id="axoFaceFront" alt="" aria-hidden="true" draggable="false" class="absolute inset-0 w-full h-full object-contain opacity-100" style="transition: opacity 140ms ease">
-              <button type="button" id="axoVoiceChip" aria-pressed="true" title="Axo voice on/off" onclick="window.__smartBall && window.__smartBall.toggleAxoVoice()" class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-black/80 border border-white/25 text-emerald-300 flex items-center justify-center active:scale-90 transition" style="font-size:9px">
-                <i id="axoVoiceChipIcon" class="fa-solid fa-volume-high pointer-events-none"></i>
-              </button>
             </div>
             <div class="flex items-center gap-1.5 pointer-events-none">
               <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -949,6 +927,9 @@
           <!-- Subtle Drag Pill -->
           <div class="w-8 h-1 bg-white/25 rounded-full pointer-events-none"></div>
           <div class="flex items-center gap-1.5">
+            <button type="button" id="axoVoiceChip" aria-pressed="true" title="Axo voice on/off" onclick="window.__smartBall && window.__smartBall.toggleAxoVoice()" class="w-5 h-5 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-emerald-300 flex items-center justify-center transition" style="font-size:9px">
+              <i id="axoVoiceChipIcon" class="fa-solid fa-volume-high pointer-events-none"></i>
+            </button>
             <button type="button" onclick="cycleAssistantBoxSizePreset(event)" id="assistantSizePresetBtn" class="w-5 h-5 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-zinc-300 flex items-center justify-center text-[9px] transition" title="Toggle Size (Compact / Normal / Large)">
               <i class="fa-solid fa-up-right-and-down-left-from-center text-[8.5px]"></i>
             </button>
@@ -987,7 +968,7 @@
                Fixed height, so it never resizes the sheet. -->
           <div id="axoRoadStrip" class="flex items-center gap-0.5 px-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] h-[30px] overflow-x-auto shrink-0" style="-webkit-overflow-scrolling: touch;"></div>
 
-          <div id="smartBallLine" aria-live="polite" class="px-2.5 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[8.5px] font-mono text-zinc-200 leading-relaxed h-[34px] overflow-y-auto"></div>
+          <div id="smartBallLine" aria-live="polite" class="px-2.5 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[8.5px] font-mono text-zinc-200 leading-relaxed h-[34px] overflow-y-auto"><span id="axoSheetVerdictIcon" class="inline-block align-middle mr-1"></span><span id="axoSheetVerdictText"></span></div>
           
           <!-- 1. Live Period & Timer Bar with Active Interval -->
           <div class="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08]">
@@ -1028,7 +1009,7 @@
           <div class="relative overflow-hidden p-2.5 rounded-xl border border-white/[0.1] bg-gradient-to-b from-white/[0.06] to-white/[0.01] flex items-center justify-between">
             <div class="flex flex-col">
               <span class="text-[7px] font-mono uppercase tracking-widest text-zinc-400">NEXT PREDICTION</span>
-              <span id="mobileWebTargetDisplay" class="text-2xl font-black tracking-tight text-zinc-500 mt-0.5 drop-shadow-[0_0_12px_rgba(245,158,11,0.35)]">—</span>
+              <span class="flex items-center gap-1.5"><span id="axoHeroVerdictIcon" class="inline-block"></span><span id="mobileWebTargetDisplay" class="text-2xl font-black tracking-tight text-zinc-500 mt-0.5 drop-shadow-[0_0_12px_rgba(245,158,11,0.35)]">—</span></span>
             </div>
             <div class="flex flex-col items-end gap-1">
               <span id="assistantConfBadge" class="text-[8.5px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/35">—</span>
@@ -1121,134 +1102,6 @@
     </div>
 
   </main>
-
-  <!-- ════════════════════════════════════════════════════════════
-       UNLOCK 01:01 MODAL (AMOLED Liquid Glass Full Access Gate)
-  ════════════════════════════════════════════════════════════ -->
-  <div id="unlock0101Modal" class="fixed inset-0 z-[100005] bg-black/85 backdrop-blur-2xl flex items-center justify-center p-4 transition-all duration-300 hidden" onclick="if(event.target===this) toggleUnlockModal(false)">
-    <div class="relative w-full max-w-sm rounded-[36px] bg-gradient-to-b from-white/[0.08] via-white/[0.03] to-black/90 border border-white/[0.14] shadow-[0_20px_60px_rgba(0,0,0,0.95)] p-6 flex flex-col items-center text-center overflow-hidden select-none">
-      
-      <!-- Subtle Ambient Glow -->
-      <div class="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-48 bg-amber-500/15 rounded-full blur-3xl pointer-events-none"></div>
-
-      <!-- Close Button (Top-Right) -->
-      <button type="button" onclick="toggleUnlockModal(false)" class="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center text-white/70 hover:text-white transition active:scale-95" title="Close">
-        <i class="fa-solid fa-xmark text-xs"></i>
-      </button>
-
-      <!-- Floating Crown Glass Badge -->
-      <div class="relative w-24 h-24 flex items-center justify-center mt-2 mb-1">
-        <div class="absolute inset-0 rounded-full bg-amber-400/20 blur-xl animate-pulse"></div>
-        <div class="relative w-20 h-20 rounded-3xl bg-gradient-to-tr from-amber-400/15 via-white/10 to-orange-500/15 border border-amber-300/30 flex items-center justify-center text-4xl shadow-[0_0_35px_rgba(245,158,11,0.3)]">
-          👑
-        </div>
-      </div>
-
-      <!-- Title & Subtitle -->
-      <h2 class="text-2xl font-black tracking-tight text-white mt-1">
-        Unlock <span class="bg-gradient-to-r from-white via-amber-200 to-amber-400 bg-clip-text text-transparent">01:01</span>
-      </h2>
-      <p class="text-[10px] font-mono font-black tracking-[0.25em] text-zinc-400 uppercase mt-0.5">
-        GET FULL ACCESS
-      </p>
-
-      <!-- 4 Glass Feature Badges -->
-      <div class="grid grid-cols-2 gap-2.5 w-full my-4">
-        <div class="p-3 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex flex-col items-center text-center gap-1.5 backdrop-blur-md">
-          <div class="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 text-xs">
-            <i class="fa-solid fa-chart-column"></i>
-          </div>
-          <span class="text-[10px] font-bold text-white leading-tight">All Prediction Systems</span>
-        </div>
-        <div class="p-3 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex flex-col items-center text-center gap-1.5 backdrop-blur-md">
-          <div class="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 text-xs">
-            <i class="fa-solid fa-brain"></i>
-          </div>
-          <span class="text-[10px] font-bold text-white leading-tight">Advanced Analysis</span>
-        </div>
-        <div class="p-3 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex flex-col items-center text-center gap-1.5 backdrop-blur-md">
-          <div class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 text-xs">
-            <i class="fa-solid fa-layer-group"></i>
-          </div>
-          <span class="text-[10px] font-bold text-white leading-tight">Exclusive Patterns</span>
-        </div>
-        <div class="p-3 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex flex-col items-center text-center gap-1.5 backdrop-blur-md">
-          <div class="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-xs">
-            <i class="fa-solid fa-bolt"></i>
-          </div>
-          <span class="text-[10px] font-bold text-white leading-tight">All Premium Menus</span>
-        </div>
-      </div>
-
-      <!-- Action Button -->
-      <button type="button" onclick="startDhaniAuthFlow()" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-blue-600/80 via-indigo-600/80 to-purple-600/80 hover:from-blue-500 hover:to-indigo-500 border border-white/20 text-white font-black text-sm tracking-wide flex items-center justify-between shadow-[0_8px_30px_rgba(79,70,229,0.35)] active:scale-[0.98] transition">
-        <div class="flex items-center gap-2.5">
-          <span class="text-base">🎲</span>
-          <span class="font-black text-sm">Login with Dhani</span>
-        </div>
-        <i class="fa-solid fa-chevron-right text-xs text-white/70"></i>
-      </button>
-
-      <p class="text-[9.5px] text-zinc-400 mt-2.5 leading-relaxed font-medium">
-        Login with your Dhaniwin account to unlock everything for free.
-      </p>
-
-      <!-- Already logged in verify link -->
-      <div class="mt-3 pt-3 border-t border-white/[0.08] w-full flex items-center justify-center">
-        <button type="button" onclick="openAlreadyLoggedPromptModal()" class="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 flex items-center gap-1.5 underline underline-offset-4 cursor-pointer">
-          <i class="fa-solid fa-circle-check"></i>
-          <span>Already logged in? Tap to verify</span>
-        </button>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- ════════════════════════════════════════════════════════════
-       ALREADY LOGGED IN CONFIRMATION PROMPT MODAL (Center Screen Popup)
-  ════════════════════════════════════════════════════════════ -->
-  <div id="alreadyLoggedPromptModal" class="fixed inset-0 z-[100006] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4 transition-all duration-300 hidden" onclick="if(event.target===this) toggleAlreadyLoggedPromptModal(false)">
-    <div class="relative w-full max-w-[310px] rounded-[28px] bg-[#0c0c10]/95 border border-white/[0.16] shadow-[0_24px_70px_rgba(0,0,0,0.95)] p-5 flex flex-col items-center text-center overflow-hidden select-none animate-scale-up">
-      
-      <!-- Close Button -->
-      <button type="button" onclick="toggleAlreadyLoggedPromptModal(false)" class="absolute top-3 right-3 w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-zinc-300 flex items-center justify-center text-xs active:scale-90 transition">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-
-      <!-- Question Icon -->
-      <div class="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-2xl text-emerald-400 mb-3 shadow-[0_0_20px_rgba(16,185,129,0.25)]">
-        🔐
-      </div>
-
-      <!-- Question Title & Prompt -->
-      <h3 class="text-base font-black text-white tracking-tight">
-        Have you been already logged in?
-      </h3>
-      <p class="text-[10px] text-zinc-400 mt-1.5 leading-relaxed font-mono">
-        We will test and verify your active session by connecting directly into the WinGo 30s game page.
-      </p>
-
-      <!-- Yes / No Action Buttons Below -->
-      <div class="grid grid-cols-2 gap-2.5 w-full mt-4">
-        <!-- No Button: opens login page -->
-        <button type="button" onclick="handleAlreadyLoggedResponse(false)" class="py-2.5 px-3 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-zinc-300 font-mono font-bold text-xs active:scale-95 transition">
-          No (Log In)
-        </button>
-
-        <!-- Yes Button: initiates full probe into WinGo 30s with session grace guard -->
-        <button id="alreadyLoggedYesBtn" type="button" onclick="handleAlreadyLoggedResponse(true)" class="py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-black font-mono font-black text-xs shadow-md shadow-emerald-500/25 active:scale-95 transition flex items-center justify-center gap-1.5">
-          <i class="fa-solid fa-check text-[10px]"></i>
-          <span id="alreadyLoggedYesLabel">Yes</span>
-        </button>
-      </div>
-
-      <div id="alreadyLoggedProbeStatus" class="mt-2.5 text-[8.5px] font-mono text-zinc-400 hidden">
-        <i class="fa-solid fa-spinner fa-spin text-emerald-400 mr-1"></i>
-        <span>Connecting to WinGo 30s...</span>
-      </div>
-
-    </div>
-  </div>
 
   <!-- ════════════════════════════════════════════════════════════
        BUY ME A COFFEE / SUPPORT POPUP MODAL (Compact & Daily)

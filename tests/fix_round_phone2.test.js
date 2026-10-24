@@ -28,6 +28,7 @@ import vm from 'node:vm';
 import { bridgeDiagnostic, PROXY_FAILED_LINE } from '../systems/orb-bridge.js';
 
 const MOBILE = fs.readFileSync('mobile.js', 'utf8');
+const MOBILE_HTML = fs.readFileSync('mobile.html', 'utf8');
 const SETTINGS = fs.readFileSync('settings.html', 'utf8');
 const ORB = fs.readFileSync('systems/orb-bridge.js', 'utf8');
 const PROXY_LINE = 'Proxy unreachable — direct mode · bridge inactive · login cannot be verified in this mode';
@@ -267,11 +268,20 @@ test('no login gate wiring: the sheet stake chips set the base without any login
   assert.ok(body.indexOf('MobileBridgeState.baseStake = amount') > -1, 'the chip still sets the base');
 });
 
-test('no login gate wiring: prediction tabs are never blocked, and no tab wears a lock', () => {
+test('no login gate wiring: prediction tabs are never blocked, and no login UI survives at all', () => {
   assert.ok(!MOBILE.includes("if (tab !== 'web' && !isUserLoggedIn())"), 'the tab gate is gone');
-  const unlockBody = sliceFn(MOBILE, 'function updateAppUnlockState()', 'window.updateAppUnlockState = updateAppUnlockState;');
-  assert.ok(!unlockBody.includes('toggleUnlockModal(true)'), 'logged-out never reopens the unlock modal');
-  assert.ok(!unlockBody.includes('🔒'), 'no lock badge is ever set on a tab');
+  // Fix round #3: the unlock machinery itself is deleted, not just
+  // disarmed — function, toggle, and markup are all gone.
+  assert.ok(!MOBILE.includes('function updateAppUnlockState'), 'the unlock-state function is gone');
+  assert.ok(!MOBILE.includes('function toggleUnlockModal'), 'the unlock modal toggle is gone');
+  assert.ok(!MOBILE.includes('function updateDhaniAuthBar'), 'the auth bar updater is gone');
+  assert.ok(!MOBILE.includes('function openDhaniLogin'), 'the login nav is gone');
+  assert.ok(!MOBILE_HTML.includes('id="unlock0101Modal"'), 'the unlock modal markup is gone');
+  assert.ok(!MOBILE_HTML.includes('id="homeTopAuthPill"'), 'the auth pill markup is gone');
+  assert.ok(!MOBILE_HTML.includes('id="floatingAlreadyLoggedInBtn"'), 'the already-logged-in trigger is gone');
+  assert.ok(!MOBILE_HTML.includes('id="alreadyLoggedPromptModal"'), 'the already-logged-in prompt modal is gone');
+  assert.ok(!MOBILE_HTML.includes('id="dhaniAuthBar"'), 'the auth bar markup is gone');
+  assert.ok(!MOBILE_HTML.includes('id="headerAccountIcon"'), 'the header login icon is gone');
 });
 
 test('no fake feedback: dispatch never paints the hero or claims Ready before the bridge ack', () => {

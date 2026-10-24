@@ -15,8 +15,10 @@
  *  7. Subtitle-closed — prediction renders inside Axo (not the old
  *     ball), silently, and opening the panel flips neither CC nor
  *     voice state.
- *  8. SKIP silence — a skip still produces no subtitle, face, voice
- *     or road pick, even with the new surfaces wired in.
+ *  8. SKIP announcement (fix round #3, replaces skip silence) — a
+ *     skip is announced at verdict time (subtitle + voice + skip
+ *     icon); settlement still produces no events/sound and the
+ *     strip never invents a pick for a skipped round.
  *  9. History full — no render cap (8/25/30/-25) survives in any
  *     road/table/graph renderer; full list, newest first, chunked.
  * 10. Long analysis — finds a planted long run with its period range,
@@ -219,7 +221,10 @@ test('pin 8 — SKIP still produces no events, no sound, no road pick', () => {
   assert.equal(out.sound, null);
   assert.equal(axoMaySpeak({ voiceOn: true, subsOn: true, unlocked: true }).action, 'speak');
   // A skip line never gains a road suffix through the BET-only path:
-  // withRoadSuffix is only ever applied to SIGNAL_BET lines.
+  // withRoadSuffix is only ever applied to SIGNAL_BET lines. (Fix
+  // round #3: the verdict-time skip announcement is the short
+  // 'Skip · #0781' line, not this explanatory botLine text — and
+  // settlement here still emits nothing.)
   assert.ok(!/Road:/.test('I am skipping this round, and that is a deliberate decision.'));
 });
 

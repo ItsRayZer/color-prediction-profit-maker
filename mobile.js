@@ -363,7 +363,6 @@ function markUserLoggedIn() {
     localStorage.setItem('dhaniwin_logged_in', '1');
     localStorage.setItem('dhaniwin_registered', '1');
   } catch(e) {}
-  if (typeof updateDhaniAuthBar === 'function') updateDhaniAuthBar();
 }
 window.markUserLoggedIn = markUserLoggedIn;
 
@@ -385,8 +384,6 @@ function markUserLoggedOut() {
     const uIdEl = document.getElementById('mobileWebUserId');
     if (uIdEl) uIdEl.textContent = 'ID: --';
   } catch(e) {}
-  if (typeof updateDhaniAuthBar === 'function') updateDhaniAuthBar();
-  if (typeof updateAppUnlockState === 'function') updateAppUnlockState();
 }
 window.markUserLoggedOut = markUserLoggedOut;
 
@@ -4068,17 +4065,16 @@ function getDefaultDhaniUrl() {
 }
 window.getDefaultDhaniUrl = getDefaultDhaniUrl;
 
-// ── Per-user DhaniWin auth flow (no personal credentials anywhere) ──────────────
-// Active session → DhaniWin Home; returning user → Login; new user → Register.
+// Fix round #3: the DhaniWin tab always opens the DhaniWin home URL.
+// No login-state routing from our side — DhaniWin itself decides what
+// to show (home for a live session, its own login page otherwise).
+// That page is DhaniWin's own content, never our login UI.
 function getDhaniEntryUrl() {
   const custom = getDefaultDhaniUrl();
   if (custom !== DHANIWIN_HOME_URL) {
     return custom;
   }
-  if (isUserLoggedIn()) {
-    return proxifyDhaniUrl(DHANIWIN_HOME_URL);
-  }
-  return localStorage.getItem('dhaniwin_registered') === '1' ? proxifyDhaniUrl(DHANIWIN_LOGIN_URL) : proxifyDhaniUrl(DHANIWIN_REGISTRATION_URL);
+  return proxifyDhaniUrl(DHANIWIN_HOME_URL);
 }
 window.getDhaniEntryUrl = getDhaniEntryUrl;
 window.DHANIWIN_HOME_URL = DHANIWIN_HOME_URL;
@@ -4089,208 +4085,11 @@ function handleDhaniSessionExpired(reason) {
     return;
   }
   markUserLoggedOut();
-  setMobileBridgeStatus(false, reason || 'Session Expired • Please Login');
-  showToast('⚠️ Session expired. Please log in again.', 'warn');
-  showDhaniAuthBar(true);
-  if (typeof updateAppUnlockState === 'function') updateAppUnlockState();
+  // Status line only — never a login prompt, never a gate.
+  setMobileBridgeStatus(false, reason || 'Session Expired');
 }
 window.handleDhaniSessionExpired = handleDhaniSessionExpired;
 
-let _dhaniAuthBarDismissed = false;
-function updateDhaniAuthBar() {
-  const loggedIn = isUserLoggedIn();
-  const onWeb = document.getElementById('tab-web')?.style.display !== 'none';
-  const showAuth = !loggedIn && onWeb && !_dhaniAuthBarDismissed;
-
-  // 1. Top middle Login & Register pill (under header)
-  const topPill = document.getElementById('homeTopAuthPill');
-  if (topPill) {
-    topPill.style.display = showAuth ? 'flex' : 'none';
-  }
-
-  // 2. Floating "Already Logged In Before" button (above bottom dock in middle)
-  // RULE: Don't show this on first-time visit before login!
-  const floatBtn = document.getElementById('floatingAlreadyLoggedInBtn');
-  if (floatBtn) {
-    const hasVisitedOrAttempted = localStorage.getItem('dhaniwin_user_has_logged_in_ever') === '1' ||
-                                  localStorage.getItem('dhaniwin_registered') === '1' ||
-                                  sessionStorage.getItem('dhani_login_attempted') === '1';
-    floatBtn.style.display = (showAuth && hasVisitedOrAttempted) ? 'flex' : 'none';
-  }
-
-  // Sync backward-compatible container
-  const bar = document.getElementById('dhaniAuthBar');
-  if (bar) bar.style.display = showAuth ? 'flex' : 'none';
-
-  const acct = document.getElementById('headerAccountIcon');
-  if (acct) acct.className = loggedIn ? 'fa-solid fa-user-check text-xs text-emerald-300' : 'fa-solid fa-right-to-bracket text-xs text-sky-300';
-}
-window.updateDhaniAuthBar = updateDhaniAuthBar;
-
-function showDhaniAuthBar(force) {
-  if (force) _dhaniAuthBarDismissed = false;
-  updateDhaniAuthBar();
-}
-function dismissDhaniAuthBar() { _dhaniAuthBarDismissed = true; updateDhaniAuthBar(); }
-window.dismissDhaniAuthBar = dismissDhaniAuthBar;
-
-function openDhaniLogin() {
-  try { sessionStorage.setItem('dhani_login_attempted', '1'); } catch(e) {}
-  if (typeof switchMobileTab === 'function') switchMobileTab('web');
-  loadMobileWebUrl(proxifyDhaniUrl(DHANIWIN_LOGIN_URL));
-  updateDhaniAuthBar();
-}
-function openDhaniRegister() {
-  try { sessionStorage.setItem('dhani_login_attempted', '1'); } catch(e) {}
-  if (typeof switchMobileTab === 'function') switchMobileTab('web');
-  loadMobileWebUrl(proxifyDhaniUrl(DHANIWIN_REGISTRATION_URL));
-  updateDhaniAuthBar();
-}
-
-let _authVerificationInProgress = false;
-let _authVerificationTimeout = null;
-
-function toggleAlreadyLoggedPromptModal(show) {
-  const modal = document.getElementById('alreadyLoggedPromptModal');
-  if (!modal) return;
-  const isOpen = !modal.classList.contains('hidden') && modal.style.display !== 'none';
-  const targetOpen = show === undefined ? !isOpen : Boolean(show);
-  if (targetOpen) {
-    modal.classList.remove('hidden');
-    modal.style.display = 'flex';
-    const statusEl = document.getElementById('alreadyLoggedProbeStatus');
-    if (statusEl) statusEl.classList.add('hidden');
-    const yesBtn = document.getElementById('alreadyLoggedYesBtn');
-    if (yesBtn) yesBtn.disabled = false;
-  } else {
-    modal.classList.add('hidden');
-    modal.style.display = 'none';
-  }
-}
-window.toggleAlreadyLoggedPromptModal = toggleAlreadyLoggedPromptModal;
-window.openAlreadyLoggedPromptModal = () => toggleAlreadyLoggedPromptModal(true);
-
-async function handleAlreadyLoggedResponse(isYes) {
-  if (!isYes) {
-    toggleAlreadyLoggedPromptModal(false);
-    openDhaniLogin();
-    return;
-  }
-  // User answered YES: probe by attempting to enter the WinGo 30s page directly
-  await verifyLoginViaWinGoProbe();
-}
-window.handleAlreadyLoggedResponse = handleAlreadyLoggedResponse;
-
-async function verifyLoginViaWinGoProbe() {
-  if (_authVerificationInProgress) return;
-  _authVerificationInProgress = true;
-
-  const statusEl = document.getElementById('alreadyLoggedProbeStatus');
-  const yesBtn = document.getElementById('alreadyLoggedYesBtn');
-  const yesLabel = document.getElementById('alreadyLoggedYesLabel');
-  if (statusEl) statusEl.classList.remove('hidden');
-  if (yesBtn) yesBtn.disabled = true;
-  if (yesLabel) yesLabel.textContent = 'Verifying...';
-
-  // Set 60-second grace period immediately so spurious redirects or transient "login expired" error toasts don't trigger auto-logout
-  _authGracePeriodUntil = Date.now() + 60000;
-  try {
-    sessionStorage.setItem('dhaniwin_auth_grace_until', String(_authGracePeriodUntil));
-  } catch(e) {}
-
-  const finish = (verified, msg = '') => {
-    if (!_authVerificationInProgress) return;
-    _authVerificationInProgress = false;
-    if (_authVerificationTimeout) {
-      clearTimeout(_authVerificationTimeout);
-      _authVerificationTimeout = null;
-    }
-    if (statusEl) statusEl.classList.add('hidden');
-    if (yesBtn) yesBtn.disabled = false;
-    if (yesLabel) yesLabel.textContent = 'Yes';
-    toggleAlreadyLoggedPromptModal(false);
-
-    if (verified) {
-      markUserLoggedIn();
-      try {
-        localStorage.setItem('dhaniwin_user_has_logged_in_ever', '1');
-        localStorage.setItem('dhaniwin_registered', '1');
-      } catch(e) {}
-      setMobileBridgeStatus(true, 'Login Verified ✓');
-      showToast('🎉 Login Confirmed! Entered WinGo 30s successfully.', 'success');
-      if (typeof toggleUnlockModal === 'function') toggleUnlockModal(false);
-      if (typeof updateAppUnlockState === 'function') updateAppUnlockState();
-      updateDhaniAuthBar();
-    } else {
-      // Failed or error page returned - user is not logged in yet
-      _authGracePeriodUntil = 0;
-      try { sessionStorage.removeItem('dhaniwin_auth_grace_until'); } catch(e) {}
-      markUserLoggedOut();
-      showToast(msg || '⚠️ Not logged in yet! Please enter your DhaniWin credentials on the login page.', 'warn');
-      openDhaniLogin();
-    }
-  };
-
-  // Attempt to enter the WinGo 30s game page
-  const wingoUrl = DHANIWIN_INTERVAL_URLS['30s'];
-  loadMobileWebUrl(wingoUrl);
-
-  // Probe via bridge postMessage to check if user has active session
-  const iframe = document.getElementById('dhaniwinIframe');
-  if (iframe && iframe.contentWindow) {
-    try {
-      iframe.contentWindow.postMessage({ type: 'DHANIWIN_REQUEST_AUTH_CHECK', timestamp: Date.now() }, '*');
-    } catch(e) {}
-  }
-
-  // Register resolver for bridge message
-  window._pendingAuthCheckResolver = (res) => {
-    if (res && res.loggedIn) {
-      finish(true, 'Verified via In-App Bridge');
-    } else {
-      finish(false, res?.reason || '⚠️ Not logged in yet.');
-    }
-  };
-
-  // Timeout guard (2.8s): if bridge detects session or balance, approve; else reject as not logged in
-  _authVerificationTimeout = setTimeout(() => {
-    if (!_authVerificationInProgress) return;
-    if (MobileBridgeState.userBalance !== null && !isNaN(Number(MobileBridgeState.userBalance)) && MobileBridgeState.userBalance >= 0) {
-      finish(true, 'Verified via Live Bridge Balance');
-    } else if (MobileBridgeState.bridgeVerified || MobileBridgeState.active) {
-      finish(true, 'Verified via Active Bridge');
-    } else {
-      finish(false, '⚠️ Could not enter WinGo 30s. Please log in first.');
-    }
-  }, 2800);
-}
-window.verifyLoginViaWinGoProbe = verifyLoginViaWinGoProbe;
-
-async function confirmDhaniLoggedInReal() {
-  openAlreadyLoggedPromptModal();
-}
-window.confirmDhaniLoggedInReal = confirmDhaniLoggedInReal;
-
-function confirmDhaniLoggedIn() {
-  openAlreadyLoggedPromptModal();
-}
-window.confirmDhaniLoggedIn = confirmDhaniLoggedIn;
-
-function openDhaniAccountMenu() {
-  if (isUserLoggedIn()) {
-    if (confirm('Log out / switch DhaniWin account?')) {
-      markUserLoggedOut();
-      openDhaniLogin();
-      showDhaniAuthBar(true);
-    }
-  } else {
-    showDhaniAuthBar(true);
-    openDhaniLogin();
-  }
-}
-window.openDhaniLogin = openDhaniLogin;
-window.openDhaniRegister = openDhaniRegister;
-window.openDhaniAccountMenu = openDhaniAccountMenu;
 
 // ── Home tab: auto-hide top bar ────────────────────────────────────────────────
 // Swipe/scroll UP hides our header, swipe/scroll DOWN shows it. The DhaniWin iframe is
@@ -4412,7 +4211,7 @@ function initDockAutoCompact() {
 
   const isProtectedElement = (target) => {
     if (!target || typeof target.closest !== 'function') return false;
-    return !!target.closest('#dhaniwinFloatingOrb, #dhaniwinAssistantModal, #dhaniwinAssistantSheet, #mobileBottomDock, #homeTopAuthPill, #unlock0101Modal, .assistant-resize-handle, #dockRestoreHandle');
+    return !!target.closest('#dhaniwinFloatingOrb, #dhaniwinAssistantModal, #dhaniwinAssistantSheet, #mobileBottomDock, .assistant-resize-handle, #dockRestoreHandle');
   };
 
   const handleTouchStart = (clientY, clientX, target) => {
@@ -4594,7 +4393,6 @@ function initDockAutoCompact() {
 const _runDockInit = () => {
   try { initHomeHeaderAutoHide(); } catch(e) { console.warn('[HeaderAutoHide]', e); }
   try { initDockAutoCompact(); } catch(e) { console.warn('[DockCompact]', e); }
-  try { updateDhaniAuthBar(); } catch(e) {}
   try { initCoffeeSupportPopup(); } catch(e) { console.warn('[CoffeePopup]', e); }
   try { initDhaniwinAssistantSheetGesture(); } catch(e) { console.warn('[SheetGesture]', e); }
 };
@@ -4691,7 +4489,6 @@ function switchMobileTab(tab) {
 
   // Header auto-hide applies only to the Home (web) tab
   if (tab !== 'web') document.body.classList.remove('home-header-hidden');
-  updateDhaniAuthBar();
   if (typeof window._dockSyncShield === 'function') window._dockSyncShield();
 
   // Lazy-init pattern view when pattern tab is shown
@@ -4741,44 +4538,6 @@ function switchMobileTab(tab) {
 }
 window.switchMobileTab = switchMobileTab;
 
-// ── Unlock 01:01 Modal & Entitlement State ────────────────────────────────────
-function toggleUnlockModal(show) {
-  const modal = $('unlock0101Modal');
-  if (!modal) return;
-  if (show === undefined) {
-    modal.classList.toggle('hidden');
-  } else if (show) {
-    modal.classList.remove('hidden');
-  } else {
-    modal.classList.add('hidden');
-  }
-}
-window.toggleUnlockModal = toggleUnlockModal;
-
-function startDhaniAuthFlow() {
-  toggleUnlockModal(false);
-  switchMobileTab('web');
-  const targetUrl = getDhaniEntryUrl();
-  loadMobileWebUrl(targetUrl);
-  showDhaniAuthBar(true);
-}
-window.startDhaniAuthFlow = startDhaniAuthFlow;
-
-function updateAppUnlockState() {
-  const loggedIn = isUserLoggedIn();
-  const unlockModal = $('unlock0101Modal');
-  if (loggedIn && unlockModal && !unlockModal.classList.contains('hidden')) {
-    unlockModal.classList.add('hidden');
-  }
-  // Fix round #2: logged-out never forces a tab switch, never shows
-  // the unlock modal, and never badges tabs with a lock — nothing is
-  // locked behind login.
-  document.querySelectorAll('.dock-btn').forEach(btn => {
-    const indicator = btn.querySelector('.dock-indicator');
-    if (indicator) indicator.textContent = '';
-  });
-}
-window.updateAppUnlockState = updateAppUnlockState;
 
 function setMobileTimeframe(tf) {
   MobileState.timeframe = tf;
@@ -6004,11 +5763,12 @@ function handleMobileBridgeMessage(msg) {
     if (targetDisplay) targetDisplay.classList.remove('auto-bet-shake');
     setMobileBridgeStatus(true, msg.reason || 'Bet Cancelled (Lockout)');
   } else if (msg.type === 'DHANIWIN_USER_LOGGED_OUT' || msg.type === 'DHANIWIN_SESSION_OUT') {
-    // Immediate logout handling - clear grace period and lock protected features
+    // Immediate logout handling - clear grace period; nothing is
+    // locked behind login (fix round #3), state reporting only.
     _authGracePeriodUntil = 0;
     try { sessionStorage.removeItem('dhaniwin_auth_grace_until'); } catch(e) {}
     markUserLoggedOut();
-    handleDhaniSessionExpired(msg.reason || 'Session Expired • Please Login');
+    handleDhaniSessionExpired(msg.reason || 'Session Expired');
   } else if (msg.type === 'DHANIWIN_SCROLL') {
     // Bridge convention:
     // msg.direction='up' = finger swiped up = content scrolled DOWN
@@ -6017,10 +5777,8 @@ function handleMobileBridgeMessage(msg) {
     //   → header shows, dock comes back completely unhidden and expands to full big size
     const userScrolledDown = msg.direction === 'up';
     setHomeHeaderHidden(userScrolledDown);
-    const floatBtn = document.getElementById('floatingAlreadyLoggedInBtn');
     if (userScrolledDown) {
       if (typeof window._dockSetCompact === 'function') window._dockSetCompact(true);
-      if (floatBtn) floatBtn.style.opacity = '0';
     } else {
       // User scrolled UP: immediately unhide dock and expand it back to full size
       if (typeof window._dockExpand === 'function') {
@@ -6029,12 +5787,6 @@ function handleMobileBridgeMessage(msg) {
         if (typeof window._dockSetHidden === 'function') window._dockSetHidden(false);
         if (typeof window._dockSetCompact === 'function') window._dockSetCompact(false);
       }
-      if (floatBtn && floatBtn.style.display !== 'none') floatBtn.style.opacity = '1';
-    }
-  } else if (msg.type === 'DHANIWIN_AUTH_CHECK_RESULT') {
-    if (typeof window._pendingAuthCheckResolver === 'function') {
-      window._pendingAuthCheckResolver(msg);
-      window._pendingAuthCheckResolver = null;
     }
   } else if (msg.type === 'DHANIWIN_TOUCH' || msg.type === 'DHANIWIN_PAGE_TAP') {
     // Touching anywhere inside the DhaniWin page makes the bottom dock compact
@@ -6052,11 +5804,9 @@ function handleMobileBridgeMessage(msg) {
     } catch(e) {}
     _authGracePeriodUntil = Date.now() + 60000;
     _syncLogoutCount = 0;
+    // Bridge status line only — no login confirmation toast, no
+    // unlock modal, no auth bar (fix round #3: login UI fully gone).
     setMobileBridgeStatus(true, 'Login Verified ✓');
-    showToast('🎉 Login Confirmed! Full Access Unlocked', 'success');
-    if (typeof toggleUnlockModal === 'function') toggleUnlockModal(false);
-    if (typeof updateAppUnlockState === 'function') updateAppUnlockState();
-    updateDhaniAuthBar();
     loadMobileWebUrl(getDefaultDhaniUrl() === DHANIWIN_HOME_URL ? proxifyDhaniUrl(DHANIWIN_HOME_URL) : getDefaultDhaniUrl());
 
   } else if (msg.type === 'DHANIWIN_USER_SYNC' || msg.type === 'DHANIWIN_REAL_BALANCE') {
@@ -6080,7 +5830,7 @@ function handleMobileBridgeMessage(msg) {
       if (isUserLoggedIn() && !isAuthGracePeriodActive()) {
         _syncLogoutCount = 0;
         markUserLoggedOut();
-        handleDhaniSessionExpired('Session Expired • Please Login');
+        handleDhaniSessionExpired('Session Expired');
       }
     } else {
       _syncLogoutCount = 0;
@@ -6927,6 +6677,15 @@ function toggleDhaniwinAssistantModal(show) {
     sheet.style.bottom = 'auto';
     sheet.classList.add('axo-big-overlay');
 
+    // Fix round #3: the OPENED Axo floats OUTSIDE the panel card —
+    // big, centered, transparent — while the panel header carries no
+    // face at all. The overlay is pointer-events none, so the panel
+    // beneath stays fully interactive.
+    const axoOverlay = $('axoFloatingOverlay');
+    if (axoOverlay) axoOverlay.style.display = 'block';
+    const faceHost = $('axoFaceHost');
+    if (faceHost) faceHost.style.display = 'none';
+
     // Calculate morph origin from ball center (morphs from the ball and back to the ball)
     const orbCenterX = orbRect.left + (orbRect.width || 62) / 2;
     const orbCenterY = orbRect.top + (orbRect.height || 62) / 2;
@@ -6961,6 +6720,13 @@ function toggleDhaniwinAssistantModal(show) {
     _assistantModalClosing = true;
     modal.classList.remove('sheet-open');
     sheet.classList.remove('axo-big-overlay');
+
+    // Panel closing: the floating Axo goes away and the header face
+    // returns, so the closed ball is Axo again.
+    const axoOverlayClose = $('axoFloatingOverlay');
+    if (axoOverlayClose) axoOverlayClose.style.display = 'none';
+    const faceHostClose = $('axoFaceHost');
+    if (faceHostClose) faceHostClose.style.display = '';
 
     // Restore orb: smooth morph back to full ball shape
     if (orb) {
@@ -7589,7 +7355,6 @@ function initMobileApp() {
   syncBackgroundSettingsUI();
   checkCoffeePaymentUrl();
   syncCoffeeSettingsUI();
-  updateAppUnlockState();
 
   // Background execution settings synced quietly without auto-opening settings or modal
   // (Available on-demand when user configures background execution)

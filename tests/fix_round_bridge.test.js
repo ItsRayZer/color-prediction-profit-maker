@@ -76,11 +76,13 @@ test('mobile.js routes the entry flow through the proxy and keeps custom URLs so
   const customBranch = entry.indexOf('return custom;');
   assert.ok(customBranch > -1, 'custom URL branch returns the custom value');
   assert.ok(entry.indexOf('proxifyDhaniUrl(DHANIWIN_HOME_URL)') > customBranch, 'built-in home is proxified AFTER the custom branch');
-  assert.ok(entry.includes('proxifyDhaniUrl(DHANIWIN_LOGIN_URL)'), 'login variant proxified');
-  assert.ok(entry.includes('proxifyDhaniUrl(DHANIWIN_REGISTRATION_URL)'), 'registration variant proxified');
+  // Fix round #3: no login-state routing from our side — the entry
+  // URL is always home, and the login nav functions are deleted.
+  assert.ok(!entry.includes('DHANIWIN_LOGIN_URL'), 'no login variant in the entry URL');
+  assert.ok(!entry.includes('DHANIWIN_REGISTRATION_URL'), 'no registration variant in the entry URL');
+  assert.ok(!js.includes('function openDhaniLogin'), 'openDhaniLogin is gone');
+  assert.ok(!js.includes('function openDhaniRegister'), 'openDhaniRegister is gone');
   assert.ok(js.includes("DHANIWIN_INTERVAL_URLS[tfKey] = proxifyDhaniUrl(DHANIWIN_INTERVAL_URLS[tfKey])"), 'interval deep links proxified');
-  assert.ok(js.includes('loadMobileWebUrl(proxifyDhaniUrl(DHANIWIN_LOGIN_URL))'), 'openDhaniLogin proxified');
-  assert.ok(js.includes('loadMobileWebUrl(proxifyDhaniUrl(DHANIWIN_REGISTRATION_URL))'), 'openDhaniRegister proxified');
   assert.ok(!js.includes("const wingoUrl = 'https://dhaniwin44.com/WinGo/WinGo_30S'"), 'the login flow no longer hardcodes a direct WinGo URL');
   assert.ok(!js.includes("|| 'https://dhaniwin44.com/WinGo/WinGo_30S'"), 'the bet-prep fallback no longer hardcodes a direct WinGo URL');
 });

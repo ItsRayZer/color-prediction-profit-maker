@@ -1,7 +1,9 @@
 /**
  * axo_ball.test.js — Axo in the smart ball (faces + voice + AI layer).
  * Pins the PLAN.md §9 contract:
- *  1. Skip silence — a SKIP produces no events, no face, no voice.
+ *  1. Every round announced (fix round #3, 2026-10-24 — REPLACES
+ *     skip silence) — a SKIP speaks + shows with its icon at
+ *     verdict time; settlement still produces no events/sound.
  *  2. MISSED BET fires exactly once per period (staged-but-unfired
  *     counts as missed).
  *  3. A SKIP can never be a missed bet.
@@ -59,17 +61,17 @@ test('pin 1 — settleGovernedPick: a non-BET round produces no events and no so
   assert.equal(sounds, 0, 'the sound hook never fires for a skip');
 });
 
-test('pin 1 — SIGNAL_SKIP has no Axo face and is never spoken', () => {
-  assert.deepEqual(axoEventEffects(BOT_EVENTS.SIGNAL_SKIP), { face: null, spoken: false });
-  // Runtime pin: speakEvent returns a skip line as STATE ONLY, before
-  // any say()/face/voice work can happen. (The subtitle write is
-  // say(full) since the fix round — the BET line with its road
-  // suffix — so the pin matches any say( call, not the old literal.)
+test('pin 1 — SIGNAL_SKIP announces like any other verdict (fix round #3: skip silence REPLACED)', () => {
+  assert.deepEqual(axoEventEffects(BOT_EVENTS.SIGNAL_SKIP), { face: 'base', spoken: true });
+  // Runtime pin: the skip branch writes the subtitle, sets the skip
+  // icon, and speaks through the normal event path — no early return
+  // before say() anymore.
   const fn = orbSrc.slice(orbSrc.indexOf('function speakEvent'), orbSrc.indexOf('function speakSettledEvents'));
   const skipAt = fn.indexOf('SIGNAL_SKIP');
-  const sayAt = fn.indexOf('say(');
-  assert.ok(skipAt > -1 && sayAt > skipAt, 'the skip early-return precedes the subtitle write');
-  assert.ok(fn.includes('state.lastLine = line'), 'the skip line survives only as internal state');
+  const sayAt = fn.indexOf('say(full)');
+  assert.ok(skipAt > -1 && sayAt > skipAt, 'the skip branch reaches the subtitle write');
+  assert.ok(fn.includes("setVerdictIcon('skip')"), 'the skip branch sets the skip icon');
+  assert.ok(fn.includes('axoOnEvent(event, full)'), 'the skip branch speaks through the normal event path');
 });
 
 // ── Pins 2 + 3: missed bet ───────────────────────────────────────
@@ -179,8 +181,10 @@ test('pin 6 — axo-ai.js is dependency-free and never speaks', () => {
 
 // ── Pin 7: spoken-set exactness ──────────────────────────────────
 test('pin 7 — the spoken set is exactly the §5 table, faces included', () => {
+  // Fix round #3: SIGNAL_SKIP joins the spoken set (every round
+  // announced) with the neutral base face.
   const expected = {
-    SIGNAL_BET: 'wow', WIN: 'celebrate', LOSS: 'sad', LADDER_UP: 'thinking',
+    SIGNAL_BET: 'wow', SIGNAL_SKIP: 'base', WIN: 'celebrate', LOSS: 'sad', LADDER_UP: 'thinking',
     MISSED_BET: 'sad', LOGIN_VERIFIED: 'wink', CIRCUIT_BREAKER: 'angry',
     STOP_LOSS: 'sad', STOP_WIN: 'celebrate'
   };

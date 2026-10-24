@@ -183,9 +183,10 @@ test('pin 7 — the ball is uncropped and transparent, and the floating subtitle
   assert.ok(mobileHtml.includes('axo-big-overlay') || mobileCss.includes('axo-big-overlay'), 'the overlay mode exists');
 });
 
-test('pin 7 — the overlay CSS grows the face and stacks it centered', () => {
-  assert.ok(mobileCss.includes('#dhaniwinAssistantSheet.axo-big-overlay #axoFaceHost{width:150px'), 'the opened face is big');
-  assert.ok(mobileCss.includes('object-fit:contain'), 'the opened face is uncropped');
+test('pin 7 — the opened Axo floats OUTSIDE the panel (fix round #3, replaces the in-panel big face)', () => {
+  assert.ok(mobileCss.includes('#axoFloatingOverlay{'), 'the floating overlay rules exist');
+  assert.ok(mobileCss.includes('#dhaniwinAssistantSheet.axo-big-overlay #axoFaceHost{display:none'), 'the panel header hides its face while open');
+  assert.ok(mobileHtml.includes('id="axoFloatingOverlay"'), 'the overlay element exists');
   assert.ok(mobileJs.includes("sheet.classList.add('axo-big-overlay')"), 'opening adds the overlay class');
   assert.ok(mobileJs.includes("sheet.classList.remove('axo-big-overlay')"), 'closing removes it');
   assert.ok(mobileJs.includes('Math.floor((window.innerWidth - boxWidth) / 2)'), 'opening centers horizontally');

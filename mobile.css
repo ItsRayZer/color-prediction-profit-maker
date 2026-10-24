@@ -431,28 +431,7 @@ body.home-header-hidden #tab-web {
 body.home-header-hidden #homeHeaderPullHandle { display: block; }
 
 /* ── Top-middle Login & Register pill (right close down to top bar in middle) ── */
-.home-top-auth-pill {
-  position: fixed;
-  top: calc(var(--app-header-h, 52px) + 2px);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 55;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 7px;
-  border-radius: 9999px;
-  background: rgba(14, 14, 18, 0.92);
-  backdrop-filter: blur(28px) saturate(190%);
-  -webkit-backdrop-filter: blur(28px) saturate(190%);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  transition: opacity 0.25s ease, transform 0.25s ease, top 0.25s ease;
-}
 
-body.home-header-hidden .home-top-auth-pill {
-  top: 4px;
-}
 
 /* ── Floating Quick Win/Loss Sound Mute Button (Homepage / Dhani Embedded View) ── */
 .home-sound-mute-btn {
@@ -483,51 +462,10 @@ body.home-header-hidden .home-sound-mute-btn {
 }
 
 /* ── Floating "Already Logged In Before" pill (above bottom menu dock in the middle) ── */
-#floatingAlreadyLoggedInBtn {
-  position: fixed;
-  bottom: calc(76px + var(--safe-bottom));
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 55;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 18px;
-  border-radius: 9999px;
-  background: rgba(16, 185, 129, 0.16);
-  backdrop-filter: blur(24px) saturate(190%);
-  -webkit-backdrop-filter: blur(24px) saturate(190%);
-  border: 1px solid rgba(16, 185, 129, 0.40);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65), 0 0 24px rgba(16, 185, 129, 0.22);
-  color: #34d399;
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  cursor: pointer;
-  white-space: nowrap;
-  outline: none;
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, background-color 0.2s ease, bottom 0.25s ease;
-}
 
-#floatingAlreadyLoggedInBtn:hover {
-  background: rgba(16, 185, 129, 0.24);
-  border-color: rgba(16, 185, 129, 0.55);
-  color: #6ee7b7;
-}
 
-#floatingAlreadyLoggedInBtn:active {
-  transform: translateX(-50%) scale(0.95);
-}
 
-body.nav-compact #floatingAlreadyLoggedInBtn {
-  bottom: calc(64px + var(--safe-bottom));
-}
 
-#mobileBottomDock.dock-hidden ~ #floatingAlreadyLoggedInBtn,
-#mobileBottomDock.dock-hidden + #floatingAlreadyLoggedInBtn {
-  opacity: 0;
-  pointer-events: none;
-}
 
 @keyframes shakeError {
   0%, 100% { transform: translateX(-50%); }
@@ -540,89 +478,14 @@ body.nav-compact #floatingAlreadyLoggedInBtn {
 }
 
 /* ── Minimalist Apple Auth Buttons ── */
-.apple-auth-btn {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 6px 13px;
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-  cursor: pointer;
-  outline: none;
-  border: 1px solid transparent;
-  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-  user-select: none;
-  -webkit-user-select: none;
-}
-.apple-auth-btn:active {
-  transform: scale(0.94);
-}
 
 /* Apple Minimalist: Clean White Frosted Pill */
-.apple-auth-login {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(255, 255, 255, 0.24);
-  backdrop-filter: blur(8px);
-}
-.apple-auth-login:hover {
-  background: rgba(255, 255, 255, 0.24);
-  border-color: rgba(255, 255, 255, 0.35);
-}
 
 /* Apple Minimalist: Subtle Ghost Pill */
-.apple-auth-register {
-  color: rgba(255, 255, 255, 0.88);
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.12);
-}
-.apple-auth-register:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
-}
 
 /* Apple Minimalist: Emerald Tinted Pill */
-.apple-auth-verified {
-  color: #34d399;
-  background: rgba(16, 185, 129, 0.14);
-  border-color: rgba(16, 185, 129, 0.30);
-}
-.apple-auth-verified:hover {
-  background: rgba(16, 185, 129, 0.22);
-  border-color: rgba(16, 185, 129, 0.45);
-  color: #6ee7b7;
-}
 
 /* Apple Minimalist: Circular Close Button */
-.apple-auth-close {
-  flex-shrink: 0;
-  width: 26px;
-  height: 26px;
-  min-width: 26px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.6);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10.5px;
-  cursor: pointer;
-  outline: none;
-  transition: transform 0.15s ease, background-color 0.15s ease, color 0.15s ease;
-}
-.apple-auth-close:hover {
-  background: rgba(255, 255, 255, 0.14);
-  color: #ffffff;
-}
-.apple-auth-close:active {
-  transform: scale(0.92);
-}
 
 /* ── Page Transitions ── */
 .mobile-page {
@@ -1390,12 +1253,11 @@ a[href*="tradingview.com"] {
   transform: scale(0.97);
 }
 
-/* Fix round #2 — opened Axo is a big centered floating overlay, not
-   the small sheet: the face grows large and uncropped (transparent
-   frames), stacked above the title, centered in the window. The
-   sheet is centered by toggleDhaniwinAssistantModal (JS geometry);
-   these rules only restyle the face + header inside that mode. */
-#dhaniwinAssistantSheet.axo-big-overlay #assistantSheetHeader{flex-wrap:wrap;justify-content:center}
-#dhaniwinAssistantSheet.axo-big-overlay #assistantSheetHeader > div:first-child{flex-direction:column;align-items:center;text-align:center}
-#dhaniwinAssistantSheet.axo-big-overlay #axoFaceHost{width:150px !important;height:150px !important}
-#dhaniwinAssistantSheet.axo-big-overlay #axoFaceHost img{object-fit:contain !important;border-radius:0 !important;background:transparent !important}
+/* Fix round #3 — the OPENED Axo floats OUTSIDE the panel card: a big
+   centered overlay (see #axoFloatingOverlay in mobile.html), never
+   an embedded header face. The panel header carries no face while
+   open (JS hides #axoFaceHost); the sheet itself stays centered by
+   toggleDhaniwinAssistantModal (JS geometry). */
+#dhaniwinAssistantSheet.axo-big-overlay #axoFaceHost{display:none !important}
+#axoFloatingOverlay{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:100001;pointer-events:none;background:transparent}
+#axoFloatingOverlay #axoFloatingFace{display:block;width:min(64vw,300px);height:auto;object-fit:contain;background:transparent}
