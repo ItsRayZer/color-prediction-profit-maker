@@ -9,8 +9,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   
   <!-- FontAwesome & SF Pro Font Definitions -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <!-- Axofy theme fonts: Plus Jakarta Sans (UI) + Instrument Serif (display) -->
+    <!-- Axofy theme fonts: Plus Jakarta Sans (UI) + Instrument Serif (display) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -921,6 +920,25 @@
       filter: saturate(0.45);
     }
 
+    /* Icons (owner order 2026-10-24): minimal monochrome line icons.
+       Every settings icon is an inline SVG (.o101-ico) drawn with
+       currentColor at a single stroke weight; tiles lose their colour
+       (matte white-alpha, near-white glyph). No coloured tiles, no
+       icon font, no emoji icons anywhere on this page. */
+    .o101-ico {
+      width: 1em; height: 1em; flex: none;
+      display: inline-block; vertical-align: -0.14em;
+    }
+    .ios-squircle, .ios-icon-box {
+      background: rgba(255, 255, 255, 0.06) !important;
+      color: #f4f4f6; filter: none;
+    }
+    .ios-search-shell .ios-search-btn-icon { background: rgba(255, 255, 255, 0.08); color: #f4f4f6; }
+    .ios-guide-box .o101-ico { color: #f4f4f6; }
+    #appleToastIcon { color: #f4f4f6; display: inline-flex; }
+    .o101-spin { animation: o101-spin 0.9s linear infinite; }
+    @keyframes o101-spin { to { transform: rotate(360deg); } }
+
     /* Tags: matte tints. */
     .ios-tag-micro { box-shadow: none; }
     .tag-active { background: rgba(255, 209, 102, 0.14); color: var(--axofy-gold); border-color: rgba(255, 209, 102, 0.30); }
@@ -1072,14 +1090,14 @@
 
   <!-- Dynamic Island Style Floating Toast -->
   <div id="appleToast">
-    <i id="appleToastIcon" class="fa-solid fa-check text-[#30d158]"></i>
+    <span id="appleToastIcon"><svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
     <span id="appleToastText">Settings updated</span>
   </div>
 
   <!-- STICKY TOP NAVIGATION BAR (Minimalist Liquid Glass Circular Back Button Only) -->
   <header id="iosHeader" class="ios-navbar" style="background: rgba(0,0,0,0.85); backdrop-filter: blur(28px); border-bottom: 0.5px solid rgba(255,255,255,0.08);">
     <a href="/mobile" onclick="if (window.history.length > 1) { event.preventDefault(); window.history.back(); }" class="ios-nav-back" style="color: #ffffff; background: rgba(255, 255, 255, 0.08); border: 0.5px solid rgba(255, 255, 255, 0.16); width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(24px); box-shadow: 0 4px 16px rgba(0,0,0,0.5); text-decoration: none;" title="Back" aria-label="Back">
-      <i class="fa-solid fa-arrow-left" style="font-size: 14px;"></i>
+      <svg class="o101-ico" style="font-size: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
     </a>
     <span class="ios-nav-title" style="font-size: 16px; font-weight: 700; color: #ffffff; letter-spacing: -0.2px;">Settings</span>
     <div style="width: 36px;"></div>
@@ -1100,11 +1118,11 @@
          bottom-right; tap expands it into a full search field. -->
     <div class="ios-search-shell" id="settingsSearchShell" onclick="expandSettingsSearch(event)">
       <div class="ios-search-btn-icon">
-        <i class="fa-solid fa-magnifying-glass"></i>
+        <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
       </div>
       <span class="ios-search-collapsed-label">Search</span>
       <input type="text" id="appleSettingsSearch" class="ios-search-input" placeholder="Search settings..." oninput="filterSettings(this.value)" onkeydown="if (event.key === 'Escape') collapseSettingsSearch()" autocomplete="off">
-      <button id="searchClearBtn" class="ios-search-clear" onclick="event.stopPropagation(); handleSearchClear()">✕</button>
+      <button id="searchClearBtn" class="ios-search-clear" onclick="event.stopPropagation(); handleSearchClear()"><svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
     </div>
 
     <!-- PROFILE / ACCOUNT CARD (Apple ID Inset) -->
@@ -1129,7 +1147,7 @@
             </div>
           </div>
         </div>
-        <i class="fa-solid fa-chevron-right ios-chevron"></i>
+        <svg class="o101-ico ios-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
       </div>
     </div>
 
@@ -1138,7 +1156,7 @@
       <div style="display: flex; align-items: flex-start; justify-content: space-between;">
         <div style="display: flex; align-items: center; gap: 11px;">
           <div class="ios-squircle sq-bronze">
-            <i class="fa-solid fa-mug-saucer"></i>
+            <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 9h1a3.5 3.5 0 0 1 0 7h-1"/><path d="M3 9h14v6a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><path d="M6 2v2"/><path d="M10 2v2"/><path d="M14 2v2"/><path d="M4 21h13"/></svg>
           </div>
           <div>
             <div style="font-size: 15px; font-weight: 600; color: #ffd60a; letter-spacing: -0.2px;">
@@ -1158,9 +1176,9 @@
         </p>
 
         <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" class="ios-gold-btn">
-          <i class="fa-solid fa-heart" style="font-size: 13px;"></i>
+          <svg class="o101-ico" style="font-size: 13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
           <span>Support 01:01 (₹18 - Any)</span>
-          <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px; opacity: 0.7;"></i>
+          <svg class="o101-ico" style="font-size: 10px; opacity: 0.7;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
         </a>
 
         <p style="font-size: 10px; font-family: ui-monospace, monospace; color: rgba(255, 214, 10, 0.85); text-align: center; margin: 8px 0 0 0;">
@@ -1169,7 +1187,7 @@
 
         <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 6px; border-top: 0.5px solid rgba(255,255,255,0.08); font-size: 10px; font-family: ui-monospace, monospace; color: rgba(235, 235, 245, 0.5);">
           <button onclick="confirmSettingsCoffeePayment()" style="background: none; border: none; color: #ffd60a; text-decoration: underline; cursor: pointer; padding: 0; font-size: 10px;">Already paid? Verify</button>
-          <span>🔒 Secure UPI / Cards</span>
+          <span><svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Secure UPI / Cards</span>
         </div>
       </div>
     </div>
@@ -1185,7 +1203,7 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-blue">
-              <i class="fa-solid fa-tower-broadcast"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/><path d="m9.5 22 2.5-7 2.5 7"/><path d="M10.6 18.5h2.8"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Lottery Upstream</div>
@@ -1199,7 +1217,7 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-indigo">
-              <i class="fa-solid fa-cloud"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Edge Network</div>
@@ -1213,7 +1231,7 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-teal">
-              <i class="fa-solid fa-arrows-rotate"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Dual Incharge Sync</div>
@@ -1227,7 +1245,7 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-green">
-              <i class="fa-solid fa-link"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">DhaniWin Bridge</div>
@@ -1244,7 +1262,7 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-blue">
-              <i class="fa-solid fa-robot"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Auto-Pilot</div>
@@ -1261,7 +1279,7 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-purple">
-              <i class="fa-solid fa-gauge-high"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Auto-Pilot Risk Mode</div>
@@ -1292,7 +1310,7 @@
         <div class="ios-row-item" onclick="openDefaultWebsiteSubpage()" style="cursor: pointer;">
           <div class="ios-row-left">
             <div class="ios-icon-box" style="background: linear-gradient(135deg, #0a84ff, #5e5ce6);">
-              <i class="fa-solid fa-globe" style="color: #ffffff; font-size: 14px;"></i>
+              <svg class="o101-ico" style="font-size: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
             </div>
             <div class="ios-row-text">
               <span class="ios-label-primary">Change Default Website &amp; API</span>
@@ -1301,7 +1319,7 @@
           </div>
           <div class="ios-row-right">
             <span id="customWebsiteStatusBadge" class="ios-tag-micro tag-neutral">DEFAULT</span>
-            <i class="fa-solid fa-chevron-right" style="color: var(--label-tertiary); font-size: 12px; margin-left: 6px;"></i>
+            <svg class="o101-ico" style="color: var(--label-tertiary); font-size: 12px; margin-left: 6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
           </div>
         </div>
       </div>
@@ -1319,7 +1337,7 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-red">
-              <i class="fa-solid fa-bell"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Outside Notifications</div>
@@ -1340,7 +1358,7 @@
           <div style="display: flex; align-items: center; justify-content: space-between;">
             <div class="ios-row-left">
               <div class="ios-squircle sq-pink">
-                <i class="fa-solid fa-volume-high"></i>
+                <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
               </div>
               <div>
                 <div class="ios-label-primary">Sound Cues (Suii &amp; Bruh)</div>
@@ -1356,11 +1374,11 @@
           <!-- Apple Segmented Sound Preview Buttons -->
           <div style="display: flex; gap: 8px; margin-left: 43px;">
             <button onclick="playTestAudio('win')" class="ios-sound-chip" style="flex: 1; justify-content: center;">
-              <i class="fa-solid fa-play" style="font-size: 9px; color: var(--apple-green);"></i>
+              <svg class="o101-ico" style="font-size: 9px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 4 14 8-14 8V4z" fill="currentColor" stroke="none"/></svg>
               <span>Play Win (Suii)</span>
             </button>
             <button onclick="playTestAudio('loss')" class="ios-sound-chip" style="flex: 1; justify-content: center;">
-              <i class="fa-solid fa-play" style="font-size: 9px; color: var(--apple-red);"></i>
+              <svg class="o101-ico" style="font-size: 9px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 4 14 8-14 8V4z" fill="currentColor" stroke="none"/></svg>
               <span>Play Loss (Bruh)</span>
             </button>
           </div>
@@ -1370,7 +1388,7 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-purple">
-              <i class="fa-solid fa-hand"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2"/><path d="M14 10V4a2 2 0 0 0-2-2 2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Haptic Feedback</div>
@@ -1400,7 +1418,7 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-green">
-              <i class="fa-solid fa-bolt"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Background Keep-Alive</div>
@@ -1420,7 +1438,7 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-orange">
-              <i class="fa-solid fa-sun"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Screen Wake Lock</div>
@@ -1439,21 +1457,21 @@
         <div class="ios-row interactive" onclick="openBatteryGuideModal()">
           <div class="ios-row-left">
             <div class="ios-squircle sq-blue">
-              <i class="fa-solid fa-battery-three-quarters"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="16" height="10" x="2" y="7" rx="2"/><path d="M22 11v2"/><path d="M6 11v2"/><path d="M10 11v2"/><path d="M14 11v2"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Battery Exemption Guide</div>
               <div class="ios-label-secondary">Per-OS background setup</div>
             </div>
           </div>
-          <i class="fa-solid fa-chevron-right ios-chevron"></i>
+          <svg class="o101-ico ios-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
         </div>
 
         <!-- Persistent Storage -->
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-teal">
-              <i class="fa-solid fa-hard-drive"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><path d="M6 16h.01"/><path d="M10 16h.01"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Persistent Storage</div>
@@ -1471,7 +1489,7 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-indigo">
-              <i class="fa-solid fa-display"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Default View Mode</div>
@@ -1501,7 +1519,7 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-indigo">
-              <i class="fa-solid fa-stopwatch"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2h4"/><path d="M12 14v-4"/><circle cx="12" cy="14" r="8"/></svg>
             </div>
             <div class="ios-label-primary">Default Interval</div>
           </div>
@@ -1519,7 +1537,7 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-mesh">
-              <i class="fa-solid fa-wand-magic-sparkles"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2c.5 4 1.4 5.8 3 7.4 1.6 1.6 3.4 2.5 7.4 3-4 .5-5.8 1.4-7.4 3-1.6 1.6-2.5 3.4-3 7.4-.5-4-1.4-5.8-3-7.4C7.4 13.4 5.6 12.5 1.6 12c4-.5 5.8-1.4 7.4-3 1.6-1.6 2.5-3.4 3-7.4Z"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">In-Charge Strategy</div>
@@ -1528,14 +1546,14 @@
           </div>
           <div class="ios-row-right">
             <select id="selInchargeMode" onchange="setInchargeMode(this.value)" class="ios-picker-pill" style="max-width: 170px; text-overflow: ellipsis;">
-              <option value="WINNING_STREAK_OVERRIDE">🔥 Winning Streak Override</option>
-              <option value="LAST_10_WIN_RATE">⚡ Last 10 Rounds WR</option>
-              <option value="LAST_20_WIN_RATE">📊 Last 20 Rounds WR</option>
-              <option value="HIGHEST_STREAK">🚀 Highest Active Streak</option>
-              <option value="OVERALL_WIN_RATE">👑 Overall Win Rate</option>
-              <option value="SESSION_WIN_RATE">🎯 Session Win Rate</option>
-              <option value="SESSION_STREAK_OVERRIDE">⚡ Session Streak Override</option>
-              <option value="UCB_RANKING">🎲 UCB-MAB Bandit</option>
+              <option value="WINNING_STREAK_OVERRIDE">Winning Streak Override</option>
+              <option value="LAST_10_WIN_RATE">Last 10 Rounds WR</option>
+              <option value="LAST_20_WIN_RATE">Last 20 Rounds WR</option>
+              <option value="HIGHEST_STREAK">Highest Active Streak</option>
+              <option value="OVERALL_WIN_RATE">Overall Win Rate</option>
+              <option value="SESSION_WIN_RATE">Session Win Rate</option>
+              <option value="SESSION_STREAK_OVERRIDE">Session Streak Override</option>
+              <option value="UCB_RANKING">UCB-MAB Bandit</option>
             </select>
           </div>
         </div>
@@ -1545,7 +1563,7 @@
           <div style="display: flex; align-items: center; justify-content: space-between;">
             <div class="ios-row-left">
               <div class="ios-squircle sq-yellow">
-                <i class="fa-solid fa-coins"></i>
+                <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></svg>
               </div>
               <div>
                 <div class="ios-label-primary">Autopilot Base Unit</div>
@@ -1583,7 +1601,7 @@
         <div id="deviceBatteryRow" class="ios-row interactive" style="cursor: pointer;">
           <div class="ios-row-left">
             <div id="deviceBatteryIcon" class="ios-squircle sq-green">
-              <i class="fa-solid fa-battery-half"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="16" height="10" x="2" y="7" rx="2"/><path d="M22 11v2"/><path d="M6 11v2"/><path d="M10 11v2"/></svg>
             </div>
             <div>
               <div id="deviceBatteryTitle" class="ios-label-primary">Battery &amp; Background Activity</div>
@@ -1592,7 +1610,7 @@
           </div>
           <div class="ios-row-right">
             <span id="deviceBatteryActionTag" class="ios-scheme-badge">tune</span>
-            <i class="fa-solid fa-arrow-up-right-from-square ios-chevron" style="font-size: 11px;"></i>
+            <svg class="o101-ico ios-chevron" style="font-size: 11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
           </div>
         </div>
 
@@ -1600,7 +1618,7 @@
         <div id="deviceNotifRow" class="ios-row interactive" style="cursor: pointer;">
           <div class="ios-row-left">
             <div id="deviceNotifIcon" class="ios-squircle sq-blue">
-              <i class="fa-solid fa-bell"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
             </div>
             <div>
               <div id="deviceNotifTitle" class="ios-label-primary">System Notifications</div>
@@ -1609,7 +1627,7 @@
           </div>
           <div class="ios-row-right">
             <span id="deviceNotifActionTag" class="ios-scheme-badge">system</span>
-            <i class="fa-solid fa-arrow-up-right-from-square ios-chevron" style="font-size: 11px;"></i>
+            <svg class="o101-ico ios-chevron" style="font-size: 11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
           </div>
         </div>
 
@@ -1617,7 +1635,7 @@
         <div class="ios-row interactive" onclick="openBatteryGuideModal()" style="cursor: pointer;">
           <div class="ios-row-left">
             <div class="ios-squircle sq-orange">
-              <i class="fa-solid fa-book-open"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Device Guide for Background Reliability</div>
@@ -1626,7 +1644,7 @@
           </div>
           <div class="ios-row-right">
             <span class="ios-value-label">View Guide</span>
-            <i class="fa-solid fa-chevron-right ios-chevron"></i>
+            <svg class="o101-ico ios-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
           </div>
         </div>
 
@@ -1644,27 +1662,27 @@
         <div class="ios-row interactive" onclick="exportData('csv')">
           <div class="ios-row-left">
             <div class="ios-squircle sq-green">
-              <i class="fa-solid fa-file-csv"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>
             </div>
             <div class="ios-label-primary">Export Draw History (CSV)</div>
           </div>
-          <i class="fa-solid fa-arrow-down ios-chevron"></i>
+          <svg class="o101-ico ios-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
         </div>
 
         <div class="ios-row interactive" onclick="exportData('json')">
           <div class="ios-row-left">
             <div class="ios-squircle sq-blue">
-              <i class="fa-solid fa-file-code"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m10 13-2 2 2 2"/><path d="m14 13 2 2-2 2"/></svg>
             </div>
             <div class="ios-label-primary">Export State Snapshot (JSON)</div>
           </div>
-          <i class="fa-solid fa-arrow-down ios-chevron"></i>
+          <svg class="o101-ico ios-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
         </div>
 
         <div class="ios-row interactive" onclick="purgeCache()">
           <div class="ios-row-left">
             <div class="ios-squircle sq-red">
-              <i class="fa-solid fa-trash"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
             </div>
             <div class="ios-label-primary" style="color: var(--apple-red-tint);">Reset Cache &amp; Storage</div>
           </div>
@@ -1730,21 +1748,21 @@
       <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 0.5px solid var(--ios-separator); margin-bottom: 14px;">
         <div style="display: flex; align-items: center; gap: 10px;">
           <div class="ios-squircle sq-blue" style="width: 34px; height: 34px;">
-            <i class="fa-solid fa-shield-halved" style="font-size: 16px;"></i>
+            <svg class="o101-ico" style="font-size: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
           </div>
           <div>
             <div style="font-size: 16.5px; font-weight: 600; color: #ffffff;">Battery Optimization Guide</div>
             <div style="font-size: 11px; color: var(--label-secondary);">Prevent mobile OS from putting WebSocket to sleep</div>
           </div>
         </div>
-        <button onclick="closeBatteryGuideModal()" style="width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.1); border: none; color: #ffffff; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px;">✕</button>
+        <button onclick="closeBatteryGuideModal()" style="width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.1); border: none; color: #ffffff; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px;"><svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </div>
 
       <div style="space-y: 10px; font-size: 12.5px; color: rgba(235, 235, 245, 0.85);">
         
         <div class="ios-guide-box">
           <div style="display: flex; align-items: center; gap: 7px; color: var(--apple-orange-tint); font-weight: 600; font-size: 13px; margin-bottom: 4px;">
-            <i class="fa-solid fa-mobile-screen"></i>
+            <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
             <span>Xiaomi / Redmi / POCO (MIUI / HyperOS)</span>
           </div>
           <p style="margin: 0; font-size: 11.5px; color: var(--label-secondary); line-height: 16px;">
@@ -1754,7 +1772,7 @@
 
         <div class="ios-guide-box">
           <div style="display: flex; align-items: center; gap: 7px; color: var(--apple-blue-tint); font-weight: 600; font-size: 13px; margin-bottom: 4px;">
-            <i class="fa-solid fa-mobile-screen"></i>
+            <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
             <span>Samsung Galaxy (One UI)</span>
           </div>
           <p style="margin: 0; font-size: 11.5px; color: var(--label-secondary); line-height: 16px;">
@@ -1764,7 +1782,7 @@
 
         <div class="ios-guide-box">
           <div style="display: flex; align-items: center; gap: 7px; color: var(--apple-green-tint); font-weight: 600; font-size: 13px; margin-bottom: 4px;">
-            <i class="fa-solid fa-mobile-screen"></i>
+            <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
             <span>Realme / OPPO / OnePlus (ColorOS)</span>
           </div>
           <p style="margin: 0; font-size: 11.5px; color: var(--label-secondary); line-height: 16px;">
@@ -1774,7 +1792,7 @@
 
         <div class="ios-guide-box">
           <div style="display: flex; align-items: center; gap: 7px; color: var(--apple-purple-tint); font-weight: 600; font-size: 13px; margin-bottom: 4px;">
-            <i class="fa-brands fa-apple"></i>
+            <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 6-8 6-12.22A4.91 4.91 0 0 0 17 5c-2.22 0-4 1.44-5 2-1-.56-2.78-2-5-2a4.9 4.9 0 0 0-5 4.78C2 14 5 22 8 22c1.25 0 2.5-1.06 4-1.06Z"/><path d="M10 2c1 .5 2 2 2 5"/></svg>
             <span>Apple iPhone &amp; iPad (iOS)</span>
           </div>
           <p style="margin: 0; font-size: 11.5px; color: var(--label-secondary); line-height: 16px;">
@@ -1903,6 +1921,9 @@
       } catch(e) {}
     }
 
+    const TOAST_ICON_OK = '<svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+    const TOAST_ICON_ALERT = '<svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>';
+
     function showToast(msg, isSuccess = true) {
       const toast = document.getElementById('appleToast');
       const text = document.getElementById('appleToastText');
@@ -1910,8 +1931,7 @@
       if (!toast || !text || !icon) return;
 
       text.textContent = msg;
-      icon.className = isSuccess ? 'fa-solid fa-check' : 'fa-solid fa-circle-exclamation';
-      icon.style.color = isSuccess ? 'var(--apple-green)' : 'var(--apple-orange)';
+      icon.innerHTML = isSuccess ? TOAST_ICON_OK : TOAST_ICON_ALERT;
       toast.classList.add('show');
       
       clearTimeout(window._appleToastTimer);
@@ -1991,7 +2011,7 @@
           localStorage.setItem('coffee_paid_info', JSON.stringify(info));
           const cleanUrl = window.location.origin + window.location.pathname;
           window.history.replaceState({}, document.title, cleanUrl);
-          showToast(`💛 Supporter Active! Popup won't come again for a while (until ${validUntilFormatted}).`);
+          showToast(`Supporter Active! Popup won't come again for a while (until ${validUntilFormatted}).`);
         }
       } catch(e) {}
     }
@@ -2015,7 +2035,7 @@
         };
         localStorage.setItem('coffee_paid_info', JSON.stringify(info));
         updateCoffeeSupporterUI();
-        showToast(`💛 Supporter Active! Popup won't come again for a while (until ${validUntilFormatted}).`);
+        showToast(`Supporter Active! Popup won't come again for a while (until ${validUntilFormatted}).`);
       }
     }
 
@@ -2049,18 +2069,18 @@
             <div style="display: flex; align-items: center; justify-content: space-between;">
               <div>
                 <div style="font-size: 13px; font-weight: 700; color: #34c759; display: flex; align-items: center; gap: 6px;">
-                  <i class="fa-solid fa-circle-check"></i>
+                  <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
                   <span>Supporter Active (${remainingDaysStr} Left)</span>
                 </div>
                 <div style="font-size: 11px; color: rgba(235, 235, 245, 0.75); margin-top: 3px;">
                   Thank you for supporting 01:01! This popup won't come again for a while${info.validUntilFormatted ? ` (muted until ${info.validUntilFormatted})` : ''}.
                 </div>
               </div>
-              <span style="font-size: 18px;">💛</span>
+              <span style="font-size: 18px;"><svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></span>
             </div>
             <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.08); margin-top: 8px; padding-top: 6px; font-size: 10px; font-family: ui-monospace, monospace; color: rgba(235,235,245,0.5);">
               <span>Supported: ${info.time || 'Recently'} IST (${info.paymentId ? info.paymentId.substring(0, 14) : 'Verified'})</span>
-              <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" style="color: #ffd60a; text-decoration: underline;">Support Again ☕</a>
+              <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" style="color: #ffd60a; text-decoration: underline;">Support Again <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 9h1a3.5 3.5 0 0 1 0 7h-1"/><path d="M3 9h14v6a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><path d="M6 2v2"/><path d="M10 2v2"/><path d="M14 2v2"/><path d="M4 21h13"/></svg></a>
             </div>
           </div>
         `;
@@ -2075,9 +2095,9 @@
           </p>
 
           <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" class="ios-gold-btn">
-            <i class="fa-solid fa-heart" style="font-size: 13px;"></i>
+            <svg class="o101-ico" style="font-size: 13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
             <span>Support 01:01 (₹18 - Any)</span>
-            <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px; opacity: 0.7;"></i>
+            <svg class="o101-ico" style="font-size: 10px; opacity: 0.7;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
           </a>
 
           <p style="font-size: 10px; font-family: ui-monospace, monospace; color: rgba(255, 214, 10, 0.85); text-align: center; margin: 8px 0 0 0;">
@@ -2086,7 +2106,7 @@
 
           <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 6px; border-top: 0.5px solid rgba(255,255,255,0.08); font-size: 10px; font-family: ui-monospace, monospace; color: rgba(235, 235, 245, 0.5);">
             <button onclick="confirmSettingsCoffeePayment()" style="background: none; border: none; color: #ffd60a; text-decoration: underline; cursor: pointer; padding: 0; font-size: 10px;">Already paid? Verify</button>
-            <span>🔒 Secure UPI / Cards</span>
+            <span><svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Secure UPI / Cards</span>
           </div>
         `;
       }
@@ -2479,7 +2499,7 @@
         if (batterySub) batterySub.textContent = 'Browser tab throttling prevention active';
         if (batteryAction) batteryAction.textContent = 'active';
         if (batteryRow) {
-          batteryRow.onclick = () => showToast('Desktop Keep-Alive is managed automatically ✓');
+          batteryRow.onclick = () => showToast('Desktop Keep-Alive is managed automatically');
         }
 
         if (notifTitle) notifTitle.textContent = 'Browser Notifications';
@@ -2717,7 +2737,7 @@
 
       if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Saving Platform URL...';
+        btn.innerHTML = '<svg class="o101-ico o101-spin mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg> Saving Platform URL...';
       }
 
       try {
@@ -2734,16 +2754,16 @@
         }
 
         loadDefaultWebsiteUI();
-        showWebsiteNotice('success', '✓ Custom platform saved successfully! Game view updated while preserving lottery history.');
+        showWebsiteNotice('success', 'Custom platform saved successfully! Game view updated while preserving lottery history.');
         showToast('Custom game URL applied successfully!');
       } catch (err) {
         console.error('[Website Save Error]', err);
-        showWebsiteNotice('error', '❌ Could not save custom URL: ' + err.message);
+        showWebsiteNotice('error', 'Could not save custom URL: ' + err.message);
         showToast('Failed to save URL', false);
       } finally {
         if (btn) {
           btn.disabled = false;
-          btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Save Custom Game URL';
+          btn.innerHTML = '<svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg> Save Custom Game URL';
         }
       }
     }
@@ -2792,7 +2812,7 @@
     <!-- Sub-page Navigation Bar -->
     <header class="ios-navbar" style="position: sticky; top: 0;">
       <button type="button" class="ios-nav-back" onclick="closeDefaultWebsiteSubpage()">
-        <i class="fa-solid fa-chevron-left" style="font-size: 15px;"></i>
+        <svg class="o101-ico" style="font-size: 15px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
         <span>Settings</span>
       </button>
       <div class="ios-nav-title" style="opacity: 1; transform: translateY(0);">Website &amp; API</div>
@@ -2862,12 +2882,12 @@
     <!-- Action Buttons -->
     <div style="padding: 0 16px; display: flex; flex-direction: column; gap: 10px;">
       <button type="button" id="btnVerifyAndSaveWebsite" onclick="verifyAndSaveCustomWebsite()" class="ios-action-btn primary" style="width: 100%; justify-content: center; height: 44px; font-size: 13.5px; border-radius: 14px;">
-        <i class="fa-solid fa-circle-check"></i>
+        <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
         <span>Save Custom Game URL</span>
       </button>
 
       <button type="button" onclick="restoreDefaultWebsiteAndApi()" class="ios-action-btn secondary" style="width: 100%; justify-content: center; height: 40px; font-size: 12.5px; border-radius: 14px;">
-        <i class="fa-solid fa-rotate-left"></i>
+        <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
         <span>Restore Original Default</span>
       </button>
     </div>
@@ -2956,7 +2976,14 @@
           : 'Checking login… waiting for the bridge\'s API-proven user state';
         detail.textContent = 'Balance ' + bal + ' · Source ' + src + ' · Mode ' + mode + ' · Sync ' + ageText;
         if (transport === 'direct') {
-          line.textContent = 'Direct load — bridge inactive · login + exact balance unavailable on this route';
+          // If the direct route is the proxy-failure fallback, name
+          // the failure itself (mobile.js records why under this key):
+          // proxy unreachable, bridge inactive, login unverifiable here.
+          var proxyFailed = null;
+          try { proxyFailed = localStorage.getItem('o101_dhani_proxy_failed'); } catch (e) {}
+          line.textContent = proxyFailed
+            ? 'Proxy unreachable — direct mode · bridge inactive · login cannot be verified in this mode'
+            : 'Direct load — bridge inactive · login + exact balance unavailable on this route';
         }
       }
       render();

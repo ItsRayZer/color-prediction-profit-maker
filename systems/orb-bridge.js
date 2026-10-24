@@ -522,10 +522,17 @@ export function loginEvidenceLine(login) {
  * page (which renders it as: login state, balance + source, bridge
  * mode, last sync age). Pure — fed from a LoginVerifier status object.
  */
-export function bridgeDiagnostic(login, transport) {
+// The one plain-words line for "we are on the direct route BECAUSE
+// the proxy failed": proxy unreachable, direct mode, bridge inactive,
+// and login cannot be verified in this mode. Shared by the sheet
+// status line and the settings diagnostic so they can never disagree.
+export const PROXY_FAILED_LINE = 'Proxy unreachable — direct mode · bridge inactive · login cannot be verified in this mode';
+
+export function bridgeDiagnostic(login, transport, proxyFailed) {
   const direct = transport === 'direct';
+  const failed = direct && !!proxyFailed;
   if (!login) {
-    return { loginState: 'UNKNOWN', balanceText: '—', balanceSource: null, fetchMode: direct ? 'inactive (direct load)' : null, syncAgeText: 'never', line: 'Checking login…', transport: transport || null };
+    return { loginState: 'UNKNOWN', balanceText: '—', balanceSource: null, fetchMode: direct ? 'inactive (direct load)' : null, syncAgeText: 'never', line: failed ? PROXY_FAILED_LINE : 'Checking login…', transport: transport || null, proxyFailed: failed };
   }
   const inrFmt = n => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
   const ageMs = login.stateAgeMs !== null && login.stateAgeMs !== undefined ? login.stateAgeMs : login.syncAgeMs;
@@ -537,8 +544,12 @@ export function bridgeDiagnostic(login, transport) {
     // mode is honestly "inactive" — never a pending/active promise.
     fetchMode: direct ? 'inactive (direct load)' : (login.fetchMode || null),
     syncAgeText: ageMs !== null && ageMs !== undefined ? `${Math.max(0, Math.round(ageMs / 1000))}s ago` : 'never',
-    line: loginEvidenceLine(login),
-    transport: transport || null
+    // After a proxy failure the line names the failure itself — a
+    // generic "direct load" or "checking" line would hide WHY login
+    // can never verify on this route.
+    line: failed ? PROXY_FAILED_LINE : loginEvidenceLine(login),
+    transport: transport || null,
+    proxyFailed: failed
   };
 }
 
@@ -1045,6 +1056,15 @@ function initBridge() {
     } catch (e) { return null; }
   }
 
+  // Did the app fall back to a direct load because the proxy route
+  // failed? mobile.js records it (window flag + localStorage) at the
+  // moment of the fallback; a later live bridge signal clears it.
+  function currentDhaniProxyFailed() {
+    try {
+      return !!(window.__o101DhaniProxyFailed || localStorage.getItem('o101_dhani_proxy_failed'));
+    } catch (e) { return false; }
+  }
+
   // Persist a compact bridge snapshot so the settings page (a separate
   // document) can show the same diagnostic: login state, exact balance
   // + source, bridge fetch mode, last sync age.
@@ -1058,6 +1078,7 @@ function initBridge() {
         balanceSource: d.balanceSource,
         fetchMode: d.fetchMode,
         transport: d.transport,
+        proxyFailed: currentDhaniProxyFailed(),
         lastSyncAt: login ? login.lastSyncAt : null,
         updatedAt: Date.now()
       };
@@ -1152,7 +1173,13 @@ function initBridge() {
     // page, so no verification is coming — say exactly that instead
     // of the "waiting for the bridge" line.
     if (currentDhaniTransport() === 'direct') {
-      el.textContent = 'Direct load — bridge inactive · login + exact balance unavailable on this route';
+      // If this direct load is the proxy-failure fallback, name the
+      // failure: the proxy was unreachable, and login cannot be
+      // verified in this mode — never imply a bridge might still
+      // arrive on a direct route.
+      el.textContent = currentDhaniProxyFailed()
+        ? PROXY_FAILED_LINE
+        : 'Direct load — bridge inactive · login + exact balance unavailable on this route';
       el.setAttribute('data-transport', 'direct');
       el.setAttribute('data-login-state', state.login ? state.login.state : 'UNKNOWN');
       return;

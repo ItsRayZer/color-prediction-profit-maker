@@ -745,7 +745,29 @@ window.clearBoundaryRetries = clearBoundaryRetries;
 // Primary:  Cloudflare Edge Worker (/api/wingo?tf=X)  – unlimited bandwidth, fast edge cache
 // Fallback: Direct upstream lottery API              – free, no limits
 
-const CF_WORKER_BASE = 'https://wingo-edge-sync.itsrayzer.workers.dev';
+// The worker base lives in exactly ONE place: this default. Every
+// consumer (the /api/wingo results fetch below, the DhaniWin proxy
+// URL builder in systems/dhani-transport.js via proxifyDhaniUrl)
+// reads the resolved CF_WORKER_BASE — never a second copy of the URL.
+// A runtime override in localStorage ('o101_worker_base') wins over
+// the default, so a corrected worker address can be tested on-device
+// without a rebuild: set the key, reload, and all consumers follow.
+// The override is resolved once at boot and normalised (no trailing
+// slash) so `${CF_WORKER_BASE}/api/wingo` can never double-slash.
+const CF_WORKER_BASE_DEFAULT = 'https://wingo-edge-sync.itsrayzer.workers.dev';
+const WORKER_BASE_OVERRIDE_KEY = 'o101_worker_base';
+function resolveWorkerBase() {
+  try {
+    const raw = localStorage.getItem(WORKER_BASE_OVERRIDE_KEY);
+    if (raw && typeof raw === 'string') {
+      const v = raw.trim().replace(/\/+$/, '');
+      if (/^https?:\/\//i.test(v)) return v;
+    }
+  } catch (e) {}
+  return CF_WORKER_BASE_DEFAULT;
+}
+const CF_WORKER_BASE = resolveWorkerBase();
+window.CF_WORKER_BASE = CF_WORKER_BASE;
 
 const DEFAULT_TF_UPSTREAM_URLS = {
   '30s': 'https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json',
@@ -3894,23 +3916,100 @@ for (const tfKey of Object.keys(DHANIWIN_INTERVAL_URLS)) {
 }
 
 const DHANI_TRANSPORT_KEY = 'o101_dhani_transport';
+const DHANI_PROXY_FAILED_KEY = 'o101_dhani_proxy_failed';
 const DHANI_PROXY_LOAD_TIMEOUT_MS = 15000;
+// After a proxied document finishes loading, the bridge gets this
+// long to prove it is alive inside the page (its state publish /
+// handshake). A browser DNS-error page also fires `load` — and never
+// brings a bridge — so "load completed" alone is NOT proof the proxy
+// worked. No bridge signal inside this window ⇒ the proxy route is
+// treated as failed and the app falls back to the direct URL.
+const DHANI_PROXY_BRIDGE_SIGNAL_MS = 5000;
 let _dhaniProxyWatchdog = null;
+let _dhaniBridgeSignalTimer = null;
 let _dhaniProxyFallbackUsed = false;
 let _dhaniIframeLoadHooked = false;
+let _dhaniExpectedProxyUrl = null;
+let _dhaniBridgeSeenForLoad = false;
+let _dhaniProxyFailed = false;
 
 function clearDhaniProxyWatchdog() {
   if (_dhaniProxyWatchdog) { clearTimeout(_dhaniProxyWatchdog); _dhaniProxyWatchdog = null; }
 }
+function clearDhaniBridgeSignalTimer() {
+  if (_dhaniBridgeSignalTimer) { clearTimeout(_dhaniBridgeSignalTimer); _dhaniBridgeSignalTimer = null; }
+}
+function markDhaniProxyFailed(reason) {
+  _dhaniProxyFailed = true;
+  window.__o101DhaniProxyFailed = true;
+  try { localStorage.setItem(DHANI_PROXY_FAILED_KEY, String(reason || 'failed')); } catch (e) {}
+}
+function clearDhaniProxyFailed() {
+  _dhaniProxyFailed = false;
+  window.__o101DhaniProxyFailed = false;
+  try { localStorage.removeItem(DHANI_PROXY_FAILED_KEY); } catch (e) {}
+}
+// A live bridge message (handshake / heartbeat / user state) is the
+// only proof the proxied page really carries the bridge. It cancels
+// every pending fallback and clears any earlier proxy-failure record:
+// the route demonstrably works now.
+function noteDhaniBridgeSignal() {
+  _dhaniBridgeSeenForLoad = true;
+  clearDhaniProxyWatchdog();
+  clearDhaniBridgeSignalTimer();
+  if (_dhaniProxyFailed || window.__o101DhaniProxyFailed) clearDhaniProxyFailed();
+}
+window.noteDhaniBridgeSignal = noteDhaniBridgeSignal;
+// One-shot fallback from the proxy route to the direct DhaniWin URL.
+// Records the failure so every status surface can say the truth:
+// proxy unreachable, direct mode, bridge inactive, login cannot be
+// verified in this mode. Never fakes a bridge on the direct route.
+function runDhaniProxyFallback(reason) {
+  if (_dhaniProxyFallbackUsed) return;
+  const iframe = $('dhaniwinIframe');
+  const expected = _dhaniExpectedProxyUrl || (iframe ? iframe.src : null);
+  if (!expected) return;
+  if (iframe && iframe.src !== expected) return; // user already navigated elsewhere
+  _dhaniProxyFallbackUsed = true;
+  clearDhaniProxyWatchdog();
+  clearDhaniBridgeSignalTimer();
+  markDhaniProxyFailed(reason);
+  const direct = unproxifyDhaniUrl(expected);
+  if (iframe) iframe.src = direct;
+  const barText = $('mobileWebAddressBarText');
+  if (barText) barText.textContent = direct;
+  noteDhaniTransport(direct);
+  setMobileBridgeStatus(false, 'Proxy unreachable — direct mode · bridge inactive · login cannot be verified in this mode');
+}
+window.runDhaniProxyFallback = runDhaniProxyFallback;
 function hookDhaniIframeLoad() {
   if (_dhaniIframeLoadHooked) return;
   const iframe = $('dhaniwinIframe');
   if (!iframe) return;
   _dhaniIframeLoadHooked = true;
-  // Any completed document load (even an error page) cancels the
-  // fallback: the proxy answered. Silence from the bridge afterwards
-  // is reported honestly by the bridge diagnostic instead.
-  iframe.addEventListener('load', clearDhaniProxyWatchdog);
+  iframe.addEventListener('load', () => {
+    // A completed load ends the no-load watchdog, but it is not proof
+    // of life: an error document (e.g. a DNS failure page) fires
+    // `load` too and contains no bridge. While riding the proxy with
+    // no bridge signal yet, give the bridge a short window to prove
+    // itself; silence inside it means the proxy route failed.
+    clearDhaniProxyWatchdog();
+    if (_dhaniProxyFallbackUsed || _dhaniBridgeSeenForLoad) return;
+    if (window.__o101DhaniTransport !== 'proxy') return;
+    clearDhaniBridgeSignalTimer();
+    _dhaniBridgeSignalTimer = setTimeout(() => {
+      _dhaniBridgeSignalTimer = null;
+      if (_dhaniBridgeSeenForLoad) return;
+      runDhaniProxyFallback('no-bridge-signal');
+    }, DHANI_PROXY_BRIDGE_SIGNAL_MS);
+  });
+  iframe.addEventListener('error', () => {
+    // Hard load error on the embed: fail fast instead of waiting out
+    // either timer.
+    if (_dhaniProxyFallbackUsed) return;
+    if (window.__o101DhaniTransport !== 'proxy') return;
+    runDhaniProxyFallback('load-error');
+  });
 }
 // Record which transport a DhaniWin load uses, so the bridge
 // diagnostic (this page + Settings) never implies verification is
@@ -3926,7 +4025,10 @@ function noteDhaniTransport(url) {
   if (transport === 'proxy') {
     hookDhaniIframeLoad();
     clearDhaniProxyWatchdog();
+    clearDhaniBridgeSignalTimer();
     if (_dhaniProxyFallbackUsed) return;
+    _dhaniExpectedProxyUrl = url;
+    _dhaniBridgeSeenForLoad = false;
     const expected = url;
     _dhaniProxyWatchdog = setTimeout(() => {
       _dhaniProxyWatchdog = null;
@@ -3936,15 +4038,11 @@ function noteDhaniTransport(url) {
       // the game at least loads, and record the direct transport —
       // the diagnostic then states the bridge is inactive rather than
       // promising a verification that cannot happen on this route.
-      _dhaniProxyFallbackUsed = true;
-      const direct = unproxifyDhaniUrl(expected);
-      iframe.src = direct;
-      const barText = $('mobileWebAddressBarText');
-      if (barText) barText.textContent = direct;
-      noteDhaniTransport(direct);
+      runDhaniProxyFallback('load-timeout');
     }, DHANI_PROXY_LOAD_TIMEOUT_MS);
   } else {
     clearDhaniProxyWatchdog();
+    clearDhaniBridgeSignalTimer();
   }
 }
 window.noteDhaniTransport = noteDhaniTransport;
@@ -5851,6 +5949,12 @@ let _syncLogoutCount = 0;
 
 function handleMobileBridgeMessage(msg) {
   if (!msg || typeof msg !== 'object') return;
+  // Bridge-life proof for the proxy-failure fallback: any of the
+  // bridge's own lifecycle/state messages means the bridge really is
+  // running inside the embedded page, so no fallback may fire.
+  if (msg.type === 'DHANIWIN_BRIDGE_HANDSHAKE' || msg.type === 'DHANIWIN_BRIDGE_HEARTBEAT' || msg.type === 'DHANIWIN_USER_STATE') {
+    noteDhaniBridgeSignal();
+  }
   // Bet-slip dock auto-hide (Addition 3): transitions from the
   // bridge's slip watcher, plus the state-sync field for late
   // joiners. Independent of the chain below.
@@ -6192,7 +6296,58 @@ function stopAndResetMobileRecovery() {
 }
 window.stopAndResetMobileRecovery = stopAndResetMobileRecovery;
 
+// ── Login gate for every real-bet path ─────────────────────────────
+// The ONLY login truth for staging or firing a real bet is the
+// bridge verifier in orb-bridge: VERIFIED ⟺ a bridge user state
+// ≤60s old with isLoggedIn AND apiProven. A stored token, the legacy
+// "logged in" flags, or a merely-connected bridge NEVER count —
+// that gap is what made the app feel "fake logined": clicks staged
+// bets while nothing was verified. Fail closed: if the verifier is
+// unavailable (orb-bridge not loaded), bets are refused, because
+// there is no proof. Auto-Pilot already gates itself on the same
+// status inside orb-bridge; this extends the identical rule to the
+// manual click paths (auto-prep toggle, quick targets, stake chips,
+// the legacy dispatch) so behaviour is uniform.
+function isLoginVerifiedForBet() {
+  try {
+    const sb = window.__smartBall;
+    if (!sb || typeof sb.verifyLogin !== 'function') return false;
+    const st = sb.verifyLogin();
+    return !!st && st.state === 'VERIFIED';
+  } catch (e) { return false; }
+}
+window.isLoginVerifiedForBet = isLoginVerifiedForBet;
+
+const LOGIN_NOT_VERIFIED_LINE = 'Login not verified yet';
+// Refusal surface for an unverified bet-path tap: state the existing
+// reason and offer the path to log in (the auth bar carries the
+// Login / Register actions). No staging, no animation-as-placed, no
+// P&L movement, no success feedback — and per the silence rules no
+// sound either.
+function refuseBetUnverified() {
+  setMobileBridgeStatus(false, LOGIN_NOT_VERIFIED_LINE);
+  showToast('🔒 Login not verified yet — open DhaniWin and log in. Bets unlock when the bridge verifies your login.', 'warn');
+  // The sheet's own spoken line is the visible surface where the
+  // chips / confirm live, so the reason lands where the tap happened.
+  try {
+    if (window.__smartBall && typeof window.__smartBall.say === 'function') {
+      window.__smartBall.say('Login not verified yet — open DhaniWin and log in. Bets unlock when the bridge verifies your login.');
+    }
+  } catch (e) {}
+  if (typeof showDhaniAuthBar === 'function') showDhaniAuthBar(true);
+}
+window.refuseBetUnverified = refuseBetUnverified;
+
 function toggleMobileRealAutoBet(forceState) {
+  const turningOn = forceState !== undefined ? !!forceState : !MobileBridgeState.enabled;
+  if (turningOn && !isLoginVerifiedForBet()) {
+    // Arming auto-prep IS a bet-path action: refused while login is
+    // not VERIFIED. The toggle stays off; nothing is dispatched.
+    MobileBridgeState.enabled = false;
+    refuseBetUnverified();
+    if (typeof updateFloatingOrbUI === 'function') updateFloatingOrbUI();
+    return;
+  }
   if (forceState !== undefined) {
     MobileBridgeState.enabled = !!forceState;
   } else {
@@ -6221,6 +6376,15 @@ window.toggleMobileRealAutoBet = toggleMobileRealAutoBet;
 window.toggleRealAutoBet = toggleMobileRealAutoBet;
 
 function dispatchMobileBetOrder(targetOverride) {
+  // VERIFIED gate (uniform with Auto-Pilot): no order is staged or
+  // sent while login is anything other than VERIFIED — no target
+  // paint, no "ready" claim, nothing on the wire. The refusal states
+  // the reason and offers the login path.
+  if (!isLoginVerifiedForBet()) {
+    refuseBetUnverified();
+    return;
+  }
+
   // Check if 3-Loss Circuit Breaker is active / cool-off pause in progress
   if (MobileBridgeState.circuitBreakerPauseRounds > 0) {
     setMobileBridgeStatus(false, `🛡️ Circuit Breaker: Paused (${MobileBridgeState.circuitBreakerPauseRounds}R left)`);
@@ -6276,16 +6440,10 @@ function dispatchMobileBetOrder(targetOverride) {
     }
   }
 
-  const targetEl = $('mobileWebTargetDisplay');
-  if (targetEl) {
-    targetEl.textContent = target;
-    targetEl.className = `text-lg font-black ${
-      target === 'BIG' ? 'text-amber-300' :
-      target === 'SMALL' ? 'text-sky-300' :
-      target === 'GREEN' ? 'text-emerald-400' :
-      target === 'RED' ? 'text-rose-400' : 'text-white'
-    }`;
-  }
+  // No hero paint here: the governed render owns the hero surface,
+  // and painting the target at dispatch time claimed a staged bet
+  // before the bridge had acknowledged anything. The honest "Ready"
+  // state arrives only via the bridge's DHANIWIN_BET_PREPARED ack.
 
   const orderPayload = {
     type: 'EXECUTE_REAL_BET',
@@ -6300,7 +6458,10 @@ function dispatchMobileBetOrder(targetOverride) {
   };
 
   postMobileBridge(orderPayload);
-  setMobileBridgeStatus(true, `👉 Ready: ${target} ₹${MobileBridgeState.currentStake} (Tap Bet)`);
+  // Neutral sent-state only. "Ready: … (Tap Bet)" is set exclusively
+  // by the DHANIWIN_BET_PREPARED handler once the bridge has actually
+  // staged the bet in the DhaniWin page — never at dispatch time.
+  setMobileBridgeStatus(true, `Sent: ${target} ₹${MobileBridgeState.currentStake} — waiting for the bridge…`);
 }
 window.dispatchMobileBetOrder = dispatchMobileBetOrder;
 
@@ -6346,6 +6507,14 @@ window.copyMobileBridgeScript = copyMobileBridgeScript;
 // ── 29b. DhaniWin Minimalist Floating Assistant Controls ───────────────────────
 
 function setAssistantBaseStake(amt) {
+  // The sheet chips set the REAL base stake (they feed both the
+  // governed ladder and the legacy dispatch), so they are a bet path:
+  // while login is not VERIFIED a chip tap changes nothing and states
+  // the reason, exactly like every other bet-path tap.
+  if (!isLoginVerifiedForBet()) {
+    refuseBetUnverified();
+    return;
+  }
   const amount = Number(amt) || 2;
   MobileBridgeState.baseStake = amount;
   MobileBridgeState.currentLevel = 0; // Fresh base stake starts at Level 0
