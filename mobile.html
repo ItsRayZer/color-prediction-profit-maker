@@ -866,14 +866,6 @@
       <span id="floatingOrbDot" class="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black pointer-events-none"></span>
     </div>
 
-    <!-- Floating subtitle (fix round #2): the prediction as a readable
-         subtitle line glued to the closed ball — the default surface.
-         Positioned by orb-bridge (clamped to the viewport); hidden
-         when subtitles are off (in-ball display instead) or when the
-         panel is open (the sheet's own line shows the same text). -->
-    <div id="axoFloatingSubtitle" aria-live="polite" class="hidden fixed pointer-events-none px-2.5 py-1.5 rounded-full bg-black/75 border border-white/10 text-[11px] font-mono text-zinc-100 leading-relaxed text-center" style="z-index: 99998;"><span id="axoSubtitleIcon" class="inline-block align-middle mr-1"></span><span id="axoSubtitleText"></span></div>
-
-
     <!-- ════════════════════════════════════════════════════════════
          REDESIGNED APPLE / GEN-Z ASSISTANT MODAL (AMOLED Liquid Glass)
     ════════════════════════════════════════════════════════════ -->
@@ -953,7 +945,7 @@
                compact pill — small, matte black, rounded-full, first
                in the body so it reads as the line under the avatar.
                Fixed height, so a new line never resizes the sheet. -->
-          <div id="smartBallLine" aria-live="polite" class="px-2.5 py-1.5 rounded-full bg-black/75 border border-white/10 text-[8.5px] font-mono text-zinc-100 leading-relaxed text-center h-[34px] overflow-y-auto"><span id="axoSheetVerdictIcon" class="inline-block align-middle mr-1"></span><span id="axoSheetVerdictText"></span></div>
+          <div id="smartBallLine" aria-live="polite" class="px-2.5 py-1.5 rounded-full bg-[rgba(28,28,31,0.92)] border border-[rgba(255,255,255,0.1)] text-[8.5px] font-mono text-zinc-100 leading-relaxed text-center h-[34px] overflow-y-auto"><span id="axoSheetVerdictIcon" class="inline-block align-middle mr-1"></span><span id="axoSheetVerdictText"></span></div>
           <!-- 0a. Axo controls (orb-bridge): CC closes ONLY the
                subtitle strip (Axo keeps running); MODE switches AI
                narration vs Normal (governed templates only). Voice

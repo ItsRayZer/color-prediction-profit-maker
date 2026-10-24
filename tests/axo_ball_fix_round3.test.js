@@ -79,12 +79,14 @@ test('pin 2b — a SKIP announces at verdict time: subtitle + icon + voice', () 
   assert.ok(fn.includes('axoOnEvent(event, full)'), 'skip speaks through the normal event path');
   assert.ok(fn.includes("`Skip · #${sp}`") || fn.includes('Skip · #'), 'skip line is the minimal word + short period');
   // Icon slots exist on every surface the announcement touches.
-  for (const id of ['axoSubtitleIcon', 'axoSheetVerdictIcon', 'axoHeroVerdictIcon', 'orbVerdictIcon']) {
+  // Fix round #5: the floating subtitle's slot is gone with the element.
+  for (const id of ['axoSheetVerdictIcon', 'axoHeroVerdictIcon', 'orbVerdictIcon']) {
     assert.ok(mobileHtml.includes(`id="${id}"`), `icon slot ${id} exists`);
   }
-  // say() writes the text spans, never wiping an icon slot.
+  // say() writes the sheet text span, never wiping an icon slot; no
+  // floating subtitle exists anymore for it to write.
   const sayFn = orbSrc.slice(orbSrc.indexOf('function say(text)'), orbSrc.indexOf('function setVerdictIcon'));
-  assert.ok(sayFn.includes('axoSheetVerdictText') && sayFn.includes('axoSubtitleText'), 'say writes text spans, icons survive');
+  assert.ok(sayFn.includes('axoSheetVerdictText') && !sayFn.includes('axoSubtitleText'), 'say writes the sheet text span only');
   // Hero + road re-assert icons from the governed verdict.
   assert.ok(orbSrc.includes('setVerdictIcon(view.decision'), 'hero verdict sets its icon');
   assert.ok(orbSrc.includes('VERDICT_ICONS.skip'), 'road skip cells show the skip mark');

@@ -109,22 +109,23 @@ test('pin 2 — road suffix and in-ball view show the short form only', () => {
   assert.ok(!view.periodText.includes('50781'));
 });
 
-// ── Pin 3: subtitle surfaces ───────────────────────────────────────
-test('pin 3 — subtitle-on default shows the floating subtitle, never the cramped ball text', () => {
+// ── Pin 3: subtitle surfaces (SUPERSEDED by fix round #5) ───────
+// Fix round #5 deleted the floating subtitle element: minimized
+// state always shows the prediction inside the Axo ball, whatever
+// CC says; the sheet line hides only when subtitles are closed.
+test('pin 3 — SUPERSEDED (round #5): no floating subtitle; minimized always shows the in-ball prediction', () => {
   const d = subtitleSurfaces({ subsOn: true, panelOpen: false });
-  assert.equal(d.floatingVisible, true, 'default state = floating subtitle line');
+  assert.equal(d.floatingVisible, false, 'no floating subtitle element exists anymore');
   assert.equal(d.sheetHidden, false);
-  assert.equal(d.pillVisible, false, 'the in-ball pill hides while subtitles carry the prediction');
-});
-
-test('pin 3 — subtitle-off shows the minimal in-ball display; panel-open hides the floating line', () => {
+  assert.equal(d.pillVisible, true, 'minimized shows the prediction inside the ball, CC or not');
   const off = subtitleSurfaces({ subsOn: false, panelOpen: false });
   assert.equal(off.floatingVisible, false);
   assert.equal(off.sheetHidden, true);
-  assert.equal(off.pillVisible, true, 'only CC-off falls back to the in-ball display, silently');
+  assert.equal(off.pillVisible, true);
   const open = subtitleSurfaces({ subsOn: true, panelOpen: true });
-  assert.equal(open.floatingVisible, false, 'the sheet line shows the same text while the panel is open');
+  assert.equal(open.floatingVisible, false);
   assert.equal(open.sheetHidden, false);
+  assert.equal(open.pillVisible, false, 'panel open hides the ball (and its pill) with it');
 });
 
 // ── Pin 4: centered overlay geometry ───────────────────────────────
@@ -173,13 +174,16 @@ test('pin 6 — the faces module carries all 12 faces as WebP data URIs', () => 
 });
 
 // ── Pin 7: markup ──────────────────────────────────────────────────
-test('pin 7 — the ball is uncropped and transparent, and the floating subtitle exists', () => {
+test('pin 7 — the ball is uncropped and transparent; SUPERSEDED (round #5): no floating subtitle element', () => {
   const ballLine = mobileHtml.split('\n').find(l => l.includes('id="floatingOrbAxoFace"'));
   assert.ok(ballLine.includes('object-contain'), 'the face shows fully, not circle-cropped');
   assert.ok(!ballLine.includes('object-cover') && !ballLine.includes('rounded-full'), 'no cover crop and no circle mask on the ball face');
   const ringLine = mobileHtml.split('\n').find(l => l.includes('id="floatingOrbRing"'));
   assert.ok(!ringLine.includes('bg-[#0b0b10]') && !ringLine.includes('overflow-hidden'), 'no disc background and no crop on the ring');
-  assert.ok(mobileHtml.includes('id="axoFloatingSubtitle"'), 'the floating subtitle element exists');
+  // SUPERSEDED by fix round #5: the floating subtitle element is
+  // DELETED — minimized state shows the prediction inside the ball.
+  assert.ok(!mobileHtml.includes('id="axoFloatingSubtitle"'), 'no floating subtitle element anymore');
+  assert.ok(mobileHtml.includes('id="floatingOrbTarget"'), 'the in-ball prediction pill exists');
   assert.ok(mobileHtml.includes('id="axoTopAvatar"'), 'the small top avatar exists (round #4 replaced the overlay)');
 });
 

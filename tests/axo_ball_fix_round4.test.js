@@ -11,8 +11,10 @@
  *  1. The giant overlay is DELETED (no marker anywhere); the
  *     opened Axo is a SMALL circular avatar straddling the
  *     sheet's top-center edge, pointer-events none, transparent,
- *     full face, with "Axo" beneath it; the header keeps top
- *     clearance so nothing is covered. Closed ball unchanged.
+ *     full face, with "Axo" beneath it; the header keeps its old
+ *     offset (round #5 deleted the clearance band — the avatar
+ *     overlaps the edge without pushing content down). Closed ball
+ *     unchanged.
  *  2. Subtitles styled like the Axofy app: small compact matte
  *     pills (rounded-full), the sheet line first in the body so
  *     it reads as the line under the avatar.
@@ -60,10 +62,11 @@ test('pin 1b — opened Axo is a small circular avatar at the sheet top-center e
   assert.ok(mobileCss.includes('#axoTopAvatar{position:absolute;left:50%;top:0;transform:translate(-50%,-50%)'), 'avatar anchored top-center of the sheet');
   assert.ok(mobileCss.includes('pointer-events:none'), 'avatar never blocks a tap');
   assert.ok(mobileCss.includes('#axoTopAvatar #axoTopAvatarFace{display:block;width:64px;height:64px;border-radius:50%;object-fit:contain;background:transparent}'), 'avatar is a small 64px circle, face contained not cropped, transparent');
-  // The open class gives the header clearance so the name + badge
-  // sit in clear space and cover no panel content.
+  // SUPERSEDED by fix round #5: the clearance band is DELETED — the
+  // avatar overlaps the top edge without displacing content, and
+  // the header keeps its old offset and spacing.
   assert.ok(mobileCss.includes('#dhaniwinAssistantSheet.axo-top-avatar-open{overflow:visible}'), 'open sheet lets the avatar paint outside its top edge');
-  assert.ok(mobileCss.includes('#dhaniwinAssistantSheet.axo-top-avatar-open #assistantSheetHeader{padding-top:76px'), 'open header clears the name + badge zone');
+  assert.ok(!mobileCss.includes('#assistantSheetHeader{padding-top:76px'), 'no clearance band pushes the header down');
   // The toggle wires it: open shows the avatar + hides the header
   // face, close restores both.
   const toggle = mobileJs.slice(mobileJs.indexOf('function toggleDhaniwinAssistantModal'), mobileJs.indexOf('window.toggleDhaniwinAssistantModal'));
@@ -88,7 +91,10 @@ test('pin 2 — subtitles are small compact matte pills, sheet line first under 
   const line = mobileHtml.split('\n').find(l => l.includes('id="smartBallLine"'));
   assert.ok(line, 'the sheet subtitle line exists');
   assert.ok(line.includes('rounded-full'), 'sheet line is a pill (rounded-full), not a card');
-  assert.ok(line.includes('bg-black/75'), 'sheet line is matte black like the Axofy pill');
+  // Fix round #5: the sheet line background is the Axofy app's
+  // subtitle background (axo-site.js card surface), not the generic
+  // matte black pill from round #4.
+  assert.ok(line.includes('bg-[rgba(28,28,31,0.92)]'), 'sheet line uses the Axofy app subtitle background');
   assert.ok(line.includes('text-center'), 'sheet line text centered');
   assert.ok(line.includes('text-[8.5px]'), 'sheet line stays small and compact');
   assert.ok(line.includes('h-[34px]'), 'sheet line keeps its fixed height (no layout jumping)');
@@ -98,9 +104,11 @@ test('pin 2 — subtitles are small compact matte pills, sheet line first under 
   const lineAt = mobileHtml.indexOf('id="smartBallLine"');
   const controlsAt = mobileHtml.indexOf('id="axoControlRow"');
   assert.ok(lineAt > bodyAt && lineAt < controlsAt, 'sheet line sits first in the body, under the avatar');
-  // The closed-ball floating subtitle is a pill too.
-  const floating = mobileHtml.split('\n').find(l => l.includes('id="axoFloatingSubtitle"'));
-  assert.ok(floating && floating.includes('rounded-full'), 'floating subtitle is a compact pill too');
+  // SUPERSEDED by fix round #5: the closed-ball floating subtitle
+  // element is DELETED — minimized state shows the prediction inside
+  // the Axo ball instead, so no floating subtitle line may exist.
+  assert.ok(!mobileHtml.includes('id="axoFloatingSubtitle"'), 'no floating subtitle element in the markup');
+  assert.ok(mobileHtml.includes('id="floatingOrbTarget"'), 'the in-ball prediction pill still exists');
 });
 
 // ── Pin 3: prediction badge text ─────────────────────────────────

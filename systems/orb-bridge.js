@@ -1015,11 +1015,10 @@ export function axoNextLang(code) {
 //    the HARD_STOP overlay only — login state is not an input at all,
 //    so it can never flip a BET to SKIP again. The base bet resolves
 //    from the verified balance when fresh, else the manual chip base.
-// 3. SUBTITLE SURFACES. Subtitle-on default shows the prediction as
-//    the floating subtitle line under the closed ball (never cramped
-//    inside it); subtitle-off shows the minimal in-ball display;
-//    the panel-open state hides the floating line (the sheet's own
-//    line shows the same text).
+// 3. SUBTITLE SURFACES. Fix round #5: no floating subtitle exists
+//    anymore — minimized state always shows the prediction inside
+//    the Axo ball; the sheet line hides only when subtitles are
+//    closed; voice follows its own switch, not the subtitle element.
 // 4. CENTERED OVERLAY. The opened sheet's geometry: centered in the
 //    viewport, never smaller than the overlay minimums.
 // 5. VOICE MATCHING. Website voice matching (axofy.shop axo-site.js):
@@ -1072,15 +1071,18 @@ export function pickAxoVoice(voices, tag) {
 }
 
 /**
- * Which prediction surfaces show, from CC + panel state. Default
- * (subtitles on, panel closed) = the floating subtitle line only;
- * the in-ball pill shows only when subtitles are closed.
+ * Which prediction surfaces show, from CC + panel state. Fix round
+ * #5: the floating subtitle element is DELETED — minimized state
+ * always shows the prediction inside the Axo ball (pillVisible
+ * whenever the panel is closed, regardless of CC); the sheet line
+ * hides only when subtitles are closed. Voice is untouched by
+ * this: it follows its own switch, not the subtitle element.
  */
 export function subtitleSurfaces({ subsOn = true, panelOpen = false } = {}) {
   return {
-    floatingVisible: !!subsOn && !panelOpen,
+    floatingVisible: false,
     sheetHidden: !subsOn,
-    pillVisible: !subsOn
+    pillVisible: !panelOpen
   };
 }
 
@@ -1227,12 +1229,10 @@ export function roadCells({ history = [], dispositions = {}, tf = '', openPeriod
 }
 
 /**
- * The in-ball prediction view for the subtitle-closed state: Axo
+ * The in-ball prediction view for the minimized state: Axo
  * face + pick + period, minimal, never the old classic ball art.
- * SKIP renders as SKIP (the in-ball display is the silent fallback
- * while subtitles are closed; when subtitles are on, the skip is
- * announced via subtitle + voice at verdict time); no verdict
- * renders the neutral dash.
+ * SKIP renders as SKIP (announced via subtitle + voice at verdict
+ * time since round #3); no verdict renders the neutral dash.
  */
 export function orbPredictionView({ verdict = null, pick = null, period = null } = {}) {
   if (verdict === 'BET' && pick) return { pickText: pick, periodText: period ? `#${shortPeriod(period)}` : '', state: 'bet' };
@@ -1944,49 +1944,24 @@ function initBridge() {
     return !modal.classList.contains('hidden') && modal.style.display !== 'none';
   }
 
-  /** Keep the floating subtitle strip glued to the closed ball,
-   *  clamped inside the viewport with margins — above the ball, or
-   *  below it when the ball sits near the top edge. */
-  function positionAxoFloatingSubtitle() {
-    const floating = $('axoFloatingSubtitle');
-    const orb = $('dhaniwinFloatingOrb');
-    if (!floating || !orb || floating.classList.contains('hidden')) return;
-    const r = orb.getBoundingClientRect();
-    const w = Math.min(230, Math.max(120, window.innerWidth - 32));
-    floating.style.width = w + 'px';
-    floating.style.left = Math.max(16, Math.min(window.innerWidth - w - 16, r.left + r.width / 2 - w / 2)) + 'px';
-    const h = floating.offsetHeight || 40;
-    const above = r.top - h - 10;
-    floating.style.top = (above >= 8 ? above : Math.min(window.innerHeight - h - 12, r.bottom + 10)) + 'px';
-  }
-
-  /** Sync the three prediction surfaces with the CC + panel state
-   *  (pure decision in subtitleSurfaces): subtitle-on default shows
-   *  the prediction as the floating subtitle line under the closed
-   *  ball — never cramped inside it; subtitle-off shows the minimal
-   *  in-ball display instead, silently. Called from say(),
-   *  applyAxoSubs(), and the panel open/close hook in mobile.js;
-   *  renderAxoOrb re-positions the strip on every cycle so it
-   *  follows the ball after a drag or rotation. */
+  /** Sync prediction surfaces with CC + panel state. Fix round #5:
+   *  no floating subtitle exists anymore: the closed ball always
+   *  shows the prediction inside it (renderAxoOrb), and the panel
+   *  subtitle line follows CC via applyAxoSubs. Called from say(),
+   *  applyAxoSubs(), and the panel open/close hook in mobile.js. */
   function syncAxoSubtitleSurfaces() {
-    const s = subtitleSurfaces({ subsOn: axoSubsOn(), panelOpen: axoPanelOpen() });
-    const floating = $('axoFloatingSubtitle');
-    if (floating) floating.classList.toggle('hidden', !s.floatingVisible);
     renderAxoOrb();
   }
 
   function say(text) {
     const el = $('smartBallLine');
-    // The sheet line and the floating strip each carry an icon slot
-    // beside the text (fix round #3): write the text span only, so
-    // a subtitle write never wipes the verdict icon.
+    // The sheet line carries an icon slot beside the text (fix round
+    // #3): write the text span only, so a subtitle write never wipes
+    // the verdict icon. Fix round #5: no floating subtitle exists —
+    // the closed ball shows the prediction inside it (renderAxoOrb).
     const sheetText = $('axoSheetVerdictText');
     if (sheetText && text) sheetText.textContent = text;
     else if (el && text) el.textContent = text;
-    const floating = $('axoFloatingSubtitle');
-    const floatingText = $('axoSubtitleText');
-    if (floatingText && text) floatingText.textContent = text;
-    else if (floating && text) floating.textContent = text;
     state.lastLine = text;
     syncAxoSubtitleSurfaces();
   }
@@ -1994,10 +1969,11 @@ function initBridge() {
   /** Write one verdict icon into every icon slot that exists. Icons
    *  are visual only and never enter a spoken string; a null kind
    *  clears all slots. Each surface's own visibility logic (sheet
-   *  open/closed, subtitles on/off) still governs display. */
+   *  open/closed, subtitles on/off) still governs display. Fix round
+   *  #5: the floating subtitle's slot is gone with the element. */
   function setVerdictIcon(kind) {
     const svg = (kind && VERDICT_ICONS[kind]) || '';
-    for (const id of ['axoSubtitleIcon', 'axoSheetVerdictIcon', 'axoHeroVerdictIcon', 'orbVerdictIcon']) {
+    for (const id of ['axoSheetVerdictIcon', 'axoHeroVerdictIcon', 'orbVerdictIcon']) {
       const slot = $(id);
       if (slot) slot.innerHTML = svg;
     }
@@ -3125,35 +3101,32 @@ function initBridge() {
       return w === 'BIG' ? 'B' : 'S';
     }).join(' ');
     const view = orbPredictionView({ verdict: v ? v.decision : null, pick: v ? v.pick : null, period: openP });
-    const key = JSON.stringify([view.pickText, view.periodText, road, axoSubsOn()]);
+    const key = JSON.stringify([view.pickText, view.periodText, road]);
     if (key === axo.lastOrbKey) return;
     axo.lastOrbKey = key;
-    // Subtitle-on default: the prediction lives in the floating
-    // subtitle line, never cramped in the ball — so the pill and
-    // under-bar hide and only the status dots remain. Subtitle-off
-    // restores the minimal in-ball display (silent). Positioning
-    // classes are never overwritten here: only text, colour (via
-    // style) and visibility change, so the pill can never lose its
-    // place on the ball.
-    const subsOn = axoSubsOn();
+    // Fix round #5: minimized state always shows the prediction
+    // inside the Axo ball itself — the floating subtitle element is
+    // deleted, so the pill, icon, and under-bar are never hidden by
+    // the subtitle switch. (The ball fades out when the panel opens,
+    // so this display is only ever seen minimized.) Positioning
+    // classes are never overwritten here: only text and colour (via
+    // style) change, so the pill can never lose its place on the ball.
     if (pill) {
       pill.textContent = view.pickText;
       pill.style.color = view.state === 'bet' ? '#fde68a' : (view.state === 'skip' ? '#d4d4d8' : '#71717a');
-      pill.classList.toggle('hidden', subsOn);
+      pill.classList.remove('hidden');
     }
     // Fix round #3: the in-ball display carries the verdict icon
-    // beside the pill (skip mark for a skipped round); it hides
-    // with the pill while subtitles are on.
+    // beside the pill (skip mark for a skipped round).
     const orbIcon = $('orbVerdictIcon');
     if (orbIcon) {
       orbIcon.innerHTML = view.state === 'bet' ? (verdictIconFor(v ? v.pick : null, 'BET').svg || '') : (view.state === 'skip' ? VERDICT_ICONS.skip : '');
-      orbIcon.classList.toggle('hidden', subsOn);
+      orbIcon.classList.remove('hidden');
     }
     if (bar) {
       bar.textContent = [view.periodText, road].filter(Boolean).join(' · ') || '—';
-      bar.classList.toggle('hidden', subsOn);
+      bar.classList.remove('hidden');
     }
-    positionAxoFloatingSubtitle();
   }
 
   // Background long analysis (display only): re-runs in idle-time

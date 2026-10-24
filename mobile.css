@@ -1257,13 +1257,18 @@ a[href*="tradingview.com"] {
    circular avatar straddling the sheet's top-center edge (see
    #axoTopAvatar in mobile.html), never a giant centered overlay
    and never covering panel content. While open, the sheet lets
-   the avatar paint outside its top edge and gives the header top
-   clearance, so the "Axo" name + prediction badge sit in clear
-   space above the header content; the panel header carries no
-   face while open (JS hides #axoFaceHost). The avatar is
-   pointer-events none, so it can never block a tap. */
+   the avatar paint outside its top edge. Fix round #5: the avatar
+   overlaps the top edge WITHOUT displacing content — the header
+   keeps its old offset and spacing, no clearance band; the avatar
+   is pointer-events none, so it can never block a tap. */
 #dhaniwinAssistantSheet.axo-top-avatar-open{overflow:visible}
-#dhaniwinAssistantSheet.axo-top-avatar-open #assistantSheetHeader{padding-top:76px;border-radius:22px 22px 0 0}
+#dhaniwinAssistantSheet.axo-top-avatar-open #assistantSheetHeader{border-radius:22px 22px 0 0}
+/* Fix round #5 — panel subtitle background = the Axofy app's
+   subtitle background: the .axo-site-card surface the spoken line
+   sits on in axo-site.js (rgba(28,28,31,.92) + 1px
+   rgba(255,255,255,.1) border), replacing the generic matte black
+   pill from round #4. Position, size, and content are unchanged. */
+#smartBallLine{background:rgba(28,28,31,.92);border-color:rgba(255,255,255,.1)}
 #axoTopAvatar{position:absolute;left:50%;top:0;transform:translate(-50%,-50%);z-index:30;display:flex;flex-direction:column;align-items:center;pointer-events:none;background:transparent}
 #axoTopAvatar #axoTopAvatarFace{display:block;width:64px;height:64px;border-radius:50%;object-fit:contain;background:transparent}
 #axoTopAvatar #axoTopAvatarName{margin-top:2px;font-size:13px;font-weight:650;line-height:1.2;color:#f4f4f6;text-shadow:0 1px 6px rgba(0,0,0,.9)}
