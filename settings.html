@@ -995,6 +995,44 @@
           </div>
           <span class="ios-tag-micro tag-neutral" id="bridgeDiagTag">…</span>
         </div>
+        <!-- Auto-Pilot mirror (orb-bridge): the toggle writes an intent
+             (o101_autopilot_settings_v1); the app page is the authority
+             that arms/disarms and this row mirrors the ACTUAL state
+             from o101_autopilot_v1. Arming still requires VERIFIED. -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-blue">
+              <i class="fa-solid fa-robot"></i>
+            </div>
+            <div>
+              <div class="ios-label-primary">Auto-Pilot</div>
+              <div class="ios-label-secondary" id="autoPilotDiagLine">Auto-Pilot off.</div>
+              <div class="ios-label-secondary" id="autoPilotDiagDetail">Stages governed BETs — you fire each one with a tap in the ball window.</div>
+            </div>
+          </div>
+          <label class="ios-switch">
+            <input type="checkbox" id="autoPilotSettingsToggle">
+            <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
+          </label>
+        </div>
+
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-purple">
+              <i class="fa-solid fa-gauge-high"></i>
+            </div>
+            <div>
+              <div class="ios-label-primary">Auto-Pilot Risk Mode</div>
+              <div class="ios-label-secondary" id="autoPilotRiskDetail">Base bet fraction of balance (bankroll.js)</div>
+            </div>
+          </div>
+          <select id="autoPilotRiskSelect" class="ios-picker-pill">
+            <option value="safe">Safe · 0.5%</option>
+            <option value="balanced">Balanced · 1%</option>
+            <option value="growth">Growth · 2.5%</option>
+            <option value="aggressive">Aggressive · 5%</option>
+          </select>
+        </div>
 
       </div>
       <div class="ios-group-footer">
@@ -2603,6 +2641,68 @@
           : state === 'NO_SIGNAL' ? 'No bridge signal — open DhaniWin with the bridge active'
           : 'Checking login… waiting for the bridge\'s API-proven user state';
         detail.textContent = 'Balance ' + bal + ' · Source ' + src + ' · Mode ' + mode + ' · Sync ' + ageText;
+      }
+      render();
+      setInterval(render, 1000);
+    })();
+  </script>
+  <script>
+    // ── Auto-Pilot mirror ───────────────────────────────────────────
+    // Writes intents only; orb-bridge on the app page applies them
+    // (arming still requires login VERIFIED at that moment and is
+    // refused with the honest reason when it is not). This panel
+    // renders the ACTUAL persisted Auto-Pilot state.
+    (function initAutoPilotMirror() {
+      var INTENT_KEY = 'o101_autopilot_settings_v1';
+      var STATE_KEY = 'o101_autopilot_v1';
+      function readState() {
+        try { var raw = localStorage.getItem(STATE_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+      }
+      function writeIntent(patch) {
+        try {
+          var raw = localStorage.getItem(INTENT_KEY);
+          var cur = raw ? JSON.parse(raw) : {};
+          var next = Object.assign({}, cur, patch, { updatedAt: Date.now() });
+          localStorage.setItem(INTENT_KEY, JSON.stringify(next));
+        } catch (e) {}
+      }
+      var toggle = document.getElementById('autoPilotSettingsToggle');
+      var select = document.getElementById('autoPilotRiskSelect');
+      if (toggle) toggle.addEventListener('change', function () {
+        writeIntent({ desiredEnabled: !!toggle.checked });
+      });
+      if (select) select.addEventListener('change', function () {
+        writeIntent({ riskMode: select.value });
+      });
+      function render() {
+        var line = document.getElementById('autoPilotDiagLine');
+        var detail = document.getElementById('autoPilotDiagDetail');
+        if (!line || !detail) return;
+        var st = readState();
+        if (!st) {
+          line.textContent = 'Auto-Pilot off.';
+          detail.textContent = 'Stages governed BETs — you fire each one with a tap in the ball window.';
+          if (toggle) toggle.checked = false;
+          return;
+        }
+        if (toggle && document.activeElement !== toggle) toggle.checked = st.enabled === true;
+        if (select && document.activeElement !== select && st.riskMode) select.value = st.riskMode;
+        if (st.stopReason) {
+          line.textContent = st.stopReason;
+        } else if (st.enabled && st.paused) {
+          line.textContent = st.pauseReason || 'Paused: login not verified.';
+        } else if (st.enabled && st.session) {
+          var pnl = st.session.pnl || 0;
+          line.textContent = 'On · session P&L ' + (pnl >= 0 ? '+' : '−') + '₹' + Math.abs(pnl).toFixed(2)
+            + ' · ' + (st.session.rounds || 0) + ' rounds · ' + (st.session.fired || 0) + ' fired';
+        } else if (st.enabled) {
+          line.textContent = 'On — staging governed BETs in the ball window.';
+        } else {
+          line.textContent = 'Auto-Pilot off.';
+        }
+        detail.textContent = 'Risk ' + (st.riskMode || 'balanced')
+          + ' · Base ' + (st.autoBase ? 'AUTO (from verified balance)' : 'manual chips')
+          + ' · Firing always needs your tap, one per bet';
       }
       render();
       setInterval(render, 1000);

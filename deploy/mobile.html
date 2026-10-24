@@ -707,6 +707,30 @@
         </div>
       </div>
 
+
+      <!-- 8. PATTERNS (orb-bridge headless engine): live numbers from the
+           persisted pattern store (o101_pattern_history_v1) — every
+           catalog pattern that fired on a settled round, per timeframe.
+           The Patterns tab is gone from the menu by the owner's order;
+           the engine and its numbers live here in Analyse. -->
+      <div id="patternStatsCard" class="liquid-glass-card p-3.5 space-y-3">
+        <div class="flex items-center justify-between pb-1.5 border-b border-white/[0.08]">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
+            <div class="flex flex-col">
+              <span class="text-[10px] font-black uppercase tracking-wider text-white flex items-center gap-1.5">
+                <i class="fa-solid fa-shapes text-sky-400"></i>
+                Patterns — Headless Engine
+              </span>
+              <span class="text-[7.5px] font-mono text-zinc-400">Walk-forward firings on real settled rounds · saved continuously</span>
+            </div>
+          </div>
+        </div>
+        <div id="patternStatsMeta" class="text-[8px] font-mono text-zinc-500">Headless engine running — no firings yet</div>
+        <div id="patternStatsList" class="space-y-1.5">
+          <div class="text-[9px] font-mono text-zinc-500 px-1 py-2">No pattern firings yet. The engine evaluates the catalog patterns on every settled round and records each firing here — nothing is back-computed or invented.</div>
+        </div>
+      </div>
     </section>
 
     <!-- ╔══════════════════════════════════════════════════════════
@@ -930,6 +954,18 @@
             </div>
           </div>
 
+
+          <!-- 1b. Balance (orb-bridge): the bridge's exact figure + source
+               tag + sync age. Renders only what the verifier state
+               carries — "—" when there is no state at all. -->
+          <div class="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08]">
+            <span class="text-[7px] font-mono text-zinc-400 tracking-wider">BALANCE</span>
+            <div class="flex items-center gap-1.5">
+              <span id="assistantBalanceAge" class="text-[6.5px] font-mono text-zinc-500"></span>
+              <span id="assistantBalanceTag" class="text-[6.5px] font-mono font-bold px-1 py-0.2 rounded bg-white/10 text-zinc-300 border border-white/10">no signal</span>
+              <span id="assistantBalanceValue" class="text-[11px] font-mono font-black text-zinc-500">—</span>
+            </div>
+          </div>
           <!-- Quick Interval Switcher Pills (30S | 1M | 3M | 5M) -->
           <div class="flex items-center justify-between gap-1 p-1 rounded-xl bg-black/40 border border-white/[0.06]">
             <button type="button" onclick="setMobileTimeframeAndSyncBridge('30s')" id="asstTfBtn-30s" class="flex-1 py-1 rounded-lg font-mono text-[8px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 transition active:scale-95 text-center">30S</button>
@@ -953,6 +989,10 @@
             </div>
           </div>
 
+
+          <!-- 2b. Auto-Pilot confirm (orb-bridge): visible only while a
+               bet is staged. This tap is the ONLY way a staged bet fires. -->
+          <button type="button" id="autoPilotConfirmBtn" onclick="window.__smartBall && window.__smartBall.confirmAutoPilotBet()" class="hidden w-full py-2 rounded-xl font-mono text-[10px] font-black bg-emerald-500/25 text-emerald-200 border border-emerald-500/40 active:scale-[0.98] transition">BET — tap to confirm</button>
           <!-- 3. Recent Sequence Road (Last Draws) -->
           <div class="space-y-1">
             <div class="flex items-center justify-between text-[7.5px] font-mono text-zinc-400 px-0.5">
@@ -970,6 +1010,7 @@
               <div class="flex items-center gap-1">
                 <span class="font-bold tracking-wider uppercase text-zinc-300">BASE BET:</span>
                 <span id="mobileWebLevelBadge" class="text-[7.5px] font-mono font-bold px-1.5 py-0.2 rounded bg-white/10 text-amber-300 border border-white/10">Level 1 (Base)</span>
+                <button type="button" id="autoBaseToggle" aria-pressed="false" onclick="window.__smartBall && window.__smartBall.toggleAutoBase()" class="text-[7.5px] font-mono font-bold px-1.5 py-0.2 rounded bg-white/10 text-zinc-300 border border-white/10 transition active:scale-95" title="AUTO base bet from your verified balance">AUTO</button>
               </div>
               <button type="button" onclick="stopAndResetMobileRecovery()" class="text-[7px] font-mono text-rose-400 hover:text-rose-300 underline underline-offset-2 transition active:scale-95" title="Reset Recovery Level">Reset</button>
             </div>
@@ -986,6 +1027,17 @@
           <!-- 5. Bridge status (orb-bridge): login evidence + governed call reason.
                Smallest possible addition — one slim line in the window's own idiom. -->
           <div id="bridgeStatusLine" class="px-2 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[7.5px] font-mono text-zinc-400 leading-relaxed">Bridge: checking login…</div>
+          <!-- 6. Auto-Pilot (orb-bridge): toggle + session line + stop
+               reason. Staging is automatic; firing is one tap per bet. -->
+          <div id="autoPilotRow" class="px-2 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-1">
+            <div class="flex items-center justify-between">
+              <span class="text-[7.5px] font-mono font-bold tracking-wider text-zinc-300">AUTO-PILOT</span>
+              <button type="button" id="autoPilotToggle" role="switch" aria-checked="false" onclick="window.__smartBall && window.__smartBall.toggleAutoPilot()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 border border-white/10 active:scale-95 transition">OFF</button>
+            </div>
+            <div id="autoPilotSessionLine" class="text-[7.5px] font-mono text-zinc-400 leading-relaxed">Auto-Pilot off.</div>
+            <div id="autoPilotStopLine" class="hidden text-[7.5px] font-mono text-rose-300 leading-relaxed"></div>
+            <button type="button" id="hardStopRearmBtn" onclick="window.__smartBall && window.__smartBall.rearmHardStop()" class="hidden text-[7px] font-mono font-bold text-amber-300 underline underline-offset-2 transition active:scale-95">Re-arm manually (override the 3-loss stop)</button>
+          </div>
 
         </div>
       </div>
@@ -1396,14 +1448,6 @@
         <span class="dock-indicator"></span>
       </button>
 
-      <!-- 4. Pattern Tab (Live Pattern Intelligence) -->
-      <button type="button" onclick="switchMobileTab('pattern')" class="dock-btn" data-tab="pattern">
-        <div class="dock-btn-pill"></div>
-        <i class="fa-solid fa-shapes"></i>
-        <span class="tab-title">Pattern</span>
-        <span class="dock-indicator"></span>
-      </button>
-
     </div>
   </nav>
 
@@ -1428,6 +1472,7 @@
   <script src="./systems/wingo_3m.js"></script>
   <script src="./systems/wingo_5m.js"></script>
   <script src="./systems/timeframe_manager.js"></script>
+  <script src="./systems/balls.js"></script>
 
   <!-- Core Mobile Orchestrator -->
   <script src="mobile.js"></script>

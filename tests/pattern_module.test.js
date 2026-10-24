@@ -250,6 +250,12 @@ test('TEST 10 — MENU INTEGRITY: live app dock (owner spec superseded 2026-10-2
   // "exact same" order) ships a 4-destination dock — Web (the embedded
   // DhaniWin home), Home (Analyse), AI (Ranking), Pattern — and the
   // menu integrity rule is now: the dock is exactly the live app's.
+  //
+  // SUPERSEDED ONCE MORE by the owner's Auto-Pilot-build order
+  // (2026-10-24): remove the Patterns entry from the menu ONLY. The
+  // pattern engine, its persisted store and the Analyse numbers stay;
+  // the #tab-pattern section stays in the DOM, unlinked. The dock is
+  // now exactly Web / Home / AI.
   const mobileHtmlPath = path.resolve('mobile.html');
   const content = fs.readFileSync(mobileHtmlPath, 'utf8');
 
@@ -260,9 +266,10 @@ test('TEST 10 — MENU INTEGRITY: live app dock (owner spec superseded 2026-10-2
   const dockHtml = dockMatch[0];
   const tabMatches = [...dockHtml.matchAll(/data-tab="([^"]+)"/g)].map(m => m[1]);
 
-  assert.deepEqual(tabMatches, ['web', 'home', 'ai', 'pattern'], 'dock is the live app\'s own 4 destinations, in order');
+  assert.deepEqual(tabMatches, ['web', 'home', 'ai'], 'dock is Web / Home / AI — Patterns entry removed from the menu by owner order (engine + data stay)');
 
-  // Every dock destination has its section in the DOM.
+  // Every dock destination has its section in the DOM — and the
+  // pattern section also stays in the DOM, unlinked from the menu.
   for (const tab of ['web', 'home', 'ai', 'pattern', 'sim']) {
     assert.ok(content.includes(`id="tab-${tab}"`), `tab-${tab} section must exist in DOM`);
   }

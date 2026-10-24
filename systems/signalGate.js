@@ -73,6 +73,137 @@ export class GateCooldown {
   }
 }
 
+export const HARD_STOP_LOSSES = 3;
+export const HARD_STOP_REASON = '3-loss streak — stopped';
+
+/**
+ * GovernedStreakGuard — the ONE streak counter and ONE stop state for
+ * the governed flow (owner's rule, 2026-10-24: never a 4th bet into a
+ * losing streak).
+ *
+ * It reconciles what used to be parallel mechanisms:
+ *  - the GateCooldown behaviour (2 settled losses → the gate demands
+ *    +0.03 extra edge for the next 3 rounds) is DERIVED from this
+ *    guard's single counter via beginRound()/cooldownSnapshot() — the
+ *    gate still receives the same {active, roundsLeft, extraMargin,
+ *    lossStreak} input shape, but there is no second counter to
+ *    disagree with this one. (The standalone GateCooldown class above
+ *    remains for its own unit tests; the runtime no longer wires it.)
+ *  - the bankroll session's internal 3-loss ladder breaker stays a
+ *    money consequence of the same settlements (it ends that
+ *    session's ladder); the AUTHORITY that blocks verdicts, staging
+ *    and Auto-Pilot is this guard's HARD_STOP, and only this.
+ *
+ * Counting rules: only SETTLED governed BET picks count (fired bets
+ * when Auto-Pilot is on; governed BET verdicts in the advice flow).
+ * SKIP rounds never touch the counter. A win resets it to 0.
+ *
+ * HARD_STOP (at 3 consecutive losses): every governed verdict is SKIP
+ * with HARD_STOP_REASON, Auto-Pilot switches OFF, staging is
+ * impossible. It clears ONLY when (i) the would-be governed pick wins
+ * twice consecutively in shadow — tracked silently via
+ * recordShadowPick() while stopped — or (ii) the owner manually
+ * re-arms via manualRearm(). Clearing resets the counter to 0 and is
+ * recorded in `lastClear` so the UI/report can say how it cleared.
+ */
+export class GovernedStreakGuard {
+  constructor({ hardStopLosses = HARD_STOP_LOSSES, cooldownTriggerLosses = 2, cooldownRounds = 3, cooldownExtraMargin = DEFAULT_GATE_CONFIG.cooldownExtraMargin, shadowWinsToClear = 2 } = {}) {
+    this.hardStopLosses = hardStopLosses;
+    this.cooldownTriggerLosses = cooldownTriggerLosses;
+    this.cooldownRounds = cooldownRounds;
+    this.cooldownExtraMargin = cooldownExtraMargin;
+    this.shadowWinsToClear = shadowWinsToClear;
+    this.consecutiveLosses = 0;
+    this.hardStopped = false;
+    this.shadowWins = 0;
+    this.cooldownRoundsLeft = 0;
+    this.stoppedAt = null;
+    this.lastClear = null; // { source: 'shadow' | 'manual', at }
+  }
+
+  /** Gate input for the round being evaluated; consumes one cooldown round. */
+  beginRound() {
+    if (!this.hardStopped && this.cooldownRoundsLeft > 0) {
+      const snap = { active: true, roundsLeft: this.cooldownRoundsLeft, extraMargin: this.cooldownExtraMargin, lossStreak: this.consecutiveLosses };
+      this.cooldownRoundsLeft -= 1;
+      return snap;
+    }
+    return { active: false, roundsLeft: 0, extraMargin: 0, lossStreak: this.consecutiveLosses };
+  }
+
+  /** Record the settlement of one governed BET pick (never a SKIP). */
+  recordSettledBet(won, at = null) {
+    if (this.hardStopped) return this.snapshot();
+    if (won) {
+      this.consecutiveLosses = 0;
+      this.cooldownRoundsLeft = 0;
+      return this.snapshot();
+    }
+    this.consecutiveLosses += 1;
+    if (this.consecutiveLosses >= this.hardStopLosses) {
+      this.hardStopped = true;
+      this.shadowWins = 0;
+      this.cooldownRoundsLeft = 0;
+      this.stoppedAt = at;
+    } else if (this.consecutiveLosses >= this.cooldownTriggerLosses) {
+      this.cooldownRoundsLeft = this.cooldownRounds;
+    }
+    return this.snapshot();
+  }
+
+  /**
+   * While HARD_STOPPED, track the would-be governed pick's outcome
+   * silently. Two consecutive shadow wins clear the stop.
+   */
+  recordShadowPick(won) {
+    if (!this.hardStopped) return this.snapshot();
+    if (won) {
+      this.shadowWins += 1;
+      if (this.shadowWins >= this.shadowWinsToClear) this._clear('shadow');
+    } else {
+      this.shadowWins = 0;
+    }
+    return this.snapshot();
+  }
+
+  /** Owner override from the window. Returns true when a stop was cleared. */
+  manualRearm(at = null) {
+    if (!this.hardStopped) return false;
+    this._clear('manual', at);
+    return true;
+  }
+
+  _clear(source, at = null) {
+    this.hardStopped = false;
+    this.consecutiveLosses = 0;
+    this.shadowWins = 0;
+    this.cooldownRoundsLeft = 0;
+    this.stoppedAt = null;
+    this.lastClear = { source, at };
+  }
+
+  snapshot() {
+    return {
+      consecutiveLosses: this.consecutiveLosses,
+      hardStopped: this.hardStopped,
+      shadowWins: this.shadowWins,
+      cooldownRoundsLeft: this.cooldownRoundsLeft,
+      stoppedAt: this.stoppedAt,
+      lastClear: this.lastClear ? { ...this.lastClear } : null
+    };
+  }
+
+  restore(snap) {
+    if (!snap || typeof snap !== 'object') return;
+    this.consecutiveLosses = Number(snap.consecutiveLosses) || 0;
+    this.hardStopped = snap.hardStopped === true;
+    this.shadowWins = Number(snap.shadowWins) || 0;
+    this.cooldownRoundsLeft = Number(snap.cooldownRoundsLeft) || 0;
+    this.stoppedAt = snap.stoppedAt ?? null;
+    this.lastClear = snap.lastClear || null;
+  }
+}
+
 function pickOf(entry) {
   if (!entry) return null;
   const p = entry.pick ?? entry.predTarget ?? entry.prediction ?? entry.predColor ?? entry.predSize;
@@ -206,7 +337,7 @@ export class SignalGate {
 export const evaluateGate = evaluateSignalGate;
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { GATE_DECISIONS, DEFAULT_GATE_CONFIG, breakEvenWinRate, evaluateSignalGate, evaluateGate, SignalGate, GateCooldown };
+  module.exports = { GATE_DECISIONS, DEFAULT_GATE_CONFIG, breakEvenWinRate, evaluateSignalGate, evaluateGate, SignalGate, GateCooldown, GovernedStreakGuard, HARD_STOP_LOSSES, HARD_STOP_REASON };
 }
 
 if (typeof self !== "undefined") {

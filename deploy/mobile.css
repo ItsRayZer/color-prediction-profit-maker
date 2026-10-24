@@ -1299,10 +1299,10 @@ a[href*="tradingview.com"] {
   cursor: ns-resize;
 }
 .resize-edge-t {
-  top: -5px;
+  top: -6px;
   left: 14px;
   right: 14px;
-  height: 14px;
+  height: 9px;
   cursor: ns-resize;
 }
 

@@ -269,8 +269,21 @@ export class InchargeEngine {
     const blacklist = options.blacklist ?? this.config.blacklist;
 
     const ranked = this.rankModels(models, metricType, { blacklist });
-    const fallbackRanked = ranked.length > 0 ? ranked : this.rankModels(models, metricType);
     const blacklistedExcluded = models.length - ranked.length;
+    // AUDIT FIX (2026-10-24): the old code fell back to re-ranking WITH
+    // the blacklisted models when the eligible pool was empty, which
+    // crowned a blacklisted model — violating this module's own rule
+    // ("never put Incharge while blacklisted"). When a blacklist is in
+    // force and it excludes EVERYONE, there is no Incharge: return
+    // null and let the caller SKIP. (When no blacklist is in force,
+    // rankModels cannot return empty for a non-empty model list.)
+    if (ranked.length === 0) {
+      this.state = 'NORMAL';
+      this.activeStreakModelId = null;
+      this.activeStreakCount = 0;
+      return null;
+    }
+    const fallbackRanked = ranked;
 
     // Base champion: must clear BOTH the sample floor and the win-rate
     // floor to hold the base on merit. Graceful fallback: best Wilson.

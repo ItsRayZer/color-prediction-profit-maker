@@ -1545,9 +1545,9 @@ function renderHeroSequentialBallRoad(list) {
 
     return `<div class="flex flex-col items-center gap-0.5 shrink-0" title="Period #${r.period} - Num ${n} (${r.size})">
       <div class="relative">
-        <div class="ball-3d ${ballBg} w-6 h-6 rounded-full flex items-center justify-center font-mono font-black text-[10.5px] text-white shadow-sm ${isNewest ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-black' : ''}">
+        ${(window.ballImg && window.ballImg(n, 24, isNewest ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-black shadow-sm' : 'shadow-sm')) || `<div class="ball-3d ${ballBg} w-6 h-6 rounded-full flex items-center justify-center font-mono font-black text-[10.5px] text-white shadow-sm ${isNewest ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-black' : ''}">
           ${n}
-        </div>
+        </div>`}
         ${isNewest ? '<span class="absolute -top-1 -right-1 flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span></span>' : ''}
       </div>
       <span class="text-[7px] font-mono text-zinc-500 font-semibold">${periodShort}</span>
@@ -1705,7 +1705,7 @@ function renderMobileHistoryGraph(list) {
     const balls = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => {
       if (i === n) {
         return `<div class="flex items-center justify-center">
-          <div class="ball-3d ${BALL_COLOR_CLASSES[n] || 'ball-red'} w-4 h-4 rounded-full flex items-center justify-center font-black text-[8px] text-white shadow-sm">${n}</div>
+          ${(window.ballImg && window.ballImg(n, 16, 'shadow-sm')) || `<div class="ball-3d ${BALL_COLOR_CLASSES[n] || 'ball-red'} w-4 h-4 rounded-full flex items-center justify-center font-black text-[8px] text-white shadow-sm">${n}</div>`}
         </div>`;
       }
       return `<div class="flex items-center justify-center">
@@ -2169,6 +2169,16 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
     isWin = null;
   }
 
+  // Governor disposition (orb-bridge, 2026-10-24): a round the governor
+  // SKIPped — or an Auto-Pilot round with no FIRED bet — gets NO
+  // win/loss treatment in this flow: no recovery-ledger movement, no
+  // celebration banner / money rain, no win/loss sound. The history
+  // row above still records the app's own raw outcome as data; only
+  // the user-facing win/loss treatment is suppressed. When the
+  // governor recorded no verdict for the round, nothing changes.
+  const governorSuppressed = typeof window.__o101GovernorSuppresses === 'function'
+    ? window.__o101GovernorSuppresses(tf, periodStr) === true : false;
+
   // Dispatch to Local Web Worker
   if (modelWorker) {
     modelWorker.postMessage({
@@ -2250,7 +2260,7 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
   }
 
   // Resolve Mobile DhaniWin Loss Recovery Martingale Progression & Max 3-Loss Circuit Breaker
-  if (tf === MobileState.timeframe && window.MobileBridgeState) {
+  if (tf === MobileState.timeframe && window.MobileBridgeState && !governorSuppressed) {
     if (wasPaused) {
       // Round was paused by circuit breaker: do NOT alter PnL, do NOT alter wins/losses!
       MobileBridgeState.circuitBreakerPauseRounds--;
@@ -2330,7 +2340,7 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
   }
 
   // Win/loss celebration: ONLY show popup and sound if settled timeframe is the active timeframe and there was an authentic prediction
-  if (tf === MobileState.timeframe && hasAuthenticPrediction) {
+  if (tf === MobileState.timeframe && hasAuthenticPrediction && !governorSuppressed) {
     showWinLossCelebration(isWin, target, number, size, color, periodStr, simProfit, tf);
   }
 
@@ -6184,9 +6194,9 @@ function renderAssistantMiniRoad(list) {
     }
 
     return `<div class="relative flex flex-col items-center shrink-0">
-      <div class="ball-3d ${ballBg} w-6 h-6 rounded-full flex items-center justify-center font-mono font-black text-[10px] text-white shadow-sm">
+      ${(window.ballImg && window.ballImg(n, 24, 'shadow-sm')) || `<div class="ball-3d ${ballBg} w-6 h-6 rounded-full flex items-center justify-center font-mono font-black text-[10px] text-white shadow-sm">
         ${n}
-      </div>
+      </div>`}
       ${badge}
       <span class="text-[6.5px] font-mono text-zinc-500 mt-0.5">${String(r.period).slice(-3)}</span>
     </div>`;
@@ -6416,6 +6426,7 @@ const ASSISTANT_SIZE_PRESETS = [
 ];
 
 function cycleAssistantBoxSizePreset(e) {
+  if (window.__assistantBoxBusy) return; // a drag/resize owns the sheet geometry right now
   if (e && e.stopPropagation) e.stopPropagation();
   const sheet = document.getElementById('dhaniwinAssistantSheet');
   if (!sheet) return;
@@ -6459,6 +6470,7 @@ function cycleAssistantBoxSizePreset(e) {
 window.cycleAssistantBoxSizePreset = cycleAssistantBoxSizePreset;
 
 function toggleDhaniwinAssistantModal(show) {
+  if (window.__assistantBoxBusy) return; // never reposition the sheet mid-drag/resize
   const modal = $('dhaniwinAssistantModal');
   const sheet = $('dhaniwinAssistantSheet');
   const orb = $('dhaniwinFloatingOrb');
@@ -6582,6 +6594,7 @@ function initDhaniwinAssistantSheetDrag() {
     // If user clicked buttons or resize handles, ignore header drag
     if (e.target.closest('button, .assistant-resize-handle')) return;
     isDraggingBox = true;
+    window.__assistantBoxBusy = true;
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     dragStartX = clientX;
@@ -6613,6 +6626,7 @@ function initDhaniwinAssistantSheetDrag() {
   const onDragUp = () => {
     if (!isDraggingBox) return;
     isDraggingBox = false;
+    window.__assistantBoxBusy = false;
     sheet.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
     const rect = sheet.getBoundingClientRect();
     _assistantBoxPos = { left: rect.left, top: rect.top };
@@ -6644,6 +6658,7 @@ function initDhaniwinAssistantSheetDrag() {
 
   const onResizeStart = (dir, e) => {
     isResizing = true;
+    window.__assistantBoxBusy = true;
     activeResizeDir = dir;
     sheet.classList.add('assistant-sheet-resizing');
 
@@ -6718,6 +6733,7 @@ function initDhaniwinAssistantSheetDrag() {
   const onResizeEnd = () => {
     if (!isResizing) return;
     isResizing = false;
+    window.__assistantBoxBusy = false;
     sheet.classList.remove('assistant-sheet-resizing');
     sheet.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
 

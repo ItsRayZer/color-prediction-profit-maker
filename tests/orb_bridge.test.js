@@ -153,7 +153,11 @@ test('Rebased pages wiring: live base preserved, governance loaded on mobile onl
   assert.ok(!mobile.includes('id="bridgeRankingOverlay"'), 'no duplicate ranking overlay: the live AI tab has the leaderboard');
 
   const dockTabs = [...mobile.matchAll(/data-tab="([^"]+)"/g)].map(m => m[1]);
-  assert.deepEqual([...new Set(dockTabs)].sort(), ['ai', 'home', 'pattern', 'web'], 'dock is the live app\'s own: Web / Home / AI / Pattern');
+  // Owner's order 2026-10-24 (Auto-Pilot build): the Patterns entry is
+  // removed from the menu ONLY — the pattern engine, its persisted
+  // data and the Analyse numbers stay. Dock is now Web / Home / AI.
+  assert.deepEqual([...new Set(dockTabs)].sort(), ['ai', 'home', 'web'], 'dock per owner order: Web / Home / AI (Patterns entry removed from the menu)');
+  assert.ok(mobile.includes('id="tab-pattern"'), 'the pattern section itself stays in the DOM, unlinked');
   assert.ok(mobile.includes('id="bridgeStatusLine"'), 'orb status line present in the live ball window');
 
   assert.ok(!mobileJs.includes('currentHistory.slice(0, 30)'), 'mobile Analyse history is not capped at 30 on the live base either');
