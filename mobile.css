@@ -1267,6 +1267,27 @@ a[href*="tradingview.com"] {
   border-radius: 22px;
 }
 
+/* ── One-verdict sheet: fixed-height verdict regions ──────────────────
+   The governed status line and the Auto-Pilot session line swap text
+   on every cycle (verdicts, sync ages). Their heights are fixed here,
+   in plain CSS, so a text swap can never resize or shift the sheet —
+   long content scrolls inside its own region instead. */
+#bridgeStatusLine {
+  box-sizing: border-box;
+  height: 62px;
+  overflow-y: auto;
+}
+#autoPilotSessionLine {
+  box-sizing: border-box;
+  height: 26px;
+  overflow-y: auto;
+}
+#autoPilotConfirmSlot {
+  box-sizing: border-box;
+  height: 34px;
+  flex-shrink: 0;
+}
+
 /* ── Apple-Grade Interactive Edge & Corner Resize Handles ── */
 .assistant-resize-handle {
   position: absolute;

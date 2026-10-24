@@ -978,10 +978,10 @@
           <div class="relative overflow-hidden p-2.5 rounded-xl border border-white/[0.1] bg-gradient-to-b from-white/[0.06] to-white/[0.01] flex items-center justify-between">
             <div class="flex flex-col">
               <span class="text-[7px] font-mono uppercase tracking-widest text-zinc-400">NEXT PREDICTION</span>
-              <span id="mobileWebTargetDisplay" class="text-2xl font-black tracking-tight text-amber-300 mt-0.5 drop-shadow-[0_0_12px_rgba(245,158,11,0.35)]">BIG</span>
+              <span id="mobileWebTargetDisplay" class="text-2xl font-black tracking-tight text-zinc-500 mt-0.5 drop-shadow-[0_0_12px_rgba(245,158,11,0.35)]">—</span>
             </div>
             <div class="flex flex-col items-end gap-1">
-              <span id="assistantConfBadge" class="text-[8.5px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/35">84%</span>
+              <span id="assistantConfBadge" class="text-[8.5px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/35">—</span>
               <div class="flex flex-col items-end text-[7px] font-mono leading-tight">
                 <span class="text-zinc-400">Base: <b id="assistantBaseStakeDisplay" class="text-zinc-200 font-bold">₹2</b></span>
                 <span class="text-zinc-400">Bet: <b id="mobileWebStakeDisplay" class="text-emerald-400 font-bold">₹2</b></span>
@@ -991,8 +991,12 @@
 
 
           <!-- 2b. Auto-Pilot confirm (orb-bridge): visible only while a
-               bet is staged. This tap is the ONLY way a staged bet fires. -->
-          <button type="button" id="autoPilotConfirmBtn" onclick="window.__smartBall && window.__smartBall.confirmAutoPilotBet()" class="hidden w-full py-2 rounded-xl font-mono text-[10px] font-black bg-emerald-500/25 text-emerald-200 border border-emerald-500/40 active:scale-[0.98] transition">BET — tap to confirm</button>
+               bet is staged. This tap is the ONLY way a staged bet fires.
+               The slot height is reserved whether or not a bet is
+               staged, so staging never resizes the sheet. -->
+          <div id="autoPilotConfirmSlot" class="h-[34px] shrink-0">
+            <button type="button" id="autoPilotConfirmBtn" onclick="window.__smartBall && window.__smartBall.confirmAutoPilotBet()" class="hidden w-full py-2 rounded-xl font-mono text-[10px] font-black bg-emerald-500/25 text-emerald-200 border border-emerald-500/40 active:scale-[0.98] transition">BET — tap to confirm</button>
+          </div>
           <!-- 3. Recent Sequence Road (Last Draws) -->
           <div class="space-y-1">
             <div class="flex items-center justify-between text-[7.5px] font-mono text-zinc-400 px-0.5">
@@ -1026,7 +1030,7 @@
 
           <!-- 5. Bridge status (orb-bridge): login evidence + governed call reason.
                Smallest possible addition — one slim line in the window's own idiom. -->
-          <div id="bridgeStatusLine" class="px-2 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[7.5px] font-mono text-zinc-400 leading-relaxed">Bridge: checking login…</div>
+          <div id="bridgeStatusLine" class="px-2 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[7.5px] font-mono text-zinc-400 leading-relaxed h-[62px] overflow-y-auto">Bridge: checking login…</div>
           <!-- 6. Auto-Pilot (orb-bridge): toggle + session line + stop
                reason. Staging is automatic; firing is one tap per bet. -->
           <div id="autoPilotRow" class="px-2 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-1">
@@ -1034,7 +1038,7 @@
               <span class="text-[7.5px] font-mono font-bold tracking-wider text-zinc-300">AUTO-PILOT</span>
               <button type="button" id="autoPilotToggle" role="switch" aria-checked="false" onclick="window.__smartBall && window.__smartBall.toggleAutoPilot()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 border border-white/10 active:scale-95 transition">OFF</button>
             </div>
-            <div id="autoPilotSessionLine" class="text-[7.5px] font-mono text-zinc-400 leading-relaxed">Auto-Pilot off.</div>
+            <div id="autoPilotSessionLine" class="text-[7.5px] font-mono text-zinc-400 leading-relaxed h-[26px] overflow-y-auto">Auto-Pilot off.</div>
             <div id="autoPilotStopLine" class="hidden text-[7.5px] font-mono text-rose-300 leading-relaxed"></div>
             <button type="button" id="hardStopRearmBtn" onclick="window.__smartBall && window.__smartBall.rearmHardStop()" class="hidden text-[7px] font-mono font-bold text-amber-300 underline underline-offset-2 transition active:scale-95">Re-arm manually (override the 3-loss stop)</button>
           </div>
@@ -1473,6 +1477,7 @@
   <script src="./systems/wingo_5m.js"></script>
   <script src="./systems/timeframe_manager.js"></script>
   <script src="./systems/balls.js"></script>
+  <script src="./systems/dhani-transport.js"></script>
 
   <!-- Core Mobile Orchestrator -->
   <script src="mobile.js"></script>

@@ -10,6 +10,10 @@
   
   <!-- FontAwesome & SF Pro Font Definitions -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Axofy theme fonts: Plus Jakarta Sans (UI) + Instrument Serif (display) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   
   <style>
     /* ==========================================================================
@@ -824,6 +828,242 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
   </style>
+
+  <style>
+    /* ════════════════════════════════════════════════════════════════
+       AXOFY THEME (2026-10-24 redesign) — layered over the base iOS
+       stylesheet above; every component class, control id and
+       localStorage key is unchanged. Tokens: bg #040405, text
+       #f4f4f6, muted #8b8b93, gold #ffd166. MATTE glass only — no
+       shine/gloss/specular effects anywhere in this block.
+       ════════════════════════════════════════════════════════════════ */
+    :root {
+      --ios-amoled-bg: #040405;
+      --ios-surface-glass: rgba(255, 255, 255, 0.04);
+      --ios-surface-pressed: rgba(255, 255, 255, 0.07);
+      --ios-hairline: rgba(255, 255, 255, 0.09);
+      --ios-separator: rgba(255, 255, 255, 0.07);
+      --label-primary: #f4f4f6;
+      --label-secondary: #8b8b93;
+      --label-tertiary: rgba(244, 244, 246, 0.38);
+      --axofy-gold: #ffd166;
+      --axofy-panel: rgba(255, 255, 255, 0.04);
+      --axofy-border: rgba(255, 255, 255, 0.09);
+    }
+
+    html, body {
+      background-color: #040405;
+      color: #f4f4f6;
+      font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "SF Pro Text", Helvetica, Arial, sans-serif;
+      padding-bottom: calc(108px + env(safe-area-inset-bottom, 20px));
+    }
+
+    /* No ambient glow in the matte theme. */
+    .liquid-mesh { display: none; }
+
+    .ios-navbar {
+      background: rgba(4, 4, 5, 0.86) !important;
+      border-bottom: 0.5px solid var(--axofy-border);
+    }
+    .ios-nav-title { font-family: "Plus Jakarta Sans", sans-serif; }
+
+    .ios-large-title {
+      font-family: "Instrument Serif", Georgia, serif;
+      font-weight: 400;
+      letter-spacing: 0;
+      color: #f4f4f6;
+    }
+    .ios-subtitle-pill {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--axofy-border);
+      color: #8b8b93;
+    }
+
+    /* Matte glass panels, 22px radius, no specular inset highlights. */
+    .ios-inset-group {
+      background: var(--axofy-panel);
+      border: 1px solid var(--axofy-border);
+      border-radius: 22px;
+      box-shadow: none;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+    .ios-bronze-card {
+      background: rgba(255, 209, 102, 0.05);
+      border: 1px solid rgba(255, 209, 102, 0.22);
+      border-radius: 22px;
+      box-shadow: none;
+    }
+    .ios-guide-box {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--axofy-border);
+      border-radius: 16px;
+      box-shadow: none;
+    }
+
+    .ios-group-title {
+      color: #8b8b93;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+    }
+    .ios-group-title .ios-tag-micro { letter-spacing: 0.02em; }
+    .ios-group-footer { color: #8b8b93; }
+    .ios-label-primary { color: #f4f4f6; }
+    .ios-label-secondary { color: #8b8b93; }
+    .ios-value-label { color: #f4f4f6; }
+    .ios-chevron { color: rgba(244, 244, 246, 0.35); }
+
+    /* Icon tiles: muted matte colour, thin border, no gloss/shadow. */
+    .ios-squircle, .ios-icon-box {
+      box-shadow: none;
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      filter: saturate(0.45);
+    }
+
+    /* Tags: matte tints. */
+    .ios-tag-micro { box-shadow: none; }
+    .tag-active { background: rgba(255, 209, 102, 0.14); color: var(--axofy-gold); border-color: rgba(255, 209, 102, 0.30); }
+    .tag-neutral { background: rgba(255, 255, 255, 0.07); color: #b9b9c0; }
+    .tag-warning { background: rgba(255, 159, 10, 0.13); color: #ff9f0a; }
+    .tag-danger { background: rgba(255, 69, 58, 0.13); color: #ff6961; }
+    .ios-scheme-badge {
+      background: rgba(255, 255, 255, 0.07);
+      color: #b9b9c0;
+      border: 1px solid var(--axofy-border);
+      box-shadow: none;
+    }
+
+    /* Switches: gold when on. */
+    .ios-switch-track { background-color: rgba(255, 255, 255, 0.16); }
+    .ios-switch input:checked + .ios-switch-track { background-color: var(--axofy-gold); }
+    .ios-switch input:checked + .ios-switch-track .ios-switch-thumb { background-color: #ffffff; }
+
+    /* Pills, pickers, chips, segmented: matte. */
+    .ios-picker-pill {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--axofy-border);
+      color: #f4f4f6;
+      box-shadow: none;
+      font-family: "Plus Jakarta Sans", sans-serif;
+    }
+    .ios-picker-pill option { background: #121214; color: #f4f4f6; }
+    .ios-segmented {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--axofy-border);
+      box-shadow: none;
+    }
+    .ios-seg-btn { color: #8b8b93; box-shadow: none; }
+    .ios-seg-btn.active { background: var(--axofy-gold); color: #161616; }
+    .ios-sound-chip {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--axofy-border);
+      color: #f4f4f6;
+      box-shadow: none;
+    }
+
+    /* Buttons: matte gold primary. */
+    .ios-gold-btn {
+      background: var(--axofy-gold);
+      color: #161616;
+      box-shadow: none;
+    }
+    .ios-action-btn.primary {
+      background: var(--axofy-gold);
+      color: #161616;
+      box-shadow: none;
+    }
+    .ios-action-btn.secondary {
+      background: rgba(255, 255, 255, 0.06);
+      color: #f4f4f6;
+      border: 1px solid var(--axofy-border);
+      box-shadow: none;
+    }
+    .ios-modal-btn {
+      background: var(--axofy-gold);
+      color: #161616;
+      box-shadow: none;
+    }
+
+    /* Sheets + subpage + inputs. */
+    .ios-sheet-card {
+      background: #0a0a0c;
+      border: 1px solid var(--axofy-border);
+      border-bottom: none;
+      border-radius: 26px 26px 0 0;
+      box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.6);
+    }
+    .ios-subpage { background: #040405; }
+    .ios-endpoint-input {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--axofy-border);
+      border-radius: 14px;
+      color: #f4f4f6;
+      font-family: "Plus Jakarta Sans", sans-serif;
+      box-shadow: none;
+    }
+    .ios-endpoint-input::placeholder { color: rgba(244, 244, 246, 0.30); }
+    #appleToast {
+      background: rgba(16, 16, 19, 0.92);
+      border: 1px solid var(--axofy-border);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    /* ── Floating search pill (Apple style, matte) ──────────────────
+       Collapsed: a compact frosted pill floating bottom-right above
+       the safe area — it overlays nothing it can block for long, and
+       the page's bottom padding lets every section scroll clear of
+       it. Tapping expands it into a full-width field anchored to
+       both margins; typing filters live; × clears (or collapses when
+       empty); Esc collapses and resets. */
+    .ios-search-shell {
+      position: fixed;
+      top: auto;
+      left: auto;
+      right: 16px;
+      bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+      width: 124px;
+      height: 46px;
+      margin: 0;
+      z-index: 45;
+      background: rgba(18, 18, 21, 0.86);
+      backdrop-filter: blur(22px) saturate(150%);
+      -webkit-backdrop-filter: blur(22px) saturate(150%);
+      border: 1px solid rgba(255, 255, 255, 0.13);
+      border-radius: 999px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+    }
+    .ios-search-shell:hover {
+      transform: none;
+      border-color: rgba(255, 255, 255, 0.20);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+    }
+    .ios-search-shell:focus-within {
+      border-color: rgba(255, 209, 102, 0.55);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+      background: rgba(18, 18, 21, 0.94);
+    }
+    .ios-search-btn-icon {
+      background: rgba(255, 209, 102, 0.15);
+      color: var(--axofy-gold);
+      box-shadow: none;
+    }
+    .ios-search-collapsed-label {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #b9b9c0;
+      letter-spacing: -0.1px;
+    }
+    .ios-search-shell .ios-search-input { display: none; cursor: text; }
+    .ios-search-shell.expanded { left: 16px; width: auto; }
+    .ios-search-shell.expanded .ios-search-input { display: block; }
+    .ios-search-shell.expanded .ios-search-collapsed-label { display: none; }
+    .ios-search-input { color: #f4f4f6; font-family: "Plus Jakarta Sans", sans-serif; }
+    .ios-search-input::placeholder { color: #8b8b93; }
+    .ios-search-clear { background: rgba(255, 255, 255, 0.14); box-shadow: none; }
+  </style>
 </head>
 
 <body>
@@ -856,13 +1096,15 @@
       </div>
     </div>
 
-    <!-- CUPERTINO FLOATING BUTTON-LIKE SEARCH BAR -->
-    <div class="ios-search-shell" onclick="document.getElementById('appleSettingsSearch').focus();">
+    <!-- FLOATING SEARCH PILL (Axofy theme): collapsed it floats
+         bottom-right; tap expands it into a full search field. -->
+    <div class="ios-search-shell" id="settingsSearchShell" onclick="expandSettingsSearch(event)">
       <div class="ios-search-btn-icon">
         <i class="fa-solid fa-magnifying-glass"></i>
       </div>
-      <input type="text" id="appleSettingsSearch" class="ios-search-input" placeholder="Search settings..." oninput="filterSettings(this.value)">
-      <button id="searchClearBtn" class="ios-search-clear" onclick="event.stopPropagation(); clearSettingsSearch()">✕</button>
+      <span class="ios-search-collapsed-label">Search</span>
+      <input type="text" id="appleSettingsSearch" class="ios-search-input" placeholder="Search settings..." oninput="filterSettings(this.value)" onkeydown="if (event.key === 'Escape') collapseSettingsSearch()" autocomplete="off">
+      <button id="searchClearBtn" class="ios-search-clear" onclick="event.stopPropagation(); handleSearchClear()">✕</button>
     </div>
 
     <!-- PROFILE / ACCOUNT CARD (Apple ID Inset) -->
@@ -883,7 +1125,7 @@
               DhaniWin Connected • Period Synced
             </div>
             <div style="font-size: 11px; color: var(--apple-blue-tint); margin-top: 3px; font-weight: 500;">
-              Subscription, Cloudflare Edge &amp; Security
+              Account · Edge · Security
             </div>
           </div>
         </div>
@@ -912,7 +1154,7 @@
 
       <div id="settingsPageCoffeeBody">
         <p style="font-size: 12px; color: rgba(235, 235, 245, 0.75); line-height: 17px; margin: 10px 0 0 0;">
-          Our real-time prediction engines, 101 AI models, and zero-delay edge nodes run 24/7 without banner ads or subscriptions. If this helps you, consider buying a coffee!
+          01:01 runs ad-free on community support. A coffee keeps the servers on.
         </p>
 
         <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" class="ios-gold-btn">
@@ -922,7 +1164,7 @@
         </a>
 
         <p style="font-size: 10px; font-family: ui-monospace, monospace; color: rgba(255, 214, 10, 0.85); text-align: center; margin: 8px 0 0 0;">
-          ✨ After buying a coffee, this won't come again for a while (7 days)
+          Supporter status lasts 7 days.
         </p>
 
         <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 6px; border-top: 0.5px solid rgba(255,255,255,0.08); font-size: 10px; font-family: ui-monospace, monospace; color: rgba(235, 235, 245, 0.5);">
@@ -1036,7 +1278,7 @@
 
       </div>
       <div class="ios-group-footer">
-        Upstream results are polled directly with low-latency round-trip time (RTT) estimation to ensure zero-delay countdown settlement.
+        Low-latency upstream polling, settled on time.
       </div>
     </div>
 
@@ -1064,7 +1306,7 @@
         </div>
       </div>
       <div class="ios-group-footer">
-        Change the embedded platform website on your Home screen and connect custom WinGo draw APIs. Auto-reverts to default if connection fails.
+        Embedded platform + custom draw APIs. Reverts to default if a custom URL fails.
       </div>
     </div>
 
@@ -1081,7 +1323,7 @@
             </div>
             <div>
               <div class="ios-label-primary">Outside Notifications</div>
-              <div class="ios-label-secondary">High-confidence alerts in background</div>
+              <div class="ios-label-secondary">Background high-confidence alerts</div>
             </div>
           </div>
           <div class="ios-row-right">
@@ -1102,7 +1344,7 @@
               </div>
               <div>
                 <div class="ios-label-primary">Sound Cues (Suii &amp; Bruh)</div>
-                <div class="ios-label-secondary">Tactile audio for round win/loss outcomes</div>
+                <div class="ios-label-secondary">Win / loss sounds</div>
               </div>
             </div>
             <label class="ios-switch">
@@ -1145,7 +1387,7 @@
 
       </div>
       <div class="ios-group-footer">
-        Sounds are throttled and suppressed when not logged in to prevent sudden disruptions.
+        Sounds stay muted while logged out.
       </div>
     </div>
 
@@ -1201,7 +1443,7 @@
             </div>
             <div>
               <div class="ios-label-primary">Battery Exemption Guide</div>
-              <div class="ios-label-secondary">Unrestricted background setup for Android/iOS</div>
+              <div class="ios-label-secondary">Per-OS background setup</div>
             </div>
           </div>
           <i class="fa-solid fa-chevron-right ios-chevron"></i>
@@ -1246,7 +1488,7 @@
 
       </div>
       <div class="ios-group-footer">
-        Wake Lock and Keep-Alive maintain uninterrupted countdowns even when phone screen is dimmed or minimized.
+        Keep-Alive + Wake Lock keep live sessions running.
       </div>
     </div>
 
@@ -1307,7 +1549,7 @@
               </div>
               <div>
                 <div class="ios-label-primary">Autopilot Base Unit</div>
-                <div class="ios-label-secondary">Starting Martingale simulation stake</div>
+                <div class="ios-label-secondary">Simulation base stake</div>
               </div>
             </div>
             <span id="currentStakeDisplay" class="ios-value-label" style="font-weight: 600; color: #ffffff;">₹10</span>
@@ -1325,7 +1567,7 @@
 
       </div>
       <div class="ios-group-footer">
-        101 canonical AI models analyze real draw patterns concurrently. The In-Charge engine dynamically assigns capital to the top-performing model.
+        101 models score every round. The In-Charge rule picks the leader.
       </div>
     </div>
 
@@ -1431,7 +1673,7 @@
 
       </div>
       <div class="ios-group-footer">
-        Export creates an unencrypted snapshot of your local session accuracy records and custom settings.
+        Exports are unencrypted local snapshots. Purge clears everything on this device.
       </div>
     </div>
 
@@ -1474,7 +1716,7 @@
         01:01 is an analytical mathematical modeling instrument. Strictly no guaranteed returns. Please play responsibly.
       </p>
       <p style="font-size: 11px; color: var(--apple-gray-3); margin-top: 8px;">
-        Designed with Cupertino HIG Aesthetics • Pure AMOLED Dark
+        01:01 Quant AI Terminal
       </p>
     </div>
 
@@ -1829,7 +2071,7 @@
         }
         body.innerHTML = `
           <p style="font-size: 12px; color: rgba(235, 235, 245, 0.75); line-height: 17px; margin: 10px 0 0 0;">
-            Our real-time prediction engines, 101 AI models, and zero-delay edge nodes run 24/7 without banner ads or subscriptions. If this helps you, consider buying a coffee!
+            01:01 runs ad-free on community support. A coffee keeps the servers on.
           </p>
 
           <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" class="ios-gold-btn">
@@ -1839,7 +2081,7 @@
           </a>
 
           <p style="font-size: 10px; font-family: ui-monospace, monospace; color: rgba(255, 214, 10, 0.85); text-align: center; margin: 8px 0 0 0;">
-            ✨ After buying a coffee, this won't come again for a while (7 days)
+            Supporter status lasts 7 days.
           </p>
 
           <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 6px; border-top: 0.5px solid rgba(255,255,255,0.08); font-size: 10px; font-family: ui-monospace, monospace; color: rgba(235, 235, 245, 0.5);">
@@ -2315,14 +2557,44 @@
     }
 
     function exportData(format) {
-      showToast(`Exporting ${format.toUpperCase()} snapshot...`);
-      setTimeout(() => {
-        const dummyData = JSON.stringify(localStorage, null, 2);
-        const blob = new Blob([dummyData], { type: format === 'csv' ? 'text/csv' : 'application/json' });
+      if (format === 'csv') {
+        // Real draw history: the app caches settled rounds per
+        // timeframe in localStorage (quant_history_<tf>, up to 500
+        // each). (This used to download the localStorage JSON dump
+        // with a .csv name — not CSV and not draw history.)
+        const lines = ['timeframe,period,number,size,color'];
+        ['30s', '1m', '3m', '5m'].forEach(tf => {
+          let rows = [];
+          try { rows = JSON.parse(localStorage.getItem('quant_history_' + tf) || '[]'); } catch (e) {}
+          if (!Array.isArray(rows)) rows = [];
+          rows.forEach(r => {
+            if (!r) return;
+            lines.push([tf, r.period, r.number, r.size, r.color]
+              .map(v => v === null || v === undefined ? '' : String(v)).join(','));
+          });
+        });
+        if (lines.length <= 1) {
+          showToast('No cached draw history yet — open the app first', false);
+          return;
+        }
+        const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `wingo_quant_settings_backup_${Date.now()}.${format}`;
+        a.download = `wingo_draw_history_${Date.now()}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast(`Exported ${lines.length - 1} rounds (CSV)`);
+        return;
+      }
+      showToast(`Exporting ${format.toUpperCase()} snapshot...`);
+      setTimeout(() => {
+        const dummyData = JSON.stringify(localStorage, null, 2);
+        const blob = new Blob([dummyData], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `wingo_quant_settings_backup_${Date.now()}.json`;
         a.click();
         URL.revokeObjectURL(url);
       }, 500);
@@ -2331,7 +2603,8 @@
     function filterSettings(query) {
       const q = query.toLowerCase().trim();
       const clearBtn = document.getElementById('searchClearBtn');
-      if (clearBtn) clearBtn.style.display = q ? 'flex' : 'none';
+      const shell = document.getElementById('settingsSearchShell');
+      if (clearBtn) clearBtn.style.display = (q || (shell && shell.classList.contains('expanded'))) ? 'flex' : 'none';
 
       document.querySelectorAll('.setting-category').forEach(cat => {
         const text = cat.textContent.toLowerCase();
@@ -2345,6 +2618,40 @@
         input.value = '';
         filterSettings('');
         input.focus();
+      }
+    }
+
+    // Floating pill: tap expands into the full field; Esc collapses
+    // and resets the filter; × clears the text, or collapses when the
+    // field is already empty.
+    function expandSettingsSearch() {
+      const shell = document.getElementById('settingsSearchShell');
+      const input = document.getElementById('appleSettingsSearch');
+      if (shell) shell.classList.add('expanded');
+      const clearBtn = document.getElementById('searchClearBtn');
+      if (clearBtn) clearBtn.style.display = 'flex';
+      if (input) setTimeout(() => { try { input.focus(); } catch (e) {} }, 60);
+    }
+
+    function collapseSettingsSearch() {
+      const shell = document.getElementById('settingsSearchShell');
+      const input = document.getElementById('appleSettingsSearch');
+      if (input) {
+        input.value = '';
+        filterSettings('');
+        try { input.blur(); } catch (e) {}
+      }
+      if (shell) shell.classList.remove('expanded');
+      const clearBtn = document.getElementById('searchClearBtn');
+      if (clearBtn) clearBtn.style.display = 'none';
+    }
+
+    function handleSearchClear() {
+      const input = document.getElementById('appleSettingsSearch');
+      if (input && input.value) {
+        clearSettingsSearch();
+      } else {
+        collapseSettingsSearch();
       }
     }
 
@@ -2496,7 +2803,7 @@
       <h1 class="ios-large-title" style="font-size: 26px; line-height: 32px;">Change Default Website</h1>
       <div class="ios-subtitle-pill">
         <span class="status-dot-active"></span>
-        <span>Active Live Mirror Configuration</span>
+        <span>Live mirror config</span>
       </div>
     </div>
 
@@ -2515,7 +2822,7 @@
         </div>
       </div>
       <div class="ios-group-footer">
-        Enter your platform or mirror domain. Lottery results and prediction history will remain active.
+        Mirror domains work. History stays on the default feed.
       </div>
     </div>
 
@@ -2545,7 +2852,7 @@
         </div>
       </div>
       <div class="ios-group-footer">
-        Leave blank to keep existing high-precision lottery history feed.
+        Blank = default feed.
       </div>
     </div>
 
@@ -2634,6 +2941,13 @@
           ? '₹' + Number(st.balance).toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '—';
         var src = st && st.balanceSource === 'api' ? 'exact · API' : st && st.balanceSource === 'dom' ? 'from page' : '—';
         var mode = st && st.fetchMode ? st.fetchMode : '—';
+        // Transport honesty: on a direct load the bridge is never
+        // injected into the DhaniWin page, so the mode is inactive —
+        // not a pending/active promise. mobile.js records the route
+        // of every DhaniWin load under this key.
+        var transport = null;
+        try { transport = localStorage.getItem('o101_dhani_transport'); } catch (e) {}
+        if (transport === 'direct') mode = 'inactive (direct load)';
         tag.textContent = state === 'VERIFIED' ? 'VERIFIED' : state === 'NOT_LOGGED_IN' ? 'LOGGED OUT' : state === 'NO_SIGNAL' ? 'NO SIGNAL' : 'CHECKING';
         tag.className = 'ios-tag-micro ' + (state === 'VERIFIED' ? 'tag-active' : state === 'NOT_LOGGED_IN' ? 'tag-warning' : 'tag-neutral');
         line.textContent = state === 'VERIFIED' ? 'Login verified · ' + bal + ' (' + src + ') · sync ' + ageText
@@ -2641,6 +2955,9 @@
           : state === 'NO_SIGNAL' ? 'No bridge signal — open DhaniWin with the bridge active'
           : 'Checking login… waiting for the bridge\'s API-proven user state';
         detail.textContent = 'Balance ' + bal + ' · Source ' + src + ' · Mode ' + mode + ' · Sync ' + ageText;
+        if (transport === 'direct') {
+          line.textContent = 'Direct load — bridge inactive · login + exact balance unavailable on this route';
+        }
       }
       render();
       setInterval(render, 1000);

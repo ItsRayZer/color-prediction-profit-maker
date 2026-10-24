@@ -20,7 +20,20 @@ const TF_TYPE_IDS = { '30s': 1, '1m': 2, '3m': 3, '5m': 4 };
 const RTDB_BASE = 'https://zer0one-376d1-default-rtdb.asia-southeast1.firebasedatabase.app';
 
 const MobileState = {
-  timeframe: '30s',
+  // Default timeframe: the Settings page's "Default Interval"
+  // (quant_default_tf) wins; the last in-app choice
+  // (dhaniwin_last_interval) is the fallback. Before this wiring the
+  // settings value was written but never read.
+  timeframe: (() => {
+    try {
+      const ok = ['30s', '1m', '3m', '5m'];
+      const fromSettings = localStorage.getItem('quant_default_tf');
+      if (ok.includes(fromSettings)) return fromSettings;
+      const last = localStorage.getItem('dhaniwin_last_interval');
+      if (ok.includes(last)) return last;
+    } catch (e) {}
+    return '30s';
+  })(),
   historyByTf: { '30s': [], '1m': [], '3m': [], '5m': [] },
   activePrediction: { period: null, target: null, type: 'SIZE', inChargeModel: null },
   scheduledPredictionsByPeriod: {},
@@ -36,8 +49,10 @@ const MobileState = {
   sim: {
     running: false,
     balance: 10000,
-    baseStake: 10,
-    stake: 10,
+    // Base stake boots from the shared settings value (quant_sim_stake,
+    // written by the Settings page and by setSimBaseStake).
+    baseStake: (() => { try { const v = parseInt(localStorage.getItem('quant_sim_stake') || '10', 10); return Number.isFinite(v) && v > 0 ? v : 10; } catch (e) { return 10; } })(),
+    stake: (() => { try { const v = parseInt(localStorage.getItem('quant_sim_stake') || '10', 10); return Number.isFinite(v) && v > 0 ? v : 10; } catch (e) { return 10; } })(),
     level: 0,
     pendingBet: null,
     totalBets: 0,
@@ -1494,21 +1509,31 @@ function _updateAllPredictionUI(target, predType, conf, inChargeName, periodStr,
   renderHeroSequentialBallRoad(list);
 
   // DhaniWin Web Tab Target & Floating Assistant Display
+  // The sheet hero is OWNED by the governed verdict (orb-bridge
+  // publishes window.__o101Verdict from the per-period LOCKED gate
+  // verdict). While that lock exists this native render mirrors it
+  // verbatim, so the sheet can never show a native prediction next to
+  // a governed SKIP. Without orb-bridge (no lock), legacy behaviour.
+  const governedVerdict = window.__o101Verdict || null;
   const webTargetEl = $('mobileWebTargetDisplay');
   if (webTargetEl) {
-    const displayTarget = target || 'BIG';
-    webTargetEl.textContent = displayTarget;
-    webTargetEl.className = `text-2xl font-black ${
-      displayTarget === 'BIG' ? 'text-amber-300' :
-      displayTarget === 'SMALL' ? 'text-sky-300' :
-      displayTarget === 'GREEN' ? 'text-emerald-400' :
-      displayTarget === 'RED' ? 'text-rose-400' : 'text-white'
-    }`;
+    if (governedVerdict) {
+      webTargetEl.textContent = governedVerdict.decision === 'BET' ? (governedVerdict.pick || '—') : (governedVerdict.decision === 'SKIP' ? 'SKIP' : '—');
+    } else {
+      const displayTarget = target || 'BIG';
+      webTargetEl.textContent = displayTarget;
+      webTargetEl.className = `text-2xl font-black ${
+        displayTarget === 'BIG' ? 'text-amber-300' :
+        displayTarget === 'SMALL' ? 'text-sky-300' :
+        displayTarget === 'GREEN' ? 'text-emerald-400' :
+        displayTarget === 'RED' ? 'text-rose-400' : 'text-white'
+      }`;
+    }
   }
 
   const assistConf = $('assistantConfBadge');
   if (assistConf) {
-    assistConf.textContent = gate.ready ? `${confPct}%` : (gate.mode === 'TESTING' ? gate.progress : `${gate.winRate}%`);
+    assistConf.textContent = governedVerdict ? governedVerdict.confText : (gate.ready ? `${confPct}%` : (gate.mode === 'TESTING' ? gate.progress : `${gate.winRate}%`));
   }
 
   if (typeof updateFloatingOrbUI === 'function') {
@@ -3790,6 +3815,10 @@ function setSimBaseStake(val) {
   MobileState.sim.baseStake = Number(val);
   MobileState.sim.stake = MobileState.sim.baseStake;
   MobileState.sim.level = 0;
+  // Persist so the Settings page's stake control and these chips share
+  // one value (quant_sim_stake was previously written by Settings but
+  // never read anywhere).
+  try { localStorage.setItem('quant_sim_stake', String(MobileState.sim.baseStake)); } catch (e) {}
   updateSimUI();
 }
 window.setSimBaseStake = setSimBaseStake;
@@ -3844,6 +3873,82 @@ const DHANIWIN_REGISTRATION_URL = 'https://dhaniwin44.com/register?inviteCode=EE
 const DHANIWIN_LOGIN_URL = 'https://dhaniwin44.com/login';
 const DHANIWIN_HOME_URL = 'https://dhaniwin44.com/';
 
+// ── DhaniWin transport: proxy vs direct ─────────────────────────────
+// The login/balance bridge (dhaniwin-bridge.js) runs inside the
+// DhaniWin page ONLY when the page is served through the Cloudflare
+// edge proxy: the worker appends the bridge <script> to HTML on its
+// /proxy/dhaniwin route. A direct load never receives the bridge, so
+// login can never be API-proven and the exact balance never arrives.
+// Built-in DhaniWin URLs therefore ride the proxy; a user-customised
+// entry URL (a mirror domain they chose) is left exactly as set.
+function proxifyDhaniUrl(url) {
+  return window.DhaniTransport ? window.DhaniTransport.proxifyDhaniUrl(url, CF_WORKER_BASE) : url;
+}
+function unproxifyDhaniUrl(url) {
+  return window.DhaniTransport ? window.DhaniTransport.unproxifyDhaniUrl(url, CF_WORKER_BASE) : url;
+}
+// Interval deep links ride the proxy too, so the bridge is present on
+// the WinGo pages themselves, not just the entry page.
+for (const tfKey of Object.keys(DHANIWIN_INTERVAL_URLS)) {
+  DHANIWIN_INTERVAL_URLS[tfKey] = proxifyDhaniUrl(DHANIWIN_INTERVAL_URLS[tfKey]);
+}
+
+const DHANI_TRANSPORT_KEY = 'o101_dhani_transport';
+const DHANI_PROXY_LOAD_TIMEOUT_MS = 15000;
+let _dhaniProxyWatchdog = null;
+let _dhaniProxyFallbackUsed = false;
+let _dhaniIframeLoadHooked = false;
+
+function clearDhaniProxyWatchdog() {
+  if (_dhaniProxyWatchdog) { clearTimeout(_dhaniProxyWatchdog); _dhaniProxyWatchdog = null; }
+}
+function hookDhaniIframeLoad() {
+  if (_dhaniIframeLoadHooked) return;
+  const iframe = $('dhaniwinIframe');
+  if (!iframe) return;
+  _dhaniIframeLoadHooked = true;
+  // Any completed document load (even an error page) cancels the
+  // fallback: the proxy answered. Silence from the bridge afterwards
+  // is reported honestly by the bridge diagnostic instead.
+  iframe.addEventListener('load', clearDhaniProxyWatchdog);
+}
+// Record which transport a DhaniWin load uses, so the bridge
+// diagnostic (this page + Settings) never implies verification is
+// coming on a route where the bridge cannot exist.
+function noteDhaniTransport(url) {
+  if (typeof url !== 'string') return;
+  const transport = window.DhaniTransport
+    ? window.DhaniTransport.dhaniTransportForUrl(url, CF_WORKER_BASE)
+    : (url.includes('/proxy/dhaniwin') ? 'proxy' : 'direct');
+  if (transport !== 'proxy' && !/dhaniwin/i.test(url)) return; // not a DhaniWin load
+  window.__o101DhaniTransport = transport;
+  try { localStorage.setItem(DHANI_TRANSPORT_KEY, transport); } catch (e) {}
+  if (transport === 'proxy') {
+    hookDhaniIframeLoad();
+    clearDhaniProxyWatchdog();
+    if (_dhaniProxyFallbackUsed) return;
+    const expected = url;
+    _dhaniProxyWatchdog = setTimeout(() => {
+      _dhaniProxyWatchdog = null;
+      const iframe = $('dhaniwinIframe');
+      if (!iframe || iframe.src !== expected) return;
+      // Proxied load never completed: fall back to the direct URL so
+      // the game at least loads, and record the direct transport —
+      // the diagnostic then states the bridge is inactive rather than
+      // promising a verification that cannot happen on this route.
+      _dhaniProxyFallbackUsed = true;
+      const direct = unproxifyDhaniUrl(expected);
+      iframe.src = direct;
+      const barText = $('mobileWebAddressBarText');
+      if (barText) barText.textContent = direct;
+      noteDhaniTransport(direct);
+    }, DHANI_PROXY_LOAD_TIMEOUT_MS);
+  } else {
+    clearDhaniProxyWatchdog();
+  }
+}
+window.noteDhaniTransport = noteDhaniTransport;
+
 function getDefaultDhaniUrl() {
   try {
     const custom = localStorage.getItem('custom_default_website_url');
@@ -3863,9 +3968,9 @@ function getDhaniEntryUrl() {
     return custom;
   }
   if (isUserLoggedIn()) {
-    return DHANIWIN_HOME_URL;
+    return proxifyDhaniUrl(DHANIWIN_HOME_URL);
   }
-  return localStorage.getItem('dhaniwin_registered') === '1' ? DHANIWIN_LOGIN_URL : DHANIWIN_REGISTRATION_URL;
+  return localStorage.getItem('dhaniwin_registered') === '1' ? proxifyDhaniUrl(DHANIWIN_LOGIN_URL) : proxifyDhaniUrl(DHANIWIN_REGISTRATION_URL);
 }
 window.getDhaniEntryUrl = getDhaniEntryUrl;
 window.DHANIWIN_HOME_URL = DHANIWIN_HOME_URL;
@@ -3924,13 +4029,13 @@ window.dismissDhaniAuthBar = dismissDhaniAuthBar;
 function openDhaniLogin() {
   try { sessionStorage.setItem('dhani_login_attempted', '1'); } catch(e) {}
   if (typeof switchMobileTab === 'function') switchMobileTab('web');
-  loadMobileWebUrl(DHANIWIN_LOGIN_URL);
+  loadMobileWebUrl(proxifyDhaniUrl(DHANIWIN_LOGIN_URL));
   updateDhaniAuthBar();
 }
 function openDhaniRegister() {
   try { sessionStorage.setItem('dhani_login_attempted', '1'); } catch(e) {}
   if (typeof switchMobileTab === 'function') switchMobileTab('web');
-  loadMobileWebUrl(DHANIWIN_REGISTRATION_URL);
+  loadMobileWebUrl(proxifyDhaniUrl(DHANIWIN_REGISTRATION_URL));
   updateDhaniAuthBar();
 }
 
@@ -4019,7 +4124,7 @@ async function verifyLoginViaWinGoProbe() {
   };
 
   // Attempt to enter the WinGo 30s game page
-  const wingoUrl = 'https://dhaniwin44.com/WinGo/WinGo_30S';
+  const wingoUrl = DHANIWIN_INTERVAL_URLS['30s'];
   loadMobileWebUrl(wingoUrl);
 
   // Probe via bridge postMessage to check if user has active session
@@ -4386,6 +4491,76 @@ const _runDockInit = () => {
   try { initDhaniwinAssistantSheetGesture(); } catch(e) { console.warn('[SheetGesture]', e); }
 };
 
+// ── Bet-slip dock auto-hide (Addition 3, 2026-10-24) ───────────────
+// The DhaniWin bet slip lives inside the iframe; the bridge watches
+// it and posts O101_BETSLIP transitions (and carries betSlipOpen in
+// its state publish for late joiners). While the slip is open, the
+// bottom dock hides through the existing dock-hidden mechanism so
+// it never covers the slip's Total/Cancel row. The dock can NEVER
+// get stuck hidden: it restores on slip close, on an orb or
+// restore-handle tap, on period rollover, or after a 90s failsafe —
+// whichever comes first. On a direct (bridgeless) load nothing ever
+// posts and the dock behaves exactly as before — degraded honestly.
+let betSlipDockLock = false;
+let betSlipPeriodAtHide = null;
+let betSlipFailsafeTimer = null;
+let betSlipGuardTimer = null;
+
+function betSlipLatestPeriod() {
+  try {
+    const h = MobileState.historyByTf[MobileState.timeframe] || [];
+    return h.length ? String(h[h.length - 1].period) : null;
+  } catch (e) { return null; }
+}
+
+function hideDockForBetSlip() {
+  if (typeof window._dockSetHidden === 'function') { window._dockSetHidden(true); return; }
+  const dock = document.getElementById('mobileBottomDock');
+  if (dock) dock.classList.add('dock-hidden');
+  if (typeof window._dockSyncShield === 'function') window._dockSyncShield();
+}
+
+function restoreDockFromBetSlip() {
+  if (betSlipFailsafeTimer) { clearTimeout(betSlipFailsafeTimer); betSlipFailsafeTimer = null; }
+  if (betSlipGuardTimer) { clearInterval(betSlipGuardTimer); betSlipGuardTimer = null; }
+  betSlipDockLock = false;
+  betSlipPeriodAtHide = null;
+  if (typeof window._dockExpand === 'function') window._dockExpand();
+}
+
+function setBetSlipDockHidden(open) {
+  if (open) {
+    if (betSlipDockLock) return; // one hide per opening
+    betSlipDockLock = true;
+    betSlipPeriodAtHide = betSlipLatestPeriod();
+    hideDockForBetSlip();
+    const failsafeMs = Number(window.__o101BetSlipFailsafeMs) > 0 ? Number(window.__o101BetSlipFailsafeMs) : 90000;
+    betSlipFailsafeTimer = setTimeout(() => restoreDockFromBetSlip(), failsafeMs);
+    // Guard: the scroll/gesture engine may re-expand the dock while
+    // the slip is open — re-apply the hide; also watch for the
+    // period-rollover restore.
+    betSlipGuardTimer = setInterval(() => {
+      if (!betSlipDockLock) return;
+      const p = betSlipLatestPeriod();
+      if (betSlipPeriodAtHide && p && p !== betSlipPeriodAtHide) { restoreDockFromBetSlip(); return; }
+      const dock = document.getElementById('mobileBottomDock');
+      if (dock && !dock.classList.contains('dock-hidden')) hideDockForBetSlip();
+    }, 500);
+  } else if (betSlipDockLock) {
+    restoreDockFromBetSlip();
+  }
+}
+window.setBetSlipDockHidden = setBetSlipDockHidden;
+
+// Manual restores always win over the slip lock.
+document.addEventListener('pointerdown', (e) => {
+  if (!betSlipDockLock) return;
+  const t = e.target;
+  if (t && typeof t.closest === 'function' && t.closest('#dhaniwinFloatingOrb, #dockRestoreHandle')) {
+    restoreDockFromBetSlip();
+  }
+}, { capture: true, passive: true });
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', _runDockInit);
 } else {
@@ -4449,6 +4624,7 @@ function switchMobileTab(tab) {
         const targetUrl = getDhaniEntryUrl();
         try { history.pushState({ dhaniSentinel: true }, ''); } catch(e) {}
         iframe.src = targetUrl;
+        noteDhaniTransport(targetUrl);
         const barText = $('mobileWebAddressBarText');
         if (barText) barText.textContent = targetUrl;
       }
@@ -4520,6 +4696,8 @@ function setMobileTimeframe(tf) {
   MobileState.timeframe = tf;
   try {
     localStorage.setItem('dhaniwin_last_interval', tf);
+    // Keep the Settings page's Default Interval in sync both ways.
+    localStorage.setItem('quant_default_tf', tf);
   } catch(e) {}
 
   if (window._chartFittedByTf) delete window._chartFittedByTf[tf];
@@ -5378,7 +5556,7 @@ function dhaniWebBack() { try { history.back(); } catch(e) {} }
 function dhaniWebForward() { try { history.forward(); } catch(e) {} }
 function dhaniWebHome() {
   const iframe = $('dhaniwinIframe');
-  if (iframe) iframe.src = getDhaniEntryUrl();
+  if (iframe) { const targetUrl = getDhaniEntryUrl(); iframe.src = targetUrl; noteDhaniTransport(targetUrl); }
 }
 window.dhaniWebBack = dhaniWebBack;
 window.dhaniWebForward = dhaniWebForward;
@@ -5673,6 +5851,15 @@ let _syncLogoutCount = 0;
 
 function handleMobileBridgeMessage(msg) {
   if (!msg || typeof msg !== 'object') return;
+  // Bet-slip dock auto-hide (Addition 3): transitions from the
+  // bridge's slip watcher, plus the state-sync field for late
+  // joiners. Independent of the chain below.
+  if (msg.type === 'O101_BETSLIP' && typeof msg.open === 'boolean') {
+    setBetSlipDockHidden(msg.open);
+  }
+  if (msg.type === 'DHANIWIN_USER_STATE' && typeof msg.betSlipOpen === 'boolean') {
+    setBetSlipDockHidden(msg.betSlipOpen);
+  }
   if (msg.type === 'DHANIWIN_BRIDGE_HANDSHAKE' || msg.type === 'DHANIWIN_BRIDGE_HEARTBEAT') {
     setMobileBridgeStatus(true);
     if (msg.type === 'DHANIWIN_BRIDGE_HANDSHAKE') {
@@ -5776,7 +5963,7 @@ function handleMobileBridgeMessage(msg) {
     if (typeof toggleUnlockModal === 'function') toggleUnlockModal(false);
     if (typeof updateAppUnlockState === 'function') updateAppUnlockState();
     updateDhaniAuthBar();
-    loadMobileWebUrl(getDefaultDhaniUrl());
+    loadMobileWebUrl(getDefaultDhaniUrl() === DHANIWIN_HOME_URL ? proxifyDhaniUrl(DHANIWIN_HOME_URL) : getDefaultDhaniUrl());
 
   } else if (msg.type === 'DHANIWIN_USER_SYNC' || msg.type === 'DHANIWIN_REAL_BALANCE') {
     if (msg.balance !== null && msg.balance !== undefined && !isNaN(Number(msg.balance))) {
@@ -5844,6 +6031,14 @@ if (typeof window !== 'undefined') {
     } else if (e.key === 'quant_sound') {
       MobileState.soundEnabled = e.newValue !== '0';
       if (typeof updateSoundMuteUI === 'function') updateSoundMuteUI();
+    } else if (e.key === 'quant_haptics') {
+      // Settings-page toggles apply live: these MobileState fields are
+      // the live switches the vibrate/wake/keep-alive paths read.
+      MobileState.hapticsEnabled = e.newValue !== '0';
+    } else if (e.key === 'quant_wakelock') {
+      MobileState.wakeLockEnabled = e.newValue === '1';
+    } else if (e.key === 'quant_bg_keepalive') {
+      MobileState.bgKeepAliveEnabled = e.newValue !== '0';
     }
   });
 }
@@ -5880,7 +6075,7 @@ function openMobileBridgeTab(event) {
   if (event) event.preventDefault();
   const iframe = $('dhaniwinIframe');
   const link = $('mobileWebExternalTabLink');
-  const url = (iframe && iframe.src) || (link && link.href) || 'https://dhaniwin44.com/WinGo/WinGo_30S';
+  const url = (iframe && iframe.src) || (link && link.href) || DHANIWIN_INTERVAL_URLS['30s'];
   const tab = window.open(url, 'dhaniwinQuantBridge');
   if (!tab) {
     setMobileBridgeStatus(false, 'Allow pop-ups to connect bridge');
@@ -6122,7 +6317,12 @@ function loadMobileWebUrl(url) {
   if (targetSrc === DHANIWIN_HOME_URL && typeof getDefaultDhaniUrl === 'function') {
     targetSrc = getDefaultDhaniUrl();
   }
+  // The raw built-in home constant means "no custom URL set": ride
+  // the proxy so the bridge is injected. A custom URL is never
+  // rewritten (see getDhaniEntryUrl).
+  if (targetSrc === DHANIWIN_HOME_URL) targetSrc = proxifyDhaniUrl(targetSrc);
   if (iframe) iframe.src = targetSrc;
+  noteDhaniTransport(targetSrc);
   if (barText) barText.textContent = targetSrc;
   if (extLink) extLink.href = targetSrc;
 }

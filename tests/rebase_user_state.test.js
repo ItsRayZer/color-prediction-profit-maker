@@ -71,8 +71,8 @@ test('bridge core: logout clears proof; the built state can never contain a toke
   const s = t.buildState(T0 + 1000);
   assert.equal(s.isLoggedIn, false);
   assert.equal(s.apiProven, false);
-  assert.deepEqual(Object.keys(s).sort(), ['apiProven', 'balance', 'balanceSource', 'fetchMode', 'isLoggedIn', 'userId'],
-    'the published state has exactly the six public fields — no token field exists to leak');
+  assert.deepEqual(Object.keys(s).sort(), ['apiProven', 'balance', 'balanceSource', 'betSlipOpen', 'fetchMode', 'isLoggedIn', 'userId'],
+    'the published state has exactly the seven public fields (Addition 3 added the betSlipOpen UI boolean) — no token field exists to leak');
 });
 
 test('bridge core: fetchMode pending -> active -> intercept on auth failure', () => {

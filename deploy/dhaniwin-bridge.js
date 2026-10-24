@@ -173,13 +173,62 @@
           balanceSource,
           apiProven: t.apiProven,
           fetchMode: t.fetchMode(),
-          userId: t.userId
+          userId: t.userId,
+          // Addition 3: lets a late-loading parent app sync the
+          // bet-slip dock state from the regular state publish.
+          betSlipOpen: !!t.betSlipOpen
         };
       }
     };
     return t;
   }
   // [O101-STATE-CORE-END]
+
+  // [O101-BETSLIP-START]
+  // Bet-slip detection (pure; unit-tested against a DOM fixture).
+  // The WinGo bet slip is the bottom sheet carrying the
+  // Amount/Quantity selectors and the Total Amount row. Structurally:
+  // a VISIBLE popup/sheet/dialog (never our own HUD or modals)
+  // containing a stepper or the "Total amount" text — the same
+  // signature the bet engine itself uses to recognise the slip
+  // (findActiveBetPopup; the bet-sheet check in
+  // autoDismissInAppPopups).
+  function createBetSlipDetector(doc, win) {
+    const POPUP_SELECTOR = '.van-popup, [class*="popup"], [class*="sheet"], [class*="drawer"], [role="dialog"]';
+    function isSlipPopup(p) {
+      if (!p) return false;
+      if (p.id === 'quant-ai-hud' || p.id === 'dhaniwinAssistantModal' || p.id === 'fullScreenWinModal') return false;
+      if (typeof p.closest === 'function' && p.closest('#quant-ai-hud')) return false;
+      const style = win.getComputedStyle(p);
+      if (p.offsetParent === null || style.display === 'none' || style.visibility === 'hidden') return false;
+      if (p.querySelector('.van-stepper, input.van-stepper__input, [class*="stepper"]')) return true;
+      const text = p.innerText || p.textContent || '';
+      return text.includes('Total amount');
+    }
+    function detectBetSlipOpen() {
+      const popups = doc.querySelectorAll(POPUP_SELECTOR);
+      for (const p of popups) { if (isSlipPopup(p)) return true; }
+      return false;
+    }
+    return { detectBetSlipOpen, isSlipPopup };
+  }
+  // Edge-triggered transition watcher over the detector: check()
+  // fires onTransition exactly once per open/close transition;
+  // re-checks with no state change fire nothing.
+  function createBetSlipWatcher(detector, onTransition) {
+    let open = false;
+    return {
+      check() {
+        const next = !!detector.detectBetSlipOpen();
+        if (next === open) return false;
+        open = next;
+        onTransition(open);
+        return true;
+      },
+      isOpen() { return open; }
+    };
+  }
+  // [O101-BETSLIP-END]
 
   const _userState = createUserStateTracker();
   // Restore a previously learned wallet endpoint (URL + method + how
@@ -1295,7 +1344,7 @@
       const st = _userState.buildState(Date.now());
       const payload = { type: 'DHANIWIN_USER_STATE', ...st, ts: Date.now(), seq: ++_userStateSeq };
       notifyApp(payload);
-      const key = JSON.stringify([st.isLoggedIn, st.balance, st.balanceSource, st.apiProven, st.fetchMode, st.userId]);
+      const key = JSON.stringify([st.isLoggedIn, st.balance, st.balanceSource, st.apiProven, st.fetchMode, st.userId, st.betSlipOpen]);
       const now = Date.now();
       if (key !== _lastRtdbPutKey || now - _lastRtdbPutAt >= 15000) {
         _lastRtdbPutKey = key;
@@ -1367,6 +1416,34 @@
   setInterval(() => publishUserState('heartbeat'), 15000);
   setInterval(() => { activeWalletPoll(); }, 20000);
   setTimeout(() => publishUserState('init'), 1200);
+
+  // ── Bet-slip watcher → parent dock auto-hide (Addition 3) ──────
+  // The slip lives in THIS page; the parent app's bottom dock floats
+  // over its Total/Cancel row. A debounced MutationObserver watches
+  // for the slip's open/close transitions and posts exactly one
+  // O101_BETSLIP message per transition; the current state also
+  // rides the regular state publish (betSlipOpen) so a late-loading
+  // parent can sync. A slow interval backstop catches transitions
+  // that mutate nothing observable.
+  const _betSlipDetector = createBetSlipDetector(document, window);
+  const _betSlipWatcher = createBetSlipWatcher(_betSlipDetector, (open) => {
+    _userState.betSlipOpen = open;
+    try { notifyApp({ type: 'O101_BETSLIP', open, ts: Date.now() }); } catch (e) {}
+    publishUserState('betslip');
+  });
+  let _betSlipDebounce = null;
+  function checkBetSlip() {
+    try { _betSlipWatcher.check(); } catch (e) {}
+  }
+  try {
+    const _betSlipObserver = new MutationObserver(() => {
+      if (_betSlipDebounce) return;
+      _betSlipDebounce = setTimeout(() => { _betSlipDebounce = null; checkBetSlip(); }, 150);
+    });
+    _betSlipObserver.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
+  } catch (e) {}
+  setInterval(checkBetSlip, 2000);
+  setTimeout(checkBetSlip, 1500);
 
   if (channel) channel.onmessage = (ev) => handleIncomingOrder(ev.data);
   window.addEventListener('message', (ev) => handleIncomingOrder(ev.data));

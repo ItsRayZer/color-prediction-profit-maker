@@ -522,9 +522,10 @@ export function loginEvidenceLine(login) {
  * page (which renders it as: login state, balance + source, bridge
  * mode, last sync age). Pure — fed from a LoginVerifier status object.
  */
-export function bridgeDiagnostic(login) {
+export function bridgeDiagnostic(login, transport) {
+  const direct = transport === 'direct';
   if (!login) {
-    return { loginState: 'UNKNOWN', balanceText: '—', balanceSource: null, fetchMode: null, syncAgeText: 'never', line: 'Checking login…' };
+    return { loginState: 'UNKNOWN', balanceText: '—', balanceSource: null, fetchMode: direct ? 'inactive (direct load)' : null, syncAgeText: 'never', line: 'Checking login…', transport: transport || null };
   }
   const inrFmt = n => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
   const ageMs = login.stateAgeMs !== null && login.stateAgeMs !== undefined ? login.stateAgeMs : login.syncAgeMs;
@@ -532,10 +533,33 @@ export function bridgeDiagnostic(login) {
     loginState: login.state,
     balanceText: login.balance !== null && login.balance !== undefined ? inrFmt(login.balance) : '—',
     balanceSource: login.balanceSource || null,
-    fetchMode: login.fetchMode || null,
+    // On a direct load the bridge is never injected, so its fetch
+    // mode is honestly "inactive" — never a pending/active promise.
+    fetchMode: direct ? 'inactive (direct load)' : (login.fetchMode || null),
     syncAgeText: ageMs !== null && ageMs !== undefined ? `${Math.max(0, Math.round(ageMs / 1000))}s ago` : 'never',
-    line: loginEvidenceLine(login)
+    line: loginEvidenceLine(login),
+    transport: transport || null
   };
+}
+
+/**
+ * The assistant sheet's hero verdict view (pure, testable): the ONE
+ * verdict surface inside the sheet. Derived only from the LOCKED,
+ * display-overlaid gate verdict — SKIP always renders as SKIP with no
+ * target and no confidence, so a prediction and a SKIP can never be
+ * visible in the sheet at the same time.
+ */
+export function heroVerdictView(gate) {
+  if (!gate || !gate.decision) return { decision: 'NONE', targetText: '—', confText: '—', pick: null };
+  if (gate.decision === GATE_DECISIONS.BET) {
+    return {
+      decision: 'BET',
+      targetText: gate.pick || '—',
+      confText: gate.prob !== null && gate.prob !== undefined ? Math.round(gate.prob * 100) + '%' : '—',
+      pick: gate.pick || null
+    };
+  }
+  return { decision: 'SKIP', targetText: 'SKIP', confText: '—', pick: null };
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -1012,18 +1036,28 @@ function initBridge() {
   setInterval(pollRtdbUserState, 5000);
   setTimeout(pollRtdbUserState, 2500);
 
+  // Which transport the embedded DhaniWin load used (mobile.js
+  // records it on every load; localStorage carries it to the
+  // settings document). 'direct' means the bridge was never injected.
+  function currentDhaniTransport() {
+    try {
+      return window.__o101DhaniTransport || localStorage.getItem('o101_dhani_transport') || null;
+    } catch (e) { return null; }
+  }
+
   // Persist a compact bridge snapshot so the settings page (a separate
   // document) can show the same diagnostic: login state, exact balance
   // + source, bridge fetch mode, last sync age.
   function persistBridgeSnapshot(login) {
     try {
-      const d = bridgeDiagnostic(login);
+      const d = bridgeDiagnostic(login, currentDhaniTransport());
       const snap = {
         state: d.loginState,
         line: d.line,
         balance: login ? login.balance : null,
         balanceSource: d.balanceSource,
         fetchMode: d.fetchMode,
+        transport: d.transport,
         lastSyncAt: login ? login.lastSyncAt : null,
         updatedAt: Date.now()
       };
@@ -1114,6 +1148,16 @@ function initBridge() {
   function renderWindowStatus() {
     const el = $('bridgeStatusLine');
     if (!el) return;
+    // Direct load: the bridge was never injected into the DhaniWin
+    // page, so no verification is coming — say exactly that instead
+    // of the "waiting for the bridge" line.
+    if (currentDhaniTransport() === 'direct') {
+      el.textContent = 'Direct load — bridge inactive · login + exact balance unavailable on this route';
+      el.setAttribute('data-transport', 'direct');
+      el.setAttribute('data-login-state', state.login ? state.login.state : 'UNKNOWN');
+      return;
+    }
+    el.removeAttribute('data-transport');
     const parts = [];
     if (state.login) parts.push(loginEvidenceLine(state.login));
     const gate = state.gate;
@@ -1784,9 +1828,12 @@ function initBridge() {
     }
 
     if (incharge) {
-      // Orb face + badges reflect the GOVERNED signal, not raw engine output.
+      // Orb face reflects the GOVERNED signal, not raw engine output.
       renderSignal(gate, incharge, login);
     }
+    // The sheet hero follows the SAME locked verdict on every cycle,
+    // incharge or not — one verdict surface, owned by the governor.
+    renderHeroVerdict(gate);
     renderWindowStatus();
     // Auto-Pilot staging (speaks the BET line itself when it stages,
     // exactly once per staged round).
@@ -1806,20 +1853,49 @@ function initBridge() {
   }
 
   // ── Rendering: governed signal into the orb/sheet ────────────────
+  // ── Sheet hero verdict (the ONE verdict surface in the sheet) ────
+  // Rendered from the LOCKED gate verdict on EVERY governance cycle,
+  // whether or not an incharge model exists — previously the hero was
+  // only painted inside renderSignal (incharge-gated) while the live
+  // app's native render painted its own prediction on its own timer,
+  // so the sheet could show a native prediction and a governed SKIP
+  // at the same time. Now the governed render owns the hero, and the
+  // published window.__o101Verdict lock makes the native render in
+  // mobile.js mirror the same verdict instead of its own.
+  const HERO_TARGET_CLASSES = {
+    BIG: 'text-2xl font-black tracking-tight mt-0.5 drop-shadow-[0_0_12px_rgba(245,158,11,0.35)] text-amber-300',
+    SMALL: 'text-2xl font-black tracking-tight mt-0.5 drop-shadow-[0_0_12px_rgba(245,158,11,0.35)] text-sky-300',
+    GREEN: 'text-2xl font-black tracking-tight mt-0.5 drop-shadow-[0_0_12px_rgba(245,158,11,0.35)] text-emerald-400',
+    RED: 'text-2xl font-black tracking-tight mt-0.5 drop-shadow-[0_0_12px_rgba(245,158,11,0.35)] text-rose-400',
+    VIOLET: 'text-2xl font-black tracking-tight mt-0.5 drop-shadow-[0_0_12px_rgba(245,158,11,0.35)] text-violet-400',
+    SKIP: 'text-2xl font-black tracking-tight mt-0.5 text-zinc-300',
+    NONE: 'text-2xl font-black tracking-tight mt-0.5 text-zinc-500'
+  };
+  function renderHeroVerdict(gate) {
+    const view = heroVerdictView(gate);
+    // Publish the lock first: native renders mirror it verbatim.
+    window.__o101Verdict = { decision: view.decision, pick: view.pick, confText: view.confText, key: state.verdictKey || null };
+    if (state.page !== 'mobile') return;
+    const targetEl = $('mobileWebTargetDisplay');
+    if (targetEl) {
+      targetEl.textContent = view.targetText;
+      // Canonical class on every render: the target's size can never
+      // jump because another writer left a different size class on it.
+      targetEl.className = HERO_TARGET_CLASSES[view.decision === 'BET' ? (view.pick || 'NONE') : view.decision] || HERO_TARGET_CLASSES.NONE;
+    }
+    const conf = $('assistantConfBadge');
+    if (conf) conf.textContent = view.confText;
+  }
+
   function renderSignal(gate, incharge, login) {
     const bet = gate.decision === GATE_DECISIONS.BET;
     // No stake suggestion while login is unverified (UNKNOWN or worse).
     const loginVerified = !!login && login.state === LOGIN_STATES.VERIFIED;
-    const confText = bet && gate.prob !== null && gate.prob !== undefined ? Math.round(gate.prob * 100) + '%' : '—';
     if (state.page === 'mobile') {
       const orbTarget = $('floatingOrbTarget');
       if (orbTarget) orbTarget.textContent = bet ? gate.pick : 'SKIP';
       const orbStake = $('floatingOrbStake');
       if (orbStake) orbStake.textContent = bet && loginVerified && state.session ? inr(state.session.nextStake) : '—';
-      const targetEl = $('mobileWebTargetDisplay');
-      if (targetEl) targetEl.textContent = bet ? gate.pick : 'SKIP';
-      const conf = $('assistantConfBadge');
-      if (conf) conf.textContent = confText;
       // Ladder Base/Bet in the live window come from bankroll.js (the
       // governed ladder). No stake is shown while login is unverified.
       // Level integrity (owner's rule, 2026-10-24): the Level pill,
@@ -1903,7 +1979,7 @@ function initBridge() {
     },
     verifyLogin: () => verifier.status(Date.now()),
     loginState: () => state.loginState,
-    diagnostic: () => bridgeDiagnostic(verifier.status(Date.now())),
+    diagnostic: () => bridgeDiagnostic(verifier.status(Date.now()), currentDhaniTransport()),
     store,
     // Auto-Pilot + pattern engine + streak guard (this build)
     autoPilot: ap,
