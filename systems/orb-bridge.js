@@ -39,7 +39,8 @@ import {
   createSession, settle, planLadder, suggestBaseBet,
   balanceSourceLabel, BALANCE_SOURCES, DEFAULT_STAKING_MODE
 } from './bankroll.js';
-import { botLine, BOT_EVENTS } from './predictBot.js';
+import { botLine, BOT_EVENTS, answerQuestion } from './predictBot.js';
+import { AxoAiClient, buildAxoPayload, localRegimeLabel, localSessionSummary, AXO_AI_ENDPOINT } from './axo-ai.js';
 import { AutoPilot, AUTOPILOT_SETTINGS_KEY, STOP_REASONS as AP_STOP_REASONS, autoBaseBet } from './autoPilot.js';
 import { PatternStore } from './patternStore.js';
 
@@ -721,6 +722,170 @@ export class VerdictLocker {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// Axo layer — face + voice decisions (pure, testable)
+// ─────────────────────────────────────────────────────────────────────
+// Axo is the ball's face and voice, layered over the governed flow
+// without touching it. The DECISIONS live here as pure data and
+// functions so the test pins can prove them without a DOM: which
+// governed events are SPOKEN (and which face they wear), how a line
+// is normalised for ears, how settled events group into utterances,
+// when a settled round counts as a MISSED BET, and when the VERIFIED
+// moment fires. The runtime below only executes these decisions.
+export const AXO_VOICE_KEY = 'o101_axo_voice';
+
+/** Bot event → Axo face for the SPOKEN set (PLAN.md §5). An event
+ *  absent from this map is not spoken and changes no face. */
+export const AXO_SPOKEN_FACES = {
+  SIGNAL_BET: 'wow',
+  WIN: 'celebrate',
+  LOSS: 'sad',
+  LADDER_UP: 'thinking',
+  MISSED_BET: 'sad',
+  LOGIN_VERIFIED: 'wink',
+  CIRCUIT_BREAKER: 'angry',
+  STOP_LOSS: 'sad',
+  STOP_WIN: 'celebrate'
+};
+
+/** { face, spoken } for a bot event — null/false off the table. */
+export function axoEventEffects(event) {
+  const face = AXO_SPOKEN_FACES[event] || null;
+  return { face, spoken: !!face };
+}
+
+/** The Axo voice setting ('o101_axo_voice'), default ON (!== '0'),
+ *  wired exactly like quant_sound. Read live at speak time. */
+export function axoVoiceEnabled(storage) {
+  try {
+    if (!storage || typeof storage.getItem !== 'function') return true;
+    return storage.getItem(AXO_VOICE_KEY) !== '0';
+  } catch (e) { return true; }
+}
+
+export const AXO_SUBS_KEY = 'o101_axo_subs';
+export const AXO_MODE_KEY = 'o101_axo_mode';
+
+/**
+ * Subtitle visibility ('o101_axo_subs'), default ON (!== '0'). The
+ * CC toggle governs ONLY the subtitle strip: Axo, the face, the
+ * voice and every governed behaviour keep running with subtitles
+ * closed, and say() keeps writing the line (state + hidden DOM) so
+ * re-opening shows the current line, not a stale one.
+ */
+export function axoSubsEnabled(storage) {
+  try {
+    if (!storage || typeof storage.getItem !== 'function') return true;
+    return storage.getItem(AXO_SUBS_KEY) !== '0';
+  } catch (e) { return true; }
+}
+
+/** Axo mode ('o101_axo_mode'): 'ai' (default) or 'normal'. Anything
+ *  unrecognised reads as 'ai'. */
+export function axoModeFrom(storage) {
+  try {
+    if (!storage || typeof storage.getItem !== 'function') return 'ai';
+    return storage.getItem(AXO_MODE_KEY) === 'normal' ? 'normal' : 'ai';
+  } catch (e) { return 'ai'; }
+}
+
+/**
+ * The mode gate for every AI narration call. Normal mode NEVER
+ * touches the AI client — the local templated text is returned
+ * immediately, so Normal means zero AI calls across every event,
+ * including ask-Axo. AI mode delegates to the client, whose own
+ * failure handling falls back to the same local text. Pure seam:
+ * the runtime passes its live mode + client in.
+ */
+export function axoNarrateWith({ mode, client, args } = {}) {
+  const localText = () => {
+    try { return typeof args.local === 'function' ? args.local() : args.local; } catch (e) { return null; }
+  };
+  if (mode !== 'ai' || !client) return Promise.resolve({ text: localText(), source: 'local' });
+  return client.narrate(args);
+}
+
+const SPEECH_SMALL_NUMBERS = {
+  0: 'zero', 1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five',
+  6: 'six', 7: 'seven', 8: 'eight', 9: 'nine', 10: 'ten', 11: 'eleven',
+  12: 'twelve', 13: 'thirteen', 14: 'fourteen', 15: 'fifteen',
+  16: 'sixteen', 17: 'seventeen', 18: 'eighteen', 19: 'nineteen', 20: 'twenty'
+};
+
+/**
+ * Rewrite a subtitle line for ears: '₹4' → 'four rupees', 'BIG' →
+ * 'Big', 'P&L' → 'P and L'. The subtitle keeps the original
+ * formatting; only the spoken copy passes through here. Pure.
+ */
+export function normaliseSpeechText(line) {
+  let t = String(line || '');
+  t = t.replace(/₹\s*([\d,]+(?:\.\d+)?)/g, (m, n) => {
+    const clean = n.replace(/,/g, '');
+    const v = Number(clean);
+    const num = Number.isInteger(v) && SPEECH_SMALL_NUMBERS[v] !== undefined ? SPEECH_SMALL_NUMBERS[v] : clean;
+    return num + ' rupees';
+  });
+  t = t.replace(/\bBIG\b/g, 'Big').replace(/\bSMALL\b/g, 'Small');
+  t = t.replace(/P&L/g, 'P and L');
+  t = t.replace(/…/g, ', ');
+  t = t.replace(/\s+/g, ' ').trim();
+  return t;
+}
+
+/**
+ * Group settled events into utterances. A LOSS immediately followed
+ * by LADDER_UP is ONE utterance — the ladder line folds into the
+ * loss line, never a second overlapping voice. Everything else
+ * stands alone. Pure.
+ */
+export function groupSpokenEvents(events = []) {
+  const groups = [];
+  for (let i = 0; i < events.length; i++) {
+    if (events[i] === BOT_EVENTS.LOSS && events[i + 1] === BOT_EVENTS.LADDER_UP) {
+      groups.push([events[i], events[i + 1]]);
+      i++;
+    } else {
+      groups.push([events[i]]);
+    }
+  }
+  return groups;
+}
+
+/**
+ * MISSED BET (PLAN.md §6): the locked governed verdict for a period
+ * was BET and no bet was confirmed for it — a staged-but-never-
+ * confirmed Auto-Pilot staging is the headline case. Fires exactly
+ * once per (tf, period) key. An engine SKIP can never fire it: the
+ * decision is read from the lock, never recomputed, and non-BET
+ * decisions return false here by construction.
+ */
+export class MissedBetTracker {
+  constructor() { this.firedKeys = new Set(); }
+  /** Decide + record atomically: true exactly once per key. */
+  shouldFire(key, { gateDecision = null, fired = false } = {}) {
+    if (gateDecision !== GATE_DECISIONS.BET || fired) return false;
+    if (this.firedKeys.has(key)) return false;
+    this.firedKeys.add(key);
+    return true;
+  }
+  has(key) { return this.firedKeys.has(key); }
+}
+
+/** The VERIFIED moment: a transition INTO VERIFIED from any other
+ *  state. Staying VERIFIED across polls is not an edge. */
+export function verifiedEdge(prevState, nextState) {
+  return nextState === LOGIN_STATES.VERIFIED && prevState !== LOGIN_STATES.VERIFIED;
+}
+
+/** The spoken VERIFIED line needs the verifier's API-proven figure:
+ *  a balance scraped from the page (balanceSource 'dom') never
+ *  produces it, even inside a VERIFIED state. */
+export function verifiedLineApplies(login) {
+  return !!login && login.state === LOGIN_STATES.VERIFIED
+    && login.balanceSource === 'api'
+    && login.balance !== null && login.balance !== undefined;
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Trend / pattern conflict detection (pure, testable)
 // ─────────────────────────────────────────────────────────────────────
 // Learning signals may strengthen a pick (the pattern hit-rate blend
@@ -845,6 +1010,21 @@ function initBridge() {
   const locker = new VerdictLocker();
   const patternStore = new PatternStore(safeStorage());
   const ap = new AutoPilot(safeStorage());
+
+  // Axo runtime state: current face, the missed-bet ledger, the
+  // HARD_STOP announcement edge, the first-gesture voice unlock and
+  // the (dark-by-default) AI narration client.
+  const axo = {
+    face: null,
+    visibleEl: 'front',  // which of the two stacked <img>s is showing
+    faceSeq: 0,          // bumps on every face set (stale-beat guard)
+    sleeping: false,
+    lastInteractAt: Date.now(),
+    missed: new MissedBetTracker(),
+    hardStopAnnounced: false,
+    voiceUnlocked: false,
+    ai: new AxoAiClient({ endpoint: AXO_AI_ENDPOINT })
+  };
 
   const state = {
     page: null,            // 'mobile' | 'index'
@@ -1086,6 +1266,217 @@ function initBridge() {
     } catch (e) { /* storage full/blocked: settings falls back to its own feeds */ }
   }
 
+  // ── Axo: face ────────────────────────────────────────────────────
+  function axoFaces() {
+    try { return typeof window !== 'undefined' ? window.__O101_AXO_FACES || null : null; } catch (e) { return null; }
+  }
+
+  function reducedMotion() {
+    try { return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; }
+  }
+
+  /**
+   * Set Axo's face by key, crossfading the two stacked header frames
+   * over ~140ms (the widget's crossfadePair semantics). No-ops when
+   * the face module or the sheet markup is absent (index page), and
+   * never throws into the app.
+   */
+  function setAxoFace(name) {
+    const faces = axoFaces();
+    if (!faces || !faces[name]) return;
+    if (name !== 'sleep' && name !== 'sleep2') axo.sleeping = false;
+    if (axo.face === name) return;
+    axo.face = name;
+    axo.faceSeq++;
+    const host = $('axoFaceHost');
+    if (host) host.setAttribute('data-axo-face', name);
+    const front = $('axoFaceFront'), back = $('axoFaceBack');
+    if (!front || !back) return;
+    const vis = axo.visibleEl === 'back' ? back : front;
+    const hid = vis === front ? back : front;
+    hid.src = faces[name];
+    if (reducedMotion()) {
+      vis.src = faces[name];
+      vis.style.opacity = '1';
+      hid.style.opacity = '0';
+      return;
+    }
+    hid.style.opacity = '1';
+    vis.style.opacity = '0';
+    axo.visibleEl = hid === front ? 'front' : 'back';
+  }
+
+  // Idle behaviours, copied from the widget: the blink loop
+  // (halfblink → blink → base, re-armed 2.8–5.5s, base face only)
+  // and sleep after ~90s without interaction while the sheet is
+  // closed (sleep ↔ sleep2 every 2.4s). Any governed event or tap
+  // wakes Axo back to base first.
+  function axoMaybeSleep() {
+    if (axo.sleeping || guard.hardStopped) return;
+    if (Date.now() - axo.lastInteractAt < 90000) return;
+    const modal = $('dhaniwinAssistantModal');
+    if (modal && !modal.classList.contains('hidden')) { axo.lastInteractAt = Date.now(); return; }
+    axo.sleeping = true;
+    setAxoFace('sleep');
+  }
+
+  function axoWake() {
+    axo.lastInteractAt = Date.now();
+    if (axo.sleeping) { axo.sleeping = false; setAxoFace('base'); }
+  }
+
+  function axoBlinkLoop() {
+    const delay = axo.sleeping ? 2400 : 2800 + Math.random() * 2700;
+    setTimeout(() => {
+      try {
+        if (axo.sleeping) {
+          setAxoFace(axo.face === 'sleep' ? 'sleep2' : 'sleep');
+        } else if (!reducedMotion() && axo.face === 'base' && !guard.hardStopped) {
+          const seq = axo.faceSeq;
+          setAxoFace('halfblink');
+          setTimeout(() => { if (axo.faceSeq === seq + 1) setAxoFace('blink'); }, 110);
+          setTimeout(() => { if (axo.faceSeq === seq + 2) setAxoFace('base'); }, 250);
+        }
+        axoMaybeSleep();
+      } catch (e) { /* the loop must never break the app */ }
+      axoBlinkLoop();
+    }, delay);
+  }
+
+  document.addEventListener('pointerdown', () => {
+    axoWake();
+    if (!axo.voiceUnlocked) {
+      // Chrome/Brave keep speechSynthesis silent until a user
+      // gesture; the first tap unlocks it. Lines attempted before
+      // this were subtitle-only and are never queued (PLAN.md §4).
+      axo.voiceUnlocked = true;
+      try { if (window.speechSynthesis) window.speechSynthesis.resume(); } catch (e) {}
+    }
+  }, true);
+
+  // ── Axo: voice ───────────────────────────────────────────────────
+  function axoVoiceOn() { return axoVoiceEnabled(safeStorage()); }
+
+  function axoCancelSpeech() {
+    try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {}
+  }
+
+  /** Speak exactly the subtitle string (normalised for ears). */
+  function axoSpeak(text) {
+    if (!text || !axo.voiceUnlocked || !axoVoiceOn()) return;
+    const synth = window.speechSynthesis;
+    if (!synth || typeof synth.speak !== 'function' || typeof SpeechSynthesisUtterance === 'undefined') return;
+    try {
+      const u = new SpeechSynthesisUtterance(normaliseSpeechText(text));
+      let voice = null;
+      try {
+        const voices = typeof synth.getVoices === 'function' ? synth.getVoices() : [];
+        voice = (voices || []).find(v => v && v.lang && String(v.lang).toLowerCase().indexOf('en-in') === 0) || null;
+      } catch (e) {}
+      if (voice) {
+        // A voice entry the platform rejects must never kill the
+        // utterance — fall back to the language tag alone.
+        try { u.voice = voice; u.lang = voice.lang; } catch (e) { u.lang = 'en-IN'; }
+      } else { u.lang = 'en-IN'; }
+      u.rate = 1.02;
+      u.pitch = 1.0;
+      synth.speak(u);
+    } catch (e) { /* voice must never break the app */ }
+  }
+
+  function renderAxoVoiceChip() {
+    const chip = $('axoVoiceChip');
+    if (!chip) return;
+    const on = axoVoiceOn();
+    chip.setAttribute('aria-pressed', on ? 'true' : 'false');
+    chip.classList.toggle('text-emerald-300', on);
+    chip.classList.toggle('text-rose-300', !on);
+    chip.classList.toggle('opacity-60', !on);
+    const icon = $('axoVoiceChipIcon');
+    if (icon) icon.className = 'fa-solid ' + (on ? 'fa-volume-high' : 'fa-volume-xmark') + ' pointer-events-none';
+  }
+
+  function setAxoVoice(on) {
+    try { localStorage.setItem(AXO_VOICE_KEY, on ? '1' : '0'); } catch (e) {}
+    if (!on) axoCancelSpeech();
+    renderAxoVoiceChip();
+  }
+
+  // ── Axo: subtitles (CC) + mode ───────────────────────────────────
+  // CC is its own act: it hides ONLY the subtitle strip. The ball,
+  // the face, the voice and the governed flow are untouched, and
+  // with subtitles off the ball is the classic ball — the governed
+  // hero verdict (renderHeroVerdict / renderSignal) never reads the
+  // subtitle element, so the prediction shows exactly as before Axo.
+  function axoSubsOn() { return axoSubsEnabled(safeStorage()); }
+
+  function renderAxoCcChip() {
+    const chip = $('axoCcChip');
+    if (!chip) return;
+    const on = axoSubsOn();
+    chip.setAttribute('aria-pressed', on ? 'true' : 'false');
+    chip.classList.toggle('bg-emerald-500/25', on);
+    chip.classList.toggle('text-emerald-300', on);
+    chip.classList.toggle('border-emerald-500/40', on);
+    chip.classList.toggle('bg-white/10', !on);
+    chip.classList.toggle('text-zinc-400', !on);
+    chip.classList.toggle('border-white/10', !on);
+    chip.classList.toggle('opacity-60', !on);
+  }
+
+  function applyAxoSubs() {
+    const el = $('smartBallLine');
+    if (el) el.classList.toggle('hidden', !axoSubsOn());
+    renderAxoCcChip();
+  }
+
+  function setAxoSubs(on) {
+    try { localStorage.setItem(AXO_SUBS_KEY, on ? '1' : '0'); } catch (e) {}
+    applyAxoSubs();
+  }
+
+  function axoMode() { return axoModeFrom(safeStorage()); }
+
+  function renderAxoModeChip() {
+    const chip = $('axoModeChip');
+    if (!chip) return;
+    const ai = axoMode() === 'ai';
+    chip.textContent = ai ? 'AI' : 'NORMAL';
+    chip.setAttribute('aria-pressed', ai ? 'true' : 'false');
+    chip.classList.toggle('bg-emerald-500/25', ai);
+    chip.classList.toggle('text-emerald-300', ai);
+    chip.classList.toggle('border-emerald-500/40', ai);
+    chip.classList.toggle('bg-white/10', !ai);
+    chip.classList.toggle('text-zinc-300', !ai);
+    chip.classList.toggle('border-white/10', !ai);
+  }
+
+  function setAxoMode(mode) {
+    try { localStorage.setItem(AXO_MODE_KEY, mode === 'normal' ? 'normal' : 'ai'); } catch (e) {}
+    renderAxoModeChip();
+  }
+
+  /** Every AI narration call passes the mode gate (Normal = zero
+   *  AI calls, templates only). Mode is read live, so a switch
+   *  takes effect on the next event without a reload. */
+  function axoNarrate(args) {
+    return axoNarrateWith({ mode: axoMode(), client: axo.ai, args });
+  }
+
+  // The Settings page writes the same keys from its own document;
+  // the storage event applies them here live (quant_sound parity).
+  window.addEventListener('storage', e => {
+    if (!e) return;
+    if (e.key === AXO_VOICE_KEY) {
+      if (e.newValue === '0') axoCancelSpeech();
+      renderAxoVoiceChip();
+    } else if (e.key === AXO_SUBS_KEY) {
+      applyAxoSubs();
+    } else if (e.key === AXO_MODE_KEY) {
+      renderAxoModeChip();
+    }
+  });
+
   // ── Speaking (orb's line) ────────────────────────────────────────
   function say(text) {
     const el = $('smartBallLine');
@@ -1093,11 +1484,148 @@ function initBridge() {
     state.lastLine = text;
   }
 
+  /** Face + voice for one governed event (spoken set only). */
+  function axoOnEvent(event, line) {
+    const fx = axoEventEffects(event);
+    if (!fx.face) return;
+    axo.lastInteractAt = Date.now();
+    setAxoFace(fx.face);
+    if (fx.spoken) axoSpeak(line);
+  }
+
   function speakEvent(event, extra = {}) {
     const ctx = contextSnapshot(extra);
     const { line } = botLine(event, ctx);
+    if (event === BOT_EVENTS.SIGNAL_SKIP) {
+      // SILENCE LAW (owner's standing order): a SKIP writes no
+      // subtitle, sets no face and speaks nothing. The line survives
+      // only as internal state — even though the subtitle element
+      // now exists, a skip must never reach it.
+      state.lastLine = line;
+      return line;
+    }
     say(line);
+    axoOnEvent(event, line);
     return line;
+  }
+
+  /**
+   * Speak a settled round's events as utterances. A LOSS+LADDER_UP
+   * pair merges into ONE utterance whose text is the combined
+   * subtitle — spoken string === subtitle string, always. Faces
+   * beat in order (sad, then thinking for the ladder step).
+   */
+  function speakSettledEvents(events, extra = {}) {
+    for (const group of groupSpokenEvents(events)) {
+      const ctx = contextSnapshot(extra);
+      const text = group.map(ev => botLine(ev, ctx).line).join(' ');
+      say(text);
+      const first = axoEventEffects(group[0]);
+      if (first.face) {
+        axo.lastInteractAt = Date.now();
+        setAxoFace(first.face);
+        if (group.length > 1) {
+          const last = axoEventEffects(group[group.length - 1]);
+          const seq = axo.faceSeq;
+          if (last.face && last.face !== first.face) {
+            setTimeout(() => { if (axo.faceSeq === seq) setAxoFace(last.face); }, 900);
+          }
+        }
+      }
+      if (first.spoken) axoSpeak(text);
+      if (group.some(ev => ev === BOT_EVENTS.STOP_LOSS || ev === BOT_EVENTS.STOP_WIN || ev === BOT_EVENTS.CIRCUIT_BREAKER)) {
+        axoSessionSummary();
+      }
+    }
+  }
+
+  /** HARD_STOP announcement edge: angry face (held) + the guard's
+   *  own governed reason, spoken once per trip; clearing resets. */
+  function axoSyncHardStop() {
+    if (guard.hardStopped && !axo.hardStopAnnounced) {
+      axo.hardStopAnnounced = true;
+      const line = HARD_STOP_REASON + ' It clears after two shadow wins in a row, or re-arm it manually.';
+      say(line);
+      axo.lastInteractAt = Date.now();
+      setAxoFace('angry');
+      axoSpeak(line);
+    } else if (!guard.hardStopped && axo.hardStopAnnounced) {
+      axo.hardStopAnnounced = false;
+      setAxoFace('base');
+    }
+  }
+
+  /** The VERIFIED moment: wink face, and the spoken line only when
+   *  the balance is the API-proven figure (never a page scrape). */
+  function axoOnVerified(login) {
+    axo.lastInteractAt = Date.now();
+    setAxoFace('wink');
+    if (!verifiedLineApplies(login)) return;
+    const { line } = botLine(BOT_EVENTS.LOGIN_VERIFIED, contextSnapshot({ balance: login.balance }));
+    say(line);
+    axoSpeak(line);
+  }
+
+  // ── Axo: AI readout (display only; dark until the owner sets a
+  //    server hop — PLAN.md §7/§8) ─────────────────────────────────
+  function renderAxoAi(text) {
+    const el = $('axoAiLine');
+    if (el && text) el.textContent = text;
+  }
+
+  function axoPayload(eventName) {
+    const tf = state.tf || currentTf();
+    const gate = state.gate;
+    const stats = state.inchargeId ? store.modelStats(tf, state.inchargeId) : null;
+    const modelObj = arenaModels().find(m => m.id === state.inchargeId) || null;
+    const history = settledHistory(tf);
+    const pf = currentPatternFiring(tf);
+    return buildAxoPayload({
+      event: eventName,
+      timeframe: tf,
+      period: openPeriodFor(tf) || (history.length ? String(history[history.length - 1].period) : null),
+      verdict: gate ? gate.decision : null,
+      target: gate ? gate.pick : null,
+      stake: state.session ? state.session.nextStake : null,
+      ladderStep: state.session ? state.session.level : null,
+      gateReason: gate ? gate.reason : null,
+      conflictReason: gate && gate.conflict ? gate.reason : null,
+      leaderModel: modelObj ? modelObj.name : null,
+      leaderWilsonLB: stats ? stats.wilson : null,
+      leaderFirings: stats ? stats.evaluated : null,
+      patternFiring: pf ? { name: pf.name, hitRate: pf.hitRate, firings: pf.fired } : null,
+      trend: currentTrend(tf),
+      sessionPnL: state.session ? state.session.sessionPnL : null,
+      settledCount: history.length,
+      verifiedBalance: state.login && state.login.state === LOGIN_STATES.VERIFIED ? state.login.balance : null,
+      lastResults: history.slice(-10).map(r => r.number)
+    });
+  }
+
+  function axoRegimeRefresh() {
+    const payload = axoPayload('REGIME');
+    const local = () => localRegimeLabel(payload.lastResults, payload.trend).line;
+    axoNarrate({ event: 'REGIME', payload, local }).then(r => { if (r && r.text) renderAxoAi(r.text); }).catch(() => {});
+  }
+
+  function axoSessionSummary() {
+    const payload = axoPayload('SESSION_END');
+    const local = () => localSessionSummary(payload);
+    axoNarrate({ event: 'SESSION_END', payload, local }).then(r => { if (r && r.text) renderAxoAi(r.text); }).catch(() => {});
+  }
+
+  /** Ask Axo: AI when configured, the local predictBot answer
+   *  otherwise. The answer is display text in the readout only —
+   *  it is never spoken and never touches a decision. */
+  async function askAxo(question) {
+    const q = String(question || '').trim();
+    if (!q) return null;
+    const payload = axoPayload('QUESTION');
+    const local = () => answerQuestion(q, contextSnapshot()).line;
+    const r = await axoNarrate({ event: 'QUESTION', payload, question: q, local });
+    const text = (r && r.text) || local();
+    renderAxoAi(text);
+    return text;
   }
 
   function contextSnapshot(extra = {}) {
@@ -1157,8 +1685,10 @@ function initBridge() {
     renderBalanceBlock(login);
     renderAutoPilot();
     if (state.loginState !== login.state) {
+      const prevLoginState = state.loginState;
       state.loginState = login.state;
       say(loginLine(login));
+      if (verifiedEdge(prevLoginState, login.state)) axoOnVerified(login);
     }
   }
 
@@ -1674,9 +2204,20 @@ function initBridge() {
             ap.resolveUnfired(tf, latestPeriod, 'skipped');
           } else if (decision === GATE_DECISIONS.BET && ap.enabled && !fired) {
             // Auto-Pilot was on but the owner never fired this round:
-            // total silence — calibration still measures the pick.
+            // a MISSED BET (PLAN.md §6) — the locked pick went
+            // unplayed. Calibration still measures the pick; no
+            // ladder movement, no P&L change. An engine SKIP never
+            // reaches this branch, so the skip silence law holds.
             tracker.record(state.lastPick.prob, !!won);
             ap.resolveUnfired(tf, latestPeriod, 'skipped');
+            if (axo.missed.shouldFire(tf + ':' + latestPeriod, { gateDecision: decision, fired })) {
+              speakEvent(BOT_EVENTS.MISSED_BET, {
+                missedPick: state.lastPick.target,
+                missedWon: !!won,
+                missedResult: !!won ? (latest.size === 'BIG' ? 'Big' : latest.size === 'SMALL' ? 'Small' : null) : null,
+                lastResult: `${latest.size} ${latest.number}`
+              });
+            }
           } else if (decision === GATE_DECISIONS.BET) {
             tracker.record(state.lastPick.prob, !!won);
             const result = settleGovernedPick({
@@ -1688,9 +2229,7 @@ function initBridge() {
               }
             });
             state.session = result.session;
-            for (const eventName of result.events) {
-              speakEvent(eventName, { lastResult: `${latest.size} ${latest.number}` });
-            }
+            speakSettledEvents(result.events, { lastResult: `${latest.size} ${latest.number}` });
             guard.recordSettledBet(!!won);
             saveGuard();
             if (fired) {
@@ -1872,7 +2411,11 @@ function initBridge() {
       if (!(ap.enabled && gate.decision === GATE_DECISIONS.BET)) {
         speakEvent(gate.decision === GATE_DECISIONS.BET ? BOT_EVENTS.SIGNAL_BET : BOT_EVENTS.SIGNAL_SKIP);
       }
+      // Axo AI readout: the regime label refreshes on a BET lock
+      // only — never on a SKIP, never per tick (PLAN.md §7).
+      if (gate.decision === GATE_DECISIONS.BET) axoRegimeRefresh();
     }
+    axoSyncHardStop();
 
     renderRanking(tf, pool, bl, scope);
     renderPatternStats();
@@ -2016,6 +2559,23 @@ function initBridge() {
     toggleAutoPilot,
     toggleAutoBase,
     rearmHardStop,
+    // Axo (this build): voice setting, face state, ask-Axo.
+    toggleAxoVoice: () => setAxoVoice(!axoVoiceOn()),
+    refreshAxoVoiceChip: renderAxoVoiceChip,
+    toggleAxoSubs: () => setAxoSubs(!axoSubsOn()),
+    refreshAxoSubs: applyAxoSubs,
+    toggleAxoMode: () => setAxoMode(axoMode() === 'ai' ? 'normal' : 'ai'),
+    refreshAxoModeChip: renderAxoModeChip,
+    askAxo,
+    axo: {
+      face: () => axo.face,
+      setFace: setAxoFace,
+      speakEvent,
+      missed: axo.missed,
+      aiConfigured: () => axo.ai.configured,
+      mode: axoMode,
+      subs: axoSubsOn
+    },
     disposition: (tf, period) => state.dispositions[String(tf) + ':' + String(period)] || null,
     _state: state
   };
@@ -2034,6 +2594,15 @@ function initBridge() {
     return false;
   };
   window.__o101GovernedDisposition = (tf, period) => state.dispositions[String(tf) + ':' + String(period)] || null;
+
+  // Axo comes up on the base face with the chips synced to the
+  // persisted voice / subtitle / mode settings; blink/sleep run
+  // from here.
+  renderAxoVoiceChip();
+  applyAxoSubs();
+  renderAxoModeChip();
+  setAxoFace('base');
+  axoBlinkLoop();
 
   setInterval(() => { try { cycle(); } catch (e) {} }, 3000);
   setTimeout(() => { try { cycle(); } catch (e) {} }, 1200);

@@ -25,6 +25,8 @@ export const BOT_EVENTS = {
   GREETING: 'GREETING',
   SIGNAL_BET: 'SIGNAL_BET',
   SIGNAL_SKIP: 'SIGNAL_SKIP',
+  MISSED_BET: 'MISSED_BET',
+  LOGIN_VERIFIED: 'LOGIN_VERIFIED',
   WIN: 'WIN',
   LOSS: 'LOSS',
   LADDER_UP: 'LADDER_UP',
@@ -43,9 +45,10 @@ const SERIOUS_EVENTS = new Set([
   BOT_EVENTS.CIRCUIT_BREAKER,
   BOT_EVENTS.STOP_LOSS,
   BOT_EVENTS.STOP_WIN,
-  BOT_EVENTS.BALANCE_LOW
+  BOT_EVENTS.BALANCE_LOW,
+  BOT_EVENTS.MISSED_BET
 ]);
-const PLAYFUL_EVENTS = new Set([BOT_EVENTS.GREETING, BOT_EVENTS.WIN, BOT_EVENTS.SIGNAL_BET]);
+const PLAYFUL_EVENTS = new Set([BOT_EVENTS.GREETING, BOT_EVENTS.WIN, BOT_EVENTS.SIGNAL_BET, BOT_EVENTS.LOGIN_VERIFIED]);
 
 const inr = n => {
   const v = Number(n);
@@ -76,6 +79,12 @@ function normCtx(ctx = {}) {
     gate: gate ? (gate.decision || null) : (typeof ctx.gateDecision === 'string' ? ctx.gateDecision : null),
     gateReason: ctx.gateReason || (gate ? gate.reason : null) || null,
     pick: ctx.pick || (gate ? gate.pick : null) || null,
+    // MISSED_BET facts — all read from the SETTLED round (the locked
+    // pick + the real settled result), never a recomputation. The
+    // result is only ever named when the missed pick would have won.
+    missedPick: ctx.missedPick || null,
+    missedWon: ctx.missedWon === true,
+    missedResult: ctx.missedResult || null,
     calibratedConfidence: ctx.calibratedConfidence !== undefined ? ctx.calibratedConfidence : (ctx.confidence !== undefined ? ctx.confidence : null),
     isCalibrated: ctx.isCalibrated === true,
     streak: Number(ctx.streak) || 0,
@@ -118,6 +127,23 @@ export function botLine(event, context = {}) {
     }
     case BOT_EVENTS.SIGNAL_SKIP: {
       line = `I am skipping this round, and that is a deliberate decision. ${c.gateReason || 'The numbers do not clear the safety bar this round.'} Sitting out costs nothing; a weak bet costs real money. I will keep watching and call the next clean signal.`;
+      break;
+    }
+    case BOT_EVENTS.MISSED_BET: {
+      // The engine's locked verdict was BET and the round settled
+      // with no bet fired. The win fact (and only the win fact) may
+      // be named, and only from the settled result in the context.
+      line = c.missedWon && c.missedResult
+        ? `That was our pick, and it came ${c.missedResult}. Why didn't you bet? When a pick is staged, one tap on the confirm button fires it.`
+        : `That was our pick… why didn't you bet? When a pick is staged, one tap on the confirm button fires it.`;
+      break;
+    }
+    case BOT_EVENTS.LOGIN_VERIFIED: {
+      // Only ever built from the verifier's API-proven balance (the
+      // caller gates on balanceSource === 'api'); never a page scrape.
+      line = c.balance !== null
+        ? `Login verified. Exact balance, ${inr(c.balance)}.`
+        : 'Login verified.';
       break;
     }
     case BOT_EVENTS.WIN: {

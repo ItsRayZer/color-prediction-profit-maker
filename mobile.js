@@ -6135,6 +6135,13 @@ if (typeof window !== 'undefined') {
     } else if (e.key === 'quant_sound') {
       MobileState.soundEnabled = e.newValue !== '0';
       if (typeof updateSoundMuteUI === 'function') updateSoundMuteUI();
+    } else if (e.key === 'o101_axo_voice') {
+      // Axo voice applies live: muting cancels any in-flight speech
+      // at once and the sheet chip re-renders. orb-bridge also reads
+      // the key itself at speak time, so the two stay in agreement.
+      MobileState.axoVoiceEnabled = e.newValue !== '0';
+      if (!MobileState.axoVoiceEnabled) { try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch(err) {} }
+      if (window.__smartBall && typeof window.__smartBall.refreshAxoVoiceChip === 'function') window.__smartBall.refreshAxoVoiceChip();
     } else if (e.key === 'quant_haptics') {
       // Settings-page toggles apply live: these MobileState fields are
       // the live switches the vibrate/wake/keep-alive paths read.
@@ -6143,6 +6150,11 @@ if (typeof window !== 'undefined') {
       MobileState.wakeLockEnabled = e.newValue === '1';
     } else if (e.key === 'quant_bg_keepalive') {
       MobileState.bgKeepAliveEnabled = e.newValue !== '0';
+    } else if (e.key === 'o101_axo_mode') {
+      // Axo mode applies live: orb-bridge reads the key at every
+      // narration call, so the next event honours the switch.
+      MobileState.axoMode = e.newValue === 'normal' ? 'normal' : 'ai';
+      if (window.__smartBall && typeof window.__smartBall.refreshAxoModeChip === 'function') window.__smartBall.refreshAxoModeChip();
     }
   });
 }
@@ -7359,6 +7371,8 @@ function initMobileApp() {
   // Restore settings
   try {
     MobileState.soundEnabled = localStorage.getItem('quant_sound') !== '0';
+    MobileState.axoVoiceEnabled = localStorage.getItem('o101_axo_voice') !== '0';
+    MobileState.axoMode = localStorage.getItem('o101_axo_mode') === 'normal' ? 'normal' : 'ai';
     updateSoundMuteUI();
     MobileState.hapticsEnabled = localStorage.getItem('quant_haptics') !== '0';
     MobileState.autoMode = localStorage.getItem('quant_arena_auto') !== '0';

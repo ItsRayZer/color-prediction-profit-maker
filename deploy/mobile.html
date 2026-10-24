@@ -920,9 +920,20 @@
 
         <!-- Draggable Header Bar: Title + Drag Indicator + Size Toggle + Minimize Button -->
         <div id="assistantSheetHeader" class="px-3 py-2 flex items-center justify-between border-b border-white/[0.06] select-none bg-white/[0.03] cursor-grab active:cursor-grabbing touch-none">
-          <div class="flex items-center gap-1.5 pointer-events-none">
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span class="text-[9.5px] font-mono font-black text-white/90 tracking-wider">01:01 ASSISTANT</span>
+          <div class="flex items-center gap-2 min-w-0">
+            <!-- Axo face (orb-bridge): two stacked frames crossfaded by
+                 setAxoFace; the corner chip is the Axo voice mute. -->
+            <div id="axoFaceHost" class="relative shrink-0" style="width:64px;height:64px">
+              <img id="axoFaceBack" alt="" aria-hidden="true" draggable="false" class="absolute inset-0 w-full h-full object-cover rounded-full opacity-0" style="transition: opacity 140ms ease">
+              <img id="axoFaceFront" alt="" aria-hidden="true" draggable="false" class="absolute inset-0 w-full h-full object-cover rounded-full opacity-100" style="transition: opacity 140ms ease">
+              <button type="button" id="axoVoiceChip" aria-pressed="true" title="Axo voice on/off" onclick="window.__smartBall && window.__smartBall.toggleAxoVoice()" class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-black/80 border border-white/25 text-emerald-300 flex items-center justify-center active:scale-90 transition" style="font-size:9px">
+                <i id="axoVoiceChipIcon" class="fa-solid fa-volume-high pointer-events-none"></i>
+              </button>
+            </div>
+            <div class="flex items-center gap-1.5 pointer-events-none">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span class="text-[9.5px] font-mono font-black text-white/90 tracking-wider">01:01 ASSISTANT</span>
+            </div>
           </div>
           <!-- Subtle Drag Pill -->
           <div class="w-8 h-1 bg-white/25 rounded-full pointer-events-none"></div>
@@ -938,6 +949,21 @@
 
         <!-- Scrollable Body Content (Compact & Sleek) -->
         <div class="p-2.5 space-y-2 overflow-y-auto assistant-sheet-body" style="-webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y;">
+          <!-- 0. Axo line (orb-bridge say()): the assistant's current
+               line — every spoken line appears here verbatim. Fixed
+               height, so a new line never resizes the sheet. -->
+          <!-- 0a. Axo controls (orb-bridge): CC closes ONLY the
+               subtitle strip (Axo keeps running); MODE switches AI
+               narration vs Normal (governed templates only). Voice
+               has its own chip on the face. Fixed height. -->
+          <div id="axoControlRow" class="flex items-center justify-between px-1 h-[26px] shrink-0">
+            <span class="text-[7px] font-mono text-zinc-500 tracking-wider">AXO</span>
+            <div class="flex items-center gap-1.5">
+              <button type="button" id="axoCcChip" aria-pressed="true" title="Subtitles on/off — Axo keeps running" onclick="window.__smartBall && window.__smartBall.toggleAxoSubs()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 active:scale-95 transition">CC</button>
+              <button type="button" id="axoModeChip" aria-pressed="true" title="Axo mode: AI narration or Normal (templates only)" onclick="window.__smartBall && window.__smartBall.toggleAxoMode()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 active:scale-95 transition">AI</button>
+            </div>
+          </div>
+          <div id="smartBallLine" aria-live="polite" class="px-2.5 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[8.5px] font-mono text-zinc-200 leading-relaxed h-[34px] overflow-y-auto"></div>
           
           <!-- 1. Live Period & Timer Bar with Active Interval -->
           <div class="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08]">
@@ -1031,6 +1057,10 @@
           <!-- 5. Bridge status (orb-bridge): login evidence + governed call reason.
                Smallest possible addition — one slim line in the window's own idiom. -->
           <div id="bridgeStatusLine" class="px-2 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[7.5px] font-mono text-zinc-400 leading-relaxed h-[62px] overflow-y-auto">Bridge: checking login…</div>
+          <!-- 5b. Axo AI readout (orb-bridge / axo-ai.js): regime label,
+               session summary, ask-Axo answers. DISPLAY ONLY — it
+               never carries a verdict or a stake. Fixed height. -->
+          <div id="axoAiLine" class="px-2 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[7.5px] font-mono text-zinc-400 leading-relaxed h-[26px] overflow-y-auto">Axo readout: —</div>
           <!-- 6. Auto-Pilot (orb-bridge): toggle + session line + stop
                reason. Staging is automatic; firing is one tap per bet. -->
           <div id="autoPilotRow" class="px-2 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-1">
@@ -1477,6 +1507,7 @@
   <script src="./systems/wingo_5m.js"></script>
   <script src="./systems/timeframe_manager.js"></script>
   <script src="./systems/balls.js"></script>
+  <script src="./systems/axo-faces.js"></script>
   <script src="./systems/dhani-transport.js"></script>
 
   <!-- Core Mobile Orchestrator -->

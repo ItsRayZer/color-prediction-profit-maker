@@ -21,6 +21,8 @@ const FILES = { 'mobile.js': mobileJs, 'systems/autoPilot.js': autoPilotJs, 'ind
 // the file that must contain the persisted key (the real reader).
 const MANIFEST = [
   { id: 'swSoundEffects', key: 'quant_sound', consumer: 'mobile.js' },
+  { id: 'swAxoVoice', key: 'o101_axo_voice', consumer: 'mobile.js' },
+  { id: 'swAxoMode', key: 'o101_axo_mode', consumer: 'mobile.js' },
   { id: 'swHaptics', key: 'quant_haptics', consumer: 'mobile.js' },
   { id: 'swKeepAlive', key: 'quant_bg_keepalive', consumer: 'mobile.js' },
   { id: 'swWakeLock', key: 'quant_wakelock', consumer: 'mobile.js' },

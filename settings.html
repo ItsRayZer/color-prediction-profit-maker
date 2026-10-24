@@ -1384,6 +1384,44 @@
           </div>
         </div>
 
+        <!-- Axo Voice -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-blue">
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+            </div>
+            <div>
+              <div class="ios-label-primary">Axo Voice</div>
+              <div class="ios-label-secondary">Spoken predictions, wins and losses</div>
+            </div>
+          </div>
+          <div class="ios-row-right">
+            <label class="ios-switch">
+              <input type="checkbox" id="swAxoVoice" checked onchange="toggleAxoVoice(this.checked)">
+              <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Axo Mode -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-teal">
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a4 4 0 0 1 4 4c2.5.5 4 2.5 4 5a6 6 0 0 1-2 4.5V18a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2v-2.5A6 6 0 0 1 4 11c0-2.5 1.5-4.5 4-5a4 4 0 0 1 4-4Z"/><path d="M9 22h6"/></svg>
+            </div>
+            <div>
+              <div class="ios-label-primary">Axo AI Mode</div>
+              <div class="ios-label-secondary">Off = Normal mode, templates only, no AI calls</div>
+            </div>
+          </div>
+          <div class="ios-row-right">
+            <label class="ios-switch">
+              <input type="checkbox" id="swAxoMode" checked onchange="toggleAxoMode(this.checked)">
+              <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
+            </label>
+          </div>
+        </div>
+
         <!-- Haptics -->
         <div class="ios-row">
           <div class="ios-row-left">
@@ -2120,6 +2158,16 @@
       const swSound = document.getElementById('swSoundEffects');
       if (swSound) swSound.checked = soundVal;
 
+      // Axo Voice
+      const axoVoiceVal = localStorage.getItem('o101_axo_voice') !== '0';
+      const swAxoVoice = document.getElementById('swAxoVoice');
+      if (swAxoVoice) swAxoVoice.checked = axoVoiceVal;
+
+      // Axo Mode (on = AI, off = Normal)
+      const axoModeVal = localStorage.getItem('o101_axo_mode') !== 'normal';
+      const swAxoMode = document.getElementById('swAxoMode');
+      if (swAxoMode) swAxoMode.checked = axoModeVal;
+
       // Haptics
       const hapVal = localStorage.getItem('quant_haptics') !== '0';
       const swHap = document.getElementById('swHaptics');
@@ -2255,6 +2303,16 @@
       localStorage.setItem('quant_sound', checked ? '1' : '0');
       if (checked) playTestAudio('win');
       showToast(checked ? 'Sound Effects Enabled' : 'Sound Effects Muted');
+    }
+
+    function toggleAxoVoice(checked) {
+      localStorage.setItem('o101_axo_voice', checked ? '1' : '0');
+      showToast(checked ? 'Axo Voice Enabled' : 'Axo Voice Muted');
+    }
+
+    function toggleAxoMode(checked) {
+      localStorage.setItem('o101_axo_mode', checked ? 'ai' : 'normal');
+      showToast(checked ? 'Axo AI Mode On' : 'Axo Normal Mode (templates only)');
     }
 
     function toggleHaptics(checked) {

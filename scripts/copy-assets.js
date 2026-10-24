@@ -36,7 +36,11 @@ fs.copyFileSync(srcHtml, destHtml);
 console.log('Copied index.html -> deploy/index.html (source, unprocessed)');
 
 // Copy static assets needed by index.html
-['systems', 'algorithms', 'src', 'sounds'].forEach(dir => {
+// ('api' carries the Vercel twin of the Axo AI hop into the
+// preview project's rootDirectory; 'functions' carries the
+// Cloudflare Pages production hop — functions/api/axo-ai.js +
+// the shared core — into the uploaded tree.)
+['systems', 'algorithms', 'src', 'sounds', 'api', 'functions'].forEach(dir => {
   const src = path.join(rootDir, dir);
   const dest = path.join(deployDir, dir);
   copyDirRecursive(src, dest);
