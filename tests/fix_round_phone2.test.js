@@ -6,11 +6,13 @@
  *    worker hostname does not resolve (NXDOMAIN), so the embed shows
  *    the browser's DNS error page — which fires `load` and used to
  *    count as "loaded", leaving the pane dead forever. Now: a hard
- *    embed error falls back at once; a completed load with no bridge
- *    signal inside 5s falls back; the 15s no-load watchdog remains
- *    the outer bound; the fallback is one-shot; and every status
- *    surface names the failure (proxy unreachable, direct mode,
- *    bridge inactive, login cannot be verified in this mode).
+ *    embed error retries at once; a completed load with no bridge
+ *    signal inside 5s retries; the 15s no-load watchdog remains
+ *    the outer bound; the retry is one-shot and stays on the proxy
+ *    route (a swap to direct would kill the session, so direct is
+ *    used only when no worker base is configured at all); and every
+ *    status surface names the failure (proxy slow or failed, retry
+ *    on the proxy, bridge inactive, login kept on the proxy route).
  *  Fix 2 — REVERSED by fix round #2 (owner's order, 2026-10-24):
  *    the VERIFIED gate is deleted. The owner found the gate itself
  *    caused bugs and ordered the app fully usable without login.
@@ -32,6 +34,7 @@ const MOBILE_HTML = fs.readFileSync('mobile.html', 'utf8');
 const SETTINGS = fs.readFileSync('settings.html', 'utf8');
 const ORB = fs.readFileSync('systems/orb-bridge.js', 'utf8');
 const PROXY_LINE = 'Proxy unreachable — direct mode · bridge inactive · login cannot be verified in this mode';
+const PROXY_RETRY_LINE = 'Proxy load slow or failed — retried on the proxy · bridge inactive · login kept on the proxy route';
 const WORKER = 'https://worker.test';
 const ORIGIN = 'https://dhaniwin44.com';
 
@@ -127,7 +130,7 @@ function loadTransportMachine() {
   return ctx.__t;
 }
 
-test('fallback: completed load with no bridge signal falls back to direct within the 5s window', () => {
+test('fallback: completed load with no bridge signal retries on the proxy within the 5s window', () => {
   const t = loadTransportMachine();
   const proxied = WORKER + '/proxy/dhaniwin/';
   t.iframe.src = proxied;
@@ -139,29 +142,29 @@ test('fallback: completed load with no bridge signal falls back to direct within
   t.fire('load'); // e.g. the browser DNS error page completing
   assert.deepEqual(J(t.pendingMs()), [5000], 'load swaps the watchdog for the 5s bridge-signal window');
   assert.equal(t.fireTimer(5000), true);
-  assert.equal(t.iframe.src, ORIGIN + '/', 'embed now loads the direct URL');
-  assert.equal(t.transport(), 'direct', 'transport recorded as direct');
+  assert.equal(t.iframe.src, proxied + '?o101retry=1', 'embed retries the proxied URL, never direct');
+  assert.equal(t.transport(), 'proxy', 'transport recorded as proxy');
   assert.equal(t.proxyFailed(), true, 'failure recorded on the window');
   assert.ok(t.store.get('o101_dhani_proxy_failed'), 'failure persisted for Settings');
-  assert.equal(t.store.get('o101_dhani_transport'), 'direct');
-  assert.ok(t.statusCalls.some(([c, l]) => c === false && l === PROXY_LINE), 'bridge status states the proxy failure in plain words');
+  assert.equal(t.store.get('o101_dhani_transport'), 'proxy');
+  assert.ok(t.statusCalls.some(([c, l]) => c === false && l === PROXY_RETRY_LINE), 'bridge status states the proxy retry in plain words');
 });
 
-test('fallback: a hard embed error falls back immediately, without waiting for any timer', () => {
+test('fallback: a hard embed error retries on the proxy immediately, without waiting for any timer', () => {
   const t = loadTransportMachine();
   const proxied = WORKER + '/proxy/dhaniwin/login';
   t.iframe.src = proxied;
   t.noteDhaniTransport(proxied);
   t.fire('error');
-  assert.equal(t.iframe.src, ORIGIN + '/login', 'direct equivalent loaded at once');
+  assert.equal(t.iframe.src, proxied + '?o101retry=1', 'proxied retry loaded at once, never direct');
   assert.equal(t.proxyFailed(), true);
-  // Fix round #6: the fallback's own direct navigation re-arms the
-  // overlay's 8s slow note (the direct page also takes seconds to
-  // paint); it is NOT a leftover transport timer — the direct page's
+  // Fix round #6: the fallback's own proxied navigation re-arms the
+  // overlay's 8s slow note (the proxied page also takes seconds to
+  // paint); it is NOT a leftover transport timer — the proxied page's
   // load event clears it, proven by the next two lines.
-  assert.deepEqual(J(t.pendingMs()), [8000], 'only the overlay slow note for the new direct load remains');
+  assert.deepEqual(J(t.pendingMs()), [8000], 'only the overlay slow note for the new proxied load remains');
   t.fire('load');
-  assert.deepEqual(J(t.pendingMs()), [], 'direct page load clears the splash');
+  assert.deepEqual(J(t.pendingMs()), [], 'proxied page load clears the splash');
 });
 
 test('fallback: the 15s no-load watchdog still bounds a load that never completes', () => {
@@ -170,7 +173,7 @@ test('fallback: the 15s no-load watchdog still bounds a load that never complete
   t.iframe.src = proxied;
   t.noteDhaniTransport(proxied);
   assert.equal(t.fireTimer(15000), true);
-  assert.equal(t.iframe.src, ORIGIN + '/');
+  assert.equal(t.iframe.src, proxied + '?o101retry=1');
   assert.equal(t.store.get('o101_dhani_proxy_failed'), 'load-timeout');
 });
 
@@ -210,7 +213,8 @@ test('fallback wiring pins: signal hook, timers, one-shot flag, honest status te
   assert.ok(fb.indexOf('_dhaniProxyFallbackUsed = true') > -1, 'one-shot flag set inside the fallback');
   assert.ok(fb.includes('unproxifyDhaniUrl(expected)'), 'fallback target is the direct equivalent of the proxied URL');
   assert.ok(fb.includes('markDhaniProxyFailed(reason)'), 'failure is recorded');
-  assert.ok(fb.includes(PROXY_LINE), 'fallback status text names the failure');
+  assert.ok(fb.includes(PROXY_LINE), 'fallback status text names the direct failure');
+  assert.ok(fb.includes(PROXY_RETRY_LINE), 'fallback status text names the proxied retry');
   const handler = sliceFn(MOBILE, 'function handleMobileBridgeMessage(msg)', 'function setMobileBridgeStatus(');
   assert.ok(handler.includes('noteDhaniBridgeSignal()'), 'bridge messages feed the signal hook');
   assert.ok(handler.includes("msg.type === 'DHANIWIN_BRIDGE_HANDSHAKE'") && handler.includes("msg.type === 'DHANIWIN_USER_STATE'"), 'handshake + user state count as bridge life');

@@ -4059,10 +4059,18 @@ function noteDhaniBridgeSignal() {
   if (_dhaniProxyFailed || window.__o101DhaniProxyFailed) clearDhaniProxyFailed();
 }
 window.noteDhaniBridgeSignal = noteDhaniBridgeSignal;
-// One-shot fallback from the proxy route to the direct DhaniWin URL.
-// Records the failure so every status surface can say the truth:
-// proxy unreachable, direct mode, bridge inactive, login cannot be
-// verified in this mode. Never fakes a bridge on the direct route.
+// One-shot fallback for a failed proxied DhaniWin load. When a
+// worker base is configured, the fallback NEVER swaps to the direct
+// URL: direct has no worker-host cookies, so the swap instantly
+// kills the session and shows the login screen (case-1: "after
+// loading it reloads and auto logout"). Instead it retries the
+// proxied URL once (cache-busted so the retry really navigates);
+// if the retry also brings no bridge signal, no further fallback
+// fires (one-shot) and the honest error state below stands. A
+// live bridge signal on the retry clears the failure record via
+// noteDhaniBridgeSignal, as before. Without a worker base, direct
+// is the only mode, so the old direct swap is kept exactly.
+// Never fakes a bridge on any route.
 function runDhaniProxyFallback(reason) {
   if (_dhaniProxyFallbackUsed) return;
   const iframe = $('dhaniwinIframe');
@@ -4073,6 +4081,25 @@ function runDhaniProxyFallback(reason) {
   clearDhaniProxyWatchdog();
   clearDhaniBridgeSignalTimer();
   markDhaniProxyFailed(reason);
+  const hasWorkerBase = typeof CF_WORKER_BASE === 'string' && CF_WORKER_BASE.length > 0;
+  if (hasWorkerBase) {
+    // Proxied retry, one shot: same proxied URL plus a retry query
+    // (inserted before any fragment) so assigning src really
+    // navigates instead of no-op'ing on an identical URL. The load
+    // listener is already hooked, so the retry load hides the
+    // splash; no new watchdog is armed (noteDhaniTransport returns
+    // early once the one-shot flag is set).
+    const hashIdx = expected.indexOf('#');
+    const base = hashIdx === -1 ? expected : expected.slice(0, hashIdx);
+    const frag = hashIdx === -1 ? '' : expected.slice(hashIdx);
+    const retry = base + (base.indexOf('?') === -1 ? '?' : '&') + 'o101retry=1' + frag;
+    if (iframe) iframe.src = retry;
+    const barText = $('mobileWebAddressBarText');
+    if (barText) barText.textContent = retry;
+    noteDhaniTransport(retry);
+    setMobileBridgeStatus(false, 'Proxy load slow or failed — retried on the proxy · bridge inactive · login kept on the proxy route');
+    return;
+  }
   const direct = unproxifyDhaniUrl(expected);
   if (iframe) iframe.src = direct;
   const barText = $('mobileWebAddressBarText');
