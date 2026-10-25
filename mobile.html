@@ -222,6 +222,19 @@
         <button onclick="setMobileTimeframe('5m')"  id="tfBtn-5m"  class="tf-btn flex-1 py-1.5 rounded-xl font-mono text-[10.5px] font-black transition active:scale-95 text-white/50 hover:text-white hover:bg-white/5">5m</button>
       </div>
 
+      <!-- Task M: the ONLY on-demand entry to the adaptive AI system.
+           AI Adaptive is not a menu entry; this button opens tab-ai. -->
+      <button type="button" id="analyseOpenAiBtn" onclick="switchMobileTab('ai')" class="w-full p-2.5 rounded-2xl bg-black/60 border border-white/[0.08] backdrop-blur-xl flex items-center justify-between gap-2 active:scale-[0.98] transition">
+        <span class="flex items-center gap-2">
+          <i class="fa-solid fa-brain text-purple-300 text-sm"></i>
+          <span class="flex flex-col items-start leading-tight">
+            <span class="text-[11px] font-black text-white">AI Adaptive</span>
+            <span class="text-[8px] font-mono text-zinc-400">Adaptive AI system · models, champion and blacklist</span>
+          </span>
+        </span>
+        <span class="text-[10px] font-mono font-bold text-zinc-400">Open <i class="fa-solid fa-chevron-right text-[8px]"></i></span>
+      </button>
+
       <!-- 1. PREDICTION HERO CARD -->
       <div id="heroPredictionCard" class="liquid-glass-card p-3.5 space-y-3 transition-all duration-500">
         <!-- Top Bar: Period & IST Wall Clock Countdown -->
@@ -1453,13 +1466,9 @@
         <span class="dock-indicator"></span>
       </button>
 
-      <!-- 3. AI Adaptive Tab (Model Roster & Champion) -->
-      <button type="button" onclick="switchMobileTab('ai')" class="dock-btn" data-tab="ai">
-        <div class="dock-btn-pill"></div>
-        <i class="fa-solid fa-brain"></i>
-        <span class="tab-title">AI Adaptive</span>
-        <span class="dock-indicator"></span>
-      </button>
+      <!-- Task M (owner order 2026-10-26): AI Adaptive is NOT a menu
+           entry. The tab-ai section and its engine stay untouched,
+           opened only via the button in Analyse (id analyseOpenAiBtn). -->
 
     </div>
   </nav>
