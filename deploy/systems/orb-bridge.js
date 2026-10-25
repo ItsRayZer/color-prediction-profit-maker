@@ -1221,6 +1221,86 @@ export function fitSheetHeight({ need = 0, current = 0, vh = 0 } = {}) {
 }
 
 /**
+ * Task N (owner order 2026-10-26, "resizable to any size and all be
+ * visible"): compaction tiers. The Task K fixed 340px content floor
+ * is REMOVED — it blocked shrinking below 340 even though the
+ * content can compact far below it. Instead the sheet compacts in
+ * tiers (CSS rules in mobile.css, keyed on the sheet's
+ * data-axo-compact attribute) and the settle pass measures at the
+ * applied tier, so the settled size is the MEASURED compacted need
+ * — never a guessed floor, never a clip. Tiers only tighten
+ * padding, gaps, and sizes (see the CSS); no tier hides a section,
+ * truncates a reason, or drops a control. Savings below are the
+ * documented per-tier totals, measured from the markup:
+ * - tier 1 (−13): body padding 16→8 (−8) + body gaps 4→3px × 5 (−5).
+ * - tier 2 (−29): + hero padding 16→8 (−8) + road padding 8→4 (−4)
+ *   + control row 27→23 (−4).
+ * - tier 3 (−52): + body gaps 3→2px × 5 (−5) + hero verdict text
+ *   28→24 line (−4) + road beads 20→18 (−2) + pills/chips padding
+ *   8→4 each (−8) + base top padding 2→0 (−2) + reason bottom
+ *   padding 2→0 (−2).
+ * The 64px header face is NEVER shrunk (it is Axo's identity and
+ * the drag handle) and the reason text is NEVER truncated. Runtime
+ * measurement is authoritative: these numbers pick the tier, and
+ * fitSheetToContent measures at the tier and grows if still short.
+ * Live-drag bands (absolute heights, no measurement — the settle
+ * pass corrects them): ≥340 → 0, ≥300 → 1, ≥265 → 2, else 3.
+ * Narrow flag: sheet width < 240px tightens control-row padding
+ * and gaps only (never a font below readable, never a wrap that
+ * would add a row). Smallest fully-visible default content
+ * (tier-0 359px, Task L baseline) is 359 − 52 = 307px; with a staged
+ * confirm slot (+34) it is 341px. Below that, or on a viewport
+ * shorter than need + 24, full visibility is physically
+ * impossible — the sheet keeps the most compact layout there and
+ * the settle rule caps at the viewport instead of clipping by
+ * choice (see axoSettledHeight).
+ */
+export const AXO_COMPACT_SAVINGS = [0, 13, 29, 52];
+export const AXO_COMPACT_BANDS = [340, 300, 265];
+export const AXO_NARROW_WIDTH = 240;
+
+export function axoCompactedHeight({ fullH = 0, level = 0 } = {}) {
+  const lv = Math.min(3, Math.max(0, Math.floor(Number(level)) || 0));
+  return Math.max(0, (Number(fullH) || 0) - AXO_COMPACT_SAVINGS[lv]);
+}
+
+export function axoCompactLevelFor({ sheetH = 0, fullH = 0 } = {}) {
+  const h = Number(sheetH) || 0;
+  const full = Number(fullH) || 0;
+  for (let level = 0; level <= 3; level += 1) {
+    if (axoCompactedHeight({ fullH: full, level }) <= h) return level;
+  }
+  return 3;
+}
+
+export function axoCompactBandFor({ height = 0 } = {}) {
+  const h = Number(height) || 0;
+  if (h >= AXO_COMPACT_BANDS[0]) return 0;
+  if (h >= AXO_COMPACT_BANDS[1]) return 1;
+  if (h >= AXO_COMPACT_BANDS[2]) return 2;
+  return 3;
+}
+
+export function axoNarrowFor({ width = 0 } = {}) {
+  return (Number(width) || 0) < AXO_NARROW_WIDTH;
+}
+
+/**
+ * Task N settle rule (pure): the settled height is the largest of
+ * the wanted height, the measured compacted need, and the 220px
+ * absolute drag floor — capped by the viewport (vh − 24, never
+ * below 220). When the returned height is below needH, the content
+ * physically cannot fit even compacted (viewport too short); the
+ * caller keeps the most compact layout at the cap and must not
+ * pretend otherwise. This never shrinks a user's size by choice:
+ * wantH is always honored unless the measured need exceeds it.
+ */
+export function axoSettledHeight({ wantH = 0, needH = 0, vh = 0 } = {}) {
+  const cap = Math.max(220, (Number(vh) || 0) - 24);
+  return Math.min(cap, Math.max(220, Number(wantH) || 0, Number(needH) || 0));
+}
+
+/**
  * Task J (owner need 2026-10-25, swarm binding constraint): one-tap
  * history export — PURE builder. Secrets are excluded BY
  * CONSTRUCTION: the output is built field-by-field from an
@@ -1357,26 +1437,25 @@ export function axoBubbleGeometry({ anchor = null, vw = 0, vh = 0, bw = 280, bh 
  * clearance for the straddling avatar + 14px bottom margin). The
  * short-viewport tightening in mobile.css covers the residual gap
  * between the softened floor and the tightened content.
- * Task L (owner screenshot 2026-10-26): the floor is a MINIMUM,
- * not a fit guarantee — the Task K "content ~327" budget was wrong
- * (it counted a 33px header; the real header carries the 64px face,
- * so it is ~77px, and true content with the reserved slot was
- * ~395-400px > the 380px cap, which clipped the chip row).
- * fitSheetToContent() grows the sheet to measured content whenever
- * content exceeds the resolved height, so no functional control can
- * ever be clipped by the cap again; the collapsed empty confirm
- * slot brings default content to ~359px, inside the 380px cap.
+ * Task N (owner order 2026-10-26, "resizable to any size and all be
+ * visible"): the Task K fixed 340px content floor is REMOVED — it
+ * blocked shrinking below 340 even though compaction carries the
+ * same content down to ~307px (default) at tier 3. The resolver
+ * now floors only at the ABSOLUTE drag floor (200×220) so a saved
+ * compact size restores exactly; the post-open compact fit
+ * (fitSheetToContent: tier by measurement, then grow to measured
+ * compacted need) guarantees no section clips, and a size below
+ * the compacted need settles at that need instead of clipping.
+ * The old 340px floor constant and floor function are deleted
+ * with this change (no other importer existed); the 340 number
+ * survives only in the compact preset's height (230×340), which
+ * still resolves exactly.
  * Published for the classic script (mobile.js cannot import this
  * module) with an inline fallback there.
  */
 export const AXO_PANEL_DEFAULT_SIZE = { width: 270, height: 380 };
 export const AXO_PANEL_MIN_SIZE = { width: 200, height: 220 };
 export const AXO_PANEL_SIZE_KEY = 'dhaniwin_assistant_box_size';
-export const AXO_PANEL_CONTENT_MIN_HEIGHT = 340;
-
-export function axoPanelContentFloor(vh) {
-  return Math.max(AXO_PANEL_MIN_SIZE.height, Math.min(AXO_PANEL_CONTENT_MIN_HEIGHT, (Number(vh) || 0) - 64));
-}
 
 export function resolveAxoPanelSize({ saved = null, vw = 0, vh = 0 } = {}) {
   const maxW = Math.max(AXO_PANEL_MIN_SIZE.width, (Number(vw) || 0) - 16);
@@ -1386,7 +1465,10 @@ export function resolveAxoPanelSize({ saved = null, vw = 0, vh = 0 } = {}) {
   const h = num(saved && saved.height);
   return {
     width: Math.min(maxW, Math.max(AXO_PANEL_MIN_SIZE.width, w ?? AXO_PANEL_DEFAULT_SIZE.width)),
-    height: Math.min(maxH, Math.max(axoPanelContentFloor(vh), h ?? AXO_PANEL_DEFAULT_SIZE.height))
+    // Task N: absolute floor only (220). A saved compact size
+    // restores exactly; the post-open compact fit grows to the
+    // measured compacted need when content would otherwise clip.
+    height: Math.min(maxH, Math.max(AXO_PANEL_MIN_SIZE.height, h ?? AXO_PANEL_DEFAULT_SIZE.height))
   };
 }
 
@@ -3183,6 +3265,19 @@ function initBridge() {
    * long reason, or a taller road can never clip the base-bet chip
    * row under the sheet cap again. Grow-only and viewport-capped
    * (fitSheetHeight); never shrinks a user's size, never scrolls.
+   * Task N (owner order 2026-10-26): compact-fit FIRST, then grow.
+   * Before measuring, the sheet steps through compaction tiers by
+   * measurement — up while the need exceeds the sheet, back down
+   * while a roomier tier still fits — so a user-shrunk sheet shows
+   * every section compacted instead of clipping, and a roomy sheet
+   * never stays over-compacted. The narrow flag follows the sheet
+   * width. Only after max compaction does the grow step run, so a
+   * size below the compacted need settles AT that need (the honest
+   * smallest fully-visible size) rather than clipping. The
+   * grow-only contract for user sizes is unchanged: this never
+   * shrinks the sheet below the user's height except by applying
+   * a tighter tier, and the viewport cap still wins on short
+   * viewports (physical limit — most compact layout kept there).
    */
   function fitSheetToContent() {
     if (!axoPanelOpen()) return false;
@@ -3191,12 +3286,26 @@ function initBridge() {
     const header = $('assistantSheetHeader');
     const controls = $('axoControlRow');
     if (!sheet || !body || !header || !controls) return false;
-    const need = sheetContentHeight({
+    const measure = () => sheetContentHeight({
       headerH: header.offsetHeight || 0,
       controlsH: controls.offsetHeight || 0,
       bodyScrollH: body.scrollHeight || 0
     });
-    const target = fitSheetHeight({ need, current: sheet.offsetHeight || 0, vh: window.innerHeight || 0 });
+    const applyTier = (level) => { sheet.dataset.axoCompact = String(level); };
+    let level = Number(sheet.dataset.axoCompact || 0) || 0;
+    if (level < 0 || level > 3) level = 0;
+    applyTier(level);
+    let need = measure();
+    const sheetH = () => sheet.offsetHeight || 0;
+    while (need > sheetH() && level < 3) { level += 1; applyTier(level); need = measure(); }
+    while (level > 0) {
+      applyTier(level - 1);
+      const lower = measure();
+      if (lower <= sheetH()) { level -= 1; need = lower; }
+      else { applyTier(level); need = measure(); break; }
+    }
+    sheet.dataset.axoNarrow = axoNarrowFor({ width: sheet.offsetWidth || 0 }) ? '1' : '0';
+    const target = fitSheetHeight({ need, current: sheetH(), vh: window.innerHeight || 0 });
     if (target === null) return false;
     sheet.style.height = target + 'px';
     sheet.style.maxHeight = target + 'px';
