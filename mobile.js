@@ -324,7 +324,8 @@ function isUserLoggedIn() {
   try {
     if (localStorage.getItem('dhaniwin_is_logged_in') === 'true') return true;
     if (localStorage.getItem('dhaniwin_logged_in') === '1') return true;
-    if (localStorage.getItem('ar_token')) return true;
+    // NOTE: login is never derived from a raw session token anymore
+    // (the old 'ar_token' leg is removed with the credential fix).
   } catch(e) {}
   return false;
 }
@@ -5658,22 +5659,13 @@ function initMobileDhaniWinBridge() {
     }
   });
 
-  // Restore saved token if available in storage
-  try {
-    const savedToken = localStorage.getItem('ar_token');
-    if (savedToken) {
-      MobileBridgeState.authToken = savedToken;
-      const parts = savedToken.split('.');
-      if (parts.length === 3) {
-        const payload = JSON.parse(atob(parts[1]));
-        if (payload.TenantAccount || payload.UserId) {
-          MobileBridgeState.userId = payload.TenantAccount || payload.UserId;
-          const uIdEl = $('mobileWebUserId');
-          if (uIdEl) uIdEl.textContent = 'ID: ' + MobileBridgeState.userId;
-        }
-      }
-    }
-  } catch(e) {}
+  // Credential cleanup: older builds persisted the bridge's raw
+  // session token under 'ar_token'. The app never stores a raw
+  // session value anymore — purge any leftover. Login state now
+  // comes from the boolean flags + live bridge state; the user ID
+  // comes from the bridge's published userId field (see the
+  // DHANIWIN_USER_STATE branch in handleMobileBridgeMessage).
+  try { localStorage.removeItem('ar_token'); } catch(e) {}
 
   // Restore saved risk mode & auto optimize preference
   try {
@@ -5712,6 +5704,14 @@ function handleMobileBridgeMessage(msg) {
   }
   if (msg.type === 'DHANIWIN_USER_STATE' && typeof msg.betSlipOpen === 'boolean') {
     setBetSlipDockHidden(msg.betSlipOpen);
+  }
+  // User ID from the bridge's published userId field (one of the 7
+  // relayed state fields — an identifier, never a credential). This
+  // replaces the old JWT-decode path, which is gone with the token.
+  if (msg.type === 'DHANIWIN_USER_STATE' && msg.userId !== undefined && msg.userId !== null && String(msg.userId) !== '') {
+    MobileBridgeState.userId = String(msg.userId);
+    const uIdEl = $('mobileWebUserId');
+    if (uIdEl) uIdEl.textContent = 'ID: ' + MobileBridgeState.userId;
   }
   if (msg.type === 'DHANIWIN_BRIDGE_HANDSHAKE' || msg.type === 'DHANIWIN_BRIDGE_HEARTBEAT') {
     setMobileBridgeStatus(true);
@@ -5836,24 +5836,12 @@ function handleMobileBridgeMessage(msg) {
       _syncLogoutCount = 0;
     }
 
-    // Only accept token if logged in and not on auth pages
-    if (msg.token && msg.isLoggedIn !== false && !isAuthUrl) {
+    // Presence only: the bridge reports tokenPresent (boolean) since
+    // the credential fix — the app never reads, stores, or decodes
+    // a raw session token. The boolean flags are the login truth.
+    if (msg.tokenPresent && msg.isLoggedIn !== false && !isAuthUrl) {
       markUserLoggedIn();
-      try { localStorage.setItem('ar_token', msg.token); } catch(e) {}
-      if (!MobileBridgeState.authToken) {
-        MobileBridgeState.authToken = msg.token;
-        try {
-          const parts = msg.token.split('.');
-          if (parts.length === 3) {
-            const payload = JSON.parse(atob(parts[1]));
-            if (payload.TenantAccount || payload.UserId) {
-              MobileBridgeState.userId = payload.TenantAccount || payload.UserId;
-              const uIdEl = $('mobileWebUserId');
-              if (uIdEl) uIdEl.textContent = 'ID: ' + MobileBridgeState.userId;
-            }
-          }
-        } catch(e) {}
-      }
+      MobileBridgeState.authToken = true;
     }
     setMobileBridgeStatus(true);
   } else if (msg.type === 'INCHARGE_MODE_CHANGED' && msg.mode) {

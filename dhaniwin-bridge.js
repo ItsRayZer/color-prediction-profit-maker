@@ -14,6 +14,11 @@
 // ==/UserScript==
 (function() {
   'use strict';
+  // Idempotence guard: the bridge must never run twice on one page
+  // (bookmarklet tap + userscript, or a double tap, would otherwise
+  // double every interval/listener). A second load is a no-op.
+  if (window.__o101BridgeLoaded) return;
+  window.__o101BridgeLoaded = true;
   console.log('%c[Quant AI Bridge] 🚀 Initializing DhaniWin Real Auto-Betting Engine v3.1...', 'color:#10b981;font-weight:bold;font-size:13px;');
 
   const channel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('dhaniwin_quant_channel') : null;
@@ -829,7 +834,7 @@
 
     notifyApp({
       type: 'DHANIWIN_USER_SYNC',
-      token: isLoggedIn ? token : null,
+      tokenPresent: isLoggedIn ? !!token : false,
       balance: balance,
       isLoggedIn: isLoggedIn,
       url: window.location.href,

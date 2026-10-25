@@ -1255,6 +1255,28 @@
           </div>
           <span class="ios-tag-micro tag-neutral" id="bridgeDiagTag">…</span>
         </div>
+        <!-- Bridge bookmarklet (no-infra injection): drag this link to
+             the bookmarks bar (desktop) or copy it into a bookmark's
+             URL (mobile). Tapped while ON the DhaniWin tab, it loads
+             dhaniwin-bridge.js from THIS app's origin onto the page —
+             the bridge then reads DhaniWin's own APIs with the page's
+             own session (same-origin, like the page itself) and relays
+             only the 7 state fields. The href is baked at runtime from
+             location.origin so it works on preview and production. -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-amber">
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M6 3v18"/><path d="M9 8l3 4-3 4"/></svg>
+            </div>
+            <div>
+              <div class="ios-label-primary">Bridge bookmarklet</div>
+              <div class="ios-label-secondary">1. Open DhaniWin from the app (external-tab button) · 2. On that DhaniWin tab, tap this bookmarklet · 3. Bridge HUD shows “Bridge Active” — the app then shows VERIFIED + exact balance.</div>
+              <div class="ios-label-secondary">If the page blocks the script, install the same file as a Tampermonkey userscript instead.</div>
+            </div>
+          </div>
+          <a id="bridgeBookmarkletLink" href="#" class="ios-tag-micro tag-amber" style="text-decoration:none">01.01 bridge</a>
+          <button type="button" id="bridgeBookmarkletCopyBtn" class="ios-tag-micro tag-neutral">Copy link</button>
+        </div>
         <!-- Auto-Pilot mirror (orb-bridge): the toggle writes an intent
              (o101_autopilot_settings_v1); the app page is the authority
              that arms/disarms and this row mirrors the ACTUAL state
@@ -3099,7 +3121,7 @@
         tag.className = 'ios-tag-micro ' + (state === 'VERIFIED' ? 'tag-active' : state === 'NOT_LOGGED_IN' ? 'tag-warning' : 'tag-neutral');
         line.textContent = state === 'VERIFIED' ? 'Login verified · ' + bal + ' (' + src + ') · sync ' + ageText
           : state === 'NOT_LOGGED_IN' ? 'Not logged in on DhaniWin'
-          : state === 'NO_SIGNAL' ? 'No bridge signal — open DhaniWin with the bridge active'
+          : state === 'NO_SIGNAL' ? 'No bridge signal — open DhaniWin from the app, then tap the 01.01 bridge bookmarklet on the DhaniWin tab'
           : 'Checking login… waiting for the bridge\'s API-proven user state';
         detail.textContent = 'Balance ' + bal + ' · Source ' + src + ' · Mode ' + mode + ' · Sync ' + ageText;
         if (transport === 'direct') {
@@ -3110,11 +3132,47 @@
           try { proxyFailed = localStorage.getItem('o101_dhani_proxy_failed'); } catch (e) {}
           line.textContent = proxyFailed
             ? 'Proxy unreachable — direct mode · bridge inactive · login cannot be verified in this mode'
-            : 'Direct load — bridge inactive · login + exact balance unavailable on this route';
+            : 'Direct load — bridge inactive · tap the 01.01 bridge bookmarklet on a DhaniWin tab opened from the app to connect';
         }
       }
       render();
       setInterval(render, 1000);
+    })();
+
+    // ── Bridge bookmarklet ──────────────────────────────────────────
+    // No-infra injection: the link's href is a javascript: loader
+    // baked with THIS page's origin, so it loads dhaniwin-bridge.js
+    // from the same deploy that served Settings (preview or
+    // production). The bridge file is idempotent (__o101BridgeLoaded)
+    // and refuses non-DhaniWin hostnames, so a stray tap is harmless.
+    (function initBridgeBookmarklet() {
+      var link = document.getElementById('bridgeBookmarkletLink');
+      var copyBtn = document.getElementById('bridgeBookmarkletCopyBtn');
+      if (!link) return;
+      var src = location.origin + '/dhaniwin-bridge.js';
+      var code = "(function(){"
+        + "if(window.__o101BridgeLoaded){alert('01.01 bridge is already active on this page.');return;}"
+        + "if(!/dhaniwin/i.test(location.hostname)){alert('Open the DhaniWin page first, then tap this bookmarklet there.');return;}"
+        + "var s=document.createElement('script');"
+        + "s.src=" + JSON.stringify(src) + ";"
+        + "s.onerror=function(){alert('Bridge could not load. The page may block external scripts, or this app host is unreachable. Fallback: install the same file as a Tampermonkey userscript.');};"
+        + "document.head.appendChild(s);"
+        + "})();";
+      var href = 'javascript:' + encodeURI(code);
+      link.setAttribute('href', href);
+      if (copyBtn) {
+        copyBtn.addEventListener('click', function () {
+          function done(ok) {
+            copyBtn.textContent = ok ? 'Copied' : 'Copy failed';
+            setTimeout(function () { copyBtn.textContent = 'Copy link'; }, 2000);
+          }
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(href).then(function () { done(true); }, function () { done(false); });
+            } else { done(false); }
+          } catch (e) { done(false); }
+        });
+      }
     })();
   </script>
   <script>

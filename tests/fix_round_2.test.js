@@ -28,7 +28,7 @@ const T0 = 1_700_000_000_000;
 test('signalFromBridgeMessage: USER_SYNC maps to a verifier signal', () => {
   const sig = signalFromBridgeMessage({
     type: 'DHANIWIN_USER_SYNC', isLoggedIn: true, balance: 432.5,
-    token: 'tok-123', url: 'https://dhaniwin44.com/WinGo/WinGo_30S'
+    tokenPresent: true, url: 'https://dhaniwin44.com/WinGo/WinGo_30S'
   });
   assert.deepEqual(sig, { isLoggedIn: true, balance: 432.5, hasToken: true, isAuthPage: false });
 });
@@ -140,7 +140,7 @@ test('loginEvidenceLine: verified shows balance, source label and sync age', () 
 
 test('loginEvidenceLine: NO_SIGNAL names the missing bridge, not "checking"', () => {
   const line = loginEvidenceLine({ state: LOGIN_STATES.NO_SIGNAL, balance: null, syncAgeMs: null, everSynced: false });
-  assert.equal(line, 'No bridge signal — open DhaniWin with the bridge active');
+  assert.equal(line, 'No bridge signal — open DhaniWin from the app, then tap the 01.01 bridge bookmarklet on the DhaniWin tab');
   assert.equal(
     loginEvidenceLine({ state: LOGIN_STATES.NOT_LOGGED_IN, balance: null, syncAgeMs: null, everSynced: true }),
     'Not logged in'

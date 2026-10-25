@@ -101,7 +101,7 @@ export class AutoPilot {
   arm({ verified = false, balance = null, blockedReason = null } = {}) {
     if (blockedReason) return { ok: false, reason: blockedReason };
     if (!verified) {
-      return { ok: false, reason: 'Login not verified — Auto-Pilot needs the bridge\'s API-proven login before it will stage bets.' };
+      return { ok: false, reason: 'No bridge channel, so bridge login is not verified — Auto-Pilot needs the bridge on the DhaniWin tab (open DhaniWin from the app, tap the 01.01 bridge bookmarklet there) before it can stage bets.' };
     }
     if (!(Number(balance) > 0)) {
       return { ok: false, reason: 'No verified balance yet — Auto-Pilot cannot size a ladder without the exact balance.' };
@@ -266,7 +266,7 @@ export class AutoPilot {
     const cur = this.state.staged;
     if (!this.state.enabled) return fail('Auto-Pilot is off.');
     if (this.state.stopReason) return fail(this.state.stopReason);
-    if (this.state.paused) return fail(this.state.pauseReason || 'Paused: login not verified.');
+    if (this.state.paused) return fail(this.state.pauseReason || 'Paused: bridge channel lost.');
     if (!cur) {
       const key = validation.timeframe && validation.period ? this._roundKey(validation.timeframe, validation.period) : null;
       if (key && this.state.fired[key] && !this.state.fired[key].settled) return fail('Already fired for this round.');
@@ -274,7 +274,12 @@ export class AutoPilot {
     }
     if (validation.period !== undefined && String(validation.period) !== cur.period) return fail('The round rolled over — that bet is gone.');
     if (validation.timeframe !== undefined && validation.timeframe !== cur.timeframe) return fail('Timeframe changed — that bet is gone.');
-    if (validation.verified !== true) return fail('Login is not verified right now.');
+    if (validation.verified !== true) return fail('Bridge login is not verified right now — the bridge state must be fresh (tap the 01.01 bridge bookmarklet on the DhaniWin tab if it went stale).');
+    // Opt-in honesty check (callers that track the order channel pass
+    // orderChannel explicitly; older callers that omit it skip this
+    // line, so existing validation tests are unaffected): a staged
+    // bet must never "fire" to a tab the app cannot reach.
+    if (validation.orderChannel === false) return fail('No order channel to the DhaniWin tab — open DhaniWin from the app, then tap the 01.01 bridge bookmarklet there, and the staged bet can fire.');
     if (validation.gateDecision !== undefined && validation.gateDecision !== 'BET') return fail('The gate no longer calls this a BET.');
     if (validation.hardStopped === true) return fail(STOP_REASONS.HARD_STOP);
     if (validation.sessionStake !== undefined && validation.sessionStake !== cur.stake) return fail('The ladder stake changed — that bet is gone.');
@@ -356,7 +361,7 @@ export class AutoPilot {
     const s = this.state.session;
     if (this.state.stopReason) return this.state.stopReason;
     if (!this.state.enabled) return 'Auto-Pilot off.';
-    if (this.state.paused) return this.state.pauseReason || 'Paused: login not verified.';
+    if (this.state.paused) return this.state.pauseReason || 'Paused: bridge channel lost.';
     if (!s) return 'Auto-Pilot on.';
     const pnl = `${s.pnl >= 0 ? '+' : '−'}₹${Math.abs(s.pnl).toFixed(2)}`;
     return `AP session: P&L ${pnl} · ${s.rounds} rounds · ${s.fired} fired`;

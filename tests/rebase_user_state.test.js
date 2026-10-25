@@ -163,7 +163,7 @@ test('verifier: bridgeDiagnostic carries mode, source and sync age for settings'
 test('verifier: NO_SIGNAL still applies when only silence exists', () => {
   const v = new LoginVerifier({ startedAt: T0 });
   assert.equal(v.status(T0 + 15000).state, LOGIN_STATES.NO_SIGNAL);
-  assert.equal(loginEvidenceLine(v.status(T0 + 15000)), 'No bridge signal — open DhaniWin with the bridge active');
+  assert.equal(loginEvidenceLine(v.status(T0 + 15000)), 'No bridge signal — open DhaniWin from the app, then tap the 01.01 bridge bookmarklet on the DhaniWin tab');
 });
 
 // ── C. Wiring on the rebased files ────────────────────────────────

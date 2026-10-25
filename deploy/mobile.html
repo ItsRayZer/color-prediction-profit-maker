@@ -1021,6 +1021,13 @@
           </div>
 
 
+          <!-- 2c. Skip reason (orb-bridge): when the hero shows SKIP,
+               this line says WHY — which gate fired, with its numbers
+               (sample count, required probability, streak state).
+               Written by renderHeroVerdict on every cycle; cleared on
+               BET/NONE so a stale reason never outlives its verdict. -->
+          <div id="mobileWebVerdictReason" class="text-[8px] font-mono leading-snug text-zinc-400 px-0.5 pb-0.5"></div>
+
           <!-- 2b. Auto-Pilot confirm (orb-bridge): visible only while a
                bet is staged. This tap is the ONLY way a staged bet fires.
                The slot height is reserved whether or not a bet is

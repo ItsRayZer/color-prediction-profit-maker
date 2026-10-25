@@ -458,10 +458,13 @@ export function signalFromBridgeMessage(msg) {
       return bridgeState ? { bridgeState } : null;
     }
     case 'DHANIWIN_USER_SYNC':
+      // Presence only: the bridge reports tokenPresent (boolean).
+      // A raw token is never read here — the old msg.token field is
+      // ignored even if an older bridge build still sends it.
       return {
         isLoggedIn: typeof msg.isLoggedIn === 'boolean' ? msg.isLoggedIn : null,
         balance,
-        hasToken: !!msg.token,
+        hasToken: msg.tokenPresent === true,
         isAuthPage
       };
     case 'DHANIWIN_REAL_BALANCE':
@@ -509,7 +512,7 @@ export function loginEvidenceLine(login) {
       return `Login verified · ${inrFmt(login.balance)} (${label})${age}`;
     }
     case LOGIN_STATES.NOT_LOGGED_IN: return 'Not logged in';
-    case LOGIN_STATES.NO_SIGNAL: return 'No bridge signal — open DhaniWin with the bridge active';
+    case LOGIN_STATES.NO_SIGNAL: return 'No bridge signal — open DhaniWin from the app, then tap the 01.01 bridge bookmarklet on the DhaniWin tab';
     default: {
       const ev = Array.isArray(login.evidence) ? login.evidence : [];
       if (ev.some(e => e.includes('API wallet proof'))) return 'Bridge connected · waiting for API wallet proof…';
@@ -563,16 +566,21 @@ export function bridgeDiagnostic(login, transport, proxyFailed) {
  * visible in the sheet at the same time.
  */
 export function heroVerdictView(gate) {
-  if (!gate || !gate.decision) return { decision: 'NONE', targetText: '—', confText: '—', pick: null };
+  if (!gate || !gate.decision) return { decision: 'NONE', targetText: '—', confText: '—', pick: null, reasonText: '' };
   if (gate.decision === GATE_DECISIONS.BET) {
     return {
       decision: 'BET',
       targetText: gate.pick || '—',
       confText: gate.prob !== null && gate.prob !== undefined ? Math.round(gate.prob * 100) + '%' : '—',
-      pick: gate.pick || null
+      pick: gate.pick || null,
+      reasonText: ''
     };
   }
-  return { decision: 'SKIP', targetText: 'SKIP', confText: '—', pick: null };
+  // SKIP carries the firing gate's reason verbatim (numbers included:
+  // sample count, required probability, streak state) so the hero
+  // surface itself says WHY — the reason must survive subtitle
+  // overwrites by later Auto-Pilot/ball announcements.
+  return { decision: 'SKIP', targetText: 'SKIP', confText: '—', pick: null, reasonText: gate.reason || '' };
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -1288,7 +1296,7 @@ export function balanceBlockView(login) {
     return {
       text: '—', tag: 'no signal', ageText: '', stale: true, hasState: false,
       emptyText: login && login.state === LOGIN_STATES.NO_SIGNAL
-        ? 'No bridge signal — open DhaniWin with the bridge active'
+        ? 'No bridge signal — open DhaniWin from the app, then tap the 01.01 bridge bookmarklet on the DhaniWin tab'
         : 'No balance state yet'
     };
   }
@@ -1341,7 +1349,10 @@ function initBridge() {
   const inr = n => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 
   const store = new ModelHistoryStore(safeStorage());
-  const tracker = new CalibrationTracker();
+  // Calibration now persists like model history (o101_calibration_v1,
+  // recent 500 records): a fresh page load used to reset it to zero
+  // and the gate skipped every round until 50 fresh settlements.
+  const tracker = new CalibrationTracker({ storage: safeStorage() });
   // One blacklist per governance scope: a model benched on 30s evidence
   // must not stay benched on 5m, and vice versa.
   const blacklists = new Map();
@@ -1508,6 +1519,13 @@ function initBridge() {
   function feedBridgeMessage(msg) {
     const sig = signalFromBridgeMessage(msg);
     if (!sig) return;
+    // Order-channel liveness: a message that arrived through a window
+    // reference (iframe parent / opener postMessage, or the same-origin
+    // channel) proves the app can SEND an order back along that path.
+    // The RTDB poll deliberately does NOT set this — it feeds the
+    // verifier directly, and a state-only path must never be mistaken
+    // for an order path (firing there would post to nowhere).
+    state.orderChannelAt = Date.now();
     if (sig.bridgeState) {
       // The published user state is the truth path: its balance is the
       // exact figure (0 is a real balance), its login is API-proven.
@@ -2202,7 +2220,7 @@ function initBridge() {
   function loginLine(login) {
     if (login.state === LOGIN_STATES.VERIFIED) return `Login verified · ${inr(login.balance)} on DhaniWin (bridge API proof).`;
     if (login.state === LOGIN_STATES.NOT_LOGGED_IN) return 'Not logged into DhaniWin — signals and stakes still show here; an order needs DhaniWin login and will report its real result.';
-    if (login.state === LOGIN_STATES.NO_SIGNAL) return 'No bridge signal yet — signals still show here; open DhaniWin with the bridge active to send orders.';
+    if (login.state === LOGIN_STATES.NO_SIGNAL) return 'No bridge signal yet — signals still show here; open DhaniWin from the app and tap the 01.01 bridge bookmarklet on the DhaniWin tab to send orders.';
     return 'Checking login… waiting for the bridge\'s API-proven user state.';
   }
 
@@ -2241,7 +2259,7 @@ function initBridge() {
       // arrive on a direct route.
       el.textContent = currentDhaniProxyFailed()
         ? PROXY_FAILED_LINE
-        : 'Direct load — bridge inactive · login + exact balance unavailable on this route';
+        : 'Direct load — bridge inactive · tap the 01.01 bridge bookmarklet on a DhaniWin tab opened from the app to connect';
       el.setAttribute('data-transport', 'direct');
       el.setAttribute('data-login-state', state.login ? state.login.state : 'UNKNOWN');
       return;
@@ -2471,6 +2489,11 @@ function initBridge() {
       period: staged ? staged.period : undefined,
       timeframe: staged ? staged.timeframe : (state.tf || currentTf()),
       verified: login.state === LOGIN_STATES.VERIFIED,
+      // Honest-fire check: a staged bet fires only when a window
+      // channel to the DhaniWin tab was heard recently (<=60s). A
+      // bookmarklet-fed tab the app did NOT open gives state but no
+      // order path — firing there must refuse, never fake success.
+      orderChannel: state.orderChannelAt ? (Date.now() - state.orderChannelAt <= 60000) : false,
       gateDecision: state.gate ? state.gate.decision : undefined,
       hardStopped: guard.hardStopped,
       sessionStake: state.session ? state.session.nextStake : undefined,
@@ -2983,7 +3006,7 @@ function initBridge() {
   function renderHeroVerdict(gate) {
     const view = heroVerdictView(gate);
     // Publish the lock first: native renders mirror it verbatim.
-    window.__o101Verdict = { decision: view.decision, pick: view.pick, confText: view.confText, key: state.verdictKey || null };
+    window.__o101Verdict = { decision: view.decision, pick: view.pick, confText: view.confText, reason: view.reasonText || '', key: state.verdictKey || null };
     if (state.page !== 'mobile') return;
     const targetEl = $('mobileWebTargetDisplay');
     if (targetEl) {
@@ -3001,6 +3024,11 @@ function initBridge() {
     setAxoPredictionBadge(badgeFromView(view));
     const conf = $('assistantConfBadge');
     if (conf) conf.textContent = view.confText;
+    // Skip reason on the hero surface itself (mobile.html
+    // #mobileWebVerdictReason, under NEXT PREDICTION). Cleared on
+    // BET/NONE so a stale reason never outlives its verdict.
+    const why = $('mobileWebVerdictReason');
+    if (why) why.textContent = view.reasonText || '';
   }
 
   function renderSignal(gate, incharge, login) {

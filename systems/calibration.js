@@ -19,20 +19,59 @@ const clampProb = p => Math.min(1 - EPS, Math.max(EPS, Number(p) || 0.5));
 const logit = p => Math.log(clampProb(p) / (1 - clampProb(p)));
 const sigmoid = x => 1 / (1 + Math.exp(-x));
 
+export const CALIBRATION_KEY = 'o101_calibration_v1';
+export const CALIBRATION_MAX_RECORDS = 500;
+
 export class CalibrationTracker {
-  constructor({ bucketCount = 10, minSamplesForCalibration = 50, maxEceForCalibration = 0.08 } = {}) {
+  constructor({ bucketCount = 10, minSamplesForCalibration = 50, maxEceForCalibration = 0.08,
+    storage = null, key = CALIBRATION_KEY, maxRecords = CALIBRATION_MAX_RECORDS } = {}) {
     this.bucketCount = bucketCount;
     this.minSamplesForCalibration = minSamplesForCalibration;
     this.maxEceForCalibration = maxEceForCalibration;
+    this.storage = storage;
+    this.key = key;
+    this.maxRecords = maxRecords;
     this.records = []; // { prob, won }
     this._platt = null; // { a, b } fitted lazily
+    this.load();
+  }
+
+  /** Hydrate from storage (no-op without storage). Records are recent-only
+   *  by construction: save() always keeps at most maxRecords, so a stale
+   *  calibration from days ago cannot survive — and the ECE gate (<=0.08)
+   *  still refuses a wrong calibration, hydrated or not. Without this,
+   *  every page load reset calibration to zero and the signal gate
+   *  skipped every round until 50 fresh in-session settlements accrued. */
+  load() {
+    if (!this.storage) return this;
+    try {
+      const raw = this.storage.getItem(this.key);
+      if (!raw) return this;
+      const d = JSON.parse(raw);
+      const recs = Array.isArray(d) ? d : (d && Array.isArray(d.records) ? d.records : null);
+      if (!recs) return this;
+      this.records = recs
+        .filter(r => r && Number.isFinite(Number(r.prob)))
+        .map(r => ({ prob: clampProb(r.prob), won: r.won === true }))
+        .slice(-this.maxRecords);
+      this._platt = null;
+    } catch (e) { /* corrupt snapshot: start fresh, gate stays honest */ }
+    return this;
+  }
+
+  save() {
+    if (!this.storage) return this;
+    try { this.storage.setItem(this.key, JSON.stringify(this.records)); } catch (e) {}
+    return this;
   }
 
   /** Record one settled prediction. prob = probability given to the pick. */
   record(prob, won) {
     const p = clampProb(prob);
     this.records.push({ prob: p, won: won === true });
+    if (this.records.length > this.maxRecords) this.records = this.records.slice(-this.maxRecords);
     this._platt = null; // refit on demand
+    this.save();
     return this;
   }
 
