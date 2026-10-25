@@ -20,7 +20,20 @@ const TF_TYPE_IDS = { '30s': 1, '1m': 2, '3m': 3, '5m': 4 };
 const RTDB_BASE = 'https://zer0one-376d1-default-rtdb.asia-southeast1.firebasedatabase.app';
 
 const MobileState = {
-  timeframe: '30s',
+  // Default timeframe: the Settings page's "Default Interval"
+  // (quant_default_tf) wins; the last in-app choice
+  // (dhaniwin_last_interval) is the fallback. Before this wiring the
+  // settings value was written but never read.
+  timeframe: (() => {
+    try {
+      const ok = ['30s', '1m', '3m', '5m'];
+      const fromSettings = localStorage.getItem('quant_default_tf');
+      if (ok.includes(fromSettings)) return fromSettings;
+      const last = localStorage.getItem('dhaniwin_last_interval');
+      if (ok.includes(last)) return last;
+    } catch (e) {}
+    return '30s';
+  })(),
   historyByTf: { '30s': [], '1m': [], '3m': [], '5m': [] },
   activePrediction: { period: null, target: null, type: 'SIZE', inChargeModel: null },
   scheduledPredictionsByPeriod: {},
@@ -36,8 +49,10 @@ const MobileState = {
   sim: {
     running: false,
     balance: 10000,
-    baseStake: 10,
-    stake: 10,
+    // Base stake boots from the shared settings value (quant_sim_stake,
+    // written by the Settings page and by setSimBaseStake).
+    baseStake: (() => { try { const v = parseInt(localStorage.getItem('quant_sim_stake') || '10', 10); return Number.isFinite(v) && v > 0 ? v : 10; } catch (e) { return 10; } })(),
+    stake: (() => { try { const v = parseInt(localStorage.getItem('quant_sim_stake') || '10', 10); return Number.isFinite(v) && v > 0 ? v : 10; } catch (e) { return 10; } })(),
     level: 0,
     pendingBet: null,
     totalBets: 0,
@@ -309,11 +324,22 @@ function isUserLoggedIn() {
   try {
     if (localStorage.getItem('dhaniwin_is_logged_in') === 'true') return true;
     if (localStorage.getItem('dhaniwin_logged_in') === '1') return true;
-    if (localStorage.getItem('ar_token')) return true;
+    // NOTE: login is never derived from a raw session token anymore
+    // (the old 'ar_token' leg is removed with the credential fix).
   } catch(e) {}
   return false;
 }
 window.isUserLoggedIn = isUserLoggedIn;
+
+/** Display-only short period: the last 4 digits, never the full
+ *  number (fix round #2). Internal period identity (locks, keys,
+ *  history records) always stays the full string. */
+function shortPeriodStr(p) {
+  if (p === null || p === undefined) return '';
+  const s = String(p);
+  return s ? s.slice(-4) : '';
+}
+window.shortPeriodStr = shortPeriodStr;
 
 let _authGracePeriodUntil = 0;
 
@@ -338,17 +364,20 @@ function markUserLoggedIn() {
     localStorage.setItem('dhaniwin_logged_in', '1');
     localStorage.setItem('dhaniwin_registered', '1');
   } catch(e) {}
-  if (typeof updateDhaniAuthBar === 'function') updateDhaniAuthBar();
 }
 window.markUserLoggedIn = markUserLoggedIn;
 
-// Clear all login keys (only on confirmed session-out)
+// Clear all login keys (only on confirmed session-out). NOTE: the
+// app's OWN keys only — DhaniWin's session key 'ar_token' is NEVER
+// deleted here. The app page and the DhaniWin frame share one origin
+// (the worker host) and therefore one localStorage, so 'ar_token' IS
+// the live DhaniWin session; deleting it would kill a live login.
+// DhaniWin's own logout flow owns its token.
 function markUserLoggedOut() {
   _authGracePeriodUntil = 0;
   try {
     localStorage.removeItem('dhaniwin_is_logged_in');
     localStorage.removeItem('dhaniwin_logged_in');
-    localStorage.removeItem('ar_token');
     sessionStorage.removeItem('dhaniwin_auth_grace_until');
   } catch(e) {}
   try {
@@ -360,8 +389,6 @@ function markUserLoggedOut() {
     const uIdEl = document.getElementById('mobileWebUserId');
     if (uIdEl) uIdEl.textContent = 'ID: --';
   } catch(e) {}
-  if (typeof updateDhaniAuthBar === 'function') updateDhaniAuthBar();
-  if (typeof updateAppUnlockState === 'function') updateAppUnlockState();
 }
 window.markUserLoggedOut = markUserLoggedOut;
 
@@ -662,7 +689,7 @@ function updateISTClock() {
 
   // Hero card
   const periodEl = $('heroPeriodNum');
-  if (periodEl) periodEl.textContent = periodStr.slice(-6) || periodStr;
+  if (periodEl) periodEl.textContent = shortPeriodStr(periodStr) || periodStr;
 
   const countdown = $('heroCountdown');
   if (countdown) {
@@ -681,7 +708,7 @@ function updateISTClock() {
 
   // DhaniWin Assistant Hub Card
   const assistPeriod = $('assistantPeriodNum');
-  if (assistPeriod) assistPeriod.textContent = '#' + (periodStr.slice(-5) || periodStr);
+  if (assistPeriod) assistPeriod.textContent = '#' + (shortPeriodStr(periodStr) || periodStr);
 
   const assistCountdown = $('assistantCountdown');
   if (assistCountdown) {
@@ -730,7 +757,29 @@ window.clearBoundaryRetries = clearBoundaryRetries;
 // Primary:  Cloudflare Edge Worker (/api/wingo?tf=X)  – unlimited bandwidth, fast edge cache
 // Fallback: Direct upstream lottery API              – free, no limits
 
-const CF_WORKER_BASE = 'https://wingo-edge-sync.itsrayzer.workers.dev';
+// The worker base lives in exactly ONE place: this default. Every
+// consumer (the /api/wingo results fetch below, the DhaniWin proxy
+// URL builder in systems/dhani-transport.js via proxifyDhaniUrl)
+// reads the resolved CF_WORKER_BASE — never a second copy of the URL.
+// A runtime override in localStorage ('o101_worker_base') wins over
+// the default, so a corrected worker address can be tested on-device
+// without a rebuild: set the key, reload, and all consumers follow.
+// The override is resolved once at boot and normalised (no trailing
+// slash) so `${CF_WORKER_BASE}/api/wingo` can never double-slash.
+const CF_WORKER_BASE_DEFAULT = 'https://o101-dhani-proxy.mrabensojan.workers.dev';
+const WORKER_BASE_OVERRIDE_KEY = 'o101_worker_base';
+function resolveWorkerBase() {
+  try {
+    const raw = localStorage.getItem(WORKER_BASE_OVERRIDE_KEY);
+    if (raw && typeof raw === 'string') {
+      const v = raw.trim().replace(/\/+$/, '');
+      if (/^https?:\/\//i.test(v)) return v;
+    }
+  } catch (e) {}
+  return CF_WORKER_BASE_DEFAULT;
+}
+const CF_WORKER_BASE = resolveWorkerBase();
+window.CF_WORKER_BASE = CF_WORKER_BASE;
 
 const DEFAULT_TF_UPSTREAM_URLS = {
   '30s': 'https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json',
@@ -809,8 +858,8 @@ function _parseRawList(raw) {
 
 let _customApiFailureStreak = 0;
 function notifyCustomApiResult(tf, success, err) {
-  const hasCustom = !!localStorage.getItem('quant_custom_api_endpoints') || !!localStorage.getItem('custom_default_website_url');
-  if (!hasCustom) return;
+  const hasCustomApi = !!localStorage.getItem('quant_custom_api_endpoints');
+  if (!hasCustomApi) return;
 
   if (success) {
     _customApiFailureStreak = 0;
@@ -818,16 +867,12 @@ function notifyCustomApiResult(tf, success, err) {
     _customApiFailureStreak++;
     if (_customApiFailureStreak >= 5) {
       _customApiFailureStreak = 0;
-      console.warn('[Custom API Monitor] Endpoint failed 5 consecutive times. Reverting to default DhaniWin.');
+      console.warn('[Custom API Monitor] Custom API endpoint failed 5 consecutive times. Falling back to default data stream.');
       try {
         localStorage.removeItem('quant_custom_api_endpoints');
-        localStorage.removeItem('custom_default_website_url');
       } catch(e) {}
       if (typeof showToast === 'function') {
-        showToast('⚠️ Custom website/API returned no data. Auto-reverted to default DhaniWin.', 'error');
-      }
-      if (typeof loadMobileWebUrl === 'function') {
-        loadMobileWebUrl(DHANIWIN_HOME_URL);
+        showToast('⚠️ Custom API returned no data. Reverted to universal data stream.', 'info');
       }
     }
   }
@@ -1020,6 +1065,11 @@ async function fetchLiveAPIResults(tfOverride) {
       localStorage.setItem(`quant_history_${tf}`, JSON.stringify(processedList.slice(-500)));
     } catch(e) {}
 
+    // Deep-history warm-up (fix round #6): once per session, in the
+    // background, so a fresh origin's starved model store warms from
+    // real older rounds instead of waiting 90+ minutes of live play.
+    if (!_deepWarmupStarted[tf]) setTimeout(() => { try { warmDeepHistory(tf); } catch (e) {} }, 1500);
+
     // Hide loader on first successful fetch
     const loader = $('appleMinimalLoader');
     if (loader && !loader.classList.contains('hidden')) {
@@ -1031,7 +1081,6 @@ async function fetchLiveAPIResults(tfOverride) {
       renderPredictionAudit(processedList);
       renderHistoryTable(processedList);
       renderMobileHistoryGraph(processedList);
-      renderHeroSequentialBallRoad(processedList);
       renderDigitFrequencies(processedList);
       renderChartData(processedList);
       renderAdaptiveAI(processedList);
@@ -1052,6 +1101,94 @@ async function fetchLiveAPIResults(tfOverride) {
   return false;
 }
 window.fetchLiveAPIResults = fetchLiveAPIResults;
+
+// ── Deep-history warm-up (fix round #6) ─────────────────────────────
+// WHY: the live loop above REPLACES historyByTf with ONE upstream page
+// every cycle, and localStorage is per-origin — so every new preview
+// URL starts with a near-empty model store. Full stake needs 200
+// evaluated rounds (graduated stakes: bets start at 20 rounds at
+// 0.25× base); live accrual alone is 2/min at 30s, so 14 → 200
+// costs 93 minutes of open app. The warm-up fetches OLDER upstream
+// pages (pageNo=2..N — page 1 is the live page) once, while the store
+// is starved, and orb-bridge's deep backfill records every model's
+// walk-forward pick against each settled outcome. No invented data:
+// every round comes from the same public feed the live loop polls.
+// No threshold moves: full stake still needs 200 rounds — warm-up
+// just gives the engine real rounds to evaluate instead of making it
+// wait 90+ minutes. The tiers, not the warm-up, are what let early
+// data bet at reduced stake.
+// The deep list lives in MobileState.deepHistoryByTf + localStorage
+// quant_deep_history_<tf>, NEVER in historyByTf (the live loop would
+// wipe it on the next refresh). orb-bridge consumes it via backfillDeep.
+const DEEP_WARMUP_TARGET = 300; // rounds (buffer above full stake at 200)
+const DEEP_WARMUP_MAX_PAGES = 25;
+const DEEP_WARMUP_MAX_MS = 75000;
+const _deepWarmupStarted = {};
+function deepHistoryStoreCount(tf) {
+  try {
+    const raw = localStorage.getItem('o101_model_history_v1');
+    if (!raw) return 0;
+    const d = JSON.parse(raw);
+    const bucket = d && d.tf && d.tf[tf];
+    return bucket && Array.isArray(bucket.periods) ? bucket.periods.length : 0;
+  } catch (e) { return 0; }
+}
+function readStoredDeepHistory(tf) {
+  try {
+    const raw = localStorage.getItem('quant_deep_history_' + tf);
+    const list = raw ? JSON.parse(raw) : null;
+    return Array.isArray(list) ? list : [];
+  } catch (e) { return []; }
+}
+async function warmDeepHistory(tf) {
+  try {
+    if (_deepWarmupStarted[tf]) return;
+    _deepWarmupStarted[tf] = true;
+    if (deepHistoryStoreCount(tf) >= 200) return; // gate already fed
+    if (!MobileState.deepHistoryByTf) MobileState.deepHistoryByTf = {};
+    const existing = readStoredDeepHistory(tf);
+    if (existing.length) MobileState.deepHistoryByTf[tf] = existing;
+    if (existing.length >= DEEP_WARMUP_TARGET) return; // already deep
+    const base = (typeof TF_UPSTREAM_URLS !== 'undefined' && (TF_UPSTREAM_URLS[tf] || TF_UPSTREAM_URLS['30s'])) || null;
+    if (!base) return;
+    const tfCode = TF_CODES[tf];
+    const byPeriod = new Map();
+    for (const r of existing) if (r && r.period) byPeriod.set(String(r.period), r);
+    const t0 = Date.now();
+    for (let page = 2, fetched = 0; fetched < DEEP_WARMUP_MAX_PAGES; page++, fetched++) {
+      if (byPeriod.size >= DEEP_WARMUP_TARGET) break;
+      if (Date.now() - t0 > DEEP_WARMUP_MAX_MS) break;
+      let list = [];
+      try {
+        const raw = await _fetchWithTimeout(`${base}?pageNo=${page}&_=${Date.now()}`, 4000);
+        list = _parseRawList(raw);
+      } catch (e) { break; } // upstream hiccup: keep what we have; retry next session
+      if (!Array.isArray(list) || list.length < 2) break; // exhausted (short/empty page)
+      let added = 0;
+      for (const item of list) {
+        const period = String(item.issueNumber || item.issue || item.period || item.expect || '');
+        const num = parseInt(item.number !== undefined ? item.number : (item.openNumber !== undefined ? item.openNumber : (item.code || 0)), 10);
+        if (!period || isNaN(num)) continue;
+        if (tfCode && !period.includes(tfCode)) continue;
+        if (byPeriod.has(period)) continue;
+        const size = item.size || (num >= 5 ? 'BIG' : 'SMALL');
+        const color = item.color || (num === 0 ? 'RED,VIOLET' : num === 5 ? 'GREEN,VIOLET' : [1, 3, 7, 9].includes(num) ? 'GREEN' : 'RED');
+        byPeriod.set(period, { period, number: num, size, color });
+        added++;
+      }
+      if (added === 0) break; // pages repeat: nothing new to gain
+    }
+    const merged = [...byPeriod.values()].sort((a, b) => String(a.period).localeCompare(String(b.period)));
+    MobileState.deepHistoryByTf[tf] = merged;
+    try { localStorage.setItem('quant_deep_history_' + tf, JSON.stringify(merged.slice(-600))); } catch (e) {}
+    // Still starved after this attempt (upstream short/failed): allow
+    // one retry next session window instead of giving up forever.
+    if (merged.length < DEEP_WARMUP_TARGET && deepHistoryStoreCount(tf) < 200) {
+      setTimeout(() => { _deepWarmupStarted[tf] = false; }, 300000);
+    }
+  } catch (e) { /* warm-up must never break the live loop */ }
+}
+window.warmDeepHistory = warmDeepHistory;
 
 // ── 9. Apply Cloud History from RTDB Listener ─────────────────────────────────
 
@@ -1106,7 +1243,6 @@ function applyCloudHistory(tfKey, val) {
     renderPredictionAudit(list);
     renderHistoryTable(list);
     renderMobileHistoryGraph(list);
-    renderHeroSequentialBallRoad(list);
     renderDigitFrequencies(list);
     renderChartData(list);
     renderAdaptiveAI(list);
@@ -1144,9 +1280,10 @@ function renderAuthoritativeAIPrediction(list, forceRecompute = false) {
 
   // ── STRICT ROUND-LOCK: PREVENT PREDICTION FLAPPING/GLITCHING IN THE SAME ROUND ──
   // If a prediction is already locked for this timeframe & period, strictly preserve it!
+  // ONLY lock if the round is still active/pending (won === undefined). If already settled, generate fresh prediction!
   if (!forceRecompute && MobileState.scheduledPredictionsByPeriod?.[tf]?.[periodStr]) {
     const locked = MobileState.scheduledPredictionsByPeriod[tf][periodStr];
-    if (locked && locked.target) {
+    if (locked && locked.target && locked.won === undefined) {
       MobileState.activePrediction = {
         period: periodStr,
         target: locked.target,
@@ -1175,13 +1312,22 @@ function renderAuthoritativeAIPrediction(list, forceRecompute = false) {
     } else if (!isLocalSource && cloudState?.inChargeModel) {
       inChargeName = cloudState.inChargeModel;
     } else if (effectiveModels.length > 0) {
-      const sorted = [...effectiveModels].sort((a, b) => {
-        const wrA = Number(a.winRate !== undefined ? a.winRate : (parseFloat(a.winRatePct) / 100 || 0));
-        const wrB = Number(b.winRate !== undefined ? b.winRate : (parseFloat(b.winRatePct) / 100 || 0));
-        if (wrB !== wrA) return wrB - wrA;
-        return (b.streak || 0) - (a.streak || 0);
-      });
-      inChargeName = sorted[0]?.name || inChargeName;
+      if (typeof determineOptimalArenaInChargeModel === 'function') {
+        const opt = determineOptimalArenaInChargeModel(effectiveModels, null, true);
+        if (opt?.model?.name) {
+          inChargeName = opt.model.name;
+          inChargeReason = opt.reason;
+        }
+      }
+      if (!inChargeName) {
+        const sorted = [...effectiveModels].sort((a, b) => {
+          const wrA = Number(a.winRate !== undefined ? a.winRate : (parseFloat(a.winRatePct) / 100 || 0));
+          const wrB = Number(b.winRate !== undefined ? b.winRate : (parseFloat(b.winRatePct) / 100 || 0));
+          if (wrB !== wrA) return wrB - wrA;
+          return (b.streak || 0) - (a.streak || 0);
+        });
+        inChargeName = sorted[0]?.name || inChargeName;
+      }
     }
   }
   if (!inChargeName && effectiveModels.length > 0) {
@@ -1198,8 +1344,48 @@ function renderAuthoritativeAIPrediction(list, forceRecompute = false) {
   let predType = 'SIZE';
   let conf = 0.82;
 
+  // Direct Execution / Stage 3 Defense Consensus Shield:
+  // When at 2 consecutive losses, Stage 3 Defense Consensus Shield activates,
+  // aggregating the top 5 non-slumping models to protect the critical 3rd round.
+  const isStage3Active = !!(window.MobileBridgeState && window.MobileBridgeState.consecutiveLosses === 2 && effectiveModels.length >= 3);
+  if (isStage3Active && typeof window.generateModelNextPrediction === 'function') {
+    try {
+      const nonSlump = effectiveModels.filter(m => {
+        if (Number(m.streak !== undefined ? m.streak : 0) <= -2) return false;
+        if (typeof ModelQuarantineEngine !== 'undefined' && ModelQuarantineEngine.isModelQuarantined(m)) return false;
+        return true;
+      });
+      const top5Pool = (nonSlump.length >= 3 ? nonSlump : effectiveModels).slice(0, 5);
+      let bigVotes = 0, smallVotes = 0, confSum = 0;
+      top5Pool.forEach(m => {
+        try {
+          const pred = window.generateModelNextPrediction(m, list, {
+            streak: m.streak || 0,
+            dopamine: m.dopamine || 0.5,
+            lossPain: m.lossPain || 0.0
+          });
+          const t = (pred?.predTarget || pred?.predSize || 'BIG').toUpperCase();
+          const c = Number(pred?.conf) || 0.82;
+          if (t.includes('BIG')) bigVotes += c;
+          else if (t.includes('SMALL')) smallVotes += c;
+          confSum += c;
+        } catch(e) {}
+      });
+      if (bigVotes > 0 || smallVotes > 0) {
+        target = bigVotes >= smallVotes ? 'BIG' : 'SMALL';
+        predType = 'SIZE';
+        conf = Math.min(0.96, (confSum / Math.max(1, top5Pool.length)) + 0.05);
+        if (champModel) {
+          champModel.predTarget = target;
+          champModel.predType = predType;
+          champModel.conf = conf;
+        }
+      }
+    } catch(e) {}
+  }
+
   // Direct Execution: Calculate fresh prediction for in-charge champion on latest draw sequence
-  if (champModel && typeof window.generateModelNextPrediction === 'function') {
+  if (!target && champModel && typeof window.generateModelNextPrediction === 'function') {
     try {
       const p = window.generateModelNextPrediction(champModel, list, {
         streak: champModel.streak || 0,
@@ -1298,29 +1484,126 @@ function renderAuthoritativeAIPrediction(list, forceRecompute = false) {
 }
 window.renderAuthoritativeAIPrediction = renderAuthoritativeAIPrediction;
 
+// ── High-Precision Test Mode & Prediction Delivery Gate ──────────────────────
+// Evaluates calibration rounds but unlocks IMMEDIATELY for confirmed streaks (>=2) and high confidence (>=75%)
+function checkPredictionGateStatus(tf, list) {
+  const cutoff = MobileState.auditResetPeriod?.[tf] || localStorage.getItem(`wingo_audit_reset_${tf}`);
+  const settled = (list || []).filter(r => {
+    if (!r.aiTarget || r.aiCorrect === null || r.aiCorrect === undefined) return false;
+    if (cutoff && cutoff !== 'SESSION_START' && String(r.period) <= String(cutoff)) return false;
+    return true;
+  });
+
+  const total = settled.length;
+  const wins = settled.filter(r => r.aiCorrect === true).length;
+  const losses = total - wins;
+  const winRate = total > 0 ? (wins / total) : 0;
+
+  // Recent streak of settled
+  const recent = settled.slice(-5);
+  const recentWins = recent.filter(r => r.aiCorrect === true).length;
+  let streak = 0;
+  for (let i = settled.length - 1; i >= 0; i--) {
+    if (settled[i].aiCorrect === true) streak++;
+    else break;
+  }
+
+  // Active in-charge model and prediction signal
+  const models = (typeof getEffectiveModelList === 'function' ? getEffectiveModelList(tf) : []) || [];
+  const inCharge = models.find(m => m.name === MobileState.inChargeModel) || models[0];
+  const inChargeStreak = Number(inCharge?.streak || 0);
+  const inChargeWR = Number(inCharge?.winRate || 0);
+  const conf = MobileState.activePrediction?.conf || inCharge?.conf || 0.75;
+
+  // 🚀 EARLY UNLOCK FOR CONFIRMED STREAKS & HIGH CONFIDENCE:
+  // If champion has streak >= 2, or confidence >= 75%, or recent 3 rounds have >= 2 wins, release prediction immediately!
+  const hasStreakMomentum = streak >= 2 || inChargeStreak >= 2;
+  const hasHighConfidence = conf >= 0.75 || inChargeWR >= 0.60;
+  const hasRecentEdge = (recent.length >= 2 && recentWins >= 2);
+
+  if (hasStreakMomentum || hasHighConfidence || hasRecentEdge) {
+    return {
+      ready: true,
+      mode: 'ACTIVE',
+      progress: total > 0 ? `${wins}W / ${losses}L` : (hasStreakMomentum ? `🔥 ${Math.max(streak, inChargeStreak)}W Streak` : `${Math.round(conf * 100)}% Conf`),
+      reason: hasStreakMomentum ? `Winning Streak Active (${Math.max(streak, inChargeStreak)}W)` : `High Confidence Edge (${Math.round(conf * 100)}%)`,
+      winRate: total > 0 ? Math.round(winRate * 100) : Math.round((inChargeWR || 0.65) * 100),
+      wins, losses, streak: Math.max(streak, inChargeStreak)
+    };
+  }
+
+  // If in initial rounds (under 3) and no confirmed streak yet, indicate calibration but don't freeze indefinitely
+  const MIN_TEST_ROUNDS = 3;
+  if (total < MIN_TEST_ROUNDS) {
+    return {
+      ready: false,
+      mode: 'TESTING',
+      progress: `${total}/${MIN_TEST_ROUNDS}`,
+      reason: `Calibrating (${total}/${MIN_TEST_ROUNDS} test rounds)`,
+      winRate: Math.round(winRate * 100),
+      wins, losses, streak
+    };
+  }
+
+  // If user had temporary losses, don't trap them in WAIT indefinitely:
+  // After 2 losses, allow prediction to flow with anti-slump consensus
+  if (wins >= losses || winRate >= 0.45 || streak >= 1) {
+    return {
+      ready: true,
+      mode: 'ACTIVE',
+      progress: `${wins}W / ${losses}L`,
+      reason: `Active Edge (${Math.round(winRate * 100)}% WR)`,
+      winRate: Math.round(winRate * 100),
+      wins, losses, streak
+    };
+  }
+
+  // Mild drawdown: still provide actionable prediction with alert
+  return {
+    ready: true,
+    mode: 'RECOVERY',
+    progress: `${wins}W / ${losses}L`,
+    reason: `Recovery Edge (${Math.round(winRate * 100)}% WR)`,
+    winRate: Math.round(winRate * 100),
+    wins, losses, streak
+  };
+}
+window.checkPredictionGateStatus = checkPredictionGateStatus;
+
 function _updateAllPredictionUI(target, predType, conf, inChargeName, periodStr, list) {
   const isColor = ['RED','GREEN','VIOLET'].includes(target);
   const confPct = Math.round((conf || 0.82) * 100);
+  const tf = MobileState.timeframe;
+
+  // Test mode gate check
+  const gate = checkPredictionGateStatus(tf, list);
+  MobileState.predictionGate = gate;
 
   // Hero signal badge
   const heroSignal = $('heroSignalBadge');
   if (heroSignal) {
-    heroSignal.textContent = target || 'CALCULATING...';
-    heroSignal.className = `text-2xl font-black tracking-tight ${
-      target === 'BIG' ? 'text-amber-300' :
-      target === 'SMALL' ? 'text-sky-300' :
-      target === 'GREEN' ? 'text-emerald-400' :
-      target === 'RED' ? 'text-rose-400' : 'text-white'
-    }`;
+    if (gate.ready) {
+      heroSignal.textContent = target || 'CALCULATING...';
+      heroSignal.className = `text-2xl font-black tracking-tight ${
+        target === 'BIG' ? 'text-amber-300' :
+        target === 'SMALL' ? 'text-sky-300' :
+        target === 'GREEN' ? 'text-emerald-400' :
+        target === 'RED' ? 'text-rose-400' : 'text-white'
+      }`;
+    } else {
+      // In calibration / test mode
+      heroSignal.textContent = gate.mode === 'TESTING' ? `TESTING (${gate.progress})` : 'SEEKING EDGE';
+      heroSignal.className = 'text-xl font-black tracking-tight text-amber-400/90';
+    }
   }
 
   const heroType = $('heroTypeBadge');
-  if (heroType) heroType.textContent = predType || 'SIZE';
+  if (heroType) heroType.textContent = gate.ready ? (predType || 'SIZE') : `TESTING`;
 
   const heroConf = $('heroConfVal');
   if (heroConf) {
-    heroConf.textContent = `${confPct}%`;
-    heroConf.className = confPct >= 75 ? 'text-emerald-400 font-black' : 'text-amber-400 font-black';
+    heroConf.textContent = gate.ready ? `${confPct}%` : `${gate.winRate || '--'}% WR`;
+    heroConf.className = gate.ready && confPct >= 75 ? 'text-emerald-400 font-black' : 'text-amber-400 font-black';
   }
 
   const heroModel = $('heroModelName');
@@ -1329,85 +1612,62 @@ function _updateAllPredictionUI(target, predType, conf, inChargeName, periodStr,
   // AI Champion card target badge
   const champTarget = $('aiChampionTargetBadge');
   if (champTarget) {
-    champTarget.textContent = target || 'CALCULATING';
-    champTarget.className = `px-2 py-0.5 rounded font-black text-[8.5px] border ${
-      target === 'BIG' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' :
-      target === 'SMALL' ? 'bg-sky-500/20 text-sky-300 border-sky-500/30' :
-      target === 'GREEN' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
-      target === 'RED' ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' :
-      'bg-amber-500/20 text-amber-300 border-amber-500/30'
-    }`;
+    if (gate.ready) {
+      champTarget.textContent = target || 'CALCULATING';
+      champTarget.className = `px-2 py-0.5 rounded font-black text-[8.5px] border ${
+        target === 'BIG' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' :
+        target === 'SMALL' ? 'bg-sky-500/20 text-sky-300 border-sky-500/30' :
+        target === 'GREEN' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
+        target === 'RED' ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' :
+        'bg-amber-500/20 text-amber-300 border-amber-500/30'
+      }`;
+    } else {
+      champTarget.textContent = 'CALIBRATING';
+      champTarget.className = 'px-2 py-0.5 rounded font-black text-[8.5px] border bg-amber-500/20 text-amber-300 border-amber-500/30';
+    }
   }
 
   const champType = $('aiChampionTypeBadge');
   if (champType) champType.textContent = predType || 'SIZE';
 
-  // Sequential Prediction Road (Balls with mixed colors for 0,5, newest on left)
-  renderHeroSequentialBallRoad(list);
-  // DhaniWin Web Tab Target & Auto-Prep Sync
+  // DhaniWin Web Tab Target & Floating Assistant Display
+  // The sheet hero is OWNED by the governed verdict (orb-bridge
+  // publishes window.__o101Verdict from the per-period LOCKED gate
+  // verdict). While that lock exists this native render mirrors it
+  // verbatim, so the sheet can never show a native prediction next to
+  // a governed SKIP. Without orb-bridge (no lock), legacy behaviour.
+  const governedVerdict = window.__o101Verdict || null;
   const webTargetEl = $('mobileWebTargetDisplay');
-  if (webTargetEl && target) {
-    webTargetEl.textContent = target;
-    webTargetEl.className = `text-2xl font-black ${
-      target === 'BIG' ? 'text-amber-300' :
-      target === 'SMALL' ? 'text-sky-300' :
-      target === 'GREEN' ? 'text-emerald-400' :
-      target === 'RED' ? 'text-rose-400' : 'text-white'
-    }`;
-  }
-  const assistConf = $('assistantConfBadge');
-  if (assistConf) {
-    assistConf.textContent = `${confPct}%`;
-  }
-  if (typeof updateFloatingOrbUI === 'function') {
-    updateFloatingOrbUI();
-  }
-  if (window.MobileBridgeState && MobileBridgeState.enabled && target) {
-    if (typeof dispatchMobileBetOrder === 'function') {
-      dispatchMobileBetOrder();
+  if (webTargetEl) {
+    if (governedVerdict) {
+      webTargetEl.textContent = governedVerdict.decision === 'BET' ? (governedVerdict.pick || '—') : (governedVerdict.decision === 'SKIP' ? 'SKIP' : '—');
+    } else {
+      const displayTarget = target || 'BIG';
+      webTargetEl.textContent = displayTarget;
+      webTargetEl.className = `text-2xl font-black ${
+        displayTarget === 'BIG' ? 'text-amber-300' :
+        displayTarget === 'SMALL' ? 'text-sky-300' :
+        displayTarget === 'GREEN' ? 'text-emerald-400' :
+        displayTarget === 'RED' ? 'text-rose-400' : 'text-white'
+      }`;
     }
   }
 
-  // Sim bot: place next bet
-  if (MobileState.sim.running && !MobileState.sim.pendingBet) {
+  const assistConf = $('assistantConfBadge');
+  if (assistConf) {
+    assistConf.textContent = governedVerdict ? governedVerdict.confText : (gate.ready ? `${confPct}%` : (gate.mode === 'TESTING' ? gate.progress : `${gate.winRate}%`));
+  }
+
+  if (typeof updateFloatingOrbUI === 'function') {
+    updateFloatingOrbUI();
+  }
+
+  // Sim bot: place next bet only if gate is active or in test
+  if (MobileState.sim.running && !MobileState.sim.pendingBet && target) {
     initSimBet(target, periodStr);
   }
 }
 
-function renderHeroSequentialBallRoad(list) {
-  const container = $('heroSequentialBallRoad');
-  if (!container) return;
-
-  if (!list || list.length === 0) {
-    container.innerHTML = '<div class="text-[8px] text-zinc-500 font-mono py-1 px-2">Awaiting draw data...</div>';
-    return;
-  }
-
-  // Universal ordering: NEW results are at LEFT, OLD results to RIGHT
-  const display = [...list].reverse().slice(0, 25);
-
-  container.innerHTML = display.map((r, idx) => {
-    const n = Number(r.number);
-    let ballBg = 'ball-red';
-    if (n === 0) ballBg = 'ball-split-0';
-    else if (n === 5) ballBg = 'ball-split-5';
-    else if (n === 1 || n === 3 || n === 7 || n === 9) ballBg = 'ball-green';
-
-    const isNewest = idx === 0;
-    const periodShort = String(r.period).slice(-4);
-
-    return `<div class="flex flex-col items-center gap-0.5 shrink-0" title="Period #${r.period} - Num ${n} (${r.size})">
-      <div class="relative">
-        <div class="ball-3d ${ballBg} w-6 h-6 rounded-full flex items-center justify-center font-mono font-black text-[10.5px] text-white shadow-sm ${isNewest ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-black' : ''}">
-          ${n}
-        </div>
-        ${isNewest ? '<span class="absolute -top-1 -right-1 flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span></span>' : ''}
-      </div>
-      <span class="text-[7px] font-mono text-zinc-500 font-semibold">${periodShort}</span>
-    </div>`;
-  }).join('');
-}
-window.renderHeroSequentialBallRoad = renderHeroSequentialBallRoad;
 
 function _updateTrendSummary(list) {
   if (!list || list.length < 3) return;
@@ -1455,10 +1715,10 @@ function renderHistoryTable(list) {
   const badge = $('historyCountBadge');
   if (badge) badge.textContent = `${list.length} Draws`;
 
-  // Show most recent first
-  const display = [...list].reverse().slice(0, 30);
+  // Show most recent first — FULL history, no count cap (fix round).
+  const display = [...list].reverse();
 
-  tbody.innerHTML = display.map(r => {
+  const rows = display.map(r => {
     const isWin = r.aiCorrect === true || r.result === 'WIN';
     const isLoss = r.aiCorrect === false || r.result === 'LOSS';
     const hasResult = r.aiTarget && (r.aiCorrect !== null && r.aiCorrect !== undefined);
@@ -1478,13 +1738,14 @@ function renderHistoryTable(list) {
     }
 
     return `<tr class="hover:bg-white/[0.02] transition">
-      <td class="py-1.5 px-1 font-mono text-[8.5px] text-zinc-400">${String(r.period).slice(-6)}</td>
+      <td class="py-1.5 px-1 font-mono text-[8.5px] text-zinc-400">${shortPeriodStr(r.period)}</td>
       <td class="py-1.5 px-1 font-mono font-black ${numColor}">${r.number}</td>
       <td class="py-1.5 px-1 font-mono font-bold ${sizeColor}">${r.size}</td>
       <td class="py-1.5 px-1 font-mono text-[8px] text-zinc-400">${r.color ? r.color.split(',')[0] : '—'}</td>
       <td class="py-1.5 px-1 text-right">${resultBadge}</td>
     </tr>`;
-  }).join('');
+  });
+  renderRoadCellsChunked(tbody, rows);
 }
 window.renderHistoryTable = renderHistoryTable;
 
@@ -1546,11 +1807,13 @@ function renderMobileHistoryGraph(list) {
   setText('mobileGraphSmallPct', `${smallPct}%`);
   setText('mobileGraphWinRatio', winPct);
 
-  // Show recent rounds: newest on top, like PC number road
-  const display = [...list].reverse().slice(0, 30);
+  // Show recent rounds: newest on top, like PC number road — FULL
+  // history, no count cap (fix round), chunked; the connector draws
+  // once every row exists.
+  const display = [...list].reverse();
   const COLS = 'grid-template-columns:46px repeat(10,1fr) 20px 20px';
 
-  container.innerHTML = display.map((row, idx) => {
+  const rows = display.map((row, idx) => {
     const n = Number(row.number);
     const periodShort = String(row.period).slice(-4);
 
@@ -1558,7 +1821,7 @@ function renderMobileHistoryGraph(list) {
     const balls = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => {
       if (i === n) {
         return `<div class="flex items-center justify-center">
-          <div class="ball-3d ${BALL_COLOR_CLASSES[n] || 'ball-red'} w-4 h-4 rounded-full flex items-center justify-center font-black text-[8px] text-white shadow-sm">${n}</div>
+          ${(window.ballImg && window.ballImg(n, 16, 'shadow-sm')) || `<div class="ball-3d ${BALL_COLOR_CLASSES[n] || 'ball-red'} w-4 h-4 rounded-full flex items-center justify-center font-black text-[8px] text-white shadow-sm">${n}</div>`}
         </div>`;
       }
       return `<div class="flex items-center justify-center">
@@ -1585,10 +1848,10 @@ function renderMobileHistoryGraph(list) {
       <div class="flex items-center justify-center">${bsBadge}</div>
       <div class="flex items-center justify-center">${aiBadge}</div>
     </div>`;
-  }).join('');
+  });
 
-  // Draw connector SVG
-  drawMobileGraphConnector(display);
+  // Draw connector SVG once all rows exist (chunked render completes).
+  renderRoadCellsChunked(container, rows, { onComplete: () => drawMobileGraphConnector(display) });
 }
 window.renderMobileHistoryGraph = renderMobileHistoryGraph;
 
@@ -1705,6 +1968,7 @@ function renderAdaptiveAI(list) {
 
   // Filter strictly to rounds that had real live predictions AFTER the session reset cutoff
   const settled = list.filter(r => {
+    if (r.paused || r.circuitBreakerPaused) return false;
     if (!r.aiTarget || r.aiCorrect === null || r.aiCorrect === undefined) return false;
     if (cutoff && cutoff !== 'SESSION_START' && String(r.period) <= String(cutoff)) return false;
     return true;
@@ -1758,8 +2022,8 @@ function renderAdaptiveAI(list) {
   const ratioEl = $('aiBentoScoreRatio');
   if (ratioEl) ratioEl.textContent = settled.length === 0 ? '0W · 0L' : `${l20Wins}W · ${last20.length - l20Wins}L`;
 
-  // Sequential Road (bead chain) - strictly real live settled predictions
-  renderSequentialRoad(settled.slice(-25));
+  // Sequential Road (bead chain) - strictly real live settled predictions — FULL, no cap
+  renderSequentialRoad(settled);
 
   // 8-Engine Neural Matrix
   renderNeuralMatrix(list);
@@ -1807,7 +2071,7 @@ function selectSequenceBead(idx) {
   const settled = (MobileState.historyByTf[tf] || []).filter(r => r.aiCorrect !== null && r.aiCorrect !== undefined);
   const r = settled[idx];
   if (!r) return;
-  setText('detailPeriod', String(r.period).slice(-6));
+  setText('detailPeriod', shortPeriodStr(r.period));
   setText('detailPred', r.aiTarget || '—');
   setText('detailActual', `${r.number} (${r.size})`);
   const badge = $('detailResultBadge');
@@ -1906,8 +2170,32 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
   let target = null;
   let predType = 'SIZE';
 
-  // Priority 1: Universal State latest settlement
-  if (universalState && String(universalState.latestSettledPeriod) === periodStr) {
+  const isLocalSource = (MobileState.inchargeConfig?.predictionSource || 'LOCAL') === 'LOCAL';
+
+  // Priority 1 (for LOCAL mode): The local prediction that was generated, locked, and displayed to the user
+  if (isLocalSource) {
+    const scheduled = (MobileState.scheduledPredictionsByPeriod?.[tf] || {})[periodStr];
+    if (scheduled && scheduled.target) {
+      target = scheduled.target;
+      predType = scheduled.type || (['RED','GREEN','VIOLET'].includes(target) ? 'COLOR' : 'SIZE');
+      if (scheduled.won !== undefined && scheduled.won !== null) {
+        isWin = !!scheduled.won;
+      }
+    }
+    if (!target) {
+      const active = MobileState.activePrediction;
+      if (active && active.target) {
+        const ap = String(active.period || '');
+        if (ap === periodStr || ap.slice(-5) === periodStr.slice(-5)) {
+          target = active.target;
+          predType = active.type || (['RED','GREEN','VIOLET'].includes(target) ? 'COLOR' : 'SIZE');
+        }
+      }
+    }
+  }
+
+  // Priority 2: Universal State latest settlement (only if not LOCAL or target not found locally)
+  if (!target && universalState && String(universalState.latestSettledPeriod) === periodStr) {
     if (universalState.latestSettledWon !== undefined && universalState.latestSettledWon !== null) {
       isWin = !!universalState.latestSettledWon;
     } else if (universalState.latestSettledResult) {
@@ -1919,8 +2207,8 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
     }
   }
 
-  // Priority 2: Cloud row from live_history
-  if (cloudRow && (isWin === null || !target)) {
+  // Priority 3: Cloud row from live_history
+  if (!target && cloudRow && (isWin === null || !target)) {
     if (cloudRow.aiCorrect !== undefined && cloudRow.aiCorrect !== null) {
       isWin = !!cloudRow.aiCorrect;
     } else if (cloudRow.result === 'WIN' || cloudRow.result === 'LOSS') {
@@ -1932,8 +2220,8 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
     }
   }
 
-  // Priority 3: Universal state inCharge history path
-  if ((isWin === null || !target) && universalState && Array.isArray(universalState.inChargeHistoryPath)) {
+  // Priority 4: Universal state inCharge history path
+  if (!target && universalState && Array.isArray(universalState.inChargeHistoryPath)) {
     const entry = universalState.inChargeHistoryPath.find(p => String(p.period) === periodStr);
     if (entry) {
       if (isWin === null) isWin = !!entry.won;
@@ -1942,8 +2230,8 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
     }
   }
 
-  // Priority 4: Scheduled prediction
-  if (isWin === null || !target) {
+  // Priority 5: Scheduled prediction (fallback for cloud mode if not matched)
+  if (!target) {
     const scheduled = (MobileState.scheduledPredictionsByPeriod?.[tf] || {})[periodStr];
     if (scheduled) {
       target = target || scheduled.target;
@@ -1951,8 +2239,8 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
     }
   }
 
-  // Priority 5: Active prediction if period matches
-  if (isWin === null || !target) {
+  // Priority 6: Active prediction if period matches
+  if (!target) {
     const active = MobileState.activePrediction;
     if (active && active.target) {
       const ap = String(active.period || '');
@@ -1997,6 +2285,16 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
     isWin = null;
   }
 
+  // Governor disposition (orb-bridge, 2026-10-24): a round the governor
+  // SKIPped — or an Auto-Pilot round with no FIRED bet — gets NO
+  // win/loss treatment in this flow: no recovery-ledger movement, no
+  // celebration banner / money rain, no win/loss sound. The history
+  // row above still records the app's own raw outcome as data; only
+  // the user-facing win/loss treatment is suppressed. When the
+  // governor recorded no verdict for the round, nothing changes.
+  const governorSuppressed = typeof window.__o101GovernorSuppresses === 'function'
+    ? window.__o101GovernorSuppresses(tf, periodStr) === true : false;
+
   // Dispatch to Local Web Worker
   if (modelWorker) {
     modelWorker.postMessage({
@@ -2016,6 +2314,9 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
     }
   }
 
+  // Check if this round was skipped/paused by Circuit Breaker
+  const wasPaused = !!(window.MobileBridgeState && (window.MobileBridgeState.circuitBreakerPauseRounds > 0));
+
   // Stamp history row with definitive in-charge prediction outcome
   const curHist = MobileState.historyByTf[tf] || [];
   let existingRow = curHist.find(r => String(r.period) === periodStr);
@@ -2023,21 +2324,31 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
     existingRow.number = number;
     existingRow.size = size;
     existingRow.color = color;
-    if (hasAuthenticPrediction) {
+    if (hasAuthenticPrediction && !wasPaused) {
       existingRow.aiTarget = target;
       existingRow.aiType = predType;
       existingRow.aiModel = MobileState.inChargeModel;
       existingRow.aiCorrect = isWin;
       existingRow.result = isWin ? 'WIN' : 'LOSS';
+      existingRow.paused = false;
+      existingRow.circuitBreakerPaused = false;
+    } else if (wasPaused) {
+      existingRow.paused = true;
+      existingRow.circuitBreakerPaused = true;
+      existingRow.aiTarget = null;
+      existingRow.aiCorrect = null;
+      existingRow.result = null;
     }
   } else {
     curHist.push({
       period: periodStr, number, size, color,
-      result: hasAuthenticPrediction ? (isWin ? 'WIN' : 'LOSS') : null,
-      aiTarget: hasAuthenticPrediction ? target : null,
-      aiType: hasAuthenticPrediction ? predType : null,
-      aiModel: hasAuthenticPrediction ? MobileState.inChargeModel : null,
-      aiCorrect: hasAuthenticPrediction ? isWin : null
+      paused: wasPaused,
+      circuitBreakerPaused: wasPaused,
+      result: (hasAuthenticPrediction && !wasPaused) ? (isWin ? 'WIN' : 'LOSS') : null,
+      aiTarget: (hasAuthenticPrediction && !wasPaused) ? target : null,
+      aiType: (hasAuthenticPrediction && !wasPaused) ? predType : null,
+      aiModel: (hasAuthenticPrediction && !wasPaused) ? MobileState.inChargeModel : null,
+      aiCorrect: (hasAuthenticPrediction && !wasPaused) ? isWin : null
     });
     curHist.sort((a, b) => String(a.period).localeCompare(String(b.period)));
   }
@@ -2045,7 +2356,7 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
   try { localStorage.setItem(`quant_history_${tf}`, JSON.stringify(curHist.slice(-500))); } catch(e) {}
   if (!MobileState.scheduledPredictionsByPeriod) MobileState.scheduledPredictionsByPeriod = {};
   if (!MobileState.scheduledPredictionsByPeriod[tf]) MobileState.scheduledPredictionsByPeriod[tf] = {};
-  if (hasAuthenticPrediction) {
+  if (hasAuthenticPrediction && !wasPaused) {
     MobileState.scheduledPredictionsByPeriod[tf][periodStr] = { target, type: predType, inChargeModel: MobileState.inChargeModel, won: isWin };
   }
 
@@ -2056,7 +2367,7 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
 
   // Resolve sim bot bet
   let simProfit = null;
-  if (hasAuthenticPrediction && MobileState.sim.running && MobileState.sim.pendingBet) {
+  if (hasAuthenticPrediction && !wasPaused && MobileState.sim.running && MobileState.sim.pendingBet) {
     const bet = MobileState.sim.pendingBet;
     if (!bet.period || String(bet.period) === periodStr) {
       simProfit = isWin ? (bet.stake * 0.96) : -bet.stake;
@@ -2065,41 +2376,38 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
   }
 
   // Resolve Mobile DhaniWin Loss Recovery Martingale Progression & Max 3-Loss Circuit Breaker
-  if (hasAuthenticPrediction && tf === MobileState.timeframe && window.MobileBridgeState) {
-    let isFreshTrip = false;
-    if (isWin) {
-      MobileBridgeState.wins += 1;
-      MobileBridgeState.consecutiveLosses = 0;
-      const profit = MobileBridgeState.currentStake * 0.96;
-      MobileBridgeState.sessionPnl += profit;
-      MobileBridgeState.currentLevel = 0; // Win: Reset to Base ₹2
-    } else if (isWin === false) {
-      MobileBridgeState.losses += 1;
-      MobileBridgeState.consecutiveLosses = (MobileBridgeState.consecutiveLosses || 0) + 1;
-      MobileBridgeState.sessionPnl -= MobileBridgeState.currentStake;
-
-      if (MobileBridgeState.consecutiveLosses >= 3) {
-        // 🛡️ TRIP MAX 3-LOSS CIRCUIT BREAKER
-        MobileBridgeState.circuitBreakerActive = true;
-        MobileBridgeState.circuitBreakerPauseRounds = 2; // Pause betting for 2 rounds
-        MobileBridgeState.currentLevel = 0; // Reset Martingale level strictly to Base
-        MobileBridgeState.currentStake = MobileBridgeState.baseStake || 2; // Reset stake to base (₹2)
+  if (tf === MobileState.timeframe && window.MobileBridgeState && !governorSuppressed) {
+    if (wasPaused) {
+      // Round was paused by circuit breaker: do NOT alter PnL, do NOT alter wins/losses!
+      MobileBridgeState.circuitBreakerPauseRounds--;
+      if (MobileBridgeState.circuitBreakerPauseRounds <= 0) {
+        MobileBridgeState.circuitBreakerPauseRounds = 0;
+        MobileBridgeState.circuitBreakerActive = false;
+        showToast('✅ Circuit Breaker cool-off complete. Betting resumed.', 'info');
+      }
+    } else if (hasAuthenticPrediction) {
+      if (isWin) {
+        MobileBridgeState.wins += 1;
         MobileBridgeState.consecutiveLosses = 0;
-        isFreshTrip = true;
+        const profit = MobileBridgeState.currentStake * 0.96;
+        MobileBridgeState.sessionPnl += profit;
+        MobileBridgeState.currentLevel = 0; // Win: Reset to Base level
+        MobileBridgeState.currentStake = MobileBridgeState.baseStake || 2;
+      } else if (isWin === false) {
+        MobileBridgeState.losses += 1;
+        MobileBridgeState.consecutiveLosses = (MobileBridgeState.consecutiveLosses || 0) + 1;
+        MobileBridgeState.sessionPnl -= MobileBridgeState.currentStake;
 
-        // Re-evaluate active champion model with anti-slump filter
-        if (typeof determineOptimalArenaInChargeModel === 'function' && Array.isArray(window.ARENA_CANONICAL_MODELS)) {
-          const reEval = determineOptimalArenaInChargeModel(window.ARENA_CANONICAL_MODELS, null, true);
-          if (reEval?.model) {
-            MobileState.activeChampionModel = reEval.model;
-            if (typeof updatePredictionSourceUI === 'function') updatePredictionSourceUI();
-          }
-        }
-        showToast('🛡️ 3-Loss Circuit Breaker Engaged! Max 3 losses reached. Betting paused for 2 rounds. Stake reset to Base ₹' + (MobileBridgeState.baseStake || 2) + '. Zero losses > 3 permitted.', 'warn');
-      } else {
-        MobileBridgeState.currentLevel = Math.min(2, (MobileBridgeState.currentLevel || 0) + 1); // Loss: Advance recovery tier (capped at Level 3 max)
-        if (MobileBridgeState.consecutiveLosses === 2) {
-          // Pre-emptive hot-swap: Swap away from any slumping model before final recovery round
+        if (MobileBridgeState.consecutiveLosses >= 3) {
+          // 🛡️ TRIP MAX 3-LOSS CIRCUIT BREAKER
+          MobileBridgeState.circuitBreakerActive = true;
+          MobileBridgeState.circuitBreakerPauseRounds = 2; // Pause betting for strictly 2 rounds (max 2-3)
+          MobileBridgeState.currentLevel = 0; // Reset Martingale level strictly to Base
+          // Preserve MobileBridgeState.baseStake intact!
+          MobileBridgeState.currentStake = MobileBridgeState.baseStake || 2;
+          MobileBridgeState.consecutiveLosses = 0;
+
+          // Re-evaluate active champion model with anti-slump filter
           if (typeof determineOptimalArenaInChargeModel === 'function' && Array.isArray(window.ARENA_CANONICAL_MODELS)) {
             const reEval = determineOptimalArenaInChargeModel(window.ARENA_CANONICAL_MODELS, null, true);
             if (reEval?.model) {
@@ -2107,17 +2415,21 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
               if (typeof updatePredictionSourceUI === 'function') updatePredictionSourceUI();
             }
           }
-          showToast('🛡️ Stage 3 Defense Active: Denoised consensus engaged for final recovery round!', 'info');
+          showToast('🛡️ 3-Loss Circuit Breaker Engaged! Max 3 losses reached. Betting paused for 2 rounds. Stake reset to Base ₹' + (MobileBridgeState.baseStake || 2) + '. Zero losses > 3 permitted.', 'warn');
+        } else {
+          MobileBridgeState.currentLevel = Math.min(2, (MobileBridgeState.currentLevel || 0) + 1); // Loss: Advance recovery tier (capped at Level 3 max)
+          if (MobileBridgeState.consecutiveLosses === 2) {
+            // Stage 3 Defense Consensus Shield engaged for critical 3rd round
+            if (typeof determineOptimalArenaInChargeModel === 'function' && Array.isArray(window.ARENA_CANONICAL_MODELS)) {
+              const reEval = determineOptimalArenaInChargeModel(window.ARENA_CANONICAL_MODELS, null, true);
+              if (reEval?.model) {
+                MobileState.activeChampionModel = reEval.model;
+                if (typeof updatePredictionSourceUI === 'function') updatePredictionSourceUI();
+              }
+            }
+            showToast('🛡️ Stage 3 Defense Active: Denoised consensus shield engaged for final recovery round!', 'info');
+          }
         }
-      }
-    }
-
-    // Handle cool-off countdown on subsequent rounds
-    if (MobileBridgeState.circuitBreakerPauseRounds > 0 && !isFreshTrip) {
-      MobileBridgeState.circuitBreakerPauseRounds--;
-      if (MobileBridgeState.circuitBreakerPauseRounds === 0) {
-        MobileBridgeState.circuitBreakerActive = false;
-        showToast('✅ Circuit Breaker cool-off complete. Betting resumed.', 'info');
       }
     }
 
@@ -2144,7 +2456,7 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
   }
 
   // Win/loss celebration: ONLY show popup and sound if settled timeframe is the active timeframe and there was an authentic prediction
-  if (tf === MobileState.timeframe && hasAuthenticPrediction) {
+  if (tf === MobileState.timeframe && hasAuthenticPrediction && !governorSuppressed) {
     showWinLossCelebration(isWin, target, number, size, color, periodStr, simProfit, tf);
   }
 
@@ -2178,14 +2490,9 @@ function showWinLossCelebration(isWin, target, number, size, color, periodStr, s
   if (tf && tf !== activeTf) return;
   if (!isWin && isWin !== false) return;
 
-  // CRITICAL REQUIREMENT 2: Never show win/loss animations or sounds before login/registration is confirmed!
-  if (!isUserLoggedIn()) {
-    console.log('[Win/Loss Celebration] Suppressed: User is not logged in / verified yet.');
-    return;
-  }
+  // Fix round #2: celebrations are display feedback, never login-gated.
 
-
-  // CRITICAL REQUIREMENT 3: Single-instance concurrency - strictly never show more than 1 celebration/sound at a time
+  // CRITICAL REQUIREMENT 2: Single-instance concurrency - strictly never show more than 1 celebration/sound at a time
   dismissCelebrationBanner();
   if (typeof dismissAppleMoneyRain === 'function') dismissAppleMoneyRain();
   if (typeof stopAllSoundEffects === 'function') stopAllSoundEffects();
@@ -2233,7 +2540,7 @@ function showWinLossCelebration(isWin, target, number, size, color, periodStr, s
     subtext.textContent = `Hit ${size} (#${number}) · Target was ${target}`;
   }
   if (periodBadge) {
-    periodBadge.textContent = `#${String(periodStr).slice(-5)}`;
+    periodBadge.textContent = `#${shortPeriodStr(periodStr)}`;
   }
 
   // Sound & haptic (Only plays for active timeframe, strictly single-instance)
@@ -2279,7 +2586,7 @@ function triggerAITargetBoxAnimation(result, data) {
   if (header) { header.textContent = isWin ? 'PREDICTION WIN' : 'PREDICTION LOSS'; header.className = `text-[8px] font-sans uppercase font-black tracking-wider ${isWin ? 'text-emerald-400' : 'text-rose-400'}`; }
   if (icon) { icon.className = `text-sm ${isWin ? 'fa-solid fa-check-circle text-emerald-400' : 'fa-solid fa-times-circle text-rose-400'}`; }
   if (text) { text.textContent = `${data?.target || '?'} → ${data?.size || '?'} (#${data?.number ?? '?'})`; text.className = `${isWin ? 'text-emerald-300' : 'text-rose-300'}`; }
-  if (sub) { sub.textContent = `Period #${String(data?.period || '').slice(-5)}`; }
+  if (sub) { sub.textContent = `Period #${shortPeriodStr(data?.period || '')}`; }
 
   if (_animTimeout) clearTimeout(_animTimeout);
   _animTimeout = setTimeout(() => {
@@ -2333,6 +2640,14 @@ function updateIndividualModelSettlement(tf, periodStr, number, size, color, uni
     model.historyPath.unshift({ period: periodStr, won: won === true, predTarget: model.predTarget });
     if (model.historyPath.length > 20) model.historyPath.pop();
 
+    // Evaluate Blacklist Lockup & Quarantine Engine:
+    // When 4-5 consecutive losses occur (streak <= -4), lockup model for 10-20 rounds and run 20-round shadow trial
+    if (typeof ModelQuarantineEngine !== 'undefined') {
+      try {
+        ModelQuarantineEngine.evaluateQuarantineLockup(model, tf, history);
+      } catch(e) {}
+    }
+
     // Predict NEXT round
     if (typeof model.predict === 'function') {
       try {
@@ -2344,6 +2659,18 @@ function updateIndividualModelSettlement(tf, periodStr, number, size, color, uni
       } catch(e) {}
     }
   });
+
+  // Process shadow trial probation rounds for all quarantined models
+  if (typeof ModelQuarantineEngine !== 'undefined') {
+    try {
+      ModelQuarantineEngine.processShadowTrialRound(tf, {
+        period: periodStr,
+        number,
+        size,
+        color
+      });
+    } catch(e) {}
+  }
 
   const isUserReset = !!localStorage.getItem(`quant_user_ai_reset_${tf}`);
   if (isUserReset) {
@@ -2371,8 +2698,13 @@ function updateIndividualModelSettlement(tf, periodStr, number, size, color, uni
   if (MobileState.autoMode !== false) {
     const cloudState = MobileState.cloudUniversalState[tf];
     if (!cloudState?.inChargeModel) {
-      const sorted = [...models].sort((a, b) => (b.winRate || 0) - (a.winRate || 0));
-      if (sorted[0]) MobileState.inChargeModel = sorted[0].name;
+      if (typeof determineOptimalArenaInChargeModel === 'function') {
+        const opt = determineOptimalArenaInChargeModel(models, null, true);
+        if (opt?.model?.name) MobileState.inChargeModel = opt.model.name;
+      } else {
+        const sorted = [...models].sort((a, b) => (b.winRate || 0) - (a.winRate || 0));
+        if (sorted[0]) MobileState.inChargeModel = sorted[0].name;
+      }
     }
   }
 
@@ -2680,68 +3012,41 @@ function renderModelRosterUI() {
   const inchargeMode = MobileState.inchargeConfig?.mode || 'WINNING_STREAK_OVERRIDE';
   const minStreak = Number(MobileState.inchargeConfig?.minStreak || 3);
 
-  const getLastNWinRate = (m, n) => {
-    const p = (m.historyPath || []).slice(0, n);
-    if (p.length === 0) return 0;
-    return p.filter(x => x.won).length / p.length;
+  const calculateWilsonScore = (wins, total, z = 1.96) => {
+    if (total <= 0) return 0;
+    const p = wins / total;
+    const n = total;
+    const denominator = 1 + (z * z) / n;
+    const centre = p + (z * z) / (2 * n);
+    const spread = z * Math.sqrt((p * (1 - p) + (z * z) / (4 * n)) / n);
+    return Math.max(0, (centre - spread) / denominator);
+  };
+
+  const calculateModelRating = (m) => {
+    const total = Number(isUserReset && m.sessionEvaluated !== undefined ? m.sessionEvaluated : (m.totalEvaluated || 0));
+    const wins = Number(isUserReset && m.sessionWins !== undefined ? m.sessionWins : (m.wins || 0));
+    const streak = Number(isUserReset && m.sessionStreak !== undefined ? m.sessionStreak : (m.streak || 0));
+    const wilson = calculateWilsonScore(wins, total) * 100;
+    const histPath = m.historyPath || [];
+    const last10 = histPath.slice(0, 10);
+    const last10WR = last10.length > 0 ? (last10.filter(x => x.won).length / last10.length) * 100 : wilson;
+    let momentum = 50;
+    if (streak > 0) momentum = Math.min(100, 50 + streak * 10);
+    else if (streak < 0) momentum = Math.max(0, 50 + streak * 20);
+    const last5 = histPath.slice(0, 5);
+    const last5WR = last5.length >= 3 ? (last5.filter(x => x.won).length / last5.length) : 0.5;
+    let slumpPenalty = 1.0;
+    if (streak <= -2 || last5WR < 0.40) slumpPenalty = 0.40;
+    return ((wilson * 0.40) + (last10WR * 0.35) + (momentum * 0.25)) * slumpPenalty;
   };
 
   const sorted = [...allModels].sort((a, b) => {
-    if (inchargeMode === 'LAST_10_WIN_RATE') {
-      const wrA = getLastNWinRate(a, 10);
-      const wrB = getLastNWinRate(b, 10);
-      if (wrB !== wrA) return wrB - wrA;
-      const sDiff = Number(b.streak || 0) - Number(a.streak || 0);
-      if (sDiff !== 0) return sDiff;
-      return getWinRate(b) - getWinRate(a);
-    }
-    if (inchargeMode === 'LAST_20_WIN_RATE') {
-      const wrA = getLastNWinRate(a, 20);
-      const wrB = getLastNWinRate(b, 20);
-      if (wrB !== wrA) return wrB - wrA;
-      const sDiff = Number(b.streak || 0) - Number(a.streak || 0);
-      if (sDiff !== 0) return sDiff;
-      return getWinRate(b) - getWinRate(a);
-    }
-    if (inchargeMode === 'HIGHEST_STREAK') {
-      const sDiff = Number(b.streak || 0) - Number(a.streak || 0);
-      if (sDiff !== 0) return sDiff;
-      return getWinRate(b) - getWinRate(a);
-    }
-    if (inchargeMode === 'SESSION_WIN_RATE') {
-      const wrA = a.sessionWinRate !== undefined ? Number(a.sessionWinRate) : getWinRate(a);
-      const wrB = b.sessionWinRate !== undefined ? Number(b.sessionWinRate) : getWinRate(b);
-      if (wrB !== wrA) return wrB - wrA;
-      return (Number(b.streak || 0)) - (Number(a.streak || 0));
-    }
-    if (inchargeMode === 'SESSION_STREAK_OVERRIDE') {
-      const sA = Number(a.sessionStreak !== undefined ? a.sessionStreak : a.streak || 0);
-      const sB = Number(b.sessionStreak !== undefined ? b.sessionStreak : b.streak || 0);
-      const elA = sA >= minStreak;
-      const elB = sB >= minStreak;
-      if (elA && !elB) return -1;
-      if (!elA && elB) return 1;
-      if (elA && elB && sB !== sA) return sB - sA;
-      return getWinRate(b) - getWinRate(a);
-    }
-    if (inchargeMode === 'WINNING_STREAK_OVERRIDE') {
-      const sA = Number(a.streak || 0);
-      const sB = Number(b.streak || 0);
-      const elA = sA >= minStreak;
-      const elB = sB >= minStreak;
-      if (elA && !elB) return -1;
-      if (!elA && elB) return 1;
-      if (elA && elB && sB !== sA) return sB - sA;
-      const wrDiff = getWinRate(b) - getWinRate(a);
-      if (wrDiff !== 0) return wrDiff;
-      return (b.totalEvaluated || 0) - (a.totalEvaluated || 0);
-    }
-    // Default / OVERALL_WIN_RATE
-    const wrDiff = getWinRate(b) - getWinRate(a);
-    if (wrDiff !== 0) return wrDiff;
-    const evDiff = (b.totalEvaluated || 0) - (a.totalEvaluated || 0);
-    if (evDiff !== 0) return evDiff;
-    return (b.streak || 0) - (a.streak || 0);
+    const ratingA = calculateModelRating(a);
+    const ratingB = calculateModelRating(b);
+    if (ratingB !== ratingA) return ratingB - ratingA;
+    const sDiff = Number(b.streak || 0) - Number(a.streak || 0);
+    if (sDiff !== 0) return sDiff;
+    return (b.totalEvaluated || 0) - (a.totalEvaluated || 0);
   });
 
   // Auto-mode champion resolution
@@ -2882,9 +3187,14 @@ function renderModelRosterUI() {
         : '<span class="w-1.5 h-1.5 rounded-full bg-rose-400 inline-block shadow-[0_0_4px_rgba(244,63,94,0.5)]"></span>';
     }).join('');
 
-    const cardClass = isLead
-      ? 'p-2.5 rounded-2xl bg-black/60 border border-emerald-500/40 shadow-[0_0_16px_rgba(52,211,153,0.12)]'
-      : 'p-2.5 rounded-2xl bg-black/40 border border-white/[0.06] hover:border-white/[0.12] transition';
+    const isQuarantined = typeof ModelQuarantineEngine !== 'undefined' && ModelQuarantineEngine.isModelQuarantined(a, tf);
+    const quarantineRec = isQuarantined ? (ModelQuarantineEngine.getQuarantineStore(tf)?.[a.name] || null) : null;
+
+    const cardClass = isQuarantined
+      ? 'p-2.5 rounded-2xl bg-rose-950/20 border border-rose-500/40 shadow-[0_0_12px_rgba(244,63,94,0.15)] relative overflow-hidden'
+      : (isLead
+        ? 'p-2.5 rounded-2xl bg-black/60 border border-emerald-500/40 shadow-[0_0_16px_rgba(52,211,153,0.12)]'
+        : 'p-2.5 rounded-2xl bg-black/40 border border-white/[0.06] hover:border-white/[0.12] transition');
 
     const wr = a.winRatePct || `${(getWinRate(a) * 100).toFixed(1)}%`;
     const tColor = a.predTarget === 'BIG' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
@@ -2893,32 +3203,134 @@ function renderModelRosterUI() {
       : 'bg-rose-500/20 text-rose-300 border-rose-500/30';
 
     return `<div class="${cardClass} flex items-center justify-between font-mono text-[9px]">
-      <div class="flex items-center gap-2">
+      ${isQuarantined ? '<div class="absolute -right-8 -top-8 w-16 h-16 bg-rose-500/10 rounded-full blur-xl pointer-events-none"></div>' : ''}
+      <div class="flex items-center gap-2 relative z-10">
         <span class="text-[8px] text-zinc-500 w-5 font-bold">#${idx+1}</span>
         <div>
           <div class="flex items-center gap-1.5">
-            <span class="font-bold text-white max-w-[150px] truncate">${a.name}</span>
+            <span class="font-bold ${isQuarantined ? 'text-rose-200' : 'text-white'} max-w-[150px] truncate">${a.name}</span>
             ${isLead ? '<span class="px-1.5 py-0.2 rounded bg-amber-400 text-black text-[7px] font-black font-mono">IN CHARGE</span>' : ''}
+            ${isQuarantined ? '<span class="px-1.5 py-0.2 rounded bg-rose-500/25 text-rose-300 border border-rose-400/50 text-[7px] font-black flex items-center gap-1 animate-pulse"><i class="fa-solid fa-lock text-[6px]"></i> QUARANTINED</span>' : ''}
             <span class="px-1.5 py-0.2 rounded ${tColor} border text-[7px] font-black">${a.predTarget || 'BIG'}</span>
           </div>
           <div class="flex items-center gap-1.5 mt-0.5 text-[8px] text-zinc-400">
-            <span class="px-1 py-0.2 rounded bg-white/5 border border-white/10 uppercase">${a.cat || 'AI'}</span>
-            <span>WR: <b class="text-emerald-400">${wr}</b> (${a.wins||0}W/${a.losses||0}L)</span>
+            <span class="px-1 py-0.2 rounded ${isQuarantined ? 'bg-rose-500/10 text-rose-300 border-rose-500/20' : 'bg-white/5 border-white/10'} border uppercase">${a.cat || 'AI'}</span>
+            <span>WR: <b class="${isQuarantined ? 'text-rose-400' : 'text-emerald-400'}">${wr}</b> (${a.wins||0}W/${a.losses||0}L)</span>
             <div class="flex gap-0.5">${dotsHtml}</div>
+            ${isQuarantined && quarantineRec ? `<span class="text-rose-400/90 text-[7px] font-bold">🧪 Trial: ${quarantineRec.probationRoundsDone || 0}/20</span>` : ''}
           </div>
         </div>
       </div>
-      <div class="flex items-center gap-1.5">
+      <div class="flex items-center gap-1.5 relative z-10">
         <span class="px-1.5 py-0.5 rounded text-[8px] font-black ${streakClass}">${isWinStreak ? '🔥 ' : '❄️ '}${streakStr}</span>
-        <button onclick="setInChargeModel('${a.name.replace(/'/g, "\\'")}')"
-          class="px-2 py-1 rounded-xl ${isLead ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30'} text-[8px] font-black active:scale-95 transition">
-          ${isLead ? 'Selected' : 'Select'}
-        </button>
+        ${isQuarantined
+          ? `<button disabled title="Model is locked in quarantine"
+              class="px-2 py-1 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400/70 text-[8px] font-black cursor-not-allowed opacity-80 flex items-center gap-1">
+              <i class="fa-solid fa-ban text-[7px]"></i> Locked
+            </button>`
+          : `<button onclick="setInChargeModel('${a.name.replace(/'/g, "\\'")}')"
+              class="px-2 py-1 rounded-xl ${isLead ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30'} text-[8px] font-black active:scale-95 transition">
+              ${isLead ? 'Selected' : 'Select'}
+            </button>`
+        }
       </div>
     </div>`;
   }).join('');
+
+  // Render Quarantine Chamber & Forensics UI
+  renderQuarantineChamberUI(tf);
 }
 window.renderModelRosterUI = renderModelRosterUI;
+
+function renderQuarantineChamberUI(tf) {
+  tf = tf || MobileState.timeframe;
+  const listEl = $('quarantineChamberList');
+  const badgeEl = $('quarantinedCountBadge');
+  if (!listEl) return;
+
+  if (typeof ModelQuarantineEngine === 'undefined') return;
+
+  const records = ModelQuarantineEngine.getQuarantinedModelsList(tf);
+  const activeQuarantined = records.filter(r => r.status === 'QUARANTINED');
+
+  if (badgeEl) {
+    badgeEl.textContent = `${activeQuarantined.length} Quarantined`;
+    badgeEl.className = activeQuarantined.length > 0
+      ? 'text-[8px] font-mono px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse font-bold'
+      : 'text-[8px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
+  }
+
+  if (activeQuarantined.length === 0) {
+    listEl.innerHTML = `
+      <div class="p-3 rounded-xl bg-black/40 border border-white/[0.06] text-center font-mono text-[8.5px] text-zinc-400">
+        <i class="fa-solid fa-circle-check text-emerald-400 text-sm mb-1 block"></i>
+        All 101 models operating normally. Zero models locked in quarantine.
+      </div>
+    `;
+    return;
+  }
+
+  listEl.innerHTML = activeQuarantined.map(rec => {
+    const probationPct = Math.round(((rec.probationRoundsDone || 0) / (rec.probationTotalRounds || 20)) * 100);
+    const wr = Math.round((rec.currentProbationWR || 0) * 100);
+    const forensics = rec.forensics || {};
+    const rehab = rec.synapticRehab || {};
+
+    return `
+      <div class="p-3 rounded-2xl bg-black/60 border border-rose-500/30 space-y-2.5 font-mono text-[8.5px]">
+        <!-- Header: Model Info + Lockup Status -->
+        <div class="flex items-center justify-between pb-1.5 border-b border-white/[0.08]">
+          <div class="flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping"></span>
+            <span class="font-bold text-white text-[9.5px]">${rec.modelName}</span>
+            <span class="px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[7px] font-black">
+              LOCKUP (-${rec.triggerLossStreak}L)
+            </span>
+          </div>
+          <span class="text-[7.5px] text-zinc-400 font-bold">
+            ${rec.lockupRoundsRemaining > 0 ? `🔒 ${rec.lockupRoundsRemaining} rds lock left` : '🧪 In Shadow Trial'}
+          </span>
+        </div>
+
+        <!-- Forensic Investigation Box -->
+        <div class="p-2 rounded-xl bg-rose-950/20 border border-rose-500/20 space-y-1">
+          <div class="flex items-center justify-between text-[7px] uppercase font-bold text-rose-300">
+            <span><i class="fa-solid fa-microscope text-rose-400 mr-1"></i> Forensic Diagnosis</span>
+            <span>Analyzed ${forensics.analyzedRounds || 20} Rds</span>
+          </div>
+          <p class="text-[8px] text-rose-200/90 leading-tight">
+            ${forensics.rootCause || 'Statistical Pattern Entropy Inversion'}
+          </p>
+          <div class="text-[7.5px] text-zinc-400 pt-0.5 border-t border-white/[0.04]">
+            <b class="text-amber-300">Action:</b> ${forensics.remedy || 'Synaptic baseline recalibration'}
+          </div>
+        </div>
+
+        <!-- 20-Round Isolated Shadow Trial Progress -->
+        <div class="space-y-1">
+          <div class="flex items-center justify-between text-[7.5px] text-zinc-400">
+            <span>20-Round Shadow Trial Probation</span>
+            <span class="text-white font-bold">${rec.probationRoundsDone || 0}/20 Rds (${wr}% WR)</span>
+          </div>
+          <div class="w-full bg-black/60 h-2 rounded-full overflow-hidden p-0.5 border border-white/[0.08]">
+            <div class="h-full rounded-full ${wr >= 60 ? 'bg-emerald-400' : 'bg-amber-400'} transition-all duration-300" style="width: ${probationPct}%;"></div>
+          </div>
+          <div class="flex items-center justify-between text-[7px] text-zinc-500 pt-0.5">
+            <span>Pass Threshold: ≥60% (12/20 Wins)</span>
+            <span class="text-zinc-400">${rec.probationWins || 0}W / ${rec.probationLosses || 0}L</span>
+          </div>
+        </div>
+
+        <!-- Synaptic Neuro-Plasticity Adjustments -->
+        <div class="flex items-center justify-between pt-1 border-t border-white/[0.06] text-[7.5px]">
+          <span class="text-zinc-500">Neuro-Plasticity:</span>
+          <span class="text-purple-300 font-bold">Dopamine ${rehab.dopamineBoost || '+35%'} · Loss Pain ${rehab.painReduction || '-95%'}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+window.renderQuarantineChamberUI = renderQuarantineChamberUI;
 
 function setInChargeModel(name) {
   MobileState.inChargeModel = name;
@@ -3429,7 +3841,7 @@ function initSimBet(target, period) {
   }
 
   MobileState.sim.pendingBet = { target, period: String(period), stake };
-  logSimEntry(`🔮 Placed ${target} · ₹${stake} · Period #${String(period).slice(-5)}`);
+  logSimEntry(`🔮 Placed ${target} · ₹${stake} · Period #${shortPeriodStr(period)}`);
 }
 window.initSimBet = initSimBet;
 
@@ -3489,6 +3901,10 @@ function setSimBaseStake(val) {
   MobileState.sim.baseStake = Number(val);
   MobileState.sim.stake = MobileState.sim.baseStake;
   MobileState.sim.level = 0;
+  // Persist so the Settings page's stake control and these chips share
+  // one value (quant_sim_stake was previously written by Settings but
+  // never read anywhere).
+  try { localStorage.setItem('quant_sim_stake', String(MobileState.sim.baseStake)); } catch (e) {}
   updateSimUI();
 }
 window.setSimBaseStake = setSimBaseStake;
@@ -3543,6 +3959,259 @@ const DHANIWIN_REGISTRATION_URL = 'https://dhaniwin44.com/register?inviteCode=EE
 const DHANIWIN_LOGIN_URL = 'https://dhaniwin44.com/login';
 const DHANIWIN_HOME_URL = 'https://dhaniwin44.com/';
 
+// ── DhaniWin transport: proxy vs direct ─────────────────────────────
+// PIVOT: the game frame loads DhaniWin DIRECTLY and the APK injects
+// the bridge natively into the frame (MainActivity), so a direct
+// load DOES carry the bridge and CAN API-prove login + balance.
+// The worker frame survives only as an explicit override
+// (dhaniFrameUseProxy). Built-in DhaniWin URLs therefore stay
+// direct by default; a user-customised entry URL (a mirror domain
+// they chose) is left exactly as set, as before.
+function proxifyDhaniUrl(url) {
+  return window.DhaniTransport ? window.DhaniTransport.proxifyDhaniUrl(url, CF_WORKER_BASE) : url;
+}
+function unproxifyDhaniUrl(url) {
+  return window.DhaniTransport ? window.DhaniTransport.unproxifyDhaniUrl(url, CF_WORKER_BASE) : url;
+}
+// PIVOT — direct frame default: the game frame loads DhaniWin
+// DIRECTLY and the APK injects the bridge natively. The worker
+// frame survives ONLY as an explicit override: localStorage
+// 'o101_dhani_frame_proxy' === '1'. This key is separate from
+// 'o101_dhani_transport' (which noteDhaniTransport overwrites on
+// every load with the ACTUAL transport) so a direct load can never
+// erase the override. No Settings UI: the override is a power-user
+// escape hatch, never the default.
+const DHANI_FRAME_PROXY_KEY = 'o101_dhani_frame_proxy';
+function dhaniFrameUseProxy() {
+  try { return localStorage.getItem(DHANI_FRAME_PROXY_KEY) === '1'; } catch (e) { return false; }
+}
+window.dhaniFrameUseProxy = dhaniFrameUseProxy;
+// Interval deep links: direct by default (pivot); proxified only
+// under the explicit proxy override, so the bridge is present on
+// the WinGo pages themselves either way.
+for (const tfKey of Object.keys(DHANIWIN_INTERVAL_URLS)) {
+  if (dhaniFrameUseProxy()) DHANIWIN_INTERVAL_URLS[tfKey] = proxifyDhaniUrl(DHANIWIN_INTERVAL_URLS[tfKey]);
+}
+
+const DHANI_TRANSPORT_KEY = 'o101_dhani_transport';
+const DHANI_PROXY_FAILED_KEY = 'o101_dhani_proxy_failed';
+const DHANI_PROXY_LOAD_TIMEOUT_MS = 15000;
+// After a proxied document finishes loading, the bridge gets this
+// long to prove it is alive inside the page (its state publish /
+// handshake). A browser DNS-error page also fires `load` — and never
+// brings a bridge — so "load completed" alone is NOT proof the proxy
+// worked. No bridge signal inside this window ⇒ the proxy route is
+// treated as failed and the app falls back to the direct URL.
+const DHANI_PROXY_BRIDGE_SIGNAL_MS = 5000;
+let _dhaniProxyWatchdog = null;
+let _dhaniBridgeSignalTimer = null;
+let _dhaniProxyFallbackUsed = false;
+let _dhaniIframeLoadHooked = false;
+let _dhaniExpectedProxyUrl = null;
+let _dhaniBridgeSeenForLoad = false;
+let _dhaniProxyFailed = false;
+
+function clearDhaniProxyWatchdog() {
+  if (_dhaniProxyWatchdog) { clearTimeout(_dhaniProxyWatchdog); _dhaniProxyWatchdog = null; }
+}
+function clearDhaniBridgeSignalTimer() {
+  if (_dhaniBridgeSignalTimer) { clearTimeout(_dhaniBridgeSignalTimer); _dhaniBridgeSignalTimer = null; }
+}
+function markDhaniProxyFailed(reason) {
+  _dhaniProxyFailed = true;
+  window.__o101DhaniProxyFailed = true;
+  try { localStorage.setItem(DHANI_PROXY_FAILED_KEY, String(reason || 'failed')); } catch (e) {}
+}
+function clearDhaniProxyFailed() {
+  _dhaniProxyFailed = false;
+  window.__o101DhaniProxyFailed = false;
+  try { localStorage.removeItem(DHANI_PROXY_FAILED_KEY); } catch (e) {}
+}
+// A live bridge message (handshake / heartbeat / user state) is the
+// only proof the proxied page really carries the bridge. It cancels
+// every pending fallback and clears any earlier proxy-failure record:
+// the route demonstrably works now.
+function noteDhaniBridgeSignal() {
+  _dhaniBridgeSeenForLoad = true;
+  clearDhaniProxyWatchdog();
+  clearDhaniBridgeSignalTimer();
+  if (_dhaniProxyFailed || window.__o101DhaniProxyFailed) clearDhaniProxyFailed();
+}
+window.noteDhaniBridgeSignal = noteDhaniBridgeSignal;
+// One-shot fallback for a failed proxied DhaniWin load. When a
+// worker base is configured, the fallback NEVER swaps to the direct
+// URL: direct has no worker-host cookies, so the swap instantly
+// kills the session and shows the login screen (case-1: "after
+// loading it reloads and auto logout"). Instead it retries the
+// proxied URL once (cache-busted so the retry really navigates);
+// if the retry also brings no bridge signal, no further fallback
+// fires (one-shot) and the honest error state below stands. A
+// live bridge signal on the retry clears the failure record via
+// noteDhaniBridgeSignal, as before. Without a worker base, direct
+// is the only mode, so the old direct swap is kept exactly.
+// Never fakes a bridge on any route.
+function runDhaniProxyFallback(reason) {
+  if (_dhaniProxyFallbackUsed) return;
+  // Pivot guard: a direct frame must NEVER be "retried" onto the
+  // proxy — that swap would drop the direct session and re-enter
+  // the broken proxy path. Report honestly and stay put.
+  if (window.__o101DhaniTransport === 'direct') {
+    setMobileBridgeStatus(false, 'Direct DhaniWin load — bridge inactive · reopen the DhaniWin tab in the app');
+    return;
+  }
+  const iframe = $('dhaniwinIframe');
+  const expected = _dhaniExpectedProxyUrl || (iframe ? iframe.src : null);
+  if (!expected) return;
+  if (iframe && iframe.src !== expected) return; // user already navigated elsewhere
+  _dhaniProxyFallbackUsed = true;
+  clearDhaniProxyWatchdog();
+  clearDhaniBridgeSignalTimer();
+  markDhaniProxyFailed(reason);
+  const hasWorkerBase = typeof CF_WORKER_BASE === 'string' && CF_WORKER_BASE.length > 0;
+  if (hasWorkerBase) {
+    // Proxied retry, one shot: same proxied URL plus a retry query
+    // (inserted before any fragment) so assigning src really
+    // navigates instead of no-op'ing on an identical URL. The load
+    // listener is already hooked, so the retry load hides the
+    // splash; no new watchdog is armed (noteDhaniTransport returns
+    // early once the one-shot flag is set).
+    const hashIdx = expected.indexOf('#');
+    const base = hashIdx === -1 ? expected : expected.slice(0, hashIdx);
+    const frag = hashIdx === -1 ? '' : expected.slice(hashIdx);
+    const retry = base + (base.indexOf('?') === -1 ? '?' : '&') + 'o101retry=1' + frag;
+    if (iframe) iframe.src = retry;
+    const barText = $('mobileWebAddressBarText');
+    if (barText) barText.textContent = retry;
+    noteDhaniTransport(retry);
+    setMobileBridgeStatus(false, 'Proxy load slow or failed — retried on the proxy · bridge inactive · login kept on the proxy route');
+    return;
+  }
+  const direct = unproxifyDhaniUrl(expected);
+  if (iframe) iframe.src = direct;
+  const barText = $('mobileWebAddressBarText');
+  if (barText) barText.textContent = direct;
+  noteDhaniTransport(direct);
+  setMobileBridgeStatus(false, 'Proxy unreachable — direct mode · game frame loads directly, bridge injected by the app');
+}
+window.runDhaniProxyFallback = runDhaniProxyFallback;
+// ── DhaniWin loading overlay (fix round #6, visuals swapped round #10)
+// The cross-origin iframe paints white for 3-4s while DhaniWin boots,
+// and no app-side code can observe the page's inner paint. So the app
+// covers its OWN surface (#dhaniwinLoadingOverlay in mobile.html,
+// now the app's own 3-dot quantum-wave animation from
+// #appleMinimalLoader on its black/90 blurred backdrop) from the moment
+// a DhaniWin navigation starts until the iframe's real `load` event —
+// never a guessed timer. After 8s the text turns into a slow-connection
+// note (still not a success claim). The dismiss button uncovers the
+// page early for this load only; the next navigation shows it again.
+let _dhaniLoading = false;
+let _dhaniLoadingSlowTimer = null;
+function showDhaniLoadingOverlay() {
+  _dhaniLoading = true;
+  const txt = $('dhaniwinLoadingText');
+  if (txt) txt.textContent = 'Loading DhaniWin…';
+  const el = $('dhaniwinLoadingOverlay');
+  if (el) el.classList.add('o101-loading-visible');
+  if (_dhaniLoadingSlowTimer) clearTimeout(_dhaniLoadingSlowTimer);
+  _dhaniLoadingSlowTimer = setTimeout(() => {
+    _dhaniLoadingSlowTimer = null;
+    if (!_dhaniLoading) return;
+    const t = $('dhaniwinLoadingText');
+    if (t) t.textContent = 'Still loading DhaniWin — slow connection…';
+  }, 8000);
+}
+function hideDhaniLoadingOverlay() {
+  _dhaniLoading = false;
+  if (_dhaniLoadingSlowTimer) { clearTimeout(_dhaniLoadingSlowTimer); _dhaniLoadingSlowTimer = null; }
+  const el = $('dhaniwinLoadingOverlay');
+  if (el) el.classList.remove('o101-loading-visible');
+}
+window.showDhaniLoadingOverlay = showDhaniLoadingOverlay;
+window.hideDhaniLoadingOverlay = hideDhaniLoadingOverlay;
+function hookDhaniIframeLoad() {
+  if (_dhaniIframeLoadHooked) return;
+  const iframe = $('dhaniwinIframe');
+  if (!iframe) return;
+  _dhaniIframeLoadHooked = true;
+  const dismiss = $('dhaniwinLoadingDismissBtn');
+  if (dismiss) dismiss.addEventListener('click', () => { hideDhaniLoadingOverlay(); });
+  iframe.addEventListener('load', () => {
+    // A completed load ends the no-load watchdog, but it is not proof
+    // of life: an error document (e.g. a DNS failure page) fires
+    // `load` too and contains no bridge. While riding the proxy with
+    // no bridge signal yet, give the bridge a short window to prove
+    // itself; silence inside it means the proxy route failed.
+    // Either way the document arrived: the loading splash clears on
+    // this REAL signal (fix round #6), never on a guessed timer.
+    hideDhaniLoadingOverlay();
+    clearDhaniProxyWatchdog();
+    if (_dhaniProxyFallbackUsed || _dhaniBridgeSeenForLoad) return;
+    if (window.__o101DhaniTransport !== 'proxy') return;
+    clearDhaniBridgeSignalTimer();
+    _dhaniBridgeSignalTimer = setTimeout(() => {
+      _dhaniBridgeSignalTimer = null;
+      if (_dhaniBridgeSeenForLoad) return;
+      runDhaniProxyFallback('no-bridge-signal');
+    }, DHANI_PROXY_BRIDGE_SIGNAL_MS);
+  });
+  iframe.addEventListener('error', () => {
+    // Hard load error on the embed: fail fast instead of waiting out
+    // either timer. The splash clears so the owner sees the error
+    // page itself, not a permanent loading screen.
+    hideDhaniLoadingOverlay();
+    if (_dhaniProxyFallbackUsed) return;
+    if (window.__o101DhaniTransport !== 'proxy') return;
+    runDhaniProxyFallback('load-error');
+  });
+}
+// Record which transport a DhaniWin load uses, so the bridge
+// diagnostic (this page + Settings) never implies verification is
+// coming on a route where the bridge cannot exist.
+function noteDhaniTransport(url) {
+  if (typeof url !== 'string') return;
+  const transport = window.DhaniTransport
+    ? window.DhaniTransport.dhaniTransportForUrl(url, CF_WORKER_BASE)
+    // Fallback when the transport module failed to load: any worker
+    // URL is the proxy route (root-served since round 3, legacy
+    // prefixed included), except the worker-native routes.
+    : (url.indexOf(CF_WORKER_BASE) === 0
+      && !url.slice(CF_WORKER_BASE.length).startsWith('/o101/')
+      && !url.slice(CF_WORKER_BASE.length).startsWith('/proxy/dhaniapi/')
+      && !url.slice(CF_WORKER_BASE.length).startsWith('/api/')
+      ? 'proxy' : 'direct');
+  if (transport !== 'proxy' && !/dhaniwin/i.test(url)) return; // not a DhaniWin load
+  window.__o101DhaniTransport = transport;
+  try { localStorage.setItem(DHANI_TRANSPORT_KEY, transport); } catch (e) {}
+  // Every DhaniWin navigation gets the load listener (fix round #6:
+  // it used to attach only on the proxy branch, so direct-mode loads
+  // — the only mode left since the worker died — had no listener at
+  // all) and the loading splash, which the `load` event clears.
+  hookDhaniIframeLoad();
+  showDhaniLoadingOverlay();
+  if (transport === 'proxy') {
+    clearDhaniProxyWatchdog();
+    clearDhaniBridgeSignalTimer();
+    if (_dhaniProxyFallbackUsed) return;
+    _dhaniExpectedProxyUrl = url;
+    _dhaniBridgeSeenForLoad = false;
+    const expected = url;
+    _dhaniProxyWatchdog = setTimeout(() => {
+      _dhaniProxyWatchdog = null;
+      const iframe = $('dhaniwinIframe');
+      if (!iframe || iframe.src !== expected) return;
+      // Proxied load never completed: fall back to the direct URL so
+      // the game at least loads, and record the direct transport —
+      // the diagnostic then states the bridge is inactive rather than
+      // promising a verification that cannot happen on this route.
+      runDhaniProxyFallback('load-timeout');
+    }, DHANI_PROXY_LOAD_TIMEOUT_MS);
+  } else {
+    clearDhaniProxyWatchdog();
+    clearDhaniBridgeSignalTimer();
+  }
+}
+window.noteDhaniTransport = noteDhaniTransport;
+
 function getDefaultDhaniUrl() {
   try {
     const custom = localStorage.getItem('custom_default_website_url');
@@ -3554,17 +4223,18 @@ function getDefaultDhaniUrl() {
 }
 window.getDefaultDhaniUrl = getDefaultDhaniUrl;
 
-// ── Per-user DhaniWin auth flow (no personal credentials anywhere) ──────────────
-// Active session → DhaniWin Home; returning user → Login; new user → Register.
+// Fix round #3: the DhaniWin tab always opens the DhaniWin home URL.
+// No login-state routing from our side — DhaniWin itself decides what
+// to show (home for a live session, its own login page otherwise).
+// That page is DhaniWin's own content, never our login UI.
 function getDhaniEntryUrl() {
   const custom = getDefaultDhaniUrl();
   if (custom !== DHANIWIN_HOME_URL) {
     return custom;
   }
-  if (isUserLoggedIn()) {
-    return DHANIWIN_HOME_URL;
-  }
-  return localStorage.getItem('dhaniwin_registered') === '1' ? DHANIWIN_LOGIN_URL : DHANIWIN_REGISTRATION_URL;
+  // Pivot: direct by default; the worker frame is an explicit
+  // override only, never the default.
+  return dhaniFrameUseProxy() ? proxifyDhaniUrl(DHANIWIN_HOME_URL) : DHANIWIN_HOME_URL;
 }
 window.getDhaniEntryUrl = getDhaniEntryUrl;
 window.DHANIWIN_HOME_URL = DHANIWIN_HOME_URL;
@@ -3575,163 +4245,11 @@ function handleDhaniSessionExpired(reason) {
     return;
   }
   markUserLoggedOut();
-  setMobileBridgeStatus(false, reason || 'Session Expired • Please Login');
-  showToast('⚠️ Session expired. Please log in again.', 'warn');
-  showDhaniAuthBar(true);
-  if (typeof updateAppUnlockState === 'function') updateAppUnlockState();
+  // Status line only — never a login prompt, never a gate.
+  setMobileBridgeStatus(false, reason || 'Session Expired');
 }
 window.handleDhaniSessionExpired = handleDhaniSessionExpired;
 
-let _dhaniAuthBarDismissed = false;
-function updateDhaniAuthBar() {
-  const loggedIn = isUserLoggedIn();
-  const onWeb = document.getElementById('tab-web')?.style.display !== 'none';
-  const showAuth = !loggedIn && onWeb && !_dhaniAuthBarDismissed;
-
-  // 1. Top middle Login & Register pill (under header)
-  const topPill = document.getElementById('homeTopAuthPill');
-  if (topPill) {
-    topPill.style.display = showAuth ? 'flex' : 'none';
-  }
-
-  // 2. Floating "Already Logged In Before" button (above bottom dock in middle)
-  // RULE: Don't show this on first-time visit before login!
-  const floatBtn = document.getElementById('floatingAlreadyLoggedInBtn');
-  if (floatBtn) {
-    const hasVisitedOrAttempted = localStorage.getItem('dhaniwin_user_has_logged_in_ever') === '1' ||
-                                  localStorage.getItem('dhaniwin_registered') === '1' ||
-                                  sessionStorage.getItem('dhani_login_attempted') === '1';
-    floatBtn.style.display = (showAuth && hasVisitedOrAttempted) ? 'flex' : 'none';
-  }
-
-  // Sync backward-compatible container
-  const bar = document.getElementById('dhaniAuthBar');
-  if (bar) bar.style.display = showAuth ? 'flex' : 'none';
-
-  const acct = document.getElementById('headerAccountIcon');
-  if (acct) acct.className = loggedIn ? 'fa-solid fa-user-check text-xs text-emerald-300' : 'fa-solid fa-right-to-bracket text-xs text-sky-300';
-}
-window.updateDhaniAuthBar = updateDhaniAuthBar;
-
-function showDhaniAuthBar(force) {
-  if (force) _dhaniAuthBarDismissed = false;
-  updateDhaniAuthBar();
-}
-function dismissDhaniAuthBar() { _dhaniAuthBarDismissed = true; updateDhaniAuthBar(); }
-window.dismissDhaniAuthBar = dismissDhaniAuthBar;
-
-function openDhaniLogin() {
-  try { sessionStorage.setItem('dhani_login_attempted', '1'); } catch(e) {}
-  if (typeof switchMobileTab === 'function') switchMobileTab('web');
-  loadMobileWebUrl(DHANIWIN_LOGIN_URL);
-  updateDhaniAuthBar();
-}
-function openDhaniRegister() {
-  try { sessionStorage.setItem('dhani_login_attempted', '1'); } catch(e) {}
-  if (typeof switchMobileTab === 'function') switchMobileTab('web');
-  loadMobileWebUrl(DHANIWIN_REGISTRATION_URL);
-  updateDhaniAuthBar();
-}
-
-let _authVerificationInProgress = false;
-let _authVerificationTimeout = null;
-
-async function confirmDhaniLoggedInReal() {
-  if (_authVerificationInProgress) return;
-  const btn = document.getElementById('floatingAlreadyLoggedInBtn');
-  const txt = document.getElementById('floatingAlreadyLoggedInText');
-  const originalHtml = txt ? txt.innerHTML : 'Already logged in before';
-
-  _authVerificationInProgress = true;
-  if (txt) txt.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Verifying session...';
-  if (btn) btn.style.opacity = '0.85';
-
-  const completeVerification = (verified, detail = '') => {
-    if (!_authVerificationInProgress) return;
-    _authVerificationInProgress = false;
-    if (_authVerificationTimeout) {
-      clearTimeout(_authVerificationTimeout);
-      _authVerificationTimeout = null;
-    }
-    if (txt) txt.innerHTML = originalHtml;
-    if (btn) btn.style.opacity = '1';
-
-    if (verified) {
-      markUserLoggedIn();
-      try {
-        localStorage.setItem('dhaniwin_user_has_logged_in_ever', '1');
-        localStorage.setItem('dhaniwin_registered', '1');
-      } catch(e) {}
-      _authGracePeriodUntil = Date.now() + 60000;
-      setMobileBridgeStatus(true, 'Login Verified ✓');
-      showToast('🎉 Login Confirmed! Active DhaniWin session verified.', 'success');
-      if (typeof toggleUnlockModal === 'function') toggleUnlockModal(false);
-      if (typeof updateAppUnlockState === 'function') updateAppUnlockState();
-      updateDhaniAuthBar();
-      loadMobileWebUrl(getDefaultDhaniUrl());
-    } else {
-      if (btn) {
-        btn.classList.add('shake-anim');
-        setTimeout(() => btn.classList.remove('shake-anim'), 600);
-      }
-      showToast(detail || '⚠️ Active DhaniWin login not detected. Please login on the DhaniWin page first, then verify.', 'warn');
-    }
-  };
-
-  // Step 1: Probe the iframe bridge
-  const iframe = document.getElementById('dhaniwinIframe');
-  if (iframe && iframe.contentWindow) {
-    try {
-      iframe.contentWindow.postMessage({ type: 'DHANIWIN_REQUEST_AUTH_CHECK', timestamp: Date.now() }, '*');
-    } catch(e) {}
-  }
-  if (typeof syncMobileUserWallet === 'function') {
-    try { syncMobileUserWallet(); } catch(e) {}
-  }
-
-  // Register resolver for immediate bridge response
-  window._pendingAuthCheckResolver = (res) => {
-    if (res && res.loggedIn) {
-      completeVerification(true, 'Verified via In-App Bridge');
-    } else {
-      completeVerification(false, res?.reason || '⚠️ No active DhaniWin session found.');
-    }
-  };
-
-  // Wait up to 2.2s
-  _authVerificationTimeout = setTimeout(() => {
-    if (!_authVerificationInProgress) return;
-    if (MobileBridgeState.userBalance !== null && !isNaN(Number(MobileBridgeState.userBalance))) {
-      completeVerification(true, 'Verified via Live Bridge Balance');
-    } else if (MobileBridgeState.bridgeVerified || MobileBridgeState.active) {
-      completeVerification(true, 'Verified via Active Bridge');
-    } else {
-      completeVerification(false, '⚠️ DhaniWin login not detected. Please enter your credentials on the DhaniWin page first.');
-    }
-  }, 2200);
-}
-window.confirmDhaniLoggedInReal = confirmDhaniLoggedInReal;
-
-function confirmDhaniLoggedIn() {
-  confirmDhaniLoggedInReal();
-}
-window.confirmDhaniLoggedIn = confirmDhaniLoggedIn;
-
-function openDhaniAccountMenu() {
-  if (isUserLoggedIn()) {
-    if (confirm('Log out / switch DhaniWin account?')) {
-      markUserLoggedOut();
-      openDhaniLogin();
-      showDhaniAuthBar(true);
-    }
-  } else {
-    showDhaniAuthBar(true);
-    openDhaniLogin();
-  }
-}
-window.openDhaniLogin = openDhaniLogin;
-window.openDhaniRegister = openDhaniRegister;
-window.openDhaniAccountMenu = openDhaniAccountMenu;
 
 // ── Home tab: auto-hide top bar ────────────────────────────────────────────────
 // Swipe/scroll UP hides our header, swipe/scroll DOWN shows it. The DhaniWin iframe is
@@ -3751,6 +4269,15 @@ function initHomeHeaderAutoHide() {
   syncHeight();
   window.addEventListener('resize', syncHeight);
 
+  // Task D: the pull handle is visible whenever home-header-hidden is set, including
+  // on Home (where the scroll listener hides chrome). setHomeHeaderHidden is
+  // web-gated, so on Home the restore must also run the Home chrome show path —
+  // otherwise the handle would appear on Home and do nothing. Web behavior is
+  // untouched: the extra call is Home-gated.
+  const showTopBar = () => {
+    setHomeHeaderHidden(false);
+    if (document.getElementById('tab-home')?.style.display !== 'none') window.__o101ShowHomeChrome?.();
+  };
   const attachSwipe = (el) => {
     let y0 = null;
     el.addEventListener('touchstart', (e) => { y0 = e.touches[0].clientY; }, { passive: true });
@@ -3759,14 +4286,14 @@ function initHomeHeaderAutoHide() {
       const dy = e.changedTouches[0].clientY - y0;
       y0 = null;
       if (dy < -18) setHomeHeaderHidden(true);
-      else if (dy > 18) setHomeHeaderHidden(false);
+      else if (dy > 18) showTopBar();
     }, { passive: true });
   };
   attachSwipe(header);
   const handle = document.getElementById('homeHeaderPullHandle');
   if (handle) {
     attachSwipe(handle);
-    handle.addEventListener('click', () => setHomeHeaderHidden(false));
+    handle.addEventListener('click', showTopBar);
   }
 }
 
@@ -3775,132 +4302,373 @@ function initDockAutoCompact() {
   const dock = document.getElementById('mobileBottomDock');
   if (!dock) return;
 
-  let lastScrollY = window.scrollY;
-  const SCROLL_THRESHOLD = 8;
+  let lastScrollY = window.scrollY || 0;
+  const SCROLL_THRESHOLD = 6;
+
+  const syncShield = () => {
+    const shield = document.getElementById('dhaniwinTouchShield');
+    if (!shield) return;
+    const onWeb = document.getElementById('tab-web')?.style.display !== 'none';
+    const isCompact = dock.classList.contains('dock-compact') || dock.classList.contains('dock-hidden');
+    // When on DhaniWin tab and dock is full size: activate shield to capture touches/swipes anywhere on the view
+    // When dock is compact or hidden: release shield completely (pointerEvents = 'none') so user plays the game freely!
+    if (onWeb && !isCompact) {
+      shield.style.pointerEvents = 'auto';
+    } else {
+      shield.style.pointerEvents = 'none';
+    }
+  };
 
   const compact = () => {
     dock.classList.remove('dock-hidden');
     dock.classList.add('dock-compact');
     document.body.classList.add('nav-compact');
+    syncShield();
   };
   const expand = () => {
     dock.classList.remove('dock-hidden');
     dock.classList.remove('dock-compact');
     document.body.classList.remove('nav-compact');
+    syncShield();
   };
   const hide = () => {
     dock.classList.add('dock-hidden');
-  };
-  const unhide = () => {
-    dock.classList.remove('dock-hidden');
+    syncShield();
   };
 
-  // ── Window scroll: scrolling down = compact on Home tab, scrolling up = back to normal ──
+  // ── Task D — Home view scroll auto-hide ──
+  // On Home ONLY, scroll-down FULLY hides the top bar + dock (not compact);
+  // scroll-up restores both. Reuses the existing home-header-hidden rule (header
+  // translateY(-110%), 0.35s transition) and dock-hidden (off-screen + opacity 0 +
+  // pointer-events none), so both transitions stay CSS-smoothed and hidden chrome
+  // never intercepts touches. The bet slip / confirm tap lives in page content,
+  // not in the header or dock, so it stays fully usable while chrome is hidden.
+  const isHomeView = () => document.getElementById('tab-home')?.style.display !== 'none';
+  const hideHomeChrome = () => {
+    dock.classList.remove('dock-compact');
+    dock.classList.add('dock-hidden');
+    document.body.classList.add('home-header-hidden');
+    syncShield();
+  };
+  const showHomeChrome = () => {
+    expand();
+    document.body.classList.remove('home-header-hidden');
+  };
+  window.__o101ShowHomeChrome = showHomeChrome;
+
+  // Expose methods on window for global access and bridge handlers
+  window._dockSetCompact = (isCompact) => {
+    if (isCompact) compact();
+    else expand();
+  };
+  window._dockSetHidden = (isHidden) => {
+    if (isHidden) hide();
+    else expand();
+  };
+  window._dockExpand = expand;
+  window._dockSyncShield = syncShield;
+
+  // ── 1. Window scroll: scrolling down = compact, scrolling up = full big size ──
+  // Task D: on Home, scroll-down FULLY hides top bar + dock; everywhere else the
+  // existing compact/expand behavior is untouched.
   window.addEventListener('scroll', () => {
-    const onWeb = document.getElementById('tab-web')?.style.display !== 'none';
-    const allowAll = localStorage.getItem('dock_compact_all_tabs') === '1';
-    if (!onWeb && !allowAll) {
-      expand();
-      return;
-    }
+    const y = window.scrollY || 0;
 
-    const y = window.scrollY;
-
-    // At top of the screen: always restore full normal menu
-    if (y <= 20) {
-      expand();
+    // At top of screen: restore full normal menu
+    if (y <= 15) {
+      if (isHomeView()) showHomeChrome();
+      else expand();
       lastScrollY = y;
       return;
     }
 
     const delta = y - lastScrollY;
-    if (delta > SCROLL_THRESHOLD && y > 60) {
-      // User scrolled DOWN → make menu compact
-      compact();
+    if (delta > SCROLL_THRESHOLD) {
+      // User scrolled DOWN → on Home fully hide, elsewhere make menu compact
+      if (isHomeView()) hideHomeChrome();
+      else compact();
     } else if (delta < -SCROLL_THRESHOLD) {
-      // User scrolled UP → make menu come back and normal size
-      expand();
+      // User scrolled UP → make menu come back big
+      if (isHomeView()) showHomeChrome();
+      else expand();
     }
 
     lastScrollY = y;
   }, { passive: true });
 
-  // ── Tap outside bottom dock on Home tab hides the dock ──
-  document.addEventListener('pointerdown', (e) => {
-    const onWeb = document.getElementById('tab-web')?.style.display !== 'none';
-    const allowAll = localStorage.getItem('dock_compact_all_tabs') === '1';
-    if (!onWeb && !allowAll) return;
-    const dockEl = document.getElementById('mobileBottomDock');
-    if (!dockEl) return;
-    
-    // Tapping near bottom edge when hidden summons the dock back to normal
-    if (dockEl.classList.contains('dock-hidden') && e.clientY > window.innerHeight - 50) {
-      expand();
+  // ── 2. Global Viewport Touch & Swipe Gesture Engine ──
+  // Swipe Down = compact, Swipe Up = big / expand, Tap outside = hide / compact
+  let touchStartY = null;
+  let touchStartX = null;
+  let touchStartTime = 0;
+  let touchMoved = false;
+
+  const isProtectedElement = (target) => {
+    if (!target || typeof target.closest !== 'function') return false;
+    return !!target.closest('#dhaniwinFloatingOrb, #dhaniwinAssistantModal, #dhaniwinAssistantSheet, #mobileBottomDock, .assistant-resize-handle, #dockRestoreHandle');
+  };
+
+  const handleTouchStart = (clientY, clientX, target) => {
+    if (isProtectedElement(target)) {
+      touchStartY = null;
+      touchStartX = null;
       return;
     }
+    touchStartY = clientY;
+    touchStartX = clientX;
+    touchStartTime = Date.now();
+    touchMoved = false;
+  };
 
-    if (dockEl.contains(e.target)) return;
-    const orb = document.getElementById('dhaniwinFloatingOrb');
-    if (orb && orb.contains(e.target)) return;
-    const modal = document.getElementById('dhaniwinAssistantModal');
-    if (modal && !modal.classList.contains('hidden') && modal.contains(e.target)) return;
-    const authBar = document.getElementById('dhaniAuthBar');
-    if (authBar && authBar.contains(e.target)) return;
+  const handleTouchMove = (clientY, clientX, target) => {
+    if (touchStartY === null) return;
+    if (isProtectedElement(target)) return;
+    // Task D: on Home, scroll alone drives chrome. The gesture engine's compact()
+    // would otherwise un-hide the dock mid-scroll (compact removes dock-hidden)
+    // and a tap would bring back a capsule — so on Home, gestures never touch
+    // chrome. Everywhere else this engine is untouched.
+    if (isHomeView()) return;
 
-    // User tapped somewhere else in the Dhani app → hide dock
-    hide();
+    const dy = clientY - touchStartY;
+    const dx = clientX - (touchStartX || clientX);
+
+    // Require predominantly vertical movement
+    if (Math.abs(dy) < 10 || Math.abs(dy) < Math.abs(dx)) return;
+    touchMoved = true;
+
+    if (dy > 12) {
+      // Swiping DOWN (finger drags down) -> compact
+      compact();
+      touchStartY = clientY;
+    } else if (dy < -12) {
+      // Swiping UP (finger moves up towards top) -> make big & expand
+      expand();
+      touchStartY = clientY;
+    }
+  };
+
+  const handleTouchEnd = (target) => {
+    if (touchStartY === null) return;
+    const duration = Date.now() - touchStartTime;
+    const moved = touchMoved;
+
+    touchStartY = null;
+    touchStartX = null;
+    touchMoved = false;
+
+    // Task D: on Home, chrome is scroll-driven only — a tap must not un-hide it.
+    if (isHomeView()) return;
+
+    // Clean tap outside dock/modal/orb across any tab/menu -> compact dock
+    if (!moved && duration < 400 && !isProtectedElement(target)) {
+      compact();
+    }
+  };
+
+  // Attach to window & document
+  document.addEventListener('touchstart', (e) => {
+    if (e.touches && e.touches[0]) handleTouchStart(e.touches[0].clientY, e.touches[0].clientX, e.target);
   }, { passive: true });
 
-  // ── Focus shifts to DhaniWin iframe (user tapped inside DhaniWin) ──
+  document.addEventListener('touchmove', (e) => {
+    if (e.touches && e.touches[0]) handleTouchMove(e.touches[0].clientY, e.touches[0].clientX, e.target);
+  }, { passive: true });
+
+  document.addEventListener('touchend', (e) => {
+    handleTouchEnd(e.target);
+  }, { passive: true });
+
+  // ── 3. High-Fidelity Touch Shield for DhaniWin Embedded View ──
+  // Captures touches and swipes anywhere over the embedded iframe when the dock is expanded.
+  const shield = document.getElementById('dhaniwinTouchShield');
+  if (shield) {
+    let sStartY = null;
+    let sStartX = null;
+
+    const onShieldDown = (clientY, clientX) => {
+      sStartY = clientY;
+      sStartX = clientX;
+      // Touching/tapping anywhere inside DhaniWin embedded view when dock is expanded immediately compacts it!
+      if (!dock.classList.contains('dock-compact')) {
+        compact();
+        // Immediately release shield so touches pass straight to iframe
+        shield.style.pointerEvents = 'none';
+      }
+    };
+
+    const onShieldMove = (clientY, clientX) => {
+      if (sStartY === null) return;
+      const dy = clientY - sStartY;
+      const dx = clientX - (sStartX || clientX);
+      if (Math.abs(dy) < 8 || Math.abs(dy) < Math.abs(dx)) return;
+      if (dy > 10) {
+        // Dragging DOWN -> compact
+        compact();
+        shield.style.pointerEvents = 'none';
+      } else if (dy < -10) {
+        // Dragging UP -> expand
+        expand();
+      }
+    };
+
+    const onShieldUp = () => {
+      sStartY = null;
+      sStartX = null;
+    };
+
+    shield.addEventListener('pointerdown', (e) => onShieldDown(e.clientY, e.clientX), { passive: true });
+    shield.addEventListener('pointermove', (e) => onShieldMove(e.clientY, e.clientX), { passive: true });
+    shield.addEventListener('pointerup', onShieldUp, { passive: true });
+    shield.addEventListener('pointercancel', onShieldUp, { passive: true });
+
+    shield.addEventListener('touchstart', (e) => {
+      if (e.touches && e.touches[0]) onShieldDown(e.touches[0].clientY, e.touches[0].clientX);
+    }, { passive: true });
+    shield.addEventListener('touchmove', (e) => {
+      if (e.touches && e.touches[0]) onShieldMove(e.touches[0].clientY, e.touches[0].clientX);
+    }, { passive: true });
+    shield.addEventListener('touchend', onShieldUp, { passive: true });
+    shield.addEventListener('click', (e) => onShieldDown(e.clientY, e.clientX), { passive: true });
+
+    shield.addEventListener('wheel', (e) => {
+      if (e.deltaY > 6) {
+        compact();
+        shield.style.pointerEvents = 'none';
+      } else if (e.deltaY < -6) {
+        expand();
+      }
+    }, { passive: true });
+  }
+
+  // Initial shield state sync
+  syncShield();
+
+  // Window blur: when the user taps inside the cross-origin iframe, the parent window immediately loses focus (blurs)
   window.addEventListener('blur', () => {
     const onWeb = document.getElementById('tab-web')?.style.display !== 'none';
     if (onWeb) {
-      setTimeout(() => {
-        if (document.activeElement === document.getElementById('dhaniwinIframe')) {
-          hide();
-        }
-      }, 50);
+      // User touched/clicked inside the DhaniWin iframe -> compact dock
+      compact();
     }
   });
 
-  // ── Touching the dock itself always expands it back to normal ──
+  // Check activeElement change when user clicks/taps into iframe
+  let lastActiveEl = null;
+  setInterval(() => {
+    const active = document.activeElement;
+    if (active && active.id === 'dhaniwinIframe' && lastActiveEl !== active) {
+      lastActiveEl = active;
+      const onWeb = document.getElementById('tab-web')?.style.display !== 'none';
+      if (onWeb) compact();
+    } else if (active !== lastActiveEl) {
+      lastActiveEl = active;
+    }
+  }, 250);
+
+  // ── 4. Bottom Swipe-up / Tap Restore Handle ──
+  const restoreHandle = document.getElementById('dockRestoreHandle');
+  if (restoreHandle) {
+    restoreHandle.addEventListener('click', expand);
+    restoreHandle.addEventListener('pointerdown', expand, { passive: true });
+
+    let rStartY = null;
+    restoreHandle.addEventListener('touchstart', (e) => {
+      if (e.touches && e.touches[0]) rStartY = e.touches[0].clientY;
+    }, { passive: true });
+    restoreHandle.addEventListener('touchmove', (e) => {
+      if (rStartY !== null && e.touches && e.touches[0]) {
+        const dy = e.touches[0].clientY - rStartY;
+        if (dy < -6) { // Swipe UP from bottom strip
+          expand();
+          rStartY = null;
+        }
+      }
+    }, { passive: true });
+    restoreHandle.addEventListener('touchend', () => { rStartY = null; }, { passive: true });
+  }
+
+  // ── 5. Interacting with the dock itself always expands it ──
   ['touchstart', 'pointerdown', 'mouseenter'].forEach(ev =>
     dock.addEventListener(ev, expand, { passive: true })
   );
 }
 
-// Expose for DHANIWIN_SCROLL and DHANIWIN_TOUCH bridge messages
-window._dockSetCompact = (isCompact) => {
-  const dock = document.getElementById('mobileBottomDock');
-  if (!dock) return;
-  if (isCompact) {
-    dock.classList.remove('dock-hidden');
-    dock.classList.add('dock-compact');
-    document.body.classList.add('nav-compact');
-  } else {
-    dock.classList.remove('dock-compact');
-    dock.classList.remove('dock-hidden');
-    document.body.classList.remove('nav-compact');
-  }
-};
-
-window._dockSetHidden = (isHidden) => {
-  const dock = document.getElementById('mobileBottomDock');
-  if (!dock) return;
-  if (isHidden) {
-    dock.classList.add('dock-hidden');
-  } else {
-    dock.classList.remove('dock-hidden');
-  }
-};
-
 const _runDockInit = () => {
   try { initHomeHeaderAutoHide(); } catch(e) { console.warn('[HeaderAutoHide]', e); }
   try { initDockAutoCompact(); } catch(e) { console.warn('[DockCompact]', e); }
-  try { updateDhaniAuthBar(); } catch(e) {}
   try { initCoffeeSupportPopup(); } catch(e) { console.warn('[CoffeePopup]', e); }
   try { initDhaniwinAssistantSheetGesture(); } catch(e) { console.warn('[SheetGesture]', e); }
 };
+
+// ── Bet-slip dock auto-hide (Addition 3, 2026-10-24) ───────────────
+// The DhaniWin bet slip lives inside the iframe; the bridge watches
+// it and posts O101_BETSLIP transitions (and carries betSlipOpen in
+// its state publish for late joiners). While the slip is open, the
+// bottom dock hides through the existing dock-hidden mechanism so
+// it never covers the slip's Total/Cancel row. The dock can NEVER
+// get stuck hidden: it restores on slip close, on an orb or
+// restore-handle tap, on period rollover, or after a 90s failsafe —
+// whichever comes first. On a direct (bridgeless) load nothing ever
+// posts and the dock behaves exactly as before — degraded honestly.
+let betSlipDockLock = false;
+let betSlipPeriodAtHide = null;
+let betSlipFailsafeTimer = null;
+let betSlipGuardTimer = null;
+
+function betSlipLatestPeriod() {
+  try {
+    const h = MobileState.historyByTf[MobileState.timeframe] || [];
+    return h.length ? String(h[h.length - 1].period) : null;
+  } catch (e) { return null; }
+}
+
+function hideDockForBetSlip() {
+  if (typeof window._dockSetHidden === 'function') { window._dockSetHidden(true); return; }
+  const dock = document.getElementById('mobileBottomDock');
+  if (dock) dock.classList.add('dock-hidden');
+  if (typeof window._dockSyncShield === 'function') window._dockSyncShield();
+}
+
+function restoreDockFromBetSlip() {
+  if (betSlipFailsafeTimer) { clearTimeout(betSlipFailsafeTimer); betSlipFailsafeTimer = null; }
+  if (betSlipGuardTimer) { clearInterval(betSlipGuardTimer); betSlipGuardTimer = null; }
+  betSlipDockLock = false;
+  betSlipPeriodAtHide = null;
+  if (typeof window._dockExpand === 'function') window._dockExpand();
+}
+
+function setBetSlipDockHidden(open) {
+  if (open) {
+    if (betSlipDockLock) return; // one hide per opening
+    betSlipDockLock = true;
+    betSlipPeriodAtHide = betSlipLatestPeriod();
+    hideDockForBetSlip();
+    const failsafeMs = Number(window.__o101BetSlipFailsafeMs) > 0 ? Number(window.__o101BetSlipFailsafeMs) : 90000;
+    betSlipFailsafeTimer = setTimeout(() => restoreDockFromBetSlip(), failsafeMs);
+    // Guard: the scroll/gesture engine may re-expand the dock while
+    // the slip is open — re-apply the hide; also watch for the
+    // period-rollover restore.
+    betSlipGuardTimer = setInterval(() => {
+      if (!betSlipDockLock) return;
+      const p = betSlipLatestPeriod();
+      if (betSlipPeriodAtHide && p && p !== betSlipPeriodAtHide) { restoreDockFromBetSlip(); return; }
+      const dock = document.getElementById('mobileBottomDock');
+      if (dock && !dock.classList.contains('dock-hidden')) hideDockForBetSlip();
+    }, 500);
+  } else if (betSlipDockLock) {
+    restoreDockFromBetSlip();
+  }
+}
+window.setBetSlipDockHidden = setBetSlipDockHidden;
+
+// Manual restores always win over the slip lock.
+document.addEventListener('pointerdown', (e) => {
+  if (!betSlipDockLock) return;
+  const t = e.target;
+  if (t && typeof t.closest === 'function' && t.closest('#dhaniwinFloatingOrb, #dockRestoreHandle')) {
+    restoreDockFromBetSlip();
+  }
+}, { capture: true, passive: true });
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', _runDockInit);
@@ -3909,11 +4677,7 @@ if (document.readyState === 'loading') {
 }
 
 function switchMobileTab(tab) {
-  // If user is not logged in and attempts to access prediction tabs, trigger Unlock 01:01 modal
-  if (tab !== 'web' && !isUserLoggedIn()) {
-    toggleUnlockModal(true);
-    return;
-  }
+  // Fix round #2: every tab is usable without login — no unlock modal gate.
   try { localStorage.setItem('active_mobile_tab', tab); } catch(e) {}
 
   ['home', 'ai', 'sim', 'web', 'pattern'].forEach(t => {
@@ -3926,18 +4690,9 @@ function switchMobileTab(tab) {
     btn.classList.toggle('active', isActive);
   });
 
-  // Non-home tabs stay full size unless configured in settings
-  if (tab !== 'web' && localStorage.getItem('dock_compact_all_tabs') !== '1') {
-    const dock = document.getElementById('mobileBottomDock');
-    if (dock) {
-      dock.classList.remove('dock-compact');
-      document.body.classList.remove('nav-compact');
-    }
-  }
-
   // Header auto-hide applies only to the Home (web) tab
   if (tab !== 'web') document.body.classList.remove('home-header-hidden');
-  updateDhaniAuthBar();
+  if (typeof window._dockSyncShield === 'function') window._dockSyncShield();
 
   // Lazy-init pattern view when pattern tab is shown
   if (tab === 'pattern') {
@@ -3961,7 +4716,7 @@ function switchMobileTab(tab) {
     }, 150);
   }
 
-  // Manage DhaniWin Web View & Floating Assistant Orb
+  // Manage DhaniWin Web View & Floating Assistant Orb (Shown on Home and Analyse tabs)
   const orb = $('dhaniwinFloatingOrb');
   if (tab === 'web' || tab === 'home') {
     if (orb) orb.style.display = 'block';
@@ -3973,76 +4728,31 @@ function switchMobileTab(tab) {
         const targetUrl = getDhaniEntryUrl();
         try { history.pushState({ dhaniSentinel: true }, ''); } catch(e) {}
         iframe.src = targetUrl;
+        noteDhaniTransport(targetUrl);
         const barText = $('mobileWebAddressBarText');
         if (barText) barText.textContent = targetUrl;
       }
     }
   } else {
+    // Hidden on AI Adaptive, Pattern, and other tabs
     if (orb) orb.style.display = 'none';
     if (typeof toggleDhaniwinAssistantModal === 'function') toggleDhaniwinAssistantModal(false);
   }
+
+  // Bubble-tracks-Axo: anchor visibility changed (orb shown or
+  // hidden) — the bubble tracks it or hides with it, never parks
+  // at a stale spot.
+  if (window.__smartBall && typeof window.__smartBall.repositionAxoBubble === 'function') window.__smartBall.repositionAxoBubble();
 }
 window.switchMobileTab = switchMobileTab;
 
-// ── Unlock 01:01 Modal & Entitlement State ────────────────────────────────────
-function toggleUnlockModal(show) {
-  const modal = $('unlock0101Modal');
-  if (!modal) return;
-  if (show === undefined) {
-    modal.classList.toggle('hidden');
-  } else if (show) {
-    modal.classList.remove('hidden');
-  } else {
-    modal.classList.add('hidden');
-  }
-}
-window.toggleUnlockModal = toggleUnlockModal;
-
-function startDhaniAuthFlow() {
-  toggleUnlockModal(false);
-  switchMobileTab('web');
-  const targetUrl = getDhaniEntryUrl();
-  loadMobileWebUrl(targetUrl);
-  showDhaniAuthBar(true);
-}
-window.startDhaniAuthFlow = startDhaniAuthFlow;
-
-function updateAppUnlockState() {
-  const loggedIn = isUserLoggedIn();
-  const unlockModal = $('unlock0101Modal');
-  if (loggedIn && unlockModal && !unlockModal.classList.contains('hidden')) {
-    unlockModal.classList.add('hidden');
-  } else if (!loggedIn) {
-    // If user is logged out while currently on a protected prediction tab, switch back to web and show unlock modal
-    const activeTab = localStorage.getItem('active_mobile_tab') || 'web';
-    if (activeTab !== 'web') {
-      const webSec = $('tab-web');
-      if (webSec && webSec.style.display === 'none') {
-        switchMobileTab('web');
-      }
-      if (typeof toggleUnlockModal === 'function') toggleUnlockModal(true);
-    }
-  }
-
-  document.querySelectorAll('.dock-btn').forEach(btn => {
-    const t = btn.dataset.tab;
-    const indicator = btn.querySelector('.dock-indicator');
-    if (indicator) {
-      if (t !== 'web' && !loggedIn) {
-        indicator.textContent = '🔒';
-        indicator.style.fontSize = '8px';
-      } else {
-        indicator.textContent = '';
-      }
-    }
-  });
-}
-window.updateAppUnlockState = updateAppUnlockState;
 
 function setMobileTimeframe(tf) {
   MobileState.timeframe = tf;
   try {
     localStorage.setItem('dhaniwin_last_interval', tf);
+    // Keep the Settings page's Default Interval in sync both ways.
+    localStorage.setItem('quant_default_tf', tf);
   } catch(e) {}
 
   if (window._chartFittedByTf) delete window._chartFittedByTf[tf];
@@ -4077,7 +4787,6 @@ function setMobileTimeframe(tf) {
   renderPredictionAudit(cached);
   renderHistoryTable(cached);
   renderMobileHistoryGraph(cached);
-  renderHeroSequentialBallRoad(cached);
   renderDigitFrequencies(cached);
   renderChartData(cached);
   renderAdaptiveAI(cached);
@@ -4089,7 +4798,7 @@ function setMobileTimeframe(tf) {
     fetchLiveAPIResults(tf);
   }
 
-  // Sync DhaniWin Web Tab Interval Pills & Notify Bridge
+  // Sync DhaniWin Web Tab Interval Pills
   ['30s', '1m', '3m', '5m'].forEach(t => {
     const wBtn = $(`webTf-${t}`);
     if (wBtn) {
@@ -4101,20 +4810,49 @@ function setMobileTimeframe(tf) {
     }
   });
 
-  // Synchronously route DhaniWin web view to matching interval
+  // Sync Ball Assistant Sheet Interval Badge & Pills
+  const asstBadge = $('assistantIntervalBadge');
+  if (asstBadge) {
+    asstBadge.textContent = tf.toUpperCase();
+  }
+  ['30s', '1m', '3m', '5m'].forEach(t => {
+    const aBtn = $(`asstTfBtn-${t}`);
+    if (aBtn) {
+      if (t === tf) {
+        aBtn.className = 'flex-1 py-1 rounded-lg font-mono text-[8px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 transition active:scale-95 text-center';
+      } else {
+        aBtn.className = 'flex-1 py-1 rounded-lg font-mono text-[8px] font-bold bg-white/5 text-zinc-400 border border-white/5 transition active:scale-95 text-center';
+      }
+    }
+  });
+
+  // Synchronously route DhaniWin web view to matching interval.
+  // The app navigates ONLY when no bridge is present for this load
+  // (Fix 7b): with a live bridge, the bridge itself owns the
+  // timeframe navigation (prefix-aware), and a second app-side
+  // navigation per tap is a competing navigator that can drop the
+  // prefix or double-load the frame. _dhaniBridgeSeenForLoad resets
+  // on every loadMobileWebUrl call and is set by any bridge signal.
   const iframe = $('dhaniwinIframe');
   const targetUrl = DHANIWIN_INTERVAL_URLS[tf] || DHANIWIN_INTERVAL_URLS['30s'];
-  if (iframe && (!iframe.src || !iframe.src.toLowerCase().includes(targetUrl.toLowerCase()))) {
+  if (iframe && !_dhaniBridgeSeenForLoad && (!iframe.src || !iframe.src.toLowerCase().includes(targetUrl.toLowerCase()))) {
     loadMobileWebUrl(targetUrl);
   }
 
   if (typeof postMobileBridge === 'function') {
     postMobileBridge({ type: 'WINGO_SWITCH_TIMEFRAME', timeframe: tf, timestamp: Date.now() });
+    postMobileBridge({ type: 'UPDATE_BET_SETTINGS', stake: MobileBridgeState.currentStake, maxStake: MobileBridgeState.maxStakeCap, timeframe: tf });
   }
 
   updateISTClock();
 }
 window.setMobileTimeframe = setMobileTimeframe;
+
+function setMobileTimeframeAndSyncBridge(tf) {
+  setMobileTimeframe(tf);
+  if (typeof playSoundEffect === 'function') playSoundEffect('click');
+}
+window.setMobileTimeframeAndSyncBridge = setMobileTimeframeAndSyncBridge;
 
 // ── 24A. Buy Me a Coffee Support Modal & Razorpay Integration ─────────────────
 
@@ -4200,7 +4938,21 @@ function confirmCoffeePaidPrompt() {
 }
 window.confirmCoffeePaidPrompt = confirmCoffeePaidPrompt;
 
+function isCoffeeDismissedToday() {
+  try {
+    return localStorage.getItem('coffee_dismissed_date') === new Date().toLocaleDateString('en-CA');
+  } catch(e) {
+    return false;
+  }
+}
+window.isCoffeeDismissedToday = isCoffeeDismissedToday;
+
 function dismissCoffeeSupportModalToday() {
+  // "Maybe Later" / close must actually dismiss for the day: the popup is a
+  // full-screen z-100000 overlay, so while it is up it swallows EVERY tap
+  // (orb, settings, dock). Re-showing it on every refresh made the whole
+  // app feel broken. Dismissal is now persisted for the calendar day.
+  try { localStorage.setItem('coffee_dismissed_date', new Date().toLocaleDateString('en-CA')); } catch(e) {}
   closeCoffeeSupportModal(false);
 }
 window.dismissCoffeeSupportModalToday = dismissCoffeeSupportModalToday;
@@ -4211,9 +4963,13 @@ function initCoffeeSupportPopup() {
     if (isCoffeePaidActive()) {
       return;
     }
-    // Otherwise, show on every refresh after smooth 1.8s delay
+    // Dismissed today ("Maybe Later") -> leave the app alone until tomorrow.
+    if (isCoffeeDismissedToday()) {
+      return;
+    }
+    // Otherwise, show once per day after smooth 1.8s delay
     setTimeout(() => {
-      if (!isCoffeePaidActive()) {
+      if (!isCoffeePaidActive() && !isCoffeeDismissedToday()) {
         openCoffeeSupportModal();
       }
     }, 1800);
@@ -4344,11 +5100,38 @@ function toggleMobileSettings() {
 }
 window.toggleMobileSettings = toggleMobileSettings;
 
+function updateSoundMuteUI() {
+  const enabled = !!MobileState.soundEnabled;
+  const icon = $('floatingSoundMuteIcon');
+  const btn = $('floatingSoundMuteBtn');
+  if (icon) {
+    icon.className = enabled
+      ? 'fa-solid fa-volume-high text-[11px] text-emerald-400 transition-colors'
+      : 'fa-solid fa-volume-xmark text-[11px] text-rose-400 transition-colors';
+  }
+  if (btn) {
+    btn.title = enabled ? 'Win/Loss Sound: Enabled (Tap to Mute)' : 'Win/Loss Sound: Muted (Tap to Unmute)';
+    btn.classList.toggle('border-emerald-500/30', enabled);
+    btn.classList.toggle('border-rose-500/30', !enabled);
+  }
+  const el = $('settingSoundEffects');
+  if (el) el.checked = enabled;
+}
+window.updateSoundMuteUI = updateSoundMuteUI;
+
+function toggleQuickSoundMute() {
+  const next = !MobileState.soundEnabled;
+  toggleSoundEffects(next);
+  if (typeof showToast === 'function') {
+    showToast(next ? '🔔 Win/Loss sounds enabled' : '🔕 Win/Loss sounds muted', next ? 'info' : 'warn');
+  }
+}
+window.toggleQuickSoundMute = toggleQuickSoundMute;
+
 function toggleSoundEffects(on) {
   MobileState.soundEnabled = !!on;
   try { localStorage.setItem('quant_sound', on ? '1' : '0'); } catch(e) {}
-  const el = $('settingSoundEffects');
-  if (el) el.checked = !!on;
+  updateSoundMuteUI();
   if (on) {
     playSoundEffect('win', true);
   }
@@ -4824,7 +5607,7 @@ window.toggleRealAutoBet = toggleRealAutoBet;
 
 function reloadWebIframe() {
   const iframe = $('dhaniwinIframe');
-  if (iframe) { iframe.src = iframe.src; }
+  if (iframe) { showDhaniLoadingOverlay(); iframe.src = iframe.src; }
 }
 window.reloadWebIframe = reloadWebIframe;
 
@@ -4833,7 +5616,7 @@ function dhaniWebBack() { try { history.back(); } catch(e) {} }
 function dhaniWebForward() { try { history.forward(); } catch(e) {} }
 function dhaniWebHome() {
   const iframe = $('dhaniwinIframe');
-  if (iframe) iframe.src = getDhaniEntryUrl();
+  if (iframe) { const targetUrl = getDhaniEntryUrl(); iframe.src = targetUrl; noteDhaniTransport(targetUrl); }
 }
 window.dhaniWebBack = dhaniWebBack;
 window.dhaniWebForward = dhaniWebForward;
@@ -5082,28 +5865,32 @@ function initMobileDhaniWinBridge() {
       console.warn('[Mobile Bridge] BroadcastChannel init error:', e);
     }
   }
+  // Pivot origin allowlist: bridge state is accepted ONLY from the
+  // app's own origin (self-posted orders) or a DhaniWin family
+  // origin (the natively injected bridge in a direct frame) — never
+  // '*' and never an unlisted origin. The BroadcastChannel path is
+  // origin-scoped by the platform and needs no gate.
   window.addEventListener('message', (ev) => {
     if (ev && ev.data && typeof ev.data === 'object') {
+      const origin = ev.origin;
+      const selfOrigin = (typeof window !== 'undefined' && window.location) ? window.location.origin : null;
+      const dhaniOrigin = window.DhaniTransport && typeof window.DhaniTransport.isDhaniwinOrigin === 'function'
+        ? window.DhaniTransport.isDhaniwinOrigin(origin) : false;
+      if (origin !== selfOrigin && !dhaniOrigin) return;
       handleMobileBridgeMessage(ev.data);
     }
   });
 
-  // Restore saved token if available in storage
-  try {
-    const savedToken = localStorage.getItem('ar_token');
-    if (savedToken) {
-      MobileBridgeState.authToken = savedToken;
-      const parts = savedToken.split('.');
-      if (parts.length === 3) {
-        const payload = JSON.parse(atob(parts[1]));
-        if (payload.TenantAccount || payload.UserId) {
-          MobileBridgeState.userId = payload.TenantAccount || payload.UserId;
-          const uIdEl = $('mobileWebUserId');
-          if (uIdEl) uIdEl.textContent = 'ID: ' + MobileBridgeState.userId;
-        }
-      }
-    }
-  } catch(e) {}
+  // No credential purge here: older builds persisted the bridge's
+  // raw session token under 'ar_token', but that leak is long gone —
+  // the bridge now publishes a tokenPresent boolean only and never
+  // stores a raw value, so there is nothing left to purge. And
+  // 'ar_token' is DhaniWin's own live session key on the shared
+  // origin (app page + DhaniWin frame share one localStorage), so
+  // deleting it would kill a live login on every app boot. Login
+  // state comes from the boolean flags + live bridge state; the user
+  // ID comes from the bridge's published userId field (see the
+  // DHANIWIN_USER_STATE branch in handleMobileBridgeMessage).
 
   // Restore saved risk mode & auto optimize preference
   try {
@@ -5128,10 +5915,38 @@ let _syncLogoutCount = 0;
 
 function handleMobileBridgeMessage(msg) {
   if (!msg || typeof msg !== 'object') return;
+  // Bridge-life proof for the proxy-failure fallback: any of the
+  // bridge's own lifecycle/state messages means the bridge really is
+  // running inside the embedded page, so no fallback may fire.
+  if (msg.type === 'DHANIWIN_BRIDGE_HANDSHAKE' || msg.type === 'DHANIWIN_BRIDGE_HEARTBEAT' || msg.type === 'DHANIWIN_USER_STATE') {
+    noteDhaniBridgeSignal();
+  }
+  // Bet-slip dock auto-hide (Addition 3): transitions from the
+  // bridge's slip watcher, plus the state-sync field for late
+  // joiners. Independent of the chain below.
+  if (msg.type === 'O101_BETSLIP' && typeof msg.open === 'boolean') {
+    setBetSlipDockHidden(msg.open);
+  }
+  if (msg.type === 'DHANIWIN_USER_STATE' && typeof msg.betSlipOpen === 'boolean') {
+    setBetSlipDockHidden(msg.betSlipOpen);
+  }
+  // User ID from the bridge's published userId field (one of the 7
+  // relayed state fields — an identifier, never a credential). This
+  // replaces the old JWT-decode path, which is gone with the token.
+  if (msg.type === 'DHANIWIN_USER_STATE' && msg.userId !== undefined && msg.userId !== null && String(msg.userId) !== '') {
+    MobileBridgeState.userId = String(msg.userId);
+    const uIdEl = $('mobileWebUserId');
+    if (uIdEl) uIdEl.textContent = 'ID: ' + MobileBridgeState.userId;
+  }
   if (msg.type === 'DHANIWIN_BRIDGE_HANDSHAKE' || msg.type === 'DHANIWIN_BRIDGE_HEARTBEAT') {
     setMobileBridgeStatus(true);
     if (msg.type === 'DHANIWIN_BRIDGE_HANDSHAKE') {
       postMobileBridge({ type: 'UPDATE_BET_SETTINGS', stake: MobileBridgeState.currentStake, maxStake: MobileBridgeState.maxStakeCap, timeframe: MobileState.timeframe });
+    }
+  } else if (msg.type === 'DHANIWIN_TIMEFRAME_CHANGE' && msg.timeframe) {
+    if (MobileState.timeframe !== msg.timeframe && ['30s', '1m', '3m', '5m'].includes(msg.timeframe)) {
+      console.log('[Mobile] ⚡ Synced timeframe from embedded game:', msg.timeframe);
+      setMobileTimeframe(msg.timeframe);
     }
   } else if (msg.type === 'DHANIWIN_BET_CONFIRMATION') {
     setMobileBridgeStatus(true, `Confirmed: ${msg.target} ₹${msg.stake}`);
@@ -5173,38 +5988,51 @@ function handleMobileBridgeMessage(msg) {
     if (targetDisplay) targetDisplay.classList.remove('auto-bet-shake');
     setMobileBridgeStatus(true, msg.reason || 'Bet Cancelled (Lockout)');
   } else if (msg.type === 'DHANIWIN_USER_LOGGED_OUT' || msg.type === 'DHANIWIN_SESSION_OUT') {
-    // Immediate logout handling - clear grace period and lock protected features
-    _authGracePeriodUntil = 0;
-    try { sessionStorage.removeItem('dhaniwin_auth_grace_until'); } catch(e) {}
-    markUserLoggedOut();
-    handleDhaniSessionExpired(msg.reason || 'Session Expired • Please Login');
+    // Authoritative logouts (an explicit logout action/endpoint
+    // observed by the bridge, flagged explicit:true) zero the grace
+    // period and expire immediately. A heuristic logout message
+    // (scrape session-out, transient auth-page view, explicit:false)
+    // must NEVER zero the grace period: inside grace it is ignored
+    // outright, and outside grace it expires through the grace guard
+    // inside handleDhaniSessionExpired. Zeroing grace here previously
+    // defeated that guard for every bridge logout message.
+    // Nothing is locked behind login (fix round #3); this is state
+    // reporting only. The reason strings are a legacy fallback for
+    // bridge builds that predate the explicit flag.
+    const authoritativeLogout = msg.explicit === true || msg.reason === 'Logout API call' || msg.reason === 'User clicked logout button';
+    if (authoritativeLogout) {
+      _authGracePeriodUntil = 0;
+      try { sessionStorage.removeItem('dhaniwin_auth_grace_until'); } catch(e) {}
+      markUserLoggedOut();
+      handleDhaniSessionExpired(msg.reason || 'Session Expired');
+    } else if (!isAuthGracePeriodActive()) {
+      markUserLoggedOut();
+      handleDhaniSessionExpired(msg.reason || 'Session Expired');
+    }
   } else if (msg.type === 'DHANIWIN_SCROLL') {
-    // Bridge convention: msg.direction='up' = content moved upward = user scrolled DOWN
-    //   → header hides, dock becomes small (compact)
-    // msg.direction='down' = content moved downward = user scrolled UP
-    //   → header shows, dock comes back completely unhidden and expanded
+    // Bridge convention:
+    // msg.direction='up' = finger swiped up = content scrolled DOWN
+    //   → header hides, dock slides into compact size
+    // msg.direction='down' = finger swiped down = content scrolled UP
+    //   → header shows, dock comes back completely unhidden and expands to full big size
     const userScrolledDown = msg.direction === 'up';
     setHomeHeaderHidden(userScrolledDown);
-    const floatBtn = document.getElementById('floatingAlreadyLoggedInBtn');
     if (userScrolledDown) {
       if (typeof window._dockSetCompact === 'function') window._dockSetCompact(true);
-      if (floatBtn) floatBtn.style.opacity = '0';
     } else {
-      // User scrolled UP: unhide dock and expand it back to full visibility
-      if (typeof window._dockSetHidden === 'function') window._dockSetHidden(false);
-      if (typeof window._dockSetCompact === 'function') window._dockSetCompact(false);
-      if (floatBtn && floatBtn.style.display !== 'none') floatBtn.style.opacity = '1';
+      // User scrolled UP: immediately unhide dock and expand it back to full size
+      if (typeof window._dockExpand === 'function') {
+        window._dockExpand();
+      } else {
+        if (typeof window._dockSetHidden === 'function') window._dockSetHidden(false);
+        if (typeof window._dockSetCompact === 'function') window._dockSetCompact(false);
+      }
     }
-  } else if (msg.type === 'DHANIWIN_AUTH_CHECK_RESULT') {
-    if (typeof window._pendingAuthCheckResolver === 'function') {
-      window._pendingAuthCheckResolver(msg);
-      window._pendingAuthCheckResolver = null;
-    }
-  } else if (msg.type === 'DHANIWIN_TOUCH') {
-    // Only hide dock if assistant modal is open or true fullscreen is toggled
-    const modal = document.getElementById('dhaniwinAssistantModal');
-    const isModalOpen = modal && !modal.classList.contains('hidden') && modal.classList.contains('sheet-open');
-    if (isModalOpen && typeof window._dockSetHidden === 'function') {
+  } else if (msg.type === 'DHANIWIN_TOUCH' || msg.type === 'DHANIWIN_PAGE_TAP') {
+    // Touching anywhere inside the DhaniWin page makes the bottom dock compact
+    if (typeof window._dockSetCompact === 'function') {
+      window._dockSetCompact(true);
+    } else if (typeof window._dockSetHidden === 'function') {
       window._dockSetHidden(true);
     }
   } else if (msg.type === 'DHANIWIN_AUTH_SUCCESS' || msg.type === 'DHANIWIN_LOGIN_DETECTED') {
@@ -5216,15 +6044,22 @@ function handleMobileBridgeMessage(msg) {
     } catch(e) {}
     _authGracePeriodUntil = Date.now() + 60000;
     _syncLogoutCount = 0;
+    // Bridge status line only — no login confirmation toast, no
+    // unlock modal, no auth bar (fix round #3: login UI fully gone).
+    // NOTE (Fix 0): this branch must NEVER reload the frame. The
+    // bridge re-emits LOGIN_DETECTED on every new document (its
+    // _wasLoggedInBefore starts false), so a reload here re-fires
+    // this branch on every cycle — the 2-second verified /
+    // not-logged-in loop with a blank frame. The bridge already
+    // handles post-login routing (prefix-aware goHomeAfterLogin).
     setMobileBridgeStatus(true, 'Login Verified ✓');
-    showToast('🎉 Login Confirmed! Full Access Unlocked', 'success');
-    if (typeof toggleUnlockModal === 'function') toggleUnlockModal(false);
-    if (typeof updateAppUnlockState === 'function') updateAppUnlockState();
-    updateDhaniAuthBar();
-    loadMobileWebUrl(getDefaultDhaniUrl());
 
   } else if (msg.type === 'DHANIWIN_USER_SYNC' || msg.type === 'DHANIWIN_REAL_BALANCE') {
-    if (msg.balance !== null && msg.balance !== undefined && !isNaN(Number(msg.balance))) {
+    // Owner rule (balance-zero fix): a 0 balance never updates the
+    // displayed figure — the previous balance (or blank, when none
+    // was ever verified) stands while the search for an update goes
+    // on. The login-state handling below still runs for the message.
+    if (msg.balance !== null && msg.balance !== undefined && !isNaN(Number(msg.balance)) && Number(msg.balance) !== 0) {
       const prevBal = MobileBridgeState.userBalance;
       MobileBridgeState.userBalance = Number(msg.balance);
       const balEl = $('mobileWebBalance');
@@ -5236,7 +6071,14 @@ function handleMobileBridgeMessage(msg) {
 
     const isAuthUrl = msg.url && (msg.url.toLowerCase().includes('/login') || msg.url.toLowerCase().includes('/register'));
 
-    if (msg.isLoggedIn) {
+    // Pending (Fix 5a) comes FIRST: while the bridge reports its
+    // state as unproven, this sync changes nothing — it must never
+    // revoke a login, and an auth-page flash inside the pending
+    // window must not either. The legacy null/undefined branch
+    // below still means "no change" for messages without the field.
+    if (msg.pending) {
+      _syncLogoutCount = 0;
+    } else if (msg.isLoggedIn) {
       _syncLogoutCount = 0;
       markUserLoggedIn();
     } else if (msg.isLoggedIn === false || isAuthUrl) {
@@ -5244,30 +6086,18 @@ function handleMobileBridgeMessage(msg) {
       if (isUserLoggedIn() && !isAuthGracePeriodActive()) {
         _syncLogoutCount = 0;
         markUserLoggedOut();
-        handleDhaniSessionExpired('Session Expired • Please Login');
+        handleDhaniSessionExpired('Session Expired');
       }
     } else {
       _syncLogoutCount = 0;
     }
 
-    // Only accept token if logged in and not on auth pages
-    if (msg.token && msg.isLoggedIn !== false && !isAuthUrl) {
+    // Presence only: the bridge reports tokenPresent (boolean) since
+    // the credential fix — the app never reads, stores, or decodes
+    // a raw session token. The boolean flags are the login truth.
+    if (msg.tokenPresent && msg.isLoggedIn !== false && !isAuthUrl) {
       markUserLoggedIn();
-      try { localStorage.setItem('ar_token', msg.token); } catch(e) {}
-      if (!MobileBridgeState.authToken) {
-        MobileBridgeState.authToken = msg.token;
-        try {
-          const parts = msg.token.split('.');
-          if (parts.length === 3) {
-            const payload = JSON.parse(atob(parts[1]));
-            if (payload.TenantAccount || payload.UserId) {
-              MobileBridgeState.userId = payload.TenantAccount || payload.UserId;
-              const uIdEl = $('mobileWebUserId');
-              if (uIdEl) uIdEl.textContent = 'ID: ' + MobileBridgeState.userId;
-            }
-          }
-        } catch(e) {}
-      }
+      MobileBridgeState.authToken = true;
     }
     setMobileBridgeStatus(true);
   } else if (msg.type === 'INCHARGE_MODE_CHANGED' && msg.mode) {
@@ -5288,8 +6118,27 @@ if (typeof window !== 'undefined') {
       } catch(err) {}
     } else if (e.key === 'quant_sound') {
       MobileState.soundEnabled = e.newValue !== '0';
-      const soundCb = $('settingSoundEffects');
-      if (soundCb) soundCb.checked = MobileState.soundEnabled;
+      if (typeof updateSoundMuteUI === 'function') updateSoundMuteUI();
+    } else if (e.key === 'o101_axo_voice') {
+      // Axo voice applies live: muting cancels any in-flight speech
+      // at once and the sheet chip re-renders. orb-bridge also reads
+      // the key itself at speak time, so the two stay in agreement.
+      MobileState.axoVoiceEnabled = e.newValue !== '0';
+      if (!MobileState.axoVoiceEnabled) { try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch(err) {} }
+      if (window.__smartBall && typeof window.__smartBall.refreshAxoVoiceChip === 'function') window.__smartBall.refreshAxoVoiceChip();
+    } else if (e.key === 'quant_haptics') {
+      // Settings-page toggles apply live: these MobileState fields are
+      // the live switches the vibrate/wake/keep-alive paths read.
+      MobileState.hapticsEnabled = e.newValue !== '0';
+    } else if (e.key === 'quant_wakelock') {
+      MobileState.wakeLockEnabled = e.newValue === '1';
+    } else if (e.key === 'quant_bg_keepalive') {
+      MobileState.bgKeepAliveEnabled = e.newValue !== '0';
+    } else if (e.key === 'o101_axo_mode') {
+      // Axo mode applies live: orb-bridge reads the key at every
+      // narration call, so the next event honours the switch.
+      MobileState.axoMode = e.newValue === 'normal' ? 'normal' : 'ai';
+      if (window.__smartBall && typeof window.__smartBall.refreshAxoModeChip === 'function') window.__smartBall.refreshAxoModeChip();
     }
   });
 }
@@ -5326,7 +6175,7 @@ function openMobileBridgeTab(event) {
   if (event) event.preventDefault();
   const iframe = $('dhaniwinIframe');
   const link = $('mobileWebExternalTabLink');
-  const url = (iframe && iframe.src) || (link && link.href) || 'https://dhaniwin44.com/WinGo/WinGo_30S';
+  const url = (iframe && iframe.src) || (link && link.href) || DHANIWIN_INTERVAL_URLS['30s'];
   const tab = window.open(url, 'dhaniwinQuantBridge');
   if (!tab) {
     setMobileBridgeStatus(false, 'Allow pop-ups to connect bridge');
@@ -5380,18 +6229,31 @@ function calculateAndRenderMobileStake() {
 
   const stakeEl = $('mobileWebStakeDisplay');
   const lvlEl = $('mobileWebLevelBadge');
+  const baseEl = $('assistantBaseStakeDisplay');
   if (stakeEl) stakeEl.textContent = '₹' + MobileBridgeState.currentStake;
+  if (baseEl) baseEl.textContent = '₹' + MobileBridgeState.baseStake;
   if (lvlEl) {
     if (unconstrainedStake > MobileBridgeState.maxStakeCap) {
       lvlEl.textContent = `Level ${MobileBridgeState.currentLevel + 1} (Capped @ ₹${MobileBridgeState.maxStakeCap})`;
       lvlEl.className = 'text-[8px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30';
     } else {
-      lvlEl.textContent = `Level ${MobileBridgeState.currentLevel + 1}` + (MobileBridgeState.currentLevel > 0 ? ` (Loss x${MobileBridgeState.currentLevel})` : ' (Base)');
+      lvlEl.textContent = `Level ${MobileBridgeState.currentLevel + 1}` + (MobileBridgeState.currentLevel > 0 ? ` (Recovery x${MobileBridgeState.currentLevel})` : ' (Base)');
       lvlEl.className = MobileBridgeState.currentLevel > 0 
         ? 'text-[8px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 animate-pulse'
         : 'text-[8px] font-mono font-bold px-1.5 py-0.5 rounded bg-white/10 text-amber-300 border border-white/10';
     }
   }
+
+  // Real-time broadcast to DhaniWin bridge iframe & BroadcastChannel
+  postMobileBridge({
+    type: 'UPDATE_BET_SETTINGS',
+    stake: MobileBridgeState.currentStake,
+    baseStake: MobileBridgeState.baseStake,
+    level: MobileBridgeState.currentLevel,
+    maxStake: MobileBridgeState.maxStakeCap,
+    timeframe: MobileState.timeframe
+  });
+
   if (typeof updateFloatingOrbUI === 'function') updateFloatingOrbUI();
   return MobileBridgeState.currentStake;
 }
@@ -5430,30 +6292,52 @@ function stopAndResetMobileRecovery() {
 }
 window.stopAndResetMobileRecovery = stopAndResetMobileRecovery;
 
+// ── Login is NOT a gate (fix round #2, owner's order) ─────────────
+// The app is fully usable without login. The bridge login state is
+// display-only (auth pill, status lines); it never blocks staging,
+// firing, auto-prep, quick targets or stake chips. A real order
+// still travels only through the DhaniWin page on the user's own
+// tap, and DhaniWin itself refuses an order when its own session is
+// absent — that real failure is shown, never a fake success. The
+// "Ready" state still comes only from the bridge's
+// DHANIWIN_BET_PREPARED ack, never from dispatch time. (This
+// replaces the fix-round-2 VERIFIED gate: the owner found the gate
+// itself caused bugs, and ordered it removed.)
+
 function toggleMobileRealAutoBet(forceState) {
+  // Fix round #2: arming auto-prep is never login-gated.
   if (forceState !== undefined) {
     MobileBridgeState.enabled = !!forceState;
   } else {
     MobileBridgeState.enabled = !MobileBridgeState.enabled;
   }
   const btn = $('mobileBridgeToggleBtn');
+  const lbl = $('mobileBridgeStatusLabel');
+  const dot = $('mobileBridgeDot');
   if (btn) {
     if (MobileBridgeState.enabled) {
-      btn.className = 'px-2.5 py-1 rounded-lg font-mono text-[8.5px] font-black bg-rose-500/25 text-rose-300 border border-rose-500/40 active:scale-95 transition shadow';
-      btn.textContent = '⏹ STOP PREP';
+      btn.className = 'w-full py-3.5 rounded-2xl font-mono text-xs font-black bg-rose-500/25 hover:bg-rose-500/35 text-rose-300 border border-rose-500/50 active:scale-95 transition shadow-[0_8px_24px_rgba(244,63,94,0.25)] flex items-center justify-center gap-2';
+      if (lbl) lbl.textContent = '⏹ STOP AUTO-PREP & AUTO-SHAKE';
+      if (dot) dot.className = 'w-2.5 h-2.5 rounded-full bg-rose-400 animate-pulse';
       setMobileBridgeStatus(MobileBridgeState.connected, 'Auto-Prep Active');
       dispatchMobileBetOrder();
     } else {
-      btn.className = 'px-2.5 py-1 rounded-lg font-mono text-[8.5px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 active:scale-95 transition shadow';
-      btn.textContent = '▶ ACTIVATE PREP';
+      btn.className = 'w-full py-3.5 rounded-2xl font-mono text-xs font-black bg-emerald-500/25 hover:bg-emerald-500/35 text-emerald-300 border border-emerald-500/50 active:scale-95 transition shadow-[0_8px_24px_rgba(16,185,129,0.25)] flex items-center justify-center gap-2';
+      if (lbl) lbl.textContent = '▶ ACTIVATE AUTO-PREP & AUTO-SHAKE';
+      if (dot) dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse';
       setMobileBridgeStatus(MobileBridgeState.connected, 'Standby');
     }
   }
+  if (typeof updateFloatingOrbUI === 'function') updateFloatingOrbUI();
 }
 window.toggleMobileRealAutoBet = toggleMobileRealAutoBet;
 window.toggleRealAutoBet = toggleMobileRealAutoBet;
 
 function dispatchMobileBetOrder(targetOverride) {
+  // Fix round #2: dispatch is never login-gated. The safety guards
+  // below (circuit breaker, stop-loss / take-profit, solvency) all
+  // still apply, and the status stays a neutral sent-state — the
+  // "Ready" claim still comes only from the bridge's BET_PREPARED ack.
   // Check if 3-Loss Circuit Breaker is active / cool-off pause in progress
   if (MobileBridgeState.circuitBreakerPauseRounds > 0) {
     setMobileBridgeStatus(false, `🛡️ Circuit Breaker: Paused (${MobileBridgeState.circuitBreakerPauseRounds}R left)`);
@@ -5509,16 +6393,10 @@ function dispatchMobileBetOrder(targetOverride) {
     }
   }
 
-  const targetEl = $('mobileWebTargetDisplay');
-  if (targetEl) {
-    targetEl.textContent = target;
-    targetEl.className = `text-lg font-black ${
-      target === 'BIG' ? 'text-amber-300' :
-      target === 'SMALL' ? 'text-sky-300' :
-      target === 'GREEN' ? 'text-emerald-400' :
-      target === 'RED' ? 'text-rose-400' : 'text-white'
-    }`;
-  }
+  // No hero paint here: the governed render owns the hero surface,
+  // and painting the target at dispatch time claimed a staged bet
+  // before the bridge had acknowledged anything. The honest "Ready"
+  // state arrives only via the bridge's DHANIWIN_BET_PREPARED ack.
 
   const orderPayload = {
     type: 'EXECUTE_REAL_BET',
@@ -5533,7 +6411,10 @@ function dispatchMobileBetOrder(targetOverride) {
   };
 
   postMobileBridge(orderPayload);
-  setMobileBridgeStatus(true, `👉 Ready: ${target} ₹${MobileBridgeState.currentStake} (Tap Bet)`);
+  // Neutral sent-state only. "Ready: … (Tap Bet)" is set exclusively
+  // by the DHANIWIN_BET_PREPARED handler once the bridge has actually
+  // staged the bet in the DhaniWin page — never at dispatch time.
+  setMobileBridgeStatus(true, `Sent: ${target} ₹${MobileBridgeState.currentStake} — waiting for the bridge…`);
 }
 window.dispatchMobileBetOrder = dispatchMobileBetOrder;
 
@@ -5550,7 +6431,13 @@ function loadMobileWebUrl(url) {
   if (targetSrc === DHANIWIN_HOME_URL && typeof getDefaultDhaniUrl === 'function') {
     targetSrc = getDefaultDhaniUrl();
   }
+  // The raw built-in home constant means "no custom URL set":
+  // pivot default is DIRECT (the APK injects the bridge natively);
+  // the proxy applies only under the explicit override. A custom
+  // URL is never rewritten (see getDhaniEntryUrl).
+  if (targetSrc === DHANIWIN_HOME_URL && dhaniFrameUseProxy()) targetSrc = proxifyDhaniUrl(targetSrc);
   if (iframe) iframe.src = targetSrc;
+  noteDhaniTransport(targetSrc);
   if (barText) barText.textContent = targetSrc;
   if (extLink) extLink.href = targetSrc;
 }
@@ -5574,19 +6461,24 @@ window.copyMobileBridgeScript = copyMobileBridgeScript;
 // ── 29b. DhaniWin Minimalist Floating Assistant Controls ───────────────────────
 
 function setAssistantBaseStake(amt) {
+  // The sheet chips set the REAL base stake (they feed both the
+  // governed ladder and the legacy dispatch). Fix round #2: a chip
+  // tap is never login-gated — it just sets the base.
   const amount = Number(amt) || 2;
   MobileBridgeState.baseStake = amount;
+  MobileBridgeState.currentLevel = 0; // Fresh base stake starts at Level 0
   [1, 2, 5, 10, 50, 100].forEach(chip => {
     const btn = $(`chipBtn-${chip}`);
     if (btn) {
       if (chip === amount) {
-        btn.className = 'py-1 rounded-lg font-mono text-[9.5px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 active:scale-95';
+        btn.className = 'py-1 rounded-lg font-mono text-[8.5px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 active:scale-95 transition';
       } else {
-        btn.className = 'py-1 rounded-lg font-mono text-[9.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95';
+        btn.className = 'py-1 rounded-lg font-mono text-[8.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95 transition';
       }
     }
   });
   calculateAndRenderMobileStake();
+  if (typeof updateFloatingOrbUI === 'function') updateFloatingOrbUI();
   if (typeof playSoundEffect === 'function') playSoundEffect('click');
 }
 window.setAssistantBaseStake = setAssistantBaseStake;
@@ -5599,11 +6491,221 @@ function updateAssistantLossLimit(val) {
 }
 window.updateAssistantLossLimit = updateAssistantLossLimit;
 
+// ── Fix round 2026-10-24: full-history chunked road rendering ─────
+// The history/sequence road used to hide behind render caps (8, 25,
+// 30). Every road/table below now renders the FULL list, newest
+// first, in chunks: the first chunk synchronously, the rest in
+// idle-time slices, plus an immediate top-up when the user scrolls
+// near the end — so a long history never janks and nothing is ever
+// hidden behind a count. A re-render invalidates pending chunks via
+// the container's generation token. This mirrors systems/historyRoad.js
+// (fullRoadList / chunkList), the tested spec — a classic script
+// cannot import that module, so the behaviour is implemented here.
+function renderRoadCellsChunked(container, cellHtmlArray, opts) {
+  if (!container) return;
+  const chunkSize = (opts && opts.chunkSize) || 60;
+  const onComplete = (opts && opts.onComplete) || null;
+  const token = Number(container.dataset.roadToken || 0) + 1;
+  container.dataset.roadToken = String(token);
+  const alive = () => String(container.dataset.roadToken) === String(token);
+  container.innerHTML = cellHtmlArray.slice(0, chunkSize).join('');
+  let rendered = Math.min(chunkSize, cellHtmlArray.length);
+  const finish = () => { if (onComplete) { try { onComplete(); } catch (e) {} } };
+  if (rendered >= cellHtmlArray.length) { finish(); return; }
+  const appendMore = () => {
+    if (!alive() || rendered >= cellHtmlArray.length) return;
+    const next = cellHtmlArray.slice(rendered, rendered + chunkSize);
+    rendered += next.length;
+    container.insertAdjacentHTML('beforeend', next.join(''));
+    if (rendered >= cellHtmlArray.length) finish();
+  };
+  const pump = () => {
+    if (!alive()) return;
+    appendMore();
+    if (rendered < cellHtmlArray.length) {
+      if (typeof requestIdleCallback === 'function') requestIdleCallback(pump, { timeout: 200 });
+      else setTimeout(pump, 0);
+    }
+  };
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(pump, { timeout: 200 });
+  else setTimeout(pump, 0);
+  // Fast scrollers get the rest immediately at the scroll edge.
+  container.onscroll = () => {
+    if (container.scrollWidth - container.scrollLeft - container.clientWidth < 120) {
+      while (rendered < cellHtmlArray.length) appendMore();
+    }
+  };
+}
+window.renderRoadCellsChunked = renderRoadCellsChunked;
+
+// ── Fix round 2026-10-24: ball + sheet viewport clamping ──────────
+// The floating ball (68px ring footprint + under-bar = 86px tall)
+// must never sit outside the viewport: clamped on load, on drag
+// end, on resize and on orientation change. The module's
+// window.__o101ClampBall (systems/orb-bridge.js) is the single
+// source of truth when present; the inline math below is identical.
+function clampBallRectFallback(rect) {
+  return {
+    left: Math.min(Math.max(8, rect.left), Math.max(8, window.innerWidth - 68 - 8)),
+    top: Math.min(Math.max(10, rect.top), Math.max(10, window.innerHeight - 86 - 12))
+  };
+}
+function clampFloatingOrb() {
+  const orb = $('dhaniwinFloatingOrb');
+  if (!orb || orb.style.display === 'none') return;
+  const rect = orb.getBoundingClientRect();
+  const clamp = window.__o101ClampBall || clampBallRectFallback;
+  const next = clamp({ left: rect.left, top: rect.top, width: 68, height: 86, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 10, bottomMargin: 12 });
+  orb.style.left = `${next.left}px`;
+  orb.style.top = `${next.top}px`;
+  orb.style.right = 'auto';
+  orb.style.bottom = 'auto';
+}
+window.clampFloatingOrb = clampFloatingOrb;
+
+// Bubble-tracks-Axo (owner order 2026-10-25): one rAF-throttled
+// reposition queue shared by the orb drag, sheet drag, and sheet
+// resize handlers, so the subtitle bubble follows Axo mid-gesture
+// without a full sync (and its face re-render) on every move.
+let __o101BubbleRepositionQueued = false;
+function queueAxoBubbleReposition() {
+  if (__o101BubbleRepositionQueued) return;
+  __o101BubbleRepositionQueued = true;
+  const run = () => {
+    __o101BubbleRepositionQueued = false;
+    if (window.__smartBall && typeof window.__smartBall.repositionAxoBubble === 'function') window.__smartBall.repositionAxoBubble();
+  };
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+  else run();
+}
+
+// ── Pull-to-refresh (owner order 2026-10-25, Task C) ─────────────
+// The owner could not refresh inside the app. Pulling down at the
+// top of the main view shows a small spinner (no text) and, on
+// release past the threshold, re-syncs live data:
+//   1. syncMobileUserWallet() — posts DHANIWIN_REQUEST_SYNC to the
+//      bridge, which clicks wallet refresh, scrapes DOM, and runs
+//      its active wallet poll + session scrape (API-proven balance).
+//   2. fetchLiveAPIResults(current timeframe) — the guarded live
+//      history fetch (no-op while a fetch is already in flight).
+// It NEVER reloads the document and NEVER touches governed session
+// state: evaluated rounds (persisted model store), calibration
+// records, ladder/session P&L, and the locked verdict all survive
+// untouched, because neither leg resets anything — the history
+// list itself is live data, replaced by fresh upstream rounds.
+// Touch only (phone first): touches inside the DhaniWin iframe
+// never reach this document, so a pull inside the game frame
+// cannot trigger this — pull on the app's own views. Disabled
+// while the assistant panel is open, and never hijacks taps on
+// the orb, dock, sheet, resize handles, or form controls.
+const O101_PULL_THRESHOLD = 64;
+function refreshAppLiveData() {
+  try { if (typeof syncMobileUserWallet === 'function') syncMobileUserWallet(); } catch (e) {}
+  try {
+    const p = fetchLiveAPIResults(MobileState.timeframe);
+    return Promise.resolve(p).catch(() => {});
+  } catch (e) { return Promise.resolve(); }
+}
+function initPullRefresh() {
+  if (window.__o101PullRefreshInit) return;
+  window.__o101PullRefreshInit = true;
+  const spinner = document.getElementById('o101PullSpinner');
+  if (!spinner) return;
+  let pulling = false;
+  let refreshing = false;
+  let startY = 0;
+  let startX = 0;
+  let triggered = false;
+
+  const visual = (dy) => {
+    if (typeof window.__o101PullVisual === 'function') return window.__o101PullVisual(dy, O101_PULL_THRESHOLD);
+    const pull = Math.max(0, dy || 0);
+    const offset = Math.min(pull * 0.5, 56);
+    return { offset, opacity: Math.min(1, offset / 56), shouldRefresh: pull >= O101_PULL_THRESHOLD };
+  };
+  const setSpinner = (offset, opacity, animate) => {
+    spinner.style.transition = animate ? 'transform .22s ease, opacity .22s ease' : 'none';
+    spinner.style.transform = `translate(-50%, ${offset}px)`;
+    spinner.style.opacity = String(opacity);
+    spinner.style.display = opacity > 0 ? 'flex' : 'none';
+  };
+  const modalOpen = () => {
+    const modal = document.getElementById('dhaniwinAssistantModal');
+    return !!(modal && !modal.classList.contains('hidden') && modal.classList.contains('sheet-open'));
+  };
+  const EXCLUDED = '#dhaniwinFloatingOrb, #dhaniwinAssistantModal, #mobileBottomDock, .assistant-resize-handle, button, a, input, select, textarea';
+
+  document.addEventListener('touchstart', (e) => {
+    if (refreshing || pulling || modalOpen()) return;
+    if (window.scrollY !== 0) return;
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+    if (t.target && t.target.closest && t.target.closest(EXCLUDED)) return;
+    pulling = true;
+    triggered = false;
+    startY = t.clientY;
+    startX = t.clientX;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!pulling || refreshing) return;
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+    const dy = t.clientY - startY;
+    const dx = t.clientX - startX;
+    if (Math.abs(dx) > Math.abs(dy)) { pulling = false; setSpinner(0, 0, true); return; }
+    if (dy <= 0) { triggered = false; setSpinner(0, 0, false); return; }
+    if (window.scrollY !== 0) { pulling = false; setSpinner(0, 0, true); return; }
+    if (e.cancelable) e.preventDefault(); // suppress the browser's native pull-to-refresh while ours tracks
+    const v = visual(dy);
+    triggered = v.shouldRefresh;
+    setSpinner(v.offset, v.opacity, false);
+  }, { passive: false });
+
+  document.addEventListener('touchend', () => {
+    if (!pulling) return;
+    pulling = false;
+    if (!triggered) { setSpinner(0, 0, true); return; }
+    refreshing = true;
+    setSpinner(44, 1, true);
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      refreshing = false;
+      setSpinner(0, 0, true);
+    };
+    // Spinner lifetime covers the history fetch plus a floor so the
+    // bridge sync has a chance to land; bridge states re-render on
+    // arrival after the spinner hides. Never spins forever.
+    const minWait = new Promise(r => setTimeout(r, 600));
+    Promise.all([refreshAppLiveData(), minWait]).then(finish);
+    setTimeout(finish, 5000);
+  }, { passive: true });
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initPullRefresh);
+else initPullRefresh();
+
+function clampAssistantSheetToViewport() {
+  if (window.__assistantBoxBusy) return;
+  const modal = $('dhaniwinAssistantModal');
+  const sheet = $('dhaniwinAssistantSheet');
+  if (!modal || !sheet) return;
+  if (modal.classList.contains('hidden') || !modal.classList.contains('sheet-open')) return;
+  const rect = sheet.getBoundingClientRect();
+  const left = Math.max(8, Math.min(window.innerWidth - rect.width - 8, rect.left));
+  const top = Math.max(50, Math.min(window.innerHeight - rect.height - 14, rect.top));
+  sheet.style.left = `${left}px`;
+  sheet.style.top = `${top}px`;
+}
+window.clampAssistantSheetToViewport = clampAssistantSheetToViewport;
+
 function renderAssistantMiniRoad(list) {
   const container = $('assistantMiniRoad');
   if (!container || !list || list.length === 0) return;
-  const display = [...list].reverse().slice(0, 8);
-  container.innerHTML = display.map((r) => {
+  // FULL history, newest first — no count cap (fix round 2026-10-24).
+  const display = [...list].reverse();
+  const cells = display.map((r) => {
     const n = Number(r.number);
     let ballBg = 'ball-red';
     if (n === 0) ballBg = 'ball-split-0';
@@ -5620,13 +6722,14 @@ function renderAssistantMiniRoad(list) {
     }
 
     return `<div class="relative flex flex-col items-center shrink-0">
-      <div class="ball-3d ${ballBg} w-6 h-6 rounded-full flex items-center justify-center font-mono font-black text-[10px] text-white shadow-sm">
+      ${(window.ballImg && window.ballImg(n, 24, 'shadow-sm')) || `<div class="ball-3d ${ballBg} w-6 h-6 rounded-full flex items-center justify-center font-mono font-black text-[10px] text-white shadow-sm">
         ${n}
-      </div>
+      </div>`}
       ${badge}
       <span class="text-[6.5px] font-mono text-zinc-500 mt-0.5">${String(r.period).slice(-3)}</span>
     </div>`;
-  }).join('');
+  });
+  renderRoadCellsChunked(container, cells);
 }
 window.renderAssistantMiniRoad = renderAssistantMiniRoad;
 
@@ -5839,114 +6942,480 @@ function checkAndSendBestTimeNotification(winRate, wins, total, tf) {
 }
 window.checkAndSendBestTimeNotification = checkAndSendBestTimeNotification;
 
-// ── 30. Floating AssistiveTouch Circle Assistant & Modal Hub ──────────────────
+// ── 30. Floating AssistiveTouch Circle Assistant & Draggable/Resizable Box Hub ──────────
 let _assistantModalClosing = false;
+let _assistantBoxPos = null;
+let _assistantBoxSize = null;
+
+// Apple Liquid Glass size presets
+// Task K (owner order 2026-10-25): the compact preset used to be
+// 230×280 — below the panel's 340px content floor, so opening it
+// would clip the no-scroll body. Compact is now 230×340: still the
+// narrowest preset, but tall enough for all four sections.
+const ASSISTANT_SIZE_PRESETS = [
+  { name: 'compact', width: 230, height: 340 },
+  { name: 'normal',  width: 275, height: 360 },
+  { name: 'large',   width: 325, height: 440 }
+];
+
+function cycleAssistantBoxSizePreset(e) {
+  if (window.__assistantBoxBusy) return; // a drag/resize owns the sheet geometry right now
+  if (e && e.stopPropagation) e.stopPropagation();
+  const sheet = document.getElementById('dhaniwinAssistantSheet');
+  if (!sheet) return;
+
+  const curW = sheet.offsetWidth || 275;
+  let nextPreset = ASSISTANT_SIZE_PRESETS[1]; // default to normal
+  if (curW < 250) {
+    nextPreset = ASSISTANT_SIZE_PRESETS[1]; // go normal
+  } else if (curW < 300) {
+    nextPreset = ASSISTANT_SIZE_PRESETS[2]; // go large
+  } else {
+    nextPreset = ASSISTANT_SIZE_PRESETS[0]; // go compact
+  }
+
+  const maxW = Math.max(200, window.innerWidth - 16);
+  const maxH = Math.max(220, window.innerHeight - 60);
+  // Task K: a preset must never shrink the sheet below its
+  // content (same floor as resolveAxoPanelSize); the viewport
+  // cap still wins on short viewports.
+  const contentFloor = Math.max(220, Math.min(340, window.innerHeight - 64));
+  const targetW = Math.min(maxW, nextPreset.width);
+  const targetH = Math.min(maxH, Math.max(contentFloor, nextPreset.height));
+
+  sheet.style.transition = 'width 0.28s cubic-bezier(0.16, 1, 0.3, 1), height 0.28s cubic-bezier(0.16, 1, 0.3, 1), max-height 0.28s cubic-bezier(0.16, 1, 0.3, 1), transform 0.28s cubic-bezier(0.16, 1, 0.3, 1)';
+  sheet.style.width = `${targetW}px`;
+  sheet.style.height = `${targetH}px`;
+  sheet.style.maxHeight = `${targetH}px`;
+
+  // Make sure it doesn't overflow screen bounds
+  const rect = sheet.getBoundingClientRect();
+  let left = rect.left;
+  let top = rect.top;
+  if (left + targetW > window.innerWidth - 8) left = Math.max(8, window.innerWidth - targetW - 8);
+  if (top + targetH > window.innerHeight - 12) top = Math.max(50, window.innerHeight - targetH - 12);
+  sheet.style.left = `${left}px`;
+  sheet.style.top = `${top}px`;
+
+  _assistantBoxSize = { width: targetW, height: targetH };
+  _assistantBoxPos = { left, top };
+  try {
+    localStorage.setItem('dhaniwin_assistant_box_size', JSON.stringify(_assistantBoxSize));
+    localStorage.setItem('dhaniwin_assistant_box_pos', JSON.stringify(_assistantBoxPos));
+  } catch(err) {}
+}
+window.cycleAssistantBoxSizePreset = cycleAssistantBoxSizePreset;
 
 function toggleDhaniwinAssistantModal(show) {
+  if (window.__assistantBoxBusy) return; // never reposition the sheet mid-drag/resize
   const modal = $('dhaniwinAssistantModal');
   const sheet = $('dhaniwinAssistantSheet');
-  if (!modal) return;
+  const orb = $('dhaniwinFloatingOrb');
+  if (!modal || !sheet) return;
 
   const isOpen = !modal.classList.contains('hidden') && modal.classList.contains('sheet-open') && modal.style.display !== 'none';
   const targetOpen = show === undefined ? !isOpen : Boolean(show);
 
   if (targetOpen) {
     _assistantModalClosing = false;
-    // Hide main menu bottom dock when opening floating ball assistant
-    if (typeof window._dockSetHidden === 'function') {
-      window._dockSetHidden(true);
+
+    // Restore saved custom size or fall back to responsive defaults
+    if (!_assistantBoxSize) {
+      try {
+        const rawSize = localStorage.getItem('dhaniwin_assistant_box_size');
+        if (rawSize) _assistantBoxSize = JSON.parse(rawSize);
+      } catch(e) {}
     }
+    // Owner order 2026-10-25 (UI batch): the panel opens SMALL by
+    // default and the last resized size stays — the old path forced
+    // minimums of 360×480, silently discarding a smaller saved size
+    // on every reopen. resolveAxoPanelSize (orb-bridge, same rule,
+    // one source of truth) with an inline fallback when the module
+    // is absent.
+    const _panelSize = (typeof window.__o101AxoPanelSize === 'function')
+      ? window.__o101AxoPanelSize({ saved: _assistantBoxSize, vw: window.innerWidth, vh: window.innerHeight })
+      : (function () {
+          const maxW = Math.max(200, window.innerWidth - 16);
+          const maxH = Math.max(220, window.innerHeight - 60);
+          // Task K: same content floor as resolveAxoPanelSize
+          // (orb-bridge) — 340px at normal viewports, softening
+          // to (vh − 64) on short viewports, never below the
+          // 220 drag floor. Inline fallback only; the module rule
+          // wins whenever it is present.
+          const contentFloor = Math.max(220, Math.min(340, window.innerHeight - 64));
+          const num = v => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.floor(Number(v)) : null);
+          const w = num(_assistantBoxSize && _assistantBoxSize.width);
+          const h = num(_assistantBoxSize && _assistantBoxSize.height);
+          return {
+            width: Math.min(maxW, Math.max(200, w !== null ? w : 270)),
+            height: Math.min(maxH, Math.max(contentFloor, h !== null ? h : 380))
+          };
+        })();
+    const boxWidth = _panelSize.width;
+    const boxHeight = _panelSize.height;
+
+    // Fix round #4: the opened Axo is SMALL, Axofy-app pattern —
+    // a circular avatar straddling the sheet's top-center edge,
+    // never a giant overlay, never covering panel content. The
+    // sheet's open class gives the header top clearance for the
+    // name + prediction badge. Saved drag positions are ignored
+    // on open (dragging after open still works); the size keeps
+    // its saved value, clamped to the Task K content floor
+    // (340px at normal viewports, softening on short viewports,
+    // never below the 200×220 drag floor).
+    const orbRect = orb ? orb.getBoundingClientRect() : { left: window.innerWidth - 76, top: window.innerHeight - 150, width: 62, height: 62 };
+
+    // Task G (owner order 2026-10-25): reopen starts from the ball's
+    // LAST position — the window rests centered on the orb (not
+    // viewport-centered), clamped to the same bounds the drag uses,
+    // so the open morph travels from the ball to its own rest spot
+    // and a close→reopen round-trip lands in the same place.
+    const orbCenterX = orbRect.left + (orbRect.width || 62) / 2;
+    const orbCenterY = orbRect.top + (orbRect.height || 62) / 2;
+    const targetLeft = Math.max(8, Math.min(window.innerWidth - boxWidth - 8, Math.floor(orbCenterX - boxWidth / 2)));
+    const targetTop = Math.max(50, Math.min(window.innerHeight - boxHeight - 14, Math.floor(orbCenterY - boxHeight / 2)));
+
+    // Task E: the window OPENS FROM the ball — it starts at the orb
+    // rect (the ball's position and size) and animates rect + scale
+    // to its rest rect, so it grows out of the ball's position. The
+    // transition covers left/top/width/height for the travel; the
+    // existing sheet-open scale/opacity morph composes on top.
+    sheet.style.transition = 'left 0.28s cubic-bezier(0.16, 1, 0.3, 1), top 0.28s cubic-bezier(0.16, 1, 0.3, 1), width 0.28s cubic-bezier(0.16, 1, 0.3, 1), height 0.28s cubic-bezier(0.16, 1, 0.3, 1), max-height 0.28s cubic-bezier(0.16, 1, 0.3, 1), transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+    sheet.style.left = `${Math.floor(orbRect.left)}px`;
+    sheet.style.top = `${Math.floor(orbRect.top)}px`;
+    sheet.style.width = `${Math.floor(orbRect.width || 62)}px`;
+    sheet.style.height = `${Math.floor(orbRect.height || 62)}px`;
+    sheet.style.maxHeight = `${Math.floor(orbRect.height || 62)}px`;
+    sheet.style.right = 'auto';
+    sheet.style.bottom = 'auto';
+    sheet.classList.add('axo-top-avatar-open');
+
+    // The top-center avatar shows; the panel header carries no
+    // face while open. The avatar is pointer-events none, so the
+    // panel beneath stays fully interactive.
+    const axoTop = $('axoTopAvatar');
+    if (axoTop) axoTop.style.display = 'flex';
+    const faceHost = $('axoFaceHost');
+    if (faceHost) faceHost.style.display = 'none';
+
+    // Calculate morph origin from ball center (morphs from the ball and back to the ball).
+    // orbCenterX/Y were computed above for the ball-anchored rest rect (Task G).
+    const originX = orbCenterX - targetLeft;
+    const originY = orbCenterY - targetTop;
+    sheet.style.transformOrigin = `${originX}px ${originY}px`;
+
     modal.classList.remove('hidden');
-    modal.style.display = 'flex';
-    // Force browser reflow to guarantee the opening animation triggers
-    void modal.offsetWidth;
-    modal.classList.add('sheet-open');
-    if (sheet) {
-      sheet.style.transform = '';
-      sheet.scrollTop = 0;
+    modal.style.display = 'block';
+
+    // Morph the orb: fade and shrink smoothly as the box expands
+    if (orb) {
+      orb.style.transition = 'transform 0.26s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease';
+      orb.style.transform = 'scale(0.3)';
+      orb.style.opacity = '0';
+      orb.style.pointerEvents = 'none';
     }
+
+    // Force browser reflow to guarantee smooth animation: the start
+    // rect (at the ball) is flushed first, so the rest rect below
+    // transitions instead of jumping.
+    void sheet.offsetWidth;
+    sheet.style.left = `${targetLeft}px`;
+    sheet.style.top = `${targetTop}px`;
+    sheet.style.width = `${boxWidth}px`;
+    sheet.style.height = `${boxHeight}px`;
+    sheet.style.maxHeight = `${boxHeight}px`;
+    modal.classList.add('sheet-open');
+
+    // The subtitle bubble stays outside the panel while it is open
+    // (owner order 2026-10-25) — syncAxoSubtitleSurfaces anchors
+    // it next to the top-center avatar.
+    if (window.__smartBall && typeof window.__smartBall.syncAxoSubtitleSurfaces === 'function') window.__smartBall.syncAxoSubtitleSurfaces();
+
+    // Bubble-tracks-Axo: the sheet morphs open — reposition once
+    // it settles, so the bubble follows the avatar to its rest spot.
+    try {
+      sheet.addEventListener('transitionend', function onSheetOpenSettled() { if (window.__smartBall && typeof window.__smartBall.repositionAxoBubble === 'function') window.__smartBall.repositionAxoBubble(); }, { once: true });
+    } catch (e) {}
+
+    // Update mini road on open
+    const history = MobileState.historyByTf[MobileState.timeframe] || [];
+    renderAssistantMiniRoad(history);
   } else {
     if (_assistantModalClosing) return;
     _assistantModalClosing = true;
+    // Task G (owner order 2026-10-25): the ball takes the window's
+    // LAST position — the orb glides to the sheet's last center
+    // (clamped to the viewport, same 68×86 footprint the orb drag
+    // uses) and that spot persists, so reopen starts there. The
+    // collapse pivot moves to the new ball center BEFORE the
+    // sheet-open class drops, so the window collapses into the
+    // ball instead of toward its stale open-time origin.
+    if (orb) {
+      const sheetRect = sheet.getBoundingClientRect();
+      const clamp = window.__o101ClampBall || clampBallRectFallback;
+      const ballSpot = clamp({ left: sheetRect.left + sheetRect.width / 2 - 34, top: sheetRect.top + sheetRect.height / 2 - 43, width: 68, height: 86, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 10, bottomMargin: 12 });
+      const ballCenterX = ballSpot.left + 34;
+      const ballCenterY = ballSpot.top + 43;
+      sheet.style.transformOrigin = `${ballCenterX - sheetRect.left}px ${ballCenterY - sheetRect.top}px`;
+      orb.style.pointerEvents = 'auto';
+      orb.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.24s ease, left 0.3s cubic-bezier(0.16, 1, 0.3, 1), top 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+      orb.style.left = `${ballSpot.left}px`;
+      orb.style.top = `${ballSpot.top}px`;
+      orb.style.right = 'auto';
+      orb.style.bottom = 'auto';
+      orb.style.transform = 'scale(1)';
+      orb.style.opacity = '1';
+      try {
+        localStorage.setItem('dhaniwin_orb_pos', JSON.stringify({ left: ballSpot.left, top: ballSpot.top }));
+      } catch (err) {}
+    }
     modal.classList.remove('sheet-open');
-    if (sheet) {
-      sheet.style.transform = 'translateY(100%)';
-    }
-    // Restore main menu dock when closing floating ball assistant
-    if (typeof window._dockSetHidden === 'function') {
-      window._dockSetHidden(false);
-    }
+    sheet.classList.remove('axo-top-avatar-open');
+
+    // Panel closing: the top-center avatar goes away and the
+    // header face returns, so the closed ball is Axo again.
+    const axoTopClose = $('axoTopAvatar');
+    if (axoTopClose) axoTopClose.style.display = 'none';
+    const faceHostClose = $('axoFaceHost');
+    if (faceHostClose) faceHostClose.style.display = '';
+
     setTimeout(() => {
       if (_assistantModalClosing) {
         modal.classList.add('hidden');
         modal.style.display = 'none';
-        if (sheet) sheet.style.transform = '';
         _assistantModalClosing = false;
+        // Panel fully closed: the floating subtitle may show again.
+        if (window.__smartBall && typeof window.__smartBall.syncAxoSubtitleSurfaces === 'function') window.__smartBall.syncAxoSubtitleSurfaces();
+        // Bubble-tracks-Axo: the orb morphs back over 0.3s —
+        // reposition when it settles on its rest rect.
+        try {
+          if (orb) orb.addEventListener('transitionend', function onOrbCloseSettled() { if (window.__smartBall && typeof window.__smartBall.repositionAxoBubble === 'function') window.__smartBall.repositionAxoBubble(); }, { once: true });
+        } catch (e) {}
       }
-    }, 320);
+    }, 280);
   }
 }
 window.toggleDhaniwinAssistantModal = toggleDhaniwinAssistantModal;
 
-// ── Initialize Bottom Sheet Wipe-Down Gesture & Prevent Pull-to-Refresh Reload ──
-function initDhaniwinAssistantSheetGesture() {
-  const modal = document.getElementById('dhaniwinAssistantModal');
+// ── Draggable & Resizable Box Setup: Users can freely move & resize the assistant box ──
+function initDhaniwinAssistantSheetDrag() {
+  const header = document.getElementById('assistantSheetHeader');
   const sheet = document.getElementById('dhaniwinAssistantSheet');
-  const grabArea = document.getElementById('dhaniwinGrabHandleArea');
-  if (!modal || !sheet) return;
+  if (!header || !sheet) return;
 
-  let startY = 0;
-  let currentY = 0;
-  let isDragging = false;
+  // Restore saved box position & size if present
+  try {
+    const rawPos = localStorage.getItem('dhaniwin_assistant_box_pos');
+    if (rawPos) _assistantBoxPos = JSON.parse(rawPos);
+    const rawSize = localStorage.getItem('dhaniwin_assistant_box_size');
+    if (rawSize) _assistantBoxSize = JSON.parse(rawSize);
+  } catch(e) {}
 
-  const onTouchStart = (e) => {
-    if (!e.touches || e.touches.length !== 1) return;
-    startY = e.touches[0].clientY;
-    currentY = startY;
-    isDragging = false;
+  // 1. HEADER DRAG LOGIC (Moving the box around)
+  let isDraggingBox = false;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let dragInitialLeft = 0;
+  let dragInitialTop = 0;
+
+  const onDragDown = (e) => {
+    // If user clicked buttons or resize handles, ignore header drag
+    if (e.target.closest('button, .assistant-resize-handle')) return;
+    isDraggingBox = true;
+    window.__assistantBoxBusy = true;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    dragStartX = clientX;
+    dragStartY = clientY;
+
+    const rect = sheet.getBoundingClientRect();
+    dragInitialLeft = rect.left;
+    dragInitialTop = rect.top;
+    sheet.style.transition = 'none';
   };
 
-  const onTouchMove = (e) => {
-    if (!e.touches || e.touches.length !== 1) return;
-    currentY = e.touches[0].clientY;
-    const dy = currentY - startY;
+  const onDragMove = (e) => {
+    if (!isDraggingBox) return;
+    if (e.cancelable) e.preventDefault();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const dx = clientX - dragStartX;
+    const dy = clientY - dragStartY;
 
-    // Pulling down when sheet is scrolled to top, or touching the top grab handle area
-    if (dy > 0 && (sheet.scrollTop <= 0 || (grabArea && grabArea.contains(e.target)))) {
-      // PREVENT BROWSER PULL-TO-REFRESH PAGE RELOAD
-      if (e.cancelable) e.preventDefault();
-      isDragging = true;
-      modal.classList.add('sheet-dragging');
-      sheet.style.transform = `translateY(${Math.max(0, dy)}px)`;
+    const boxWidth = sheet.offsetWidth || 270;
+    const boxHeight = sheet.offsetHeight || 360;
+    const newLeft = Math.max(8, Math.min(window.innerWidth - boxWidth - 8, dragInitialLeft + dx));
+    const newTop = Math.max(50, Math.min(window.innerHeight - boxHeight - 14, dragInitialTop + dy));
+
+    sheet.style.left = `${newLeft}px`;
+    sheet.style.top = `${newTop}px`;
+    // Bubble-tracks-Axo: the top avatar rides the sheet's top edge.
+    queueAxoBubbleReposition();
+  };
+
+  const onDragUp = () => {
+    if (!isDraggingBox) return;
+    isDraggingBox = false;
+    window.__assistantBoxBusy = false;
+    sheet.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+    const rect = sheet.getBoundingClientRect();
+    _assistantBoxPos = { left: rect.left, top: rect.top };
+    try {
+      localStorage.setItem('dhaniwin_assistant_box_pos', JSON.stringify(_assistantBoxPos));
+    } catch(err) {}
+    queueAxoBubbleReposition();
+  };
+
+  header.addEventListener('touchstart', onDragDown, { passive: true });
+  window.addEventListener('touchmove', onDragMove, { passive: false });
+  window.addEventListener('touchend', onDragUp, { passive: true });
+
+  header.addEventListener('mousedown', onDragDown);
+  window.addEventListener('mousemove', onDragMove);
+  window.addEventListener('mouseup', onDragUp);
+
+  // Task G (owner order 2026-10-25): the AI is a drag handle — a
+  // press-and-drag on the top avatar moves the whole window, using
+  // exactly the header-drag machinery above. A tap without movement
+  // starts and ends the drag with no move, so it does nothing (the
+  // avatar has no tap action). Resize keeps its own zones: the
+  // avatar's z-index beats the top-edge handle only inside the
+  // avatar's own rect; edges/corners outside it still resize.
+  const axoAvatar = document.getElementById('axoTopAvatar');
+  if (axoAvatar) {
+    axoAvatar.addEventListener('touchstart', onDragDown, { passive: true });
+    axoAvatar.addEventListener('mousedown', onDragDown);
+  }
+
+  // 2. APPLE-LIKE INTERACTIVE RESIZE LOGIC (Touching in the edge or corner makes it bigger/smaller)
+  let isResizing = false;
+  let activeResizeDir = '';
+  let resizeStartX = 0;
+  let resizeStartY = 0;
+  let resizeStartW = 0;
+  let resizeStartH = 0;
+  let resizeStartL = 0;
+  let resizeStartT = 0;
+
+  const MIN_WIDTH = 200;
+  const MIN_HEIGHT = 220;
+
+  const onResizeStart = (dir, e) => {
+    isResizing = true;
+    window.__assistantBoxBusy = true;
+    activeResizeDir = dir;
+    sheet.classList.add('assistant-sheet-resizing');
+
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    resizeStartX = clientX;
+    resizeStartY = clientY;
+
+    const rect = sheet.getBoundingClientRect();
+    resizeStartW = rect.width;
+    resizeStartH = rect.height;
+    resizeStartL = rect.left;
+    resizeStartT = rect.top;
+
+    sheet.style.transition = 'none';
+    if (e.stopPropagation) e.stopPropagation();
+    if (e.cancelable) e.preventDefault();
+  };
+
+  const onResizeMove = (e) => {
+    if (!isResizing) return;
+    if (e.cancelable) e.preventDefault();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const dx = clientX - resizeStartX;
+    const dy = clientY - resizeStartY;
+
+    const maxWidth = window.innerWidth - 16;
+    const maxHeight = window.innerHeight - 60;
+    // Task K: the vertical floor is the panel CONTENT floor
+    // (340px at normal viewports, softening to vh − 64 on short
+    // viewports, never below the 220 drag floor) — a resize must
+    // never shrink the sheet below its no-scroll body. Width
+    // keeps the plain 200 drag floor.
+    const minH = Math.max(MIN_HEIGHT, Math.min(340, window.innerHeight - 64));
+
+    let newW = resizeStartW;
+    let newH = resizeStartH;
+    let newL = resizeStartL;
+    let newT = resizeStartT;
+
+    // Horizontal adjustments
+    if (activeResizeDir.includes('r')) {
+      newW = Math.max(MIN_WIDTH, Math.min(maxWidth - resizeStartL, resizeStartW + dx));
+    } else if (activeResizeDir.includes('l')) {
+      const prospectiveW = resizeStartW - dx;
+      if (prospectiveW >= MIN_WIDTH) {
+        newW = prospectiveW;
+        newL = Math.max(8, resizeStartL + dx);
+      } else {
+        newW = MIN_WIDTH;
+        newL = resizeStartL + (resizeStartW - MIN_WIDTH);
+      }
     }
-  };
 
-  const onTouchEnd = () => {
-    if (!isDragging) return;
-    modal.classList.remove('sheet-dragging');
-    const dy = currentY - startY;
-    isDragging = false;
-
-    // Threshold: swipe down more than 65px closes the sheet smoothly
-    if (dy > 65) {
-      toggleDhaniwinAssistantModal(false);
-    } else {
-      // Rebound / snap back to open position
-      sheet.style.transition = 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)';
-      sheet.style.transform = 'translateY(0)';
-      setTimeout(() => {
-        sheet.style.transition = '';
-        sheet.style.transform = '';
-      }, 260);
+    // Vertical adjustments
+    if (activeResizeDir.includes('b')) {
+      newH = Math.max(minH, Math.min(maxHeight - resizeStartT, resizeStartH + dy));
+    } else if (activeResizeDir.includes('t')) {
+      const prospectiveH = resizeStartH - dy;
+      if (prospectiveH >= minH) {
+        newH = prospectiveH;
+        newT = Math.max(50, resizeStartT + dy);
+      } else {
+        newH = minH;
+        newT = resizeStartT + (resizeStartH - minH);
+      }
     }
+
+    // Apply dimensions to widget
+    sheet.style.width = `${Math.round(newW)}px`;
+    sheet.style.height = `${Math.round(newH)}px`;
+    sheet.style.maxHeight = `${Math.round(newH)}px`;
+    sheet.style.left = `${Math.round(newL)}px`;
+    sheet.style.top = `${Math.round(newT)}px`;
+    // Bubble-tracks-Axo: top/left-edge resizes move the avatar.
+    queueAxoBubbleReposition();
   };
 
-  sheet.addEventListener('touchstart', onTouchStart, { passive: true });
-  sheet.addEventListener('touchmove', onTouchMove, { passive: false });
-  sheet.addEventListener('touchend', onTouchEnd, { passive: true });
-  sheet.addEventListener('touchcancel', onTouchEnd, { passive: true });
+  const onResizeEnd = () => {
+    if (!isResizing) return;
+    isResizing = false;
+    window.__assistantBoxBusy = false;
+    sheet.classList.remove('assistant-sheet-resizing');
+    sheet.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+
+    const rect = sheet.getBoundingClientRect();
+    _assistantBoxSize = { width: Math.round(rect.width), height: Math.round(rect.height) };
+    _assistantBoxPos = { left: Math.round(rect.left), top: Math.round(rect.top) };
+
+    try {
+      localStorage.setItem('dhaniwin_assistant_box_size', JSON.stringify(_assistantBoxSize));
+      localStorage.setItem('dhaniwin_assistant_box_pos', JSON.stringify(_assistantBoxPos));
+    } catch(err) {}
+    queueAxoBubbleReposition();
+  };
+
+  // Bind handles
+  const handles = sheet.querySelectorAll('.assistant-resize-handle');
+  handles.forEach(h => {
+    const dir = h.dataset.resize;
+    if (!dir) return;
+
+    h.addEventListener('touchstart', (e) => onResizeStart(dir, e), { passive: false });
+    h.addEventListener('mousedown', (e) => onResizeStart(dir, e));
+  });
+
+  window.addEventListener('touchmove', onResizeMove, { passive: false });
+  window.addEventListener('touchend', onResizeEnd, { passive: true });
+  window.addEventListener('mousemove', onResizeMove);
+  window.addEventListener('mouseup', onResizeEnd);
 }
-window.initDhaniwinAssistantSheetGesture = initDhaniwinAssistantSheetGesture;
+window.initDhaniwinAssistantSheetDrag = initDhaniwinAssistantSheetDrag;
 
 let _dhaniwinTrueFullscreen = false;
 function toggleDhaniWinTrueFullscreen() {
@@ -5978,45 +7447,28 @@ function updateFloatingOrbUI() {
   const orb = $('dhaniwinFloatingOrb');
   if (!orb) return;
 
-  const target = MobileState.activePrediction?.target || 'BIG';
-  const targetEl = $('floatingOrbTarget');
-  const stakeEl = $('floatingOrbStake');
-  const iconEl = $('floatingOrbIcon');
-  const ringEl = $('floatingOrbRing');
+  const gate = MobileState.predictionGate || checkPredictionGateStatus(MobileState.timeframe, MobileState.historyByTf[MobileState.timeframe]);
+  const isGateReady = gate.ready;
+
+  // Governed verdict owns the ball's pick pill whenever the bridge
+  // has published a lock (orb-bridge renderAxoOrb): the native
+  // prediction must never overwrite Axo's governed pick. Without a
+  // lock, the native prediction is the fallback text only — never a
+  // className overwrite (the pill's positioning classes are sacred)
+  // and never an emoji or glow (matte Axo ball).
   const pingEl = $('floatingOrbDotPing');
   const dotEl = $('floatingOrbDot');
-
-  if (targetEl) targetEl.textContent = target;
-  if (stakeEl) stakeEl.textContent = '₹' + MobileBridgeState.currentStake;
-
-  let shadowColor = 'rgba(16,185,129,0.55)';
-  let targetClass = 'text-amber-300';
-  let icon = '🎯';
-
-  if (target === 'BIG') {
-    targetClass = 'text-amber-300';
-    shadowColor = 'rgba(245,158,11,0.6)';
-    icon = '▲';
-  } else if (target === 'SMALL') {
-    targetClass = 'text-sky-300';
-    shadowColor = 'rgba(56,189,248,0.6)';
-    icon = '▼';
-  } else if (target === 'GREEN') {
-    targetClass = 'text-emerald-300';
-    shadowColor = 'rgba(16,185,129,0.6)';
-    icon = '🟢';
-  } else if (target === 'RED') {
-    targetClass = 'text-rose-300';
-    shadowColor = 'rgba(244,63,94,0.6)';
-    icon = '🔴';
+  if (!window.__o101Verdict) {
+    const target = MobileState.activePrediction?.target || 'BIG';
+    const targetEl = $('floatingOrbTarget');
+    if (targetEl) {
+      targetEl.textContent = target;
+      targetEl.style.color = target === 'SMALL' ? '#bae6fd' : '#fde68a';
+    }
   }
 
-  if (targetEl) targetEl.className = `text-[8.5px] font-black font-mono leading-tight ${targetClass}`;
-  if (iconEl) iconEl.textContent = icon;
-  if (ringEl) ringEl.style.boxShadow = `0 4px 24px ${shadowColor}`;
-
   if (pingEl && dotEl) {
-    if (MobileBridgeState.enabled) {
+    if (isGateReady) {
       pingEl.className = 'absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black animate-ping';
       dotEl.className = 'absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black';
     } else {
@@ -6024,6 +7476,12 @@ function updateFloatingOrbUI() {
       dotEl.className = 'absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-amber-400 border-2 border-black';
     }
   }
+
+  // The orb becomes visible on tab switch — clamp then, too, so a
+  // restored position can never sit half off an edge on first sight.
+  clampFloatingOrb();
+  // Bubble-tracks-Axo: a clamp can move the orb — follow it.
+  if (window.__smartBall && typeof window.__smartBall.repositionAxoBubble === 'function') window.__smartBall.repositionAxoBubble();
 }
 window.updateFloatingOrbUI = updateFloatingOrbUI;
 
@@ -6031,19 +7489,30 @@ function setupFloatingOrb() {
   const orb = $('dhaniwinFloatingOrb');
   if (!orb) return;
 
-  // Restore saved position if available
+  // Restore saved position if available, then clamp: a position
+  // saved on a wider viewport (or before the browser chrome settled)
+  // must never leave the ball half off an edge. The same clamp runs
+  // on resize / orientation change below.
   try {
     const rawPos = localStorage.getItem('dhaniwin_orb_pos');
     if (rawPos) {
       const pos = JSON.parse(rawPos);
       if (typeof pos.left === 'number' && typeof pos.top === 'number') {
-        orb.style.left = `${Math.min(window.innerWidth - 66, Math.max(10, pos.left))}px`;
-        orb.style.top = `${Math.min(window.innerHeight - 80, Math.max(10, pos.top))}px`;
+        orb.style.left = `${pos.left}px`;
+        orb.style.top = `${pos.top}px`;
         orb.style.right = 'auto';
         orb.style.bottom = 'auto';
       }
     }
   } catch(e) {}
+  clampFloatingOrb();
+  if (!window.__o101OrbClampListeners) {
+    window.__o101OrbClampListeners = true;
+    window.addEventListener('resize', () => { clampFloatingOrb(); clampAssistantSheetToViewport(); if (window.__smartBall && typeof window.__smartBall.syncAxoSubtitleSurfaces === 'function') window.__smartBall.syncAxoSubtitleSurfaces(); });
+    window.addEventListener('orientationchange', () => {
+      setTimeout(() => { clampFloatingOrb(); clampAssistantSheetToViewport(); if (window.__smartBall && typeof window.__smartBall.syncAxoSubtitleSurfaces === 'function') window.__smartBall.syncAxoSubtitleSurfaces(); }, 300);
+    });
+  }
 
   let isDragging = false;
   let startX = 0;
@@ -6051,12 +7520,10 @@ function setupFloatingOrb() {
   let startLeft = 0;
   let startTop = 0;
   let hasMoved = false;
-  let pointerDownTime = 0;
 
   function onPointerDown(e) {
     isDragging = true;
     hasMoved = false;
-    pointerDownTime = Date.now();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     startX = clientX;
@@ -6075,28 +7542,20 @@ function setupFloatingOrb() {
     const dx = clientX - startX;
     const dy = clientY - startY;
 
-    // Generous threshold (> 12px) to prevent finger micro-jitter from mistaking taps for drags
-    if (Math.abs(dx) > 12 || Math.abs(dy) > 12) {
+    // Small threshold (4px) to distinguish a crisp tap from an intentional move
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
       hasMoved = true;
-    }
-
-    if (hasMoved) {
       if (e.cancelable && e.preventDefault) e.preventDefault();
-      const newLeft = Math.max(8, Math.min(window.innerWidth - 68, startLeft + dx));
-      const newTop = Math.max(10, Math.min(window.innerHeight - 80, startTop + dy));
-      orb.style.left = `${newLeft}px`;
-      orb.style.top = `${newTop}px`;
+      // Drag stays bounded: the ball can never leave the viewport.
+      const clamp = window.__o101ClampBall || clampBallRectFallback;
+      const next = clamp({ left: startLeft + dx, top: startTop + dy, width: 68, height: 86, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 10, bottomMargin: 12 });
+      orb.style.left = `${next.left}px`;
+      orb.style.top = `${next.top}px`;
       orb.style.right = 'auto';
       orb.style.bottom = 'auto';
+      // Bubble-tracks-Axo: the subtitle follows the ball mid-drag.
+      queueAxoBubbleReposition();
     }
-  }
-
-  let _orbLastTapTime = 0;
-  function triggerOrbOpen() {
-    const now = Date.now();
-    if (now - _orbLastTapTime < 350) return; // Prevent double firing from touch+synthetic click
-    _orbLastTapTime = now;
-    toggleDhaniwinAssistantModal(true);
   }
 
   function onPointerUp(e) {
@@ -6104,18 +7563,22 @@ function setupFloatingOrb() {
     isDragging = false;
     orb.style.transition = 'transform 0.2s ease, left 0.3s cubic-bezier(0.25, 1, 0.5, 1), top 0.3s cubic-bezier(0.25, 1, 0.5, 1)';
 
-    const elapsed = Date.now() - pointerDownTime;
-    if (!hasMoved || elapsed < 260) {
-      // Clean tap detected: open assistant modal sheet
-      triggerOrbOpen();
+    // Crisp single tap immediately toggles assistant modal without needing long-press
+    if (!hasMoved) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      toggleDhaniwinAssistantModal(true);
       return;
     }
 
-    // Magnetic edge snap (left or right)
+    // Magnetic edge snap (left or right), still fully inside: the
+    // right snap accounts for the 68px ring + 8px margin, and the
+    // top clamp for the 86px footprint (ball + under-bar) + margin.
     const rect = orb.getBoundingClientRect();
     const midX = window.innerWidth / 2;
-    const targetLeft = rect.left < midX ? 12 : window.innerWidth - 72;
-    const targetTop = Math.max(14, Math.min(window.innerHeight - 88, rect.top));
+    const clamp = window.__o101ClampBall || clampBallRectFallback;
+    const snapped = clamp({ left: rect.left < midX ? 12 : window.innerWidth - 76, top: rect.top, width: 68, height: 86, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 10, bottomMargin: 12 });
+    const targetLeft = snapped.left;
+    const targetTop = snapped.top;
 
     orb.style.left = `${targetLeft}px`;
     orb.style.top = `${targetTop}px`;
@@ -6124,7 +7587,14 @@ function setupFloatingOrb() {
 
     try {
       localStorage.setItem('dhaniwin_orb_pos', JSON.stringify({ left: targetLeft, top: targetTop }));
-    } catch(e) {}
+    } catch(err) {}
+
+    // Bubble-tracks-Axo: reposition now at the snap target, and
+    // once more when the 0.3s snap slide settles on the ball.
+    queueAxoBubbleReposition();
+    try {
+      orb.addEventListener('transitionend', function onOrbSnapSettled() { queueAxoBubbleReposition(); }, { once: true });
+    } catch (e) {}
   }
 
   orb.addEventListener('touchstart', onPointerDown, { passive: true });
@@ -6135,13 +7605,7 @@ function setupFloatingOrb() {
   window.addEventListener('mousemove', onPointerMove);
   window.addEventListener('mouseup', onPointerUp);
 
-  // Direct click / enter key fallback
-  orb.addEventListener('click', (e) => {
-    if (!hasMoved) {
-      triggerOrbOpen();
-    }
-  });
-
+  initDhaniwinAssistantSheetDrag();
   updateFloatingOrbUI();
 }
 window.setupFloatingOrb = setupFloatingOrb;
@@ -6184,8 +7648,9 @@ function initMobileApp() {
   // Restore settings
   try {
     MobileState.soundEnabled = localStorage.getItem('quant_sound') !== '0';
-    const soundCb = $('settingSoundEffects');
-    if (soundCb) soundCb.checked = MobileState.soundEnabled;
+    MobileState.axoVoiceEnabled = localStorage.getItem('o101_axo_voice') !== '0';
+    MobileState.axoMode = localStorage.getItem('o101_axo_mode') === 'normal' ? 'normal' : 'ai';
+    updateSoundMuteUI();
     MobileState.hapticsEnabled = localStorage.getItem('quant_haptics') !== '0';
     MobileState.autoMode = localStorage.getItem('quant_arena_auto') !== '0';
     MobileState.chartMode = localStorage.getItem('quant_chart_mode') || 'candles';
@@ -6269,7 +7734,6 @@ function initMobileApp() {
       renderPredictionAudit(initialList);
       renderHistoryTable(initialList);
       renderMobileHistoryGraph(initialList);
-      renderHeroSequentialBallRoad(initialList);
       renderDigitFrequencies(initialList);
       renderChartData(initialList);
       renderAdaptiveAI(initialList);
@@ -6374,7 +7838,6 @@ function initMobileApp() {
   syncBackgroundSettingsUI();
   checkCoffeePaymentUrl();
   syncCoffeeSettingsUI();
-  updateAppUnlockState();
 
   // Background execution settings synced quietly without auto-opening settings or modal
   // (Available on-demand when user configures background execution)

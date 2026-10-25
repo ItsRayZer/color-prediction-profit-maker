@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         DhaniWin Quant AI Live Scraper & Auto-Bet Bridge
 // @namespace    https://dhaniwin.99.com/
-// @version      3.1
-// @description  Scrapes live WinGo draws, auto-navigates to WinGo, and pre-selects bet amount & target color/size from Quant AI
+// @version      3.3
+// @description  Scrapes live WinGo draws, auto-navigates to WinGo, and pre-selects bet amount & target color/size from Quant AI. v3.3: one-time Tampermonkey install — auto-runs on DhaniWin pages with NO per-session tap and NO second tab. It runs inside the 01.01 app's own DhaniWin iframe too (no @noframes BY DESIGN: the iframe is how the app and the bridge talk — state up via parent postMessage, orders down via the iframe window). v3.2: publishes an API-proven user state (login + exact balance) on channel/postMessage and actively re-queries the learned wallet endpoint with the live session. NOTE: the bridge also attempts an RTDB publish, but live RTDB rules currently deny even reads (proven 2026-10-25), so postMessage through the app's iframe window is the working transport — never RTDB.
 // @match        *://*.dhaniwin44.com/*
 // @match        *://*.dhaniwin.99.com/*
 // @match        *://*.dhaniwin99.com/*
@@ -12,8 +12,34 @@
 // @run-at       document-idle
 // @grant        none
 // ==/UserScript==
+// INSTALL (one time, then fully automatic — no bookmarklet tap, no second
+// DhaniWin tab, no second login):
+//   1. Install Tampermonkey (Firefox for Android, or Kiwi Browser —
+//      Brave for Android does not run userscript extensions).
+//   2. In Tampermonkey, install from URL: <this app's origin>/dhaniwin-bridge.user.js
+//      (the same file, served with the .user.js name Tampermonkey detects;
+//      Tampermonkey checks that same URL for updates, so no @updateURL is needed).
+//   3. Open the 01.01 app and switch to the DhaniWin tab. The script
+//      auto-runs inside the app's DhaniWin iframe, the bridge HUD shows
+//      "Bridge Active", and the app shows VERIFIED + exact balance.
+//      Orders travel back down through the same iframe window, so
+//      Auto-Pilot staging + firing works from the one tab.
+// ROTATED DOMAINS: the @match list covers the dhaniwin family, including
+// any host containing "dhaniwin". If DhaniWin rotates to a hostname with
+// NO "dhaniwin" in it, the script stops matching: add one line
+//   // @match  *://<the-new-host>/*
+// and reinstall. The bridge itself never changes for a rotation.
+// SECURITY (unchanged): the bridge reads DhaniWin's own APIs with the
+// page's own session (same-origin, like the page itself) and relays ONLY
+// the 7 state fields. It NEVER publishes, logs, or stores any raw cookie,
+// token, API key, or session value — only a boolean "token present" flag.
 (function() {
   'use strict';
+  // Idempotence guard: the bridge must never run twice on one page
+  // (bookmarklet tap + userscript, or a double tap, would otherwise
+  // double every interval/listener). A second load is a no-op.
+  if (window.__o101BridgeLoaded) return;
+  window.__o101BridgeLoaded = true;
   console.log('%c[Quant AI Bridge] 🚀 Initializing DhaniWin Real Auto-Betting Engine v3.1...', 'color:#10b981;font-weight:bold;font-size:13px;');
 
   const channel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('dhaniwin_quant_channel') : null;
@@ -26,22 +52,400 @@
   let _justLoggedInGrace = 0;
   let _lastScrapedBalance = null;
 
+  // Native fetch captured BEFORE the interception hook below replaces
+  // window.fetch. The bridge's own calls (RTDB publish, active wallet
+  // re-query) use this so they never intercept themselves.
+  const _nativeFetch = (typeof window !== 'undefined' && typeof window.fetch === 'function')
+    ? window.fetch.bind(window) : null;
+  const RTDB_BASE_URL = 'https://zer0one-376d1-default-rtdb.asia-southeast1.firebasedatabase.app';
+  const LEARNED_ENDPOINT_KEY = 'o101_learned_wallet_endpoint_v1';
+
+  // [O101-STATE-CORE-BEGIN]
+  // ── User State core (PURE — no DOM, no storage, no network) ────────
+  // The bridge is the only component that can see the real DhaniWin
+  // account, so it is the only truth source for login + balance.
+  // Login proof rule: a session token present in page storage AND an
+  // authenticated wallet/user API payload that actually succeeded.
+  // A token alone is NOT proof; a number scraped off the page is NOT
+  // an exact balance. Balances keep their provenance: 'api' (from the
+  // site's own authenticated API payload — the exact figure) vs 'dom'
+  // (scraped from the page, labelled "from page"). The session token
+  // itself is NEVER part of the built state.
+  function extractUserIdFromJson(data, depth = 0) {
+    if (!data || typeof data !== 'object' || depth > 3) return null;
+    // Round 3: bare `id` is NOT an identity key — every object has
+    // an id (round ids, bet ids, period ids), so an id-only payload
+    // must not verify a login. Real user keys (userid, uid,
+    // memberid, …) still count, and a payload with a real userId
+    // and no balance still proves login (balance unknown, never 0).
+    const idKeys = ['userid', 'user_id', 'uid', 'memberid', 'member_id', 'tenantaccount', 'accountid'];
+    for (const k of Object.keys(data)) {
+      const lk = k.toLowerCase().replace(/[^a-z0-9_]/g, '');
+      if (idKeys.includes(lk)) {
+        const v = data[k];
+        if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+        if (typeof v === 'string' && v.trim() !== '' && v.length <= 32) return v.trim();
+      }
+    }
+    const subKeys = ['data', 'result', 'payload', 'body', 'userInfo', 'user_info', 'user', 'member', 'account'];
+    for (const sk of subKeys) {
+      if (data[sk] && typeof data[sk] === 'object') {
+        const nested = extractUserIdFromJson(data[sk], depth + 1);
+        if (nested !== null) return nested;
+      }
+    }
+    return null;
+  }
+
+  // Decide how the session token rides on a balance-bearing request,
+  // from the request's own headers (list of [name, value] pairs as the
+  // page itself sent them). Only the header NAME and scheme are kept —
+  // never the token value.
+  function detectTokenAttachment(headerPairs) {
+    const pairs = Array.isArray(headerPairs) ? headerPairs : [];
+    for (const pair of pairs) {
+      if (!Array.isArray(pair) || pair.length < 2) continue;
+      const name = String(pair[0] || '');
+      const value = String(pair[1] || '');
+      const ln = name.toLowerCase();
+      if (ln === 'authorization' || ln === 'x-token' || ln === 'access-token' || ln === 'auth-token' || ln === 'token' || ln.includes('auth') || ln.includes('token')) {
+        return { mode: 'header', headerName: name, scheme: /^bearer\s/i.test(value) ? 'Bearer' : '' };
+      }
+    }
+    return { mode: 'cookie' };
+  }
+
+  function createUserStateTracker() {
+    const t = {
+      tokenPresent: false,
+      onAuthPage: false,
+      apiProven: false,
+      lastProofAt: null,       // last authenticated API payload (intercept or active)
+      apiBalance: null,
+      apiBalanceAt: null,
+      domBalance: null,
+      domBalanceAt: null,
+      userId: null,
+      endpoint: null,          // learned balance-bearing request descriptor (no token value)
+      pollAuthFailed: false,   // active re-query got 401/403/auth-error
+      pollEmptyCount: 0,       // consecutive active re-queries with no balance in payload
+      explicitLogoutAt: null,
+      graceActive: false,      // bridge post-login grace is active (set by the scrape each tick): while true, a transient auth-page view must not downgrade the state (Fix 5e)
+      createdAt: Date.now(),   // bridge-eval time: origin for the fresh-document pending window
+      everConfirmed: false,  // token + API proof have both held (the hold requires this, not bare apiProven: a payload alone, with no token ever seen, is not a confirmed login)
+
+      noteToken(present, now) {
+        t.tokenPresent = !!present;
+        if (present && t.apiProven) t.everConfirmed = true;
+      },
+      noteAuthPage(isAuth) { t.onAuthPage = !!isAuth; },
+      // Called by the scrape each tick with the effective post-login
+      // grace state (bridge grace + stored grace). While grace is
+      // active, auth-page evidence is transient (a redirect flash,
+      // an SPA /login flicker) and must not break a hold or force
+      // isLoggedIn false (Fix 5e).
+      noteGrace(active) { t.graceActive = !!active; },
+      noteLogout(now) {
+        t.explicitLogoutAt = now;
+        t.apiProven = false;
+        t.apiBalance = null;
+        t.apiBalanceAt = null;
+        t.pollAuthFailed = false;
+        t.everConfirmed = false;
+      },
+      noteApiPayload(payload, now) {
+        // An authenticated wallet/user payload succeeded: this IS the
+        // login proof. Round 3 overwrite discipline: the balance is
+        // stored ONLY when the caller declares it qualified
+        // (payload.balanceQualified === true) AND it is a finite
+        // number ≥ 0. An unqualified value (generic-0, failed-op,
+        // proof-only) NEVER overwrites, and NEVER clears, an
+        // existing strict balance — it leaves apiBalance untouched
+        // while still setting proof, flags and identity. Undefined
+        // balanceQualified means NOT qualified (fail-safe): every
+        // caller must pass it explicitly.
+        // Owner rule (balance-zero fix): an extracted balance of
+        // exactly 0 is NEVER stored — not over a previous nonzero
+        // figure, and not as a first figure either. A 0 keeps the
+        // old balance displayed (or unknown when nothing was ever
+        // verified) while proof still lands and the poll keeps
+        // searching for a real update. Edge, ordered explicitly by
+        // the owner: if the real balance genuinely becomes 0, the
+        // app keeps showing the last nonzero figure and keeps
+        // searching — there is NO consecutive-zeros override and no
+        // other exception to this rule.
+        t.apiProven = true;
+        t.lastProofAt = now;
+        t.pollAuthFailed = false;
+        t.pollEmptyCount = 0;
+        if (t.tokenPresent) t.everConfirmed = true;
+        if (payload && payload.balanceQualified === true && payload.balance !== null && payload.balance !== undefined && Number.isFinite(Number(payload.balance)) && Number(payload.balance) >= 0 && Number(payload.balance) !== 0) {
+          t.apiBalance = Number(payload.balance);
+          t.apiBalanceAt = now;
+        }
+        if (payload && payload.userId) t.userId = String(payload.userId);
+      },
+      noteDomBalance(balance, now) {
+        if (balance === null || balance === undefined || !Number.isFinite(Number(balance))) return;
+        // Owner rule (balance-zero fix): a 0 scraped from the page
+        // is never stored — it must not displace an API-verified
+        // figure, and with no verified figure it must not become a
+        // displayed ₹0 either (unknown stands instead).
+        if (Number(balance) === 0) return;
+        t.domBalance = Number(balance);
+        t.domBalanceAt = now;
+      },
+      noteEndpoint(desc) {
+        if (!desc || !desc.url) return;
+        t.endpoint = {
+          url: String(desc.url),
+          method: String(desc.method || 'GET').toUpperCase(),
+          tokenMode: desc.tokenMode === 'header' ? 'header' : 'cookie',
+          headerName: desc.headerName ? String(desc.headerName) : null,
+          scheme: desc.scheme ? String(desc.scheme) : ''
+        };
+      },
+      noteActivePoll(result, now) {
+        if (!result) return;
+        if (result.verdict === 'ok') {
+          // Round 3: the poll threads balanceQualified through, so
+          // an unqualified replay value can prove the session
+          // without overwriting a verified balance.
+          t.noteApiPayload({ balance: result.balance, balanceQualified: result.balanceQualified === true, userId: result.userId }, now);
+        } else if (result.verdict === 'auth') {
+          // The session itself rejected the re-query: logged out.
+          // NOTE: the active poll no longer uses this branch (Fix 8:
+          // it calls notePollAuthFailure instead, which must never
+          // set explicitLogoutAt). This branch is kept for a future
+          // intercepted-auth verdict, where an observed 401 on real
+          // page traffic is stronger evidence than a replay failure.
+          t.pollAuthFailed = true;
+          t.apiProven = false;
+          t.explicitLogoutAt = now;
+        } else if (result.verdict === 'empty') {
+          t.pollEmptyCount += 1;
+        }
+      },
+      // A failed ACTIVE re-query is diagnostic ONLY (Fix 8, Grok
+      // refinement): it switches the poll channel to intercept-only
+      // (fetchMode) but must NEVER set explicitLogoutAt and must
+      // NEVER downgrade the login state — a replay can fail on a
+      // live session (stale endpoint, transient rejection), and
+      // only authoritative signals (explicit logout, auth page,
+      // intercepted proof) flip isLoggedIn. Only an explicit
+      // logout action/endpoint (noteLogout) sets explicitLogoutAt.
+      notePollAuthFailure(now) {
+        t.pollAuthFailed = true;
+      },
+      // Keep-previous-state (Fix 5, refined — no fixed count): a
+      // confirmed (token + API proof) state never flips on an
+      // uncertain scrape, at ANY document age. No N-count: the boot
+      // false repeats 2-3 ticks before the first wallet payload
+      // (which would beat a small N). Only authoritative signals
+      // break the hold: an auth page OUTSIDE grace, or an effective
+      // explicit logout. An auth page DURING grace is transient and
+      // does not break the hold (Fix 5e). A failed replay is
+      // diagnostic only (Fix 8) and never breaks the hold. Genuine
+      // session death still flips via the authoritative channels
+      // (explicit logout, or DhaniWin itself routing to /login and
+      // clearing its token).
+      hysteresisHolds(isAuthPageNow) {
+        if (isAuthPageNow && !t.graceActive) return false;
+        if (t.explicitLogoutAt !== null && (t.lastProofAt === null || t.explicitLogoutAt > t.lastProofAt)) return false;
+        return t.everConfirmed;
+      },
+      fetchMode() {
+        if (!t.endpoint) return t.apiProven ? 'intercept' : 'pending';
+        if (t.pollAuthFailed || t.pollEmptyCount >= 3) return 'intercept';
+        return 'active';
+      },
+      isLoggedIn() {
+        // A held confirmed state still counts as logged in.
+        if (t.hysteresisHolds(t.onAuthPage)) return true;
+        // An auth page forces false ONLY outside grace (Fix 5e): a
+        // transient /login flash during post-login grace must not
+        // downgrade a state the tracker otherwise holds.
+        if ((t.onAuthPage && !t.graceActive) || !t.tokenPresent || !t.apiProven) return false;
+        if (t.explicitLogoutAt !== null && (t.lastProofAt === null || t.explicitLogoutAt > t.lastProofAt)) return false;
+        return true;
+      },
+      buildState(now) {
+        let balance = null;
+        let balanceSource = null;
+        const apiFresh = t.apiBalance !== null && t.apiBalanceAt !== null && (now - t.apiBalanceAt) <= 45000;
+        if (apiFresh) { balance = t.apiBalance; balanceSource = 'api'; }
+        else if (t.domBalance !== null) { balance = t.domBalance; balanceSource = 'dom'; }
+        else if (t.apiBalance !== null) { balance = t.apiBalance; balanceSource = 'api'; }
+        // Fresh-document pending (Fix 5a, refined): a token is
+        // present but no wallet payload has proven it yet and the
+        // document is young — the state is UNKNOWN, flagged with
+        // pending:true. isLoggedIn is NEVER published as null: it
+        // carries the previous confirmed value (the hold/seed, or
+        // false when nothing was ever confirmed), and every
+        // consumer must check pending FIRST and treat a pending
+        // state as "no change", never as logged-out. Authoritative
+        // failures never pend: a non-superseded explicit logout
+        // (ties go negative, as in the verifier) or a poll 401/403
+        // still reads false with pending:false.
+        // Auth-page detection alone never clears the proven flag
+        // (Grok grace rule): noteAuthPage only flips the computed
+        // value, and during post-login grace the scrape returns
+        // before noting anything at all.
+        const logoutSuperseded = t.explicitLogoutAt === null || (t.lastProofAt !== null && t.explicitLogoutAt < t.lastProofAt);
+        const isLoggedIn = t.isLoggedIn();
+        // The age window is [0, 8000): a synthetic clock behind
+        // createdAt (unit tests with fixed timestamps) must not read
+        // as "young" — only a genuinely young document pends.
+        const docAge = now - t.createdAt;
+        const pending = !!(t.tokenPresent && !t.apiProven && logoutSuperseded && !t.pollAuthFailed && docAge >= 0 && docAge < 8000);
+        return {
+          isLoggedIn,
+          pending,
+          balance,
+          balanceSource,
+          apiProven: t.apiProven,
+          fetchMode: t.fetchMode(),
+          userId: t.userId,
+          // Addition 3: lets a late-loading parent app sync the
+          // bet-slip dock state from the regular state publish.
+          betSlipOpen: !!t.betSlipOpen
+        };
+      }
+    };
+    return t;
+  }
+  // [O101-STATE-CORE-END]
+
+  // [O101-BETSLIP-START]
+  // Bet-slip detection (pure; unit-tested against a DOM fixture).
+  // The WinGo bet slip is the bottom sheet carrying the
+  // Amount/Quantity selectors and the Total Amount row. Structurally:
+  // a VISIBLE popup/sheet/dialog (never our own HUD or modals)
+  // containing a stepper or the "Total amount" text — the same
+  // signature the bet engine itself uses to recognise the slip
+  // (findActiveBetPopup; the bet-sheet check in
+  // autoDismissInAppPopups).
+  function createBetSlipDetector(doc, win) {
+    const POPUP_SELECTOR = '.van-popup, [class*="popup"], [class*="sheet"], [class*="drawer"], [role="dialog"]';
+    function isSlipPopup(p) {
+      if (!p) return false;
+      if (p.id === 'quant-ai-hud' || p.id === 'dhaniwinAssistantModal' || p.id === 'fullScreenWinModal') return false;
+      if (typeof p.closest === 'function' && p.closest('#quant-ai-hud')) return false;
+      const style = win.getComputedStyle(p);
+      if (p.offsetParent === null || style.display === 'none' || style.visibility === 'hidden') return false;
+      if (p.querySelector('.van-stepper, input.van-stepper__input, [class*="stepper"]')) return true;
+      const text = p.innerText || p.textContent || '';
+      return text.includes('Total amount');
+    }
+    function detectBetSlipOpen() {
+      const popups = doc.querySelectorAll(POPUP_SELECTOR);
+      for (const p of popups) { if (isSlipPopup(p)) return true; }
+      return false;
+    }
+    return { detectBetSlipOpen, isSlipPopup };
+  }
+  // Edge-triggered transition watcher over the detector: check()
+  // fires onTransition exactly once per open/close transition;
+  // re-checks with no state change fire nothing.
+  function createBetSlipWatcher(detector, onTransition) {
+    let open = false;
+    return {
+      check() {
+        const next = !!detector.detectBetSlipOpen();
+        if (next === open) return false;
+        open = next;
+        onTransition(open);
+        return true;
+      },
+      isOpen() { return open; }
+    };
+  }
+  // [O101-BETSLIP-END]
+
+  const _userState = createUserStateTracker();
+  // Restore a previously learned wallet endpoint (URL + method + how
+  // the token attaches — never a token value) so active polling can
+  // start immediately on the next visit.
+  try {
+    const savedEp = localStorage.getItem(LEARNED_ENDPOINT_KEY);
+    if (savedEp) _userState.noteEndpoint(JSON.parse(savedEp));
+  } catch (e) {}
+
+  // Cross-document state seed (Fix 5b): a bare pending flag on a
+  // young document is not enough, because every new document
+  // starts with no memory — "keep previous" needs a previous to
+  // keep. On each publish the bridge persists {isLoggedIn,
+  // apiProven, ts} to sessionStorage (same tab, same origin, so
+  // the app page and the frame share it); a new document seeds
+  // its tracker from that entry when a token is present, the
+  // document is not an auth page, and ts is under ~120s old.
+  // Balance is deliberately NOT seeded: a stale figure must never
+  // present as an exact balance — only the login flags carry over,
+  // and the next real payload re-proves the figure.
+  const USER_STATE_SEED_KEY = 'o101_user_state_seed_v1';
+  try {
+    const rawSeed = sessionStorage.getItem(USER_STATE_SEED_KEY);
+    if (rawSeed) {
+      const seed = JSON.parse(rawSeed);
+      const hrefLower = (window.location.href || '').toLowerCase();
+      const onAuthPage = hrefLower.includes('/login') || hrefLower.includes('/register');
+      const tokenNow = readSessionToken();
+      const seedAge = seed && typeof seed.ts === 'number' ? Date.now() - seed.ts : -1;
+      if (!onAuthPage && tokenNow && seedAge >= 0 && seedAge < 120000 && seed.apiProven) {
+        _userState.apiProven = true;
+        _userState.lastProofAt = seed.ts;
+        _userState.tokenPresent = true;
+        if (seed.isLoggedIn) _userState.everConfirmed = true;
+      }
+    }
+  } catch (e) {}
+
+  function persistLearnedEndpoint() {
+    try {
+      if (_userState.endpoint) localStorage.setItem(LEARNED_ENDPOINT_KEY, JSON.stringify(_userState.endpoint));
+    } catch (e) {}
+  }
+
+  function readSessionToken() {
+    try {
+      return localStorage.getItem('ar_token') || localStorage.getItem('token')
+        || localStorage.getItem('accessToken') || localStorage.getItem('authorization') || null;
+    } catch (e) { return null; }
+  }
+
   // ── 0. Real Balance Engine (Network XHR/Fetch Interception + DOM Scanner) ────
+  // Wallet balance keys (Fix 9, tightened round 3): a balance number
+  // counts ONLY when found under one of these keys via the subKeys
+  // traversal below. Generic keys (amount, coin, money, realmoney)
+  // NEVER count — the old extractor scanned top-level keys in
+  // document order, so {data:{amount:0, wallet:{balance:67.45}}}
+  // returned 0 by shadowing and a nested zero wallet inside a
+  // user-info payload displayed as an exact ₹0. The presence-only
+  // gate (hasWalletSpecificKey) is DELETED: a key merely existing
+  // (e.g. `wallet` holding an object) proved nothing. The proof is
+  // now "strict extraction is non-null" — a real number under a
+  // wallet key — plus the error gate and the zero-provenance rule
+  // in onApiWalletPayload.
+  const WALLET_BALANCE_KEYS = ['balance', 'userbalance', 'user_balance', 'availablebalance', 'available_balance', 'wallet', 'userwallet', 'user_wallet', 'walletbalance', 'wallet_balance', 'totalbalance', 'total_balance'];
+
+  // Strict balance extraction (round 3): at each visited object
+  // (depth ≤ 5), a WALLET_BALANCE_KEYS key holding a finite number
+  // ≥ 0 (numeric strings coerced after stripping commas) is the
+  // value; a wallet key holding a non-number is skipped as a value
+  // but still recursed into when it is a subKey. Recursion goes
+  // ONLY through subKeys — never arbitrary keys, never
+  // amount/coin/money. Shallowest depth wins (level-first
+  // traversal), so {data:{amount:0, wallet:{balance:67.45}}}
+  // returns 67.45, {amount:0} alone returns null, and
+  // {data:{user:{wallet:{balance:0}}}} returns a strict 0 (whose
+  // display is then decided by the zero-provenance rule, not here).
   function extractBalanceFromJson(data, depth = 0) {
     if (!data || typeof data !== 'object' || depth > 5) return null;
-    
-    // 1. Direct candidate inspection
-    const primaryKeys = [
-      'balance', 'userbalance', 'user_balance', 'availablebalance', 'available_balance',
-      'wallet', 'userwallet', 'user_wallet', 'walletbalance', 'wallet_balance',
-      'money', 'usermoney', 'user_money', 'realmoney', 'real_money',
-      'coin', 'amount', 'totalbalance', 'total_balance'
-    ];
 
-    // Check at current level
+    // 1. Wallet keys at the current level, in document order.
     for (const k of Object.keys(data)) {
       const lowerKey = k.toLowerCase().replace(/[^a-z0-9_]/g, '');
-      if (primaryKeys.includes(lowerKey)) {
+      if (WALLET_BALANCE_KEYS.includes(lowerKey)) {
         const val = data[k];
         if (typeof val === 'number' && Number.isFinite(val) && val >= 0) return val;
         if (typeof val === 'string' && val.trim() !== '') {
@@ -51,7 +455,7 @@
       }
     }
 
-    // 2. Recursive inspection for nested wrappers like data, result, payload, body, info
+    // 2. Recurse ONLY through wrapper keys.
     const subKeys = ['data', 'result', 'payload', 'body', 'userInfo', 'user_info', 'user', 'wallet', 'wallets', 'member', 'account'];
     for (const sk of subKeys) {
       if (data[sk] && typeof data[sk] === 'object') {
@@ -63,8 +467,108 @@
     return null;
   }
 
+  // Normalise fetch/XHR headers (Headers instance, pair array, or
+  // plain object) into [name, value] pairs for token-attachment
+  // detection. Values are inspected in-memory only, never stored.
+  function headerPairsFrom(headers) {
+    const pairs = [];
+    try {
+      if (!headers) return pairs;
+      if (typeof headers.forEach === 'function' && typeof headers.get === 'function') {
+        headers.forEach((v, k) => pairs.push([k, v]));
+      } else if (Array.isArray(headers)) {
+        for (const p of headers) if (Array.isArray(p) && p.length >= 2) pairs.push([String(p[0]), String(p[1])]);
+      } else if (typeof headers === 'object') {
+        for (const k of Object.keys(headers)) pairs.push([k, String(headers[k])]);
+      }
+    } catch (e) {}
+    return pairs;
+  }
+
+  // Round 3 error-body gate (shared by the payload handler and the
+  // active poll — the two must never drift apart): a body code of
+  // 401/403 (coerced, so string "401"/"403" count) or a non-empty
+  // auth-flavoured message (token/unauthor/login/session/expired/
+  // re-login, regardless of the success field) means the session is
+  // NOT proven by this payload. A bare success:false with a
+  // non-auth message does NOT block: an authenticated response to a
+  // failed operation still proves the session is alive (it just
+  // carries no balance — see the failed-op decoupling below).
+  function isAuthErrorBody(data) {
+    const errCode = (data.code !== undefined ? data.code : data.status);
+    if (Number(errCode) === 401 || Number(errCode) === 403) return true;
+    const errMsg = String(data.msg || data.message || '');
+    if (errMsg !== '' && /token|unauthor|login|session|expired|re-login/i.test(errMsg)) return true;
+    return false;
+  }
+
+  // Round 3 zero-provenance test: a strict 0 counts as a DISPLAYABLE
+  // balance only when the request URL itself looks like a wallet
+  // read (contains wallet|balance). A strict 0 from a user-info /
+  // money / financial / ar-lottery URL sustains LOGIN PROOF but
+  // must not set a displayed balance, be learned, or refresh a
+  // replay — otherwise a nested zero wallet inside a user-info
+  // boot payload (the most likely false-₹0 shape) displays as an
+  // exact ₹0 and is replayed every 20s while the real wallet
+  // endpoint never fires.
+  function urlHasWalletOrBalance(url) {
+    if (typeof url !== 'string') return false;
+    const u = url.toLowerCase();
+    return u.includes('wallet') || u.includes('balance');
+  }
+
+  // One authenticated wallet/user API payload: login proof for the
+  // tracker, legacy notification for the app, and — when it came
+  // from a qualified balance-bearing request — the endpoint to learn
+  // for session-powered active re-query. Round 3 order (each step
+  // returns before any state it must not touch):
+  // (1) non-object → return; (2) strict extraction + userId; both
+  // absent → return; (3) !httpOk → return (no proof at all);
+  // (4) error body → return (no proof); (5) success === false →
+  // proof-only (balance null): a failed operation's 0 must never
+  // overwrite apiBalance; (6) otherwise balanceQualified =
+  // strictBal non-null AND (strictBal > 0 OR wallet|balance URL);
+  // noteApiPayload with balanceQualified — the tracker itself never
+  // stores a 0 (owner rule), so a qualified 0 proves login and is
+  // learned for replay but displays nothing; (7) qualified nonzero
+  // → display notification; (8) learning only when qualified AND a real
+  // request URL AND not a firebase URL; (9) publish.
+  function onApiWalletPayload(data, via, reqDesc, httpOk) {
+    if (!data || typeof data !== 'object') return;
+    const strictBal = extractBalanceFromJson(data);
+    const userId = extractUserIdFromJson(data);
+    if (strictBal === null && !userId) return;
+    if (!httpOk) return;
+    if (isAuthErrorBody(data)) return;
+    if (data.success === false) {
+      _userState.noteApiPayload({ balance: null, balanceQualified: false, userId }, Date.now());
+      publishUserState('api-payload');
+      return;
+    }
+    const balanceQualified = strictBal !== null
+      && (strictBal > 0 || urlHasWalletOrBalance(reqDesc && reqDesc.url));
+    _userState.noteApiPayload({ balance: balanceQualified ? strictBal : null, balanceQualified, userId }, Date.now());
+    if (balanceQualified) onRealBalanceDetected(strictBal, via);
+    if (balanceQualified && reqDesc && reqDesc.url && !String(reqDesc.url).includes('firebasedatabase.app')) {
+      const att = detectTokenAttachment(reqDesc.headerPairs || []);
+      _userState.noteEndpoint({
+        url: String(reqDesc.url),
+        method: reqDesc.method || 'GET',
+        tokenMode: att.mode,
+        headerName: att.headerName || null,
+        scheme: att.scheme || ''
+      });
+      persistLearnedEndpoint();
+    }
+    publishUserState('api-payload');
+  }
+
   function onRealBalanceDetected(balance, source) {
     if (typeof balance !== 'number' || isNaN(balance) || balance < 0) return;
+    // Owner rule (balance-zero fix): a 0 is never notified to the
+    // app — no DHANIWIN_REAL_BALANCE, no USER_SYNC balance. The old
+    // displayed figure stands and the search for an update goes on.
+    if (balance === 0) return;
     if (_lastScrapedBalance === balance) return;
     _lastScrapedBalance = balance;
     console.log(`%c[RealBalanceEngine] 💰 Scraped real balance: ₹${balance.toFixed(2)} (via ${source})`, 'color:#10b981;font-weight:bold;');
@@ -140,33 +644,68 @@
     return null;
   }
 
+  // Logout-URL test (Fix 5f): match whole PATH SEGMENTS only —
+  // logout, signout, loginout, or loginoff (DhaniWin's real
+  // /Home/LoginOff endpoint). The old bare-substring match fired
+  // on any URL containing 'exit' (e.g. an exit-survey link) and
+  // would nuke a live session's logout reporting; a query value
+  // mentioning logout must not match either, so only the path
+  // part (before ?/#) is segmented.
+  function isLogoutRequestUrl(urlLower) {
+    const path = String(urlLower || '').split('?')[0].split('#')[0];
+    return path.split('/').some(seg => seg === 'logout' || seg === 'signout' || seg === 'loginout' || seg === 'loginoff');
+  }
+
   // Intercept fetch & XHR to catch login/register, logout, AND wallet balance responses instantly
   (function hookNetworkAuth() {
     try {
       const origFetch = window.fetch;
       if (origFetch) {
         window.fetch = async function(...args) {
+          // Describe THIS request (raw URL for endpoint learning,
+          // method, header pairs) before it is sent.
+          let _reqDesc = null;
+          try {
+            const rawUrl = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
+            const init = (args[1] && typeof args[1] === 'object') ? args[1] : {};
+            const method = init.method || (args[0] && args[0].method) || 'GET';
+            const hdrs = init.headers || (args[0] && args[0].headers) || null;
+            _reqDesc = { url: rawUrl, method, headerPairs: headerPairsFrom(hdrs) };
+          } catch(e) {}
           try {
             const url = (typeof args[0] === 'string' ? args[0] : args[0]?.url || '').toLowerCase();
-            // Intercept logout calls immediately
-            if (url.includes('logout') || url.includes('signout') || url.includes('exit')) {
+            // Intercept logout calls immediately (path-segment match, Fix 5f)
+            if (isLogoutRequestUrl(url)) {
               console.log('[Quant AI Bridge] 🚪 Logout API call intercepted:', url);
               _wasLoggedInBefore = false;
+              try { sessionStorage.removeItem('o101_bridge_was_logged_in'); } catch (e) {}
               _justLoggedInGrace = 0;
-              try { localStorage.removeItem('ar_token'); } catch(e) {}
+              _userState.noteLogout(Date.now());
+              // NOTE: never delete 'ar_token' here. It is DhaniWin's
+              // own live session key on the shared origin; DhaniWin's
+              // logout call invalidates the session server-side and
+              // owns its token storage. Deleting it would destroy a
+              // live session on any mis-matched URL.
               try { sessionStorage.removeItem('dhaniwin_auth_grace_until'); } catch(e) {}
               notifyApp({
                 type: 'DHANIWIN_USER_LOGGED_OUT',
                 url: window.location.href,
                 reason: 'Logout API call',
+                explicit: true,
                 timestamp: Date.now()
               });
+              publishUserState('logout-api');
             }
           } catch(e) {}
 
           const response = await origFetch.apply(this, args);
           try {
             const url = (typeof args[0] === 'string' ? args[0] : args[0]?.url || '').toLowerCase();
+            if (url.includes('firebasedatabase.app')) {
+              // The bridge's own RTDB traffic (and the app's sync
+              // reads) must never be mistaken for wallet payloads.
+              return response;
+            }
             if (url.includes('login') || url.includes('register')) {
               const clone = response.clone();
               clone.json().then(data => {
@@ -175,8 +714,13 @@
                   _justLoggedInGrace = Date.now() + 15000;
                   try { sessionStorage.setItem('dhaniwin_auth_grace_until', String(_justLoggedInGrace)); } catch(e) {}
                   _wasLoggedInBefore = true;
+                  try { sessionStorage.setItem('o101_bridge_was_logged_in', '1'); } catch (e) {}
+                  _sessionOutNotified = false;
                   notifyApp({ type: 'DHANIWIN_AUTH_SUCCESS', data });
                   setTimeout(goHomeAfterLogin, 600);
+                  // A wallet endpoint may already be learned: prove the
+                  // session actively instead of waiting for page traffic.
+                  setTimeout(() => { activeWalletPoll(); }, 900);
                 }
               }).catch(() => {});
             }
@@ -185,10 +729,7 @@
             if (url.includes('wallet') || url.includes('user') || url.includes('balance') || url.includes('money') || url.includes('financial') || url.includes('ar-lottery')) {
               const clone = response.clone();
               clone.json().then(data => {
-                const bal = extractBalanceFromJson(data);
-                if (bal !== null) {
-                  onRealBalanceDetected(bal, 'fetch-api');
-                }
+                onApiWalletPayload(data, 'fetch-api', _reqDesc, response.ok);
               }).catch(() => {});
             }
           } catch(e) {}
@@ -201,20 +742,32 @@
     try {
       const origOpen = XMLHttpRequest.prototype.open;
       const origSend = XMLHttpRequest.prototype.send;
+      const origSetHeader = XMLHttpRequest.prototype.setRequestHeader;
       XMLHttpRequest.prototype.open = function(method, url, ...rest) {
         this._reqUrl = (typeof url === 'string') ? url : '';
+        this._reqMethod = method || 'GET';
+        this._o101HeaderPairs = [];
         return origOpen.call(this, method, url, ...rest);
+      };
+      XMLHttpRequest.prototype.setRequestHeader = function(name, value) {
+        try {
+          if (!Array.isArray(this._o101HeaderPairs)) this._o101HeaderPairs = [];
+          this._o101HeaderPairs.push([String(name), String(value)]);
+        } catch(e) {}
+        return origSetHeader.call(this, name, value);
       };
       XMLHttpRequest.prototype.send = function(...args) {
         this.addEventListener('load', function() {
           try {
             const urlLower = (this._reqUrl || '').toLowerCase();
+            if (urlLower.includes('firebasedatabase.app')) return;
             if (urlLower.includes('wallet') || urlLower.includes('user') || urlLower.includes('balance') || urlLower.includes('money') || urlLower.includes('financial')) {
               const parsed = JSON.parse(this.responseText);
-              const bal = extractBalanceFromJson(parsed);
-              if (bal !== null) {
-                onRealBalanceDetected(bal, 'xhr-api');
-              }
+              onApiWalletPayload(parsed, 'xhr-api', {
+                url: this._reqUrl,
+                method: this._reqMethod || 'GET',
+                headerPairs: this._o101HeaderPairs || []
+              }, this.status >= 200 && this.status < 300);
             }
           } catch(e) {}
         });
@@ -235,15 +788,21 @@
         if (isLogout) {
           console.log('[Quant AI Bridge] 🚪 User clicked logout button in DhaniWin UI');
           _wasLoggedInBefore = false;
+          try { sessionStorage.removeItem('o101_bridge_was_logged_in'); } catch (e) {}
           _justLoggedInGrace = 0;
-          try { localStorage.removeItem('ar_token'); } catch(e) {}
+          _userState.noteLogout(Date.now());
+          // NOTE: never delete 'ar_token' here — it is DhaniWin's own
+          // live session key on the shared origin; DhaniWin's logout
+          // owns its token. Reporting the logout is enough.
           try { sessionStorage.removeItem('dhaniwin_auth_grace_until'); } catch(e) {}
           notifyApp({
             type: 'DHANIWIN_USER_LOGGED_OUT',
             url: window.location.href,
             reason: 'User clicked logout button',
+            explicit: true,
             timestamp: Date.now()
           });
+          publishUserState('logout-click');
         }
       } catch(e) {}
     }, true);
@@ -409,8 +968,16 @@
     '5m':  '/WinGo/WinGo_5M'
   };
 
-  // ── 4. Post-login routing (NO forced redirects — user may browse any DhaniWin page) ──
+  // ── 4. Post-login routing (root-canonical since round 3 — user may browse any DhaniWin page) ──
   // After a fresh login/register success, land on the DhaniWin home page once.
+  // Round 3 — ROOT-CANONICAL (replaces the round-2 prefix-aware
+  // logic; do not leave both): home is always origin + '/'.
+  // Origin-relative construction is correct on the worker root
+  // and on direct dhaniwin44.com loads alike (pivot default).
+  // The guard (href must
+  // contain /login or /register) means this fires at most once per
+  // login, and origin-relative construction means it can never
+  // escape to a non-worker host.
   function goHomeAfterLogin() {
     const href = window.location.href.toLowerCase();
     if (href.includes('/login') || href.includes('/register')) {
@@ -453,11 +1020,44 @@
   }
 
   // ── 5. Scrape User Session & Wallet Balance ──────────────────────────────────
+  // LOGIN_DETECTED is edge-triggered per SESSION, not per document
+  // (Fix 5c): the flag persists in sessionStorage, so a fresh
+  // document does not re-send LOGIN_DETECTED, re-arm the app grace,
+  // or re-run the replay — which used to keep the grace
+  // permanently on and defeat real logout detection. Every path
+  // that clears the flag also clears the stored key, so a genuine
+  // re-login after a logout still fires exactly once.
   let _wasLoggedInBefore = false;
+  try { _wasLoggedInBefore = sessionStorage.getItem('o101_bridge_was_logged_in') === '1'; } catch (e) {}
+  // LOGGED_OUT fires once per transition (Fix 5g): while the page
+  // sits on /login after grace, the 1.5s tick must not re-emit it.
+  let _sessionOutNotified = false;
+  // Late-injection recovery (pivot): native APK injection lands
+  // after page load, so the fetch hook may have missed the SPA boot
+  // calls and activeWalletPoll has no learned endpoint to replay.
+  // When a scrape tick finds a live token with no learned endpoint
+  // and no API proof yet, nudge the SPA to re-fetch once (refresh
+  // button click — the same nudge the app's sync request uses) and
+  // re-run poll + scrape after the refetch lands. Once per
+  // document; never a login proof by itself — proof still comes
+  // only from an intercepted/poll payload through the strict gate,
+  // and the state stays pending/unknown until then.
+  let _lateInjectionRecoveryAttempted = false;
+  function findWalletRefreshButton() {
+    return document.querySelector('.van-icon-replay, [class*="refresh"], [class*="reload"], .wallet-refresh, .refresh-btn');
+  }
+  function maybeRecoverLateInjection() {
+    if (_lateInjectionRecoveryAttempted) return false;
+    _lateInjectionRecoveryAttempted = true;
+    if (_userState.endpoint) return false;
+    try { const btn = findWalletRefreshButton(); if (btn) btn.click(); } catch (e) {}
+    setTimeout(() => { activeWalletPoll(); scrapeUserSession(); }, 1500);
+    return true;
+  }
+
   function scrapeUserSession() {
     const href = window.location.href.toLowerCase();
     const isAuthPage = href.includes('/login') || href.includes('/register');
-    const isWinGoPage = href.includes('/wingo/');
 
     // Check for explicit "Login" / "Register" prompts in header or navigation
     const hasAuthPrompts = Array.from(document.querySelectorAll('button, a, span, div')).some(el => {
@@ -468,26 +1068,64 @@
     let token = null;
     if (!isAuthPage) {
       try { token = localStorage.getItem('ar_token'); } catch(e) {}
-    } else {
-      try { localStorage.removeItem('ar_token'); } catch(e) {}
     }
+    // NOTE: on an auth page the token is simply not READ for login
+    // detection — it is never deleted. The frame can land on /login
+    // transiently (redirects, SPA flashes) while a session is still
+    // alive, and deleting here would destroy that live session.
 
     let balance = _lastScrapedBalance;
     if (balance === null) {
       balance = scrapeRealBalanceFromDOM();
       if (balance !== null) {
         _lastScrapedBalance = balance;
+        // Page-scraped figure: recorded as DOM provenance, never as
+        // an exact (API) balance.
+        _userState.noteDomBalance(balance, Date.now());
       }
     }
 
     // A user is only logged in if:
     // 1. Not on an auth page (/login, /register)
     // 2. AND no visible login prompt is displayed
-    // 3. AND (balance is confirmed, or token exists on WinGo page)
-    const isLoggedIn = !isAuthPage && !hasAuthPrompts && (balance !== null || (token !== null && isWinGoPage));
+    // 3. AND (balance is confirmed, or token exists)
+    // (Fix 5: the old WinGo-page requirement falsely reported
+    // session-out on non-WinGo pages with balance still pending.)
+    const rawLoggedIn = !isAuthPage && !hasAuthPrompts && (balance !== null || token !== null);
+    // Effective post-login grace for this tick (bridge grace +
+    // stored grace, whichever runs longer). The tracker is told
+    // before any state is computed, so an auth-page flash during
+    // grace neither breaks the hold nor forces false (Fix 5e).
+    let storedGrace = 0;
+    try { storedGrace = Number(sessionStorage.getItem('dhaniwin_auth_grace_until')) || 0; } catch (e) {}
+    const effectiveGrace = Math.max(_justLoggedInGrace, storedGrace);
+    _userState.noteGrace(Date.now() < effectiveGrace);
+    // Keep-previous-state (Fix 5, refined): a merely-uncertain scrape
+    // must never flip a confirmed state to logged-out, at ANY
+    // document age — no fixed count of failed validations. The
+    // effective value holds the previous confirmed state through
+    // transient failures; only an authoritative signal flips it
+    // (auth page after grace, API 401/403, explicit logout).
+    // During grace the function returns early below, so no
+    // downgrade notification can be observed inside grace (Grok
+    // grace rule: only an explicit logout may clear proven state
+    // during grace; auth-page detection alone never clears the
+    // apiProven flag).
+    let isLoggedIn = rawLoggedIn || _userState.hysteresisHolds(isAuthPage);
+    // An explicit logout that no later proof superseded keeps the
+    // scrape logged-out even if DhaniWin's token lingers for a
+    // tick before it clears it — otherwise the next tick
+    // re-detects login from the stale token and the app flaps
+    // back to logged-in right after a real logout. A later proof
+    // (wallet payload after a re-login) supersedes automatically.
+    if (_userState.explicitLogoutAt !== null && (_userState.lastProofAt === null || _userState.explicitLogoutAt > _userState.lastProofAt)) {
+      isLoggedIn = false;
+    }
 
     if (isLoggedIn && !_wasLoggedInBefore) {
       _wasLoggedInBefore = true;
+      try { sessionStorage.setItem('o101_bridge_was_logged_in', '1'); } catch (e) {}
+      _sessionOutNotified = false;
       _justLoggedInGrace = Date.now() + 15000;
       try { sessionStorage.setItem('dhaniwin_auth_grace_until', String(_justLoggedInGrace)); } catch(e) {}
       notifyApp({
@@ -496,32 +1134,60 @@
         interval: activeTimeframe,
         timestamp: Date.now()
       });
+      // Login just detected: actively prove it against the learned
+      // wallet endpoint instead of waiting for incidental traffic.
+      setTimeout(() => { activeWalletPoll(); }, 400);
     } else if (!isLoggedIn && (_wasLoggedInBefore || isAuthPage)) {
       // Do not fire session-out during post-login grace transition
-      let storedGrace = 0;
-      try { storedGrace = Number(sessionStorage.getItem('dhaniwin_auth_grace_until')) || 0; } catch(e) {}
-      const effectiveGrace = Math.max(_justLoggedInGrace, storedGrace);
       if (Date.now() < effectiveGrace) {
         return;
       }
       _wasLoggedInBefore = false;
-      try { localStorage.removeItem('ar_token'); } catch(e) {}
-      notifyApp({
-        type: 'DHANIWIN_USER_LOGGED_OUT',
-        url: window.location.href,
-        reason: isAuthPage ? 'On login page' : 'Logged out on DhaniWin',
-        timestamp: Date.now()
-      });
+      try { sessionStorage.removeItem('o101_bridge_was_logged_in'); } catch (e) {}
+      // NOTE: report the session-out only — never delete 'ar_token'.
+      // A scrape misread (slow load, transient auth prompt) must not
+      // destroy a live session; the next tick re-detects login if
+      // the session is actually alive. Heuristic logout: explicit
+      // is false, so the app never zeroes its grace on this (Fix
+      // 5d) — only a real logout action/endpoint may do that.
+      // Emitted once per transition (Fix 5g), not every tick.
+      if (!_sessionOutNotified) {
+        _sessionOutNotified = true;
+        notifyApp({
+          type: 'DHANIWIN_USER_LOGGED_OUT',
+          url: window.location.href,
+          reason: isAuthPage ? 'On login page' : 'Logged out on DhaniWin',
+          explicit: false,
+          timestamp: Date.now()
+        });
+      }
     }
+
+    // Feed the truth tracker (legacy USER_SYNC below keeps its exact
+    // legacy semantics for the app's own UI; the published user state
+    // is the strict, API-proven layer).
+    _userState.noteToken(!isAuthPage && !!token, Date.now());
+    _userState.noteAuthPage(isAuthPage);
+    const tickState = publishUserState('tick');
 
     notifyApp({
       type: 'DHANIWIN_USER_SYNC',
-      token: isLoggedIn ? token : null,
+      tokenPresent: isLoggedIn ? !!token : false,
       balance: balance,
       isLoggedIn: isLoggedIn,
+      // Pending (Fix 5a): while the state is unproven, the app
+      // must treat this sync as "no change", never as logged-out.
+      pending: !!(tickState && tickState.pending),
       url: window.location.href,
       timestamp: Date.now()
     });
+    // Late-injection recovery: a live token with no learned endpoint
+    // and no API proof yet means the hook missed the boot calls —
+    // nudge once (per document) so the next SPA fetch can be
+    // intercepted and learned. A DOM balance, when scraped, stays
+    // 'from page' provenance; an exact balance still needs the
+    // strict API gate, and a missing proof stays unknown, never 0.
+    if (token && !_userState.endpoint && !_userState.apiProven) maybeRecoverLateInjection();
   }
   // Run immediately and every 1.5s for instant login/logout responsiveness
   scrapeUserSession();
@@ -939,6 +1605,12 @@
       const targetPath = INTERVAL_URL_MAP[msg.timeframe] || '/WinGo/WinGo_30S';
       if (!window.location.href.toLowerCase().includes(targetPath.toLowerCase())) {
         console.log('[Quant AI Bridge] Switching interval page to:', targetPath);
+        // Round 3 — ROOT-CANONICAL (replaces the round-2
+        // prefix-aware logic; do not leave both): the timeframe
+        // page lives at origin + targetPath (targetPath is
+        // root-absolute), on worker-root and direct hosts alike.
+        // The href guard above already handles legacy prefixed
+        // pages by falling through to switchTimerTab.
         window.location.href = window.location.origin + targetPath;
       } else {
         switchTimerTab(msg.timeframe);
@@ -947,10 +1619,17 @@
       executeRealBet(msg);
     } else if (msg.type === 'DHANIWIN_REQUEST_SYNC') {
       console.log('[Quant AI Bridge] 🔄 Sync requested by app — probing wallet API & DOM...');
-      const refreshBtn = document.querySelector('.van-icon-replay, [class*="refresh"], [class*="reload"], .wallet-refresh, .refresh-btn');
+      const refreshBtn = findWalletRefreshButton();
       if (refreshBtn) simulateClick(refreshBtn);
       const domBal = scrapeRealBalanceFromDOM();
-      if (domBal !== null) onRealBalanceDetected(domBal, 'dom-sync');
+      if (domBal !== null) {
+        _userState.noteDomBalance(domBal, Date.now());
+        onRealBalanceDetected(domBal, 'dom-sync');
+      }
+      // Actively re-query the learned wallet endpoint too — the app
+      // asked for a sync, so give it the API-proven answer, not just
+      // whatever the page happens to show.
+      activeWalletPoll();
       scrapeUserSession();
     } else if (msg.type === 'DHANIWIN_REQUEST_AUTH_CHECK') {
       console.log('[Quant AI Bridge] 🔍 Auth check requested by app...');
@@ -993,6 +1672,169 @@
 
     return { loggedIn: false, reason: 'No active session token or member profile detected' };
   }
+
+  // ── 12. User State Engine: publish + session-powered active polling ──
+  // The published state is how the app KNOWS login + exact balance
+  // instead of guessing: it goes out on every transport the bridge has
+  // (BroadcastChannel + window postMessage via notifyApp, and Firebase
+  // RTDB /user_state following the codebase's plain-.json convention —
+  // written on change plus a 15s heartbeat so its freshness is
+  // provable). The state NEVER contains the session token.
+  //
+  // ACTIVE POLLING: interception alone is passive — it only learns
+  // the balance when the page happens to call the wallet API. So the
+  // bridge also RE-QUERIES the learned balance-bearing endpoint from
+  // inside this page, with the user's already-logged-in session (the
+  // same data path Telegram bots use with an account token, minus any
+  // password: no credential is ever collected or stored — the query
+  // rides the live session/cookies of this very page, and when the
+  // token rides in a header it is read fresh from page storage at
+  // query time and never leaves this page's context). A successful
+  // authenticated response is both the exact balance AND the login
+  // proof. A 401/403/auth-error response is a logged-out signal and
+  // drops the bridge back to interception-only until a fresh
+  // intercepted wallet call succeeds again.
+  let _userStateSeq = 0;
+  let _lastRtdbPutKey = '';
+  let _lastRtdbPutAt = 0;
+
+  function publishUserState(reason) {
+    try {
+      const st = _userState.buildState(Date.now());
+      const payload = { type: 'DHANIWIN_USER_STATE', ...st, ts: Date.now(), seq: ++_userStateSeq };
+      notifyApp(payload);
+      // Cross-document seed (Fix 5b): persist the login flags for
+      // the next document in this tab session. Balance is not
+      // seeded (see the seed block above).
+      try { sessionStorage.setItem(USER_STATE_SEED_KEY, JSON.stringify({ isLoggedIn: st.isLoggedIn, apiProven: st.apiProven, ts: Date.now() })); } catch (e) {}
+      const key = JSON.stringify([st.isLoggedIn, st.balance, st.balanceSource, st.apiProven, st.fetchMode, st.userId, st.betSlipOpen]);
+      const now = Date.now();
+      if (key !== _lastRtdbPutKey || now - _lastRtdbPutAt >= 15000) {
+        _lastRtdbPutKey = key;
+        _lastRtdbPutAt = now;
+        rtdbPutUserState(st, payload.ts, payload.seq);
+      }
+      return st;
+    } catch (e) { return null; }
+  }
+
+  function rtdbPutUserState(st, ts, seq) {
+    if (!_nativeFetch) return;
+    try {
+      _nativeFetch(`${RTDB_BASE_URL}/user_state.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...st, ts, seq })
+      }).catch(() => {});
+    } catch (e) {}
+  }
+
+  let _activePollInFlight = false;
+  async function activeWalletPoll() {
+    const desc = _userState.endpoint;
+    if (!desc || !_nativeFetch || _activePollInFlight) return;
+    if (_userState.pollAuthFailed) return; // intercept-only until a fresh intercepted success re-arms
+    // Fix 8 (Grok refinement): replay only GET endpoints. Header
+    // mode requires a header name (and a live token, checked below);
+    // cookie mode MAY replay with credentials included — the cookie
+    // IS the credential there, so disabling cookie-mode replay
+    // outright would drop the poll for cookie sessions. A POST
+    // replay sends no body and is never valid. In BOTH modes a
+    // failed replay is diagnostic only (notePollAuthFailure): it
+    // never sets explicitLogoutAt and never downgrades the login
+    // state.
+    if (desc.method !== 'GET' || (desc.tokenMode === 'header' && !desc.headerName)) return;
+    _activePollInFlight = true;
+    try {
+      const headers = {};
+      if (desc.tokenMode === 'header' && desc.headerName) {
+        const token = readSessionToken();
+        if (!token) return; // no live session to power the query
+        headers[desc.headerName] = (desc.scheme ? desc.scheme + ' ' : '') + token;
+      }
+      const resp = await _nativeFetch(desc.url, { method: desc.method, headers, credentials: 'include' });
+      if (resp.status === 401 || resp.status === 403) {
+        // Failed replay: intercept-only from here, never a logout.
+        _userState.notePollAuthFailure(Date.now());
+        publishUserState('poll-auth-fail');
+        return;
+      }
+      let data = null;
+      try { data = await resp.json(); } catch (e) {}
+      if (data && typeof data === 'object') {
+        // Round 3: the SAME fixed error gate as the payload handler
+        // (coerced codes, auth message regardless of success) —
+        // a failed replay is diagnostic only, never a logout.
+        if (isAuthErrorBody(data)) {
+          _userState.notePollAuthFailure(Date.now());
+          publishUserState('poll-auth-fail');
+          return;
+        }
+        // Round 3 failed-op decoupling: success:false (non-auth)
+        // proves the session is alive but carries no balance — it
+        // must not overwrite a verified balance via the poll.
+        if (data.success === false) {
+          _userState.noteActivePoll({ verdict: 'ok', balance: null, balanceQualified: false, userId: extractUserIdFromJson(data) }, Date.now());
+          publishUserState('poll-ok');
+          return;
+        }
+        // Round 3: strict extraction + the same zero-provenance
+        // test as the payload handler, against the learned
+        // endpoint's own URL. An unqualified replay value (e.g. a
+        // user-info endpoint returning strict 0) proves the
+        // session but refreshes NO displayed balance.
+        const strictBal = extractBalanceFromJson(data);
+        const userId = extractUserIdFromJson(data);
+        if (strictBal !== null || userId) {
+          const balanceQualified = strictBal !== null
+            && (strictBal > 0 || urlHasWalletOrBalance(desc.url));
+          _userState.noteActivePoll({ verdict: 'ok', balance: balanceQualified ? strictBal : null, balanceQualified, userId }, Date.now());
+          if (balanceQualified) onRealBalanceDetected(strictBal, 'active-poll');
+          publishUserState('poll-ok');
+          return;
+        }
+      }
+      _userState.noteActivePoll({ verdict: 'empty' }, Date.now());
+      publishUserState('poll-empty');
+    } catch (e) {
+      // Network error is NOT a logout signal; interception remains
+      // the source until the endpoint answers again.
+    } finally {
+      _activePollInFlight = false;
+    }
+  }
+
+  setInterval(() => publishUserState('heartbeat'), 15000);
+  setInterval(() => { activeWalletPoll(); }, 20000);
+  setTimeout(() => publishUserState('init'), 1200);
+
+  // ── Bet-slip watcher → parent dock auto-hide (Addition 3) ──────
+  // The slip lives in THIS page; the parent app's bottom dock floats
+  // over its Total/Cancel row. A debounced MutationObserver watches
+  // for the slip's open/close transitions and posts exactly one
+  // O101_BETSLIP message per transition; the current state also
+  // rides the regular state publish (betSlipOpen) so a late-loading
+  // parent can sync. A slow interval backstop catches transitions
+  // that mutate nothing observable.
+  const _betSlipDetector = createBetSlipDetector(document, window);
+  const _betSlipWatcher = createBetSlipWatcher(_betSlipDetector, (open) => {
+    _userState.betSlipOpen = open;
+    try { notifyApp({ type: 'O101_BETSLIP', open, ts: Date.now() }); } catch (e) {}
+    publishUserState('betslip');
+  });
+  let _betSlipDebounce = null;
+  function checkBetSlip() {
+    try { _betSlipWatcher.check(); } catch (e) {}
+  }
+  try {
+    const _betSlipObserver = new MutationObserver(() => {
+      if (_betSlipDebounce) return;
+      _betSlipDebounce = setTimeout(() => { _betSlipDebounce = null; checkBetSlip(); }, 150);
+    });
+    _betSlipObserver.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
+  } catch (e) {}
+  setInterval(checkBetSlip, 2000);
+  setTimeout(checkBetSlip, 1500);
 
   if (channel) channel.onmessage = (ev) => handleIncomingOrder(ev.data);
   window.addEventListener('message', (ev) => handleIncomingOrder(ev.data));

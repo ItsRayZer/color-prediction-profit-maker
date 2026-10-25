@@ -9,7 +9,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   
   <!-- FontAwesome & SF Pro Font Definitions -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Axofy theme fonts: Plus Jakarta Sans (UI) + Instrument Serif (display) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   
   <style>
     /* ==========================================================================
@@ -19,30 +22,30 @@
        ========================================================================== */
     :root {
       --ios-amoled-bg: #000000;
-      --ios-surface-glass: rgba(28, 28, 30, 0.72);
-      --ios-surface-pressed: rgba(44, 44, 46, 0.65);
-      --ios-hairline: rgba(255, 255, 255, 0.08);
-      --ios-separator: rgba(84, 84, 88, 0.36);
+      --ios-surface-glass: rgba(18, 18, 20, 0.88);
+      --ios-surface-pressed: rgba(32, 32, 36, 0.75);
+      --ios-hairline: rgba(255, 255, 255, 0.10);
+      --ios-separator: rgba(255, 255, 255, 0.08);
       
-      /* Apple Standard System Colors (iOS 18 Dark Mode) */
-      --apple-blue: #007aff;
-      --apple-blue-tint: #0a84ff;
-      --apple-green: #34c759;
-      --apple-green-tint: #30d158;
-      --apple-indigo: #5856d6;
-      --apple-indigo-tint: #5e5ce6;
-      --apple-orange: #ff9500;
-      --apple-orange-tint: #ff9f0a;
-      --apple-pink: #ff2d55;
-      --apple-pink-tint: #ff375f;
-      --apple-purple: #af52de;
-      --apple-purple-tint: #bf5af2;
-      --apple-red: #ff3b30;
+      /* Pure AMOLED Black & White Minimalist Palette */
+      --apple-blue: #ffffff;
+      --apple-blue-tint: #ffffff;
+      --apple-green: #ffffff;
+      --apple-green-tint: #ffffff;
+      --apple-indigo: #ffffff;
+      --apple-indigo-tint: #ffffff;
+      --apple-orange: #ffffff;
+      --apple-orange-tint: #ffffff;
+      --apple-pink: #ffffff;
+      --apple-pink-tint: #ffffff;
+      --apple-purple: #ffffff;
+      --apple-purple-tint: #ffffff;
+      --apple-red: #ffffff;
       --apple-red-tint: #ff453a;
-      --apple-teal: #30b0c7;
-      --apple-teal-tint: #64d2ff;
-      --apple-yellow: #ffcc00;
-      --apple-yellow-tint: #ffd60a;
+      --apple-teal: #ffffff;
+      --apple-teal-tint: #ffffff;
+      --apple-yellow: #ffffff;
+      --apple-yellow-tint: #ffffff;
       --apple-gray: #8e8e93;
       --apple-gray-2: #636366;
       --apple-gray-3: #48484a;
@@ -52,9 +55,9 @@
 
       /* Labels */
       --label-primary: #ffffff;
-      --label-secondary: rgba(235, 235, 245, 0.60);
-      --label-tertiary: rgba(235, 235, 245, 0.30);
-      --label-quaternary: rgba(235, 235, 245, 0.18);
+      --label-secondary: rgba(255, 255, 255, 0.65);
+      --label-tertiary: rgba(255, 255, 255, 0.35);
+      --label-quaternary: rgba(255, 255, 255, 0.18);
     }
 
     * {
@@ -824,6 +827,261 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
   </style>
+
+  <style>
+    /* ════════════════════════════════════════════════════════════════
+       AXOFY THEME (2026-10-24 redesign) — layered over the base iOS
+       stylesheet above; every component class, control id and
+       localStorage key is unchanged. Tokens: bg #040405, text
+       #f4f4f6, muted #8b8b93, gold #ffd166. MATTE glass only — no
+       shine/gloss/specular effects anywhere in this block.
+       ════════════════════════════════════════════════════════════════ */
+    :root {
+      --ios-amoled-bg: #040405;
+      --ios-surface-glass: rgba(255, 255, 255, 0.04);
+      --ios-surface-pressed: rgba(255, 255, 255, 0.07);
+      --ios-hairline: rgba(255, 255, 255, 0.09);
+      --ios-separator: rgba(255, 255, 255, 0.07);
+      --label-primary: #f4f4f6;
+      --label-secondary: #8b8b93;
+      --label-tertiary: rgba(244, 244, 246, 0.38);
+      --axofy-gold: #ffd166;
+      --axofy-panel: rgba(255, 255, 255, 0.04);
+      --axofy-border: rgba(255, 255, 255, 0.09);
+    }
+
+    html, body {
+      background-color: #040405;
+      color: #f4f4f6;
+      font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "SF Pro Text", Helvetica, Arial, sans-serif;
+      padding-bottom: calc(108px + env(safe-area-inset-bottom, 20px));
+    }
+
+    /* No ambient glow in the matte theme. */
+    .liquid-mesh { display: none; }
+
+    .ios-navbar {
+      background: rgba(4, 4, 5, 0.86) !important;
+      border-bottom: 0.5px solid var(--axofy-border);
+    }
+    .ios-nav-title { font-family: "Plus Jakarta Sans", sans-serif; }
+
+    .ios-large-title {
+      font-family: "Instrument Serif", Georgia, serif;
+      font-weight: 400;
+      letter-spacing: 0;
+      color: #f4f4f6;
+    }
+    .ios-subtitle-pill {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--axofy-border);
+      color: #8b8b93;
+    }
+
+    /* Matte glass panels, 22px radius, no specular inset highlights. */
+    .ios-inset-group {
+      background: var(--axofy-panel);
+      border: 1px solid var(--axofy-border);
+      border-radius: 22px;
+      box-shadow: none;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+    .ios-bronze-card {
+      background: rgba(255, 209, 102, 0.05);
+      border: 1px solid rgba(255, 209, 102, 0.22);
+      border-radius: 22px;
+      box-shadow: none;
+    }
+    .ios-guide-box {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--axofy-border);
+      border-radius: 16px;
+      box-shadow: none;
+    }
+
+    .ios-group-title {
+      color: #8b8b93;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+    }
+    .ios-group-title .ios-tag-micro { letter-spacing: 0.02em; }
+    .ios-group-footer { color: #8b8b93; }
+    .ios-label-primary { color: #f4f4f6; }
+    .ios-label-secondary { color: #8b8b93; }
+    .ios-value-label { color: #f4f4f6; }
+    .ios-chevron { color: rgba(244, 244, 246, 0.35); }
+
+    /* Icon tiles: muted matte colour, thin border, no gloss/shadow. */
+    .ios-squircle, .ios-icon-box {
+      box-shadow: none;
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      filter: saturate(0.45);
+    }
+
+    /* Icons (owner order 2026-10-24): minimal monochrome line icons.
+       Every settings icon is an inline SVG (.o101-ico) drawn with
+       currentColor at a single stroke weight; tiles lose their colour
+       (matte white-alpha, near-white glyph). No coloured tiles, no
+       icon font, no emoji icons anywhere on this page. */
+    .o101-ico {
+      width: 1em; height: 1em; flex: none;
+      display: inline-block; vertical-align: -0.14em;
+    }
+    .ios-squircle, .ios-icon-box {
+      background: rgba(255, 255, 255, 0.06) !important;
+      color: #f4f4f6; filter: none;
+    }
+    .ios-search-shell .ios-search-btn-icon { background: rgba(255, 255, 255, 0.08); color: #f4f4f6; }
+    .ios-guide-box .o101-ico { color: #f4f4f6; }
+    #appleToastIcon { color: #f4f4f6; display: inline-flex; }
+    .o101-spin { animation: o101-spin 0.9s linear infinite; }
+    @keyframes o101-spin { to { transform: rotate(360deg); } }
+
+    /* Tags: matte tints. */
+    .ios-tag-micro { box-shadow: none; }
+    .tag-active { background: rgba(255, 209, 102, 0.14); color: var(--axofy-gold); border-color: rgba(255, 209, 102, 0.30); }
+    .tag-neutral { background: rgba(255, 255, 255, 0.07); color: #b9b9c0; }
+    .tag-warning { background: rgba(255, 159, 10, 0.13); color: #ff9f0a; }
+    .tag-danger { background: rgba(255, 69, 58, 0.13); color: #ff6961; }
+    .ios-scheme-badge {
+      background: rgba(255, 255, 255, 0.07);
+      color: #b9b9c0;
+      border: 1px solid var(--axofy-border);
+      box-shadow: none;
+    }
+
+    /* Switches: gold when on. */
+    .ios-switch-track { background-color: rgba(255, 255, 255, 0.16); }
+    .ios-switch input:checked + .ios-switch-track { background-color: var(--axofy-gold); }
+    .ios-switch input:checked + .ios-switch-track .ios-switch-thumb { background-color: #ffffff; }
+
+    /* Pills, pickers, chips, segmented: matte. */
+    .ios-picker-pill {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--axofy-border);
+      color: #f4f4f6;
+      box-shadow: none;
+      font-family: "Plus Jakarta Sans", sans-serif;
+    }
+    .ios-picker-pill option { background: #121214; color: #f4f4f6; }
+    .ios-segmented {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--axofy-border);
+      box-shadow: none;
+    }
+    .ios-seg-btn { color: #8b8b93; box-shadow: none; }
+    .ios-seg-btn.active { background: var(--axofy-gold); color: #161616; }
+    .ios-sound-chip {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--axofy-border);
+      color: #f4f4f6;
+      box-shadow: none;
+    }
+
+    /* Buttons: matte gold primary. */
+    .ios-gold-btn {
+      background: var(--axofy-gold);
+      color: #161616;
+      box-shadow: none;
+    }
+    .ios-action-btn.primary {
+      background: var(--axofy-gold);
+      color: #161616;
+      box-shadow: none;
+    }
+    .ios-action-btn.secondary {
+      background: rgba(255, 255, 255, 0.06);
+      color: #f4f4f6;
+      border: 1px solid var(--axofy-border);
+      box-shadow: none;
+    }
+    .ios-modal-btn {
+      background: var(--axofy-gold);
+      color: #161616;
+      box-shadow: none;
+    }
+
+    /* Sheets + subpage + inputs. */
+    .ios-sheet-card {
+      background: #0a0a0c;
+      border: 1px solid var(--axofy-border);
+      border-bottom: none;
+      border-radius: 26px 26px 0 0;
+      box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.6);
+    }
+    .ios-subpage { background: #040405; }
+    .ios-endpoint-input {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--axofy-border);
+      border-radius: 14px;
+      color: #f4f4f6;
+      font-family: "Plus Jakarta Sans", sans-serif;
+      box-shadow: none;
+    }
+    .ios-endpoint-input::placeholder { color: rgba(244, 244, 246, 0.30); }
+    #appleToast {
+      background: rgba(16, 16, 19, 0.92);
+      border: 1px solid var(--axofy-border);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    /* ── Floating search pill (Apple style, matte) ──────────────────
+       Collapsed: a compact frosted pill floating bottom-right above
+       the safe area — it overlays nothing it can block for long, and
+       the page's bottom padding lets every section scroll clear of
+       it. Tapping expands it into a full-width field anchored to
+       both margins; typing filters live; × clears (or collapses when
+       empty); Esc collapses and resets. */
+    .ios-search-shell {
+      position: fixed;
+      top: auto;
+      left: auto;
+      right: 16px;
+      bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+      width: 124px;
+      height: 46px;
+      margin: 0;
+      z-index: 45;
+      background: rgba(18, 18, 21, 0.86);
+      backdrop-filter: blur(22px) saturate(150%);
+      -webkit-backdrop-filter: blur(22px) saturate(150%);
+      border: 1px solid rgba(255, 255, 255, 0.13);
+      border-radius: 999px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+    }
+    .ios-search-shell:hover {
+      transform: none;
+      border-color: rgba(255, 255, 255, 0.20);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+    }
+    .ios-search-shell:focus-within {
+      border-color: rgba(255, 209, 102, 0.55);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+      background: rgba(18, 18, 21, 0.94);
+    }
+    .ios-search-btn-icon {
+      background: rgba(255, 209, 102, 0.15);
+      color: var(--axofy-gold);
+      box-shadow: none;
+    }
+    .ios-search-collapsed-label {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #b9b9c0;
+      letter-spacing: -0.1px;
+    }
+    .ios-search-shell .ios-search-input { display: none; cursor: text; }
+    .ios-search-shell.expanded { left: 16px; width: auto; }
+    .ios-search-shell.expanded .ios-search-input { display: block; }
+    .ios-search-shell.expanded .ios-search-collapsed-label { display: none; }
+    .ios-search-input { color: #f4f4f6; font-family: "Plus Jakarta Sans", sans-serif; }
+    .ios-search-input::placeholder { color: #8b8b93; }
+    .ios-search-clear { background: rgba(255, 255, 255, 0.14); box-shadow: none; }
+  </style>
 </head>
 
 <body>
@@ -832,20 +1090,17 @@
 
   <!-- Dynamic Island Style Floating Toast -->
   <div id="appleToast">
-    <i id="appleToastIcon" class="fa-solid fa-check text-[#30d158]"></i>
+    <span id="appleToastIcon"><svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
     <span id="appleToastText">Settings updated</span>
   </div>
 
-  <!-- STICKY TOP NAVIGATION BAR (Back & Done) -->
-  <header id="iosHeader" class="ios-navbar">
-    <a href="/mobile" onclick="if (window.history.length > 1) { event.preventDefault(); window.history.back(); }" class="ios-nav-back">
-      <i class="fa-solid fa-chevron-left" style="font-size: 15px;"></i>
-      <span>Back</span>
+  <!-- STICKY TOP NAVIGATION BAR (Minimalist Liquid Glass Circular Back Button Only) -->
+  <header id="iosHeader" class="ios-navbar" style="background: rgba(0,0,0,0.85); backdrop-filter: blur(28px); border-bottom: 0.5px solid rgba(255,255,255,0.08);">
+    <a href="/mobile" onclick="if (window.history.length > 1) { event.preventDefault(); window.history.back(); }" class="ios-nav-back" style="color: #ffffff; background: rgba(255, 255, 255, 0.08); border: 0.5px solid rgba(255, 255, 255, 0.16); width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(24px); box-shadow: 0 4px 16px rgba(0,0,0,0.5); text-decoration: none;" title="Back" aria-label="Back">
+      <svg class="o101-ico" style="font-size: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
     </a>
-    <span class="ios-nav-title">Settings</span>
-    <button onclick="if (window.history.length > 1) { window.history.back(); } else { window.location.href='/mobile'; }" class="ios-nav-action" style="font-weight: 600;">
-      Done
-    </button>
+    <span class="ios-nav-title" style="font-size: 16px; font-weight: 700; color: #ffffff; letter-spacing: -0.2px;">Settings</span>
+    <div style="width: 36px;"></div>
   </header>
 
   <main class="ios-main-content">
@@ -859,13 +1114,15 @@
       </div>
     </div>
 
-    <!-- CUPERTINO FLOATING BUTTON-LIKE SEARCH BAR -->
-    <div class="ios-search-shell" onclick="document.getElementById('appleSettingsSearch').focus();">
+    <!-- FLOATING SEARCH PILL (Axofy theme): collapsed it floats
+         bottom-right; tap expands it into a full search field. -->
+    <div class="ios-search-shell" id="settingsSearchShell" onclick="expandSettingsSearch(event)">
       <div class="ios-search-btn-icon">
-        <i class="fa-solid fa-magnifying-glass"></i>
+        <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
       </div>
-      <input type="text" id="appleSettingsSearch" class="ios-search-input" placeholder="Search settings..." oninput="filterSettings(this.value)">
-      <button id="searchClearBtn" class="ios-search-clear" onclick="event.stopPropagation(); clearSettingsSearch()">✕</button>
+      <span class="ios-search-collapsed-label">Search</span>
+      <input type="text" id="appleSettingsSearch" class="ios-search-input" placeholder="Search settings..." oninput="filterSettings(this.value)" onkeydown="if (event.key === 'Escape') collapseSettingsSearch()" autocomplete="off">
+      <button id="searchClearBtn" class="ios-search-clear" onclick="event.stopPropagation(); handleSearchClear()"><svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
     </div>
 
     <!-- PROFILE / ACCOUNT CARD (Apple ID Inset) -->
@@ -886,11 +1143,11 @@
               DhaniWin Connected • Period Synced
             </div>
             <div style="font-size: 11px; color: var(--apple-blue-tint); margin-top: 3px; font-weight: 500;">
-              Subscription, Cloudflare Edge &amp; Security
+              Account · Edge · Security
             </div>
           </div>
         </div>
-        <i class="fa-solid fa-chevron-right ios-chevron"></i>
+        <svg class="o101-ico ios-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
       </div>
     </div>
 
@@ -899,7 +1156,7 @@
       <div style="display: flex; align-items: flex-start; justify-content: space-between;">
         <div style="display: flex; align-items: center; gap: 11px;">
           <div class="ios-squircle sq-bronze">
-            <i class="fa-solid fa-mug-saucer"></i>
+            <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 9h1a3.5 3.5 0 0 1 0 7h-1"/><path d="M3 9h14v6a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><path d="M6 2v2"/><path d="M10 2v2"/><path d="M14 2v2"/><path d="M4 21h13"/></svg>
           </div>
           <div>
             <div style="font-size: 15px; font-weight: 600; color: #ffd60a; letter-spacing: -0.2px;">
@@ -915,22 +1172,22 @@
 
       <div id="settingsPageCoffeeBody">
         <p style="font-size: 12px; color: rgba(235, 235, 245, 0.75); line-height: 17px; margin: 10px 0 0 0;">
-          Our real-time prediction engines, 101 AI models, and zero-delay edge nodes run 24/7 without banner ads or subscriptions. If this helps you, consider buying a coffee!
+          01:01 runs ad-free on community support. A coffee keeps the servers on.
         </p>
 
         <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" class="ios-gold-btn">
-          <i class="fa-solid fa-heart" style="font-size: 13px;"></i>
+          <svg class="o101-ico" style="font-size: 13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
           <span>Support 01:01 (₹18 - Any)</span>
-          <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px; opacity: 0.7;"></i>
+          <svg class="o101-ico" style="font-size: 10px; opacity: 0.7;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
         </a>
 
         <p style="font-size: 10px; font-family: ui-monospace, monospace; color: rgba(255, 214, 10, 0.85); text-align: center; margin: 8px 0 0 0;">
-          ✨ After buying a coffee, this won't come again for a while (7 days)
+          Supporter status lasts 7 days.
         </p>
 
         <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 6px; border-top: 0.5px solid rgba(255,255,255,0.08); font-size: 10px; font-family: ui-monospace, monospace; color: rgba(235, 235, 245, 0.5);">
           <button onclick="confirmSettingsCoffeePayment()" style="background: none; border: none; color: #ffd60a; text-decoration: underline; cursor: pointer; padding: 0; font-size: 10px;">Already paid? Verify</button>
-          <span>🔒 Secure UPI / Cards</span>
+          <span><svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Secure UPI / Cards</span>
         </div>
       </div>
     </div>
@@ -946,7 +1203,7 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-blue">
-              <i class="fa-solid fa-tower-broadcast"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/><path d="m9.5 22 2.5-7 2.5 7"/><path d="M10.6 18.5h2.8"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Lottery Upstream</div>
@@ -960,7 +1217,7 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-indigo">
-              <i class="fa-solid fa-cloud"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Edge Network</div>
@@ -974,7 +1231,7 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-teal">
-              <i class="fa-solid fa-arrows-rotate"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Dual Incharge Sync</div>
@@ -984,9 +1241,113 @@
           <span class="ios-tag-micro tag-neutral">VERIFIED</span>
         </div>
 
+        <!-- DhaniWin Bridge diagnostic (orb-bridge user state) -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-green">
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            </div>
+            <div>
+              <div class="ios-label-primary">DhaniWin Bridge</div>
+              <div class="ios-label-secondary" id="bridgeDiagLine">Checking login…</div>
+              <div class="ios-label-secondary" id="bridgeDiagDetail">Balance — · Source — · Mode — · Sync —</div>
+            </div>
+          </div>
+          <span class="ios-tag-micro tag-neutral" id="bridgeDiagTag">…</span>
+        </div>
+        <!-- Bridge bookmarklet (no-infra injection): drag this link to
+             the bookmarks bar (desktop) or copy it into a bookmark's
+             URL (mobile). Tapped while ON the DhaniWin tab, it loads
+             dhaniwin-bridge.js from THIS app's origin onto the page —
+             the bridge then reads DhaniWin's own APIs with the page's
+             own session (same-origin, like the page itself) and relays
+             only the 7 state fields. The href is baked at runtime from
+             location.origin so it works on preview and production. -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-amber">
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M6 3v18"/><path d="M9 8l3 4-3 4"/></svg>
+            </div>
+            <div>
+              <div class="ios-label-primary">Bridge bookmarklet</div>
+              <div class="ios-label-secondary">1. Open DhaniWin from the app (external-tab button) · 2. On that DhaniWin tab, tap this bookmarklet · 3. Bridge HUD shows “Bridge Active” — the app then shows VERIFIED + exact balance.</div>
+              <div class="ios-label-secondary">If the page blocks the script, install the same file as a Tampermonkey userscript instead.</div>
+            </div>
+          </div>
+          <a id="bridgeBookmarkletLink" href="#" class="ios-tag-micro tag-amber" style="text-decoration:none">01.01 bridge</a>
+          <button type="button" id="bridgeBookmarkletCopyBtn" class="ios-tag-micro tag-neutral">Copy link</button>
+        </div>
+        <!-- Bridge userscript (fix round #6 — the AUTOMATED path, no
+             second tab, no per-session tap): install the same bridge
+             file once in Tampermonkey and it auto-runs inside the
+             app's own DhaniWin iframe. State flows up to the app via
+             parent postMessage and orders flow down through the same
+             iframe window, so VERIFIED + exact balance + Auto-Pilot
+             firing all work from the one tab. Tampermonkey needs a
+             userscript-capable browser: Firefox for Android or Kiwi
+             Browser. Brave for Android does NOT run userscript
+             extensions — on Brave, the bookmarklet above (or a new
+             worker proxy, the owner's call) is the route. If DhaniWin
+             rotates to a hostname with no "dhaniwin" in it, the
+             script stops matching: add a @match line for the new
+             host in Tampermonkey and reinstall. The href is baked
+             at runtime from location.origin, like the bookmarklet. -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-green">
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z"/></svg>
+            </div>
+            <div>
+              <div class="ios-label-primary">Bridge userscript (automatic)</div>
+              <div class="ios-label-secondary">1. Install Tampermonkey (Firefox for Android or Kiwi Browser) · 2. In Tampermonkey, install from URL with this link · 3. Open the app's DhaniWin tab — the bridge auto-runs in the iframe, no tap, no second login.</div>
+              <div class="ios-label-secondary">Reads login + balance from DhaniWin's own page code and relays only the 7 state fields. Never your cookie, token, or key.</div>
+            </div>
+          </div>
+          <a id="bridgeUserscriptLink" href="#" class="ios-tag-micro tag-emerald" style="text-decoration:none">Install script</a>
+          <button type="button" id="bridgeUserscriptCopyBtn" class="ios-tag-micro tag-neutral">Copy link</button>
+        </div>
+        <!-- Auto-Pilot mirror (orb-bridge): the toggle writes an intent
+             (o101_autopilot_settings_v1); the app page is the authority
+             that arms/disarms and this row mirrors the ACTUAL state
+             from o101_autopilot_v1. Arming still requires VERIFIED. -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-blue">
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+            </div>
+            <div>
+              <div class="ios-label-primary">Auto-Pilot</div>
+              <div class="ios-label-secondary" id="autoPilotDiagLine">Auto-Pilot off.</div>
+              <div class="ios-label-secondary" id="autoPilotDiagDetail">Stages governed BETs — you fire each one with a tap in the ball window.</div>
+            </div>
+          </div>
+          <label class="ios-switch">
+            <input type="checkbox" id="autoPilotSettingsToggle">
+            <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
+          </label>
+        </div>
+
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-purple">
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
+            </div>
+            <div>
+              <div class="ios-label-primary">Auto-Pilot Risk Mode</div>
+              <div class="ios-label-secondary" id="autoPilotRiskDetail">Base bet fraction of balance (bankroll.js)</div>
+            </div>
+          </div>
+          <select id="autoPilotRiskSelect" class="ios-picker-pill">
+            <option value="safe">Safe · 0.5%</option>
+            <option value="balanced">Balanced · 1%</option>
+            <option value="growth">Growth · 2.5%</option>
+            <option value="aggressive">Aggressive · 5%</option>
+          </select>
+        </div>
+
       </div>
       <div class="ios-group-footer">
-        Upstream results are polled directly with low-latency round-trip time (RTT) estimation to ensure zero-delay countdown settlement.
+        Low-latency upstream polling, settled on time.
       </div>
     </div>
 
@@ -1000,7 +1361,7 @@
         <div class="ios-row-item" onclick="openDefaultWebsiteSubpage()" style="cursor: pointer;">
           <div class="ios-row-left">
             <div class="ios-icon-box" style="background: linear-gradient(135deg, #0a84ff, #5e5ce6);">
-              <i class="fa-solid fa-globe" style="color: #ffffff; font-size: 14px;"></i>
+              <svg class="o101-ico" style="font-size: 14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
             </div>
             <div class="ios-row-text">
               <span class="ios-label-primary">Change Default Website &amp; API</span>
@@ -1009,12 +1370,12 @@
           </div>
           <div class="ios-row-right">
             <span id="customWebsiteStatusBadge" class="ios-tag-micro tag-neutral">DEFAULT</span>
-            <i class="fa-solid fa-chevron-right" style="color: var(--label-tertiary); font-size: 12px; margin-left: 6px;"></i>
+            <svg class="o101-ico" style="color: var(--label-tertiary); font-size: 12px; margin-left: 6px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
           </div>
         </div>
       </div>
       <div class="ios-group-footer">
-        Change the embedded platform website on your Home screen and connect custom WinGo draw APIs. Auto-reverts to default if connection fails.
+        Embedded platform + custom draw APIs. Reverts to default if a custom URL fails.
       </div>
     </div>
 
@@ -1027,11 +1388,11 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-red">
-              <i class="fa-solid fa-bell"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Outside Notifications</div>
-              <div class="ios-label-secondary">High-confidence alerts in background</div>
+              <div class="ios-label-secondary">Background high-confidence alerts</div>
             </div>
           </div>
           <div class="ios-row-right">
@@ -1048,11 +1409,11 @@
           <div style="display: flex; align-items: center; justify-content: space-between;">
             <div class="ios-row-left">
               <div class="ios-squircle sq-pink">
-                <i class="fa-solid fa-volume-high"></i>
+                <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
               </div>
               <div>
                 <div class="ios-label-primary">Sound Cues (Suii &amp; Bruh)</div>
-                <div class="ios-label-secondary">Tactile audio for round win/loss outcomes</div>
+                <div class="ios-label-secondary">Win / loss sounds</div>
               </div>
             </div>
             <label class="ios-switch">
@@ -1064,13 +1425,92 @@
           <!-- Apple Segmented Sound Preview Buttons -->
           <div style="display: flex; gap: 8px; margin-left: 43px;">
             <button onclick="playTestAudio('win')" class="ios-sound-chip" style="flex: 1; justify-content: center;">
-              <i class="fa-solid fa-play" style="font-size: 9px; color: var(--apple-green);"></i>
+              <svg class="o101-ico" style="font-size: 9px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 4 14 8-14 8V4z" fill="currentColor" stroke="none"/></svg>
               <span>Play Win (Suii)</span>
             </button>
             <button onclick="playTestAudio('loss')" class="ios-sound-chip" style="flex: 1; justify-content: center;">
-              <i class="fa-solid fa-play" style="font-size: 9px; color: var(--apple-red);"></i>
+              <svg class="o101-ico" style="font-size: 9px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 4 14 8-14 8V4z" fill="currentColor" stroke="none"/></svg>
               <span>Play Loss (Bruh)</span>
             </button>
+          </div>
+        </div>
+
+        <!-- Axo Voice -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-blue">
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+            </div>
+            <div>
+              <div class="ios-label-primary">Axo Voice</div>
+              <div class="ios-label-secondary">Spoken predictions, wins and losses</div>
+            </div>
+          </div>
+          <div class="ios-row-right">
+            <label class="ios-switch">
+              <input type="checkbox" id="swAxoVoice" checked onchange="toggleAxoVoice(this.checked)">
+              <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Axo Mode -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-teal">
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a4 4 0 0 1 4 4c2.5.5 4 2.5 4 5a6 6 0 0 1-2 4.5V18a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2v-2.5A6 6 0 0 1 4 11c0-2.5 1.5-4.5 4-5a4 4 0 0 1 4-4Z"/><path d="M9 22h6"/></svg>
+            </div>
+            <div>
+              <div class="ios-label-primary">Axo AI Mode</div>
+              <div class="ios-label-secondary">Off = Normal mode, templates only, no AI calls</div>
+            </div>
+          </div>
+          <div class="ios-row-right">
+            <label class="ios-switch">
+              <input type="checkbox" id="swAxoMode" checked onchange="toggleAxoMode(this.checked)">
+              <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Axo Subtitles (CC) — closes ONLY the subtitle strip; the
+             ball, the face and the governed flow keep running, and
+             the prediction shows inside the Axo ball instead. -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-teal">
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M7 12h3M13 12h4"/></svg>
+            </div>
+            <div>
+              <div class="ios-label-primary">Axo Subtitles</div>
+              <div class="ios-label-secondary">Off = prediction shows inside the Axo ball, silently</div>
+            </div>
+          </div>
+          <div class="ios-row-right">
+            <label class="ios-switch">
+              <input type="checkbox" id="swAxoSubs" checked onchange="toggleAxoSubs(this.checked)">
+              <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Axo Language — drives the spoken voice language
+             (speechSynthesis tag). Subtitles stay the governed
+             English strings; no translated template exists yet. -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-blue">
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18"/></svg>
+            </div>
+            <div>
+              <div class="ios-label-primary">Axo Language</div>
+              <div class="ios-label-secondary">Spoken voice language (EN / Hindi / Malayalam)</div>
+            </div>
+          </div>
+          <div class="ios-row-right" style="display:flex; gap:4px;">
+            <button id="axoLangBtn-en" onclick="setAxoLang('en')" class="ios-seg-btn">EN</button>
+            <button id="axoLangBtn-hi" onclick="setAxoLang('hi')" class="ios-seg-btn">HI</button>
+            <button id="axoLangBtn-ml" onclick="setAxoLang('ml')" class="ios-seg-btn">ML</button>
           </div>
         </div>
 
@@ -1078,7 +1518,7 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-purple">
-              <i class="fa-solid fa-hand"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2"/><path d="M14 10V4a2 2 0 0 0-2-2 2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Haptic Feedback</div>
@@ -1095,7 +1535,7 @@
 
       </div>
       <div class="ios-group-footer">
-        Sounds are throttled and suppressed when not logged in to prevent sudden disruptions.
+        Sounds stay muted while logged out.
       </div>
     </div>
 
@@ -1108,7 +1548,7 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-green">
-              <i class="fa-solid fa-bolt"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Background Keep-Alive</div>
@@ -1128,7 +1568,7 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-orange">
-              <i class="fa-solid fa-sun"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Screen Wake Lock</div>
@@ -1147,21 +1587,21 @@
         <div class="ios-row interactive" onclick="openBatteryGuideModal()">
           <div class="ios-row-left">
             <div class="ios-squircle sq-blue">
-              <i class="fa-solid fa-battery-three-quarters"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="16" height="10" x="2" y="7" rx="2"/><path d="M22 11v2"/><path d="M6 11v2"/><path d="M10 11v2"/><path d="M14 11v2"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Battery Exemption Guide</div>
-              <div class="ios-label-secondary">Unrestricted background setup for Android/iOS</div>
+              <div class="ios-label-secondary">Per-OS background setup</div>
             </div>
           </div>
-          <i class="fa-solid fa-chevron-right ios-chevron"></i>
+          <svg class="o101-ico ios-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
         </div>
 
         <!-- Persistent Storage -->
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-teal">
-              <i class="fa-solid fa-hard-drive"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><path d="M6 16h.01"/><path d="M10 16h.01"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Persistent Storage</div>
@@ -1179,7 +1619,7 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-indigo">
-              <i class="fa-solid fa-display"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Default View Mode</div>
@@ -1196,7 +1636,7 @@
 
       </div>
       <div class="ios-group-footer">
-        Wake Lock and Keep-Alive maintain uninterrupted countdowns even when phone screen is dimmed or minimized.
+        Keep-Alive + Wake Lock keep live sessions running.
       </div>
     </div>
 
@@ -1209,7 +1649,7 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-indigo">
-              <i class="fa-solid fa-stopwatch"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2h4"/><path d="M12 14v-4"/><circle cx="12" cy="14" r="8"/></svg>
             </div>
             <div class="ios-label-primary">Default Interval</div>
           </div>
@@ -1227,7 +1667,7 @@
         <div class="ios-row">
           <div class="ios-row-left">
             <div class="ios-squircle sq-mesh">
-              <i class="fa-solid fa-wand-magic-sparkles"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2c.5 4 1.4 5.8 3 7.4 1.6 1.6 3.4 2.5 7.4 3-4 .5-5.8 1.4-7.4 3-1.6 1.6-2.5 3.4-3 7.4-.5-4-1.4-5.8-3-7.4C7.4 13.4 5.6 12.5 1.6 12c4-.5 5.8-1.4 7.4-3 1.6-1.6 2.5-3.4 3-7.4Z"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">In-Charge Strategy</div>
@@ -1236,14 +1676,14 @@
           </div>
           <div class="ios-row-right">
             <select id="selInchargeMode" onchange="setInchargeMode(this.value)" class="ios-picker-pill" style="max-width: 170px; text-overflow: ellipsis;">
-              <option value="WINNING_STREAK_OVERRIDE">🔥 Winning Streak Override</option>
-              <option value="LAST_10_WIN_RATE">⚡ Last 10 Rounds WR</option>
-              <option value="LAST_20_WIN_RATE">📊 Last 20 Rounds WR</option>
-              <option value="HIGHEST_STREAK">🚀 Highest Active Streak</option>
-              <option value="OVERALL_WIN_RATE">👑 Overall Win Rate</option>
-              <option value="SESSION_WIN_RATE">🎯 Session Win Rate</option>
-              <option value="SESSION_STREAK_OVERRIDE">⚡ Session Streak Override</option>
-              <option value="UCB_RANKING">🎲 UCB-MAB Bandit</option>
+              <option value="WINNING_STREAK_OVERRIDE">Winning Streak Override</option>
+              <option value="LAST_10_WIN_RATE">Last 10 Rounds WR</option>
+              <option value="LAST_20_WIN_RATE">Last 20 Rounds WR</option>
+              <option value="HIGHEST_STREAK">Highest Active Streak</option>
+              <option value="OVERALL_WIN_RATE">Overall Win Rate</option>
+              <option value="SESSION_WIN_RATE">Session Win Rate</option>
+              <option value="SESSION_STREAK_OVERRIDE">Session Streak Override</option>
+              <option value="UCB_RANKING">UCB-MAB Bandit</option>
             </select>
           </div>
         </div>
@@ -1253,11 +1693,11 @@
           <div style="display: flex; align-items: center; justify-content: space-between;">
             <div class="ios-row-left">
               <div class="ios-squircle sq-yellow">
-                <i class="fa-solid fa-coins"></i>
+                <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></svg>
               </div>
               <div>
                 <div class="ios-label-primary">Autopilot Base Unit</div>
-                <div class="ios-label-secondary">Starting Martingale simulation stake</div>
+                <div class="ios-label-secondary">Simulation base stake</div>
               </div>
             </div>
             <span id="currentStakeDisplay" class="ios-value-label" style="font-weight: 600; color: #ffffff;">₹10</span>
@@ -1275,7 +1715,7 @@
 
       </div>
       <div class="ios-group-footer">
-        101 canonical AI models analyze real draw patterns concurrently. The In-Charge engine dynamically assigns capital to the top-performing model.
+        101 models score every round. The In-Charge rule picks the leader.
       </div>
     </div>
 
@@ -1291,7 +1731,7 @@
         <div id="deviceBatteryRow" class="ios-row interactive" style="cursor: pointer;">
           <div class="ios-row-left">
             <div id="deviceBatteryIcon" class="ios-squircle sq-green">
-              <i class="fa-solid fa-battery-half"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="16" height="10" x="2" y="7" rx="2"/><path d="M22 11v2"/><path d="M6 11v2"/><path d="M10 11v2"/></svg>
             </div>
             <div>
               <div id="deviceBatteryTitle" class="ios-label-primary">Battery &amp; Background Activity</div>
@@ -1300,7 +1740,7 @@
           </div>
           <div class="ios-row-right">
             <span id="deviceBatteryActionTag" class="ios-scheme-badge">tune</span>
-            <i class="fa-solid fa-arrow-up-right-from-square ios-chevron" style="font-size: 11px;"></i>
+            <svg class="o101-ico ios-chevron" style="font-size: 11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
           </div>
         </div>
 
@@ -1308,7 +1748,7 @@
         <div id="deviceNotifRow" class="ios-row interactive" style="cursor: pointer;">
           <div class="ios-row-left">
             <div id="deviceNotifIcon" class="ios-squircle sq-blue">
-              <i class="fa-solid fa-bell"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
             </div>
             <div>
               <div id="deviceNotifTitle" class="ios-label-primary">System Notifications</div>
@@ -1317,7 +1757,7 @@
           </div>
           <div class="ios-row-right">
             <span id="deviceNotifActionTag" class="ios-scheme-badge">system</span>
-            <i class="fa-solid fa-arrow-up-right-from-square ios-chevron" style="font-size: 11px;"></i>
+            <svg class="o101-ico ios-chevron" style="font-size: 11px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
           </div>
         </div>
 
@@ -1325,7 +1765,7 @@
         <div class="ios-row interactive" onclick="openBatteryGuideModal()" style="cursor: pointer;">
           <div class="ios-row-left">
             <div class="ios-squircle sq-orange">
-              <i class="fa-solid fa-book-open"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>
             </div>
             <div>
               <div class="ios-label-primary">Device Guide for Background Reliability</div>
@@ -1334,7 +1774,7 @@
           </div>
           <div class="ios-row-right">
             <span class="ios-value-label">View Guide</span>
-            <i class="fa-solid fa-chevron-right ios-chevron"></i>
+            <svg class="o101-ico ios-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
           </div>
         </div>
 
@@ -1352,27 +1792,27 @@
         <div class="ios-row interactive" onclick="exportData('csv')">
           <div class="ios-row-left">
             <div class="ios-squircle sq-green">
-              <i class="fa-solid fa-file-csv"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>
             </div>
             <div class="ios-label-primary">Export Draw History (CSV)</div>
           </div>
-          <i class="fa-solid fa-arrow-down ios-chevron"></i>
+          <svg class="o101-ico ios-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
         </div>
 
         <div class="ios-row interactive" onclick="exportData('json')">
           <div class="ios-row-left">
             <div class="ios-squircle sq-blue">
-              <i class="fa-solid fa-file-code"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m10 13-2 2 2 2"/><path d="m14 13 2 2-2 2"/></svg>
             </div>
             <div class="ios-label-primary">Export State Snapshot (JSON)</div>
           </div>
-          <i class="fa-solid fa-arrow-down ios-chevron"></i>
+          <svg class="o101-ico ios-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
         </div>
 
         <div class="ios-row interactive" onclick="purgeCache()">
           <div class="ios-row-left">
             <div class="ios-squircle sq-red">
-              <i class="fa-solid fa-trash"></i>
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
             </div>
             <div class="ios-label-primary" style="color: var(--apple-red-tint);">Reset Cache &amp; Storage</div>
           </div>
@@ -1381,7 +1821,7 @@
 
       </div>
       <div class="ios-group-footer">
-        Export creates an unencrypted snapshot of your local session accuracy records and custom settings.
+        Exports are unencrypted local snapshots. Purge clears everything on this device.
       </div>
     </div>
 
@@ -1424,7 +1864,7 @@
         01:01 is an analytical mathematical modeling instrument. Strictly no guaranteed returns. Please play responsibly.
       </p>
       <p style="font-size: 11px; color: var(--apple-gray-3); margin-top: 8px;">
-        Designed with Cupertino HIG Aesthetics • Pure AMOLED Dark
+        01:01 Quant AI Terminal
       </p>
     </div>
 
@@ -1438,21 +1878,21 @@
       <div style="display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 0.5px solid var(--ios-separator); margin-bottom: 14px;">
         <div style="display: flex; align-items: center; gap: 10px;">
           <div class="ios-squircle sq-blue" style="width: 34px; height: 34px;">
-            <i class="fa-solid fa-shield-halved" style="font-size: 16px;"></i>
+            <svg class="o101-ico" style="font-size: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
           </div>
           <div>
             <div style="font-size: 16.5px; font-weight: 600; color: #ffffff;">Battery Optimization Guide</div>
             <div style="font-size: 11px; color: var(--label-secondary);">Prevent mobile OS from putting WebSocket to sleep</div>
           </div>
         </div>
-        <button onclick="closeBatteryGuideModal()" style="width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.1); border: none; color: #ffffff; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px;">✕</button>
+        <button onclick="closeBatteryGuideModal()" style="width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.1); border: none; color: #ffffff; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px;"><svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </div>
 
       <div style="space-y: 10px; font-size: 12.5px; color: rgba(235, 235, 245, 0.85);">
         
         <div class="ios-guide-box">
           <div style="display: flex; align-items: center; gap: 7px; color: var(--apple-orange-tint); font-weight: 600; font-size: 13px; margin-bottom: 4px;">
-            <i class="fa-solid fa-mobile-screen"></i>
+            <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
             <span>Xiaomi / Redmi / POCO (MIUI / HyperOS)</span>
           </div>
           <p style="margin: 0; font-size: 11.5px; color: var(--label-secondary); line-height: 16px;">
@@ -1462,7 +1902,7 @@
 
         <div class="ios-guide-box">
           <div style="display: flex; align-items: center; gap: 7px; color: var(--apple-blue-tint); font-weight: 600; font-size: 13px; margin-bottom: 4px;">
-            <i class="fa-solid fa-mobile-screen"></i>
+            <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
             <span>Samsung Galaxy (One UI)</span>
           </div>
           <p style="margin: 0; font-size: 11.5px; color: var(--label-secondary); line-height: 16px;">
@@ -1472,7 +1912,7 @@
 
         <div class="ios-guide-box">
           <div style="display: flex; align-items: center; gap: 7px; color: var(--apple-green-tint); font-weight: 600; font-size: 13px; margin-bottom: 4px;">
-            <i class="fa-solid fa-mobile-screen"></i>
+            <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
             <span>Realme / OPPO / OnePlus (ColorOS)</span>
           </div>
           <p style="margin: 0; font-size: 11.5px; color: var(--label-secondary); line-height: 16px;">
@@ -1482,7 +1922,7 @@
 
         <div class="ios-guide-box">
           <div style="display: flex; align-items: center; gap: 7px; color: var(--apple-purple-tint); font-weight: 600; font-size: 13px; margin-bottom: 4px;">
-            <i class="fa-brands fa-apple"></i>
+            <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 6-8 6-12.22A4.91 4.91 0 0 0 17 5c-2.22 0-4 1.44-5 2-1-.56-2.78-2-5-2a4.9 4.9 0 0 0-5 4.78C2 14 5 22 8 22c1.25 0 2.5-1.06 4-1.06Z"/><path d="M10 2c1 .5 2 2 2 5"/></svg>
             <span>Apple iPhone &amp; iPad (iOS)</span>
           </div>
           <p style="margin: 0; font-size: 11.5px; color: var(--label-secondary); line-height: 16px;">
@@ -1611,6 +2051,9 @@
       } catch(e) {}
     }
 
+    const TOAST_ICON_OK = '<svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+    const TOAST_ICON_ALERT = '<svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>';
+
     function showToast(msg, isSuccess = true) {
       const toast = document.getElementById('appleToast');
       const text = document.getElementById('appleToastText');
@@ -1618,8 +2061,7 @@
       if (!toast || !text || !icon) return;
 
       text.textContent = msg;
-      icon.className = isSuccess ? 'fa-solid fa-check' : 'fa-solid fa-circle-exclamation';
-      icon.style.color = isSuccess ? 'var(--apple-green)' : 'var(--apple-orange)';
+      icon.innerHTML = isSuccess ? TOAST_ICON_OK : TOAST_ICON_ALERT;
       toast.classList.add('show');
       
       clearTimeout(window._appleToastTimer);
@@ -1699,7 +2141,7 @@
           localStorage.setItem('coffee_paid_info', JSON.stringify(info));
           const cleanUrl = window.location.origin + window.location.pathname;
           window.history.replaceState({}, document.title, cleanUrl);
-          showToast(`💛 Supporter Active! Popup won't come again for a while (until ${validUntilFormatted}).`);
+          showToast(`Supporter Active! Popup won't come again for a while (until ${validUntilFormatted}).`);
         }
       } catch(e) {}
     }
@@ -1723,7 +2165,7 @@
         };
         localStorage.setItem('coffee_paid_info', JSON.stringify(info));
         updateCoffeeSupporterUI();
-        showToast(`💛 Supporter Active! Popup won't come again for a while (until ${validUntilFormatted}).`);
+        showToast(`Supporter Active! Popup won't come again for a while (until ${validUntilFormatted}).`);
       }
     }
 
@@ -1757,18 +2199,18 @@
             <div style="display: flex; align-items: center; justify-content: space-between;">
               <div>
                 <div style="font-size: 13px; font-weight: 700; color: #34c759; display: flex; align-items: center; gap: 6px;">
-                  <i class="fa-solid fa-circle-check"></i>
+                  <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
                   <span>Supporter Active (${remainingDaysStr} Left)</span>
                 </div>
                 <div style="font-size: 11px; color: rgba(235, 235, 245, 0.75); margin-top: 3px;">
                   Thank you for supporting 01:01! This popup won't come again for a while${info.validUntilFormatted ? ` (muted until ${info.validUntilFormatted})` : ''}.
                 </div>
               </div>
-              <span style="font-size: 18px;">💛</span>
+              <span style="font-size: 18px;"><svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></span>
             </div>
             <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.08); margin-top: 8px; padding-top: 6px; font-size: 10px; font-family: ui-monospace, monospace; color: rgba(235,235,245,0.5);">
               <span>Supported: ${info.time || 'Recently'} IST (${info.paymentId ? info.paymentId.substring(0, 14) : 'Verified'})</span>
-              <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" style="color: #ffd60a; text-decoration: underline;">Support Again ☕</a>
+              <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" style="color: #ffd60a; text-decoration: underline;">Support Again <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 9h1a3.5 3.5 0 0 1 0 7h-1"/><path d="M3 9h14v6a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><path d="M6 2v2"/><path d="M10 2v2"/><path d="M14 2v2"/><path d="M4 21h13"/></svg></a>
             </div>
           </div>
         `;
@@ -1779,22 +2221,22 @@
         }
         body.innerHTML = `
           <p style="font-size: 12px; color: rgba(235, 235, 245, 0.75); line-height: 17px; margin: 10px 0 0 0;">
-            Our real-time prediction engines, 101 AI models, and zero-delay edge nodes run 24/7 without banner ads or subscriptions. If this helps you, consider buying a coffee!
+            01:01 runs ad-free on community support. A coffee keeps the servers on.
           </p>
 
           <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" class="ios-gold-btn">
-            <i class="fa-solid fa-heart" style="font-size: 13px;"></i>
+            <svg class="o101-ico" style="font-size: 13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
             <span>Support 01:01 (₹18 - Any)</span>
-            <i class="fa-solid fa-arrow-up-right-from-square" style="font-size: 10px; opacity: 0.7;"></i>
+            <svg class="o101-ico" style="font-size: 10px; opacity: 0.7;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
           </a>
 
           <p style="font-size: 10px; font-family: ui-monospace, monospace; color: rgba(255, 214, 10, 0.85); text-align: center; margin: 8px 0 0 0;">
-            ✨ After buying a coffee, this won't come again for a while (7 days)
+            Supporter status lasts 7 days.
           </p>
 
           <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 6px; border-top: 0.5px solid rgba(255,255,255,0.08); font-size: 10px; font-family: ui-monospace, monospace; color: rgba(235, 235, 245, 0.5);">
             <button onclick="confirmSettingsCoffeePayment()" style="background: none; border: none; color: #ffd60a; text-decoration: underline; cursor: pointer; padding: 0; font-size: 10px;">Already paid? Verify</button>
-            <span>🔒 Secure UPI / Cards</span>
+            <span><svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Secure UPI / Cards</span>
           </div>
         `;
       }
@@ -1807,6 +2249,29 @@
       const soundVal = localStorage.getItem('quant_sound') !== '0';
       const swSound = document.getElementById('swSoundEffects');
       if (swSound) swSound.checked = soundVal;
+
+      // Axo Voice
+      const axoVoiceVal = localStorage.getItem('o101_axo_voice') !== '0';
+      const swAxoVoice = document.getElementById('swAxoVoice');
+      if (swAxoVoice) swAxoVoice.checked = axoVoiceVal;
+
+      // Axo Mode (on = AI, off = Normal)
+      const axoModeVal = localStorage.getItem('o101_axo_mode') !== 'normal';
+      const swAxoMode = document.getElementById('swAxoMode');
+      if (swAxoMode) swAxoMode.checked = axoModeVal;
+
+      // Axo Subtitles (CC)
+      const axoSubsVal = localStorage.getItem('o101_axo_subs') !== '0';
+      const swAxoSubs = document.getElementById('swAxoSubs');
+      if (swAxoSubs) swAxoSubs.checked = axoSubsVal;
+
+      // Axo Language (EN default; unknown reads as EN)
+      const axoLangVal = localStorage.getItem('o101_axo_lang');
+      const axoLang = (axoLangVal === 'hi' || axoLangVal === 'ml') ? axoLangVal : 'en';
+      ['en', 'hi', 'ml'].forEach(c => {
+        const btn = document.getElementById('axoLangBtn-' + c);
+        if (btn) btn.classList.toggle('active', c === axoLang);
+      });
 
       // Haptics
       const hapVal = localStorage.getItem('quant_haptics') !== '0';
@@ -1943,6 +2408,31 @@
       localStorage.setItem('quant_sound', checked ? '1' : '0');
       if (checked) playTestAudio('win');
       showToast(checked ? 'Sound Effects Enabled' : 'Sound Effects Muted');
+    }
+
+    function toggleAxoVoice(checked) {
+      localStorage.setItem('o101_axo_voice', checked ? '1' : '0');
+      showToast(checked ? 'Axo Voice Enabled' : 'Axo Voice Muted');
+    }
+
+    function toggleAxoMode(checked) {
+      localStorage.setItem('o101_axo_mode', checked ? 'ai' : 'normal');
+      showToast(checked ? 'Axo AI Mode On' : 'Axo Normal Mode (templates only)');
+    }
+
+    function toggleAxoSubs(checked) {
+      localStorage.setItem('o101_axo_subs', checked ? '1' : '0');
+      showToast(checked ? 'Axo Subtitles On' : 'Axo Subtitles Off — prediction shows in the ball');
+    }
+
+    function setAxoLang(code) {
+      const next = (code === 'hi' || code === 'ml') ? code : 'en';
+      localStorage.setItem('o101_axo_lang', next);
+      ['en', 'hi', 'ml'].forEach(c => {
+        const btn = document.getElementById('axoLangBtn-' + c);
+        if (btn) btn.classList.toggle('active', c === next);
+      });
+      showToast(next === 'en' ? 'Axo Language: English' : (next === 'hi' ? 'Axo Language: Hindi' : 'Axo Language: Malayalam'));
     }
 
     function toggleHaptics(checked) {
@@ -2187,7 +2677,7 @@
         if (batterySub) batterySub.textContent = 'Browser tab throttling prevention active';
         if (batteryAction) batteryAction.textContent = 'active';
         if (batteryRow) {
-          batteryRow.onclick = () => showToast('Desktop Keep-Alive is managed automatically ✓');
+          batteryRow.onclick = () => showToast('Desktop Keep-Alive is managed automatically');
         }
 
         if (notifTitle) notifTitle.textContent = 'Browser Notifications';
@@ -2265,14 +2755,44 @@
     }
 
     function exportData(format) {
-      showToast(`Exporting ${format.toUpperCase()} snapshot...`);
-      setTimeout(() => {
-        const dummyData = JSON.stringify(localStorage, null, 2);
-        const blob = new Blob([dummyData], { type: format === 'csv' ? 'text/csv' : 'application/json' });
+      if (format === 'csv') {
+        // Real draw history: the app caches settled rounds per
+        // timeframe in localStorage (quant_history_<tf>, up to 500
+        // each). (This used to download the localStorage JSON dump
+        // with a .csv name — not CSV and not draw history.)
+        const lines = ['timeframe,period,number,size,color'];
+        ['30s', '1m', '3m', '5m'].forEach(tf => {
+          let rows = [];
+          try { rows = JSON.parse(localStorage.getItem('quant_history_' + tf) || '[]'); } catch (e) {}
+          if (!Array.isArray(rows)) rows = [];
+          rows.forEach(r => {
+            if (!r) return;
+            lines.push([tf, r.period, r.number, r.size, r.color]
+              .map(v => v === null || v === undefined ? '' : String(v)).join(','));
+          });
+        });
+        if (lines.length <= 1) {
+          showToast('No cached draw history yet — open the app first', false);
+          return;
+        }
+        const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `wingo_quant_settings_backup_${Date.now()}.${format}`;
+        a.download = `wingo_draw_history_${Date.now()}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast(`Exported ${lines.length - 1} rounds (CSV)`);
+        return;
+      }
+      showToast(`Exporting ${format.toUpperCase()} snapshot...`);
+      setTimeout(() => {
+        const dummyData = JSON.stringify(localStorage, null, 2);
+        const blob = new Blob([dummyData], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `wingo_quant_settings_backup_${Date.now()}.json`;
         a.click();
         URL.revokeObjectURL(url);
       }, 500);
@@ -2281,7 +2801,8 @@
     function filterSettings(query) {
       const q = query.toLowerCase().trim();
       const clearBtn = document.getElementById('searchClearBtn');
-      if (clearBtn) clearBtn.style.display = q ? 'flex' : 'none';
+      const shell = document.getElementById('settingsSearchShell');
+      if (clearBtn) clearBtn.style.display = (q || (shell && shell.classList.contains('expanded'))) ? 'flex' : 'none';
 
       document.querySelectorAll('.setting-category').forEach(cat => {
         const text = cat.textContent.toLowerCase();
@@ -2295,6 +2816,40 @@
         input.value = '';
         filterSettings('');
         input.focus();
+      }
+    }
+
+    // Floating pill: tap expands into the full field; Esc collapses
+    // and resets the filter; × clears the text, or collapses when the
+    // field is already empty.
+    function expandSettingsSearch() {
+      const shell = document.getElementById('settingsSearchShell');
+      const input = document.getElementById('appleSettingsSearch');
+      if (shell) shell.classList.add('expanded');
+      const clearBtn = document.getElementById('searchClearBtn');
+      if (clearBtn) clearBtn.style.display = 'flex';
+      if (input) setTimeout(() => { try { input.focus(); } catch (e) {} }, 60);
+    }
+
+    function collapseSettingsSearch() {
+      const shell = document.getElementById('settingsSearchShell');
+      const input = document.getElementById('appleSettingsSearch');
+      if (input) {
+        input.value = '';
+        filterSettings('');
+        try { input.blur(); } catch (e) {}
+      }
+      if (shell) shell.classList.remove('expanded');
+      const clearBtn = document.getElementById('searchClearBtn');
+      if (clearBtn) clearBtn.style.display = 'none';
+    }
+
+    function handleSearchClear() {
+      const input = document.getElementById('appleSettingsSearch');
+      if (input && input.value) {
+        clearSettingsSearch();
+      } else {
+        collapseSettingsSearch();
       }
     }
 
@@ -2344,7 +2899,7 @@
       const ep1mInput = document.getElementById('endpointInput1m');
       const btn = document.getElementById('btnVerifyAndSaveWebsite');
 
-      const targetSite = siteInput ? siteInput.value.trim() : '';
+      let targetSite = siteInput ? siteInput.value.trim() : '';
       const targetEp30 = ep30Input ? ep30Input.value.trim() : '';
       const targetEp1m = ep1mInput ? ep1mInput.value.trim() : '';
 
@@ -2353,75 +2908,40 @@
         return;
       }
 
-      if (!targetSite) {
-        showWebsiteNotice('error', '⚠️ Please enter the platform website URL.');
-        return;
-      }
-      if (!targetEp30) {
-        showWebsiteNotice('error', '⚠️ To change the default website, you must provide the matching API endpoint.');
-        return;
-      }
-
-      if (!targetSite.startsWith('http://') && !targetSite.startsWith('https://')) {
-        showWebsiteNotice('error', '⚠️ Website URL must start with http:// or https://');
-        return;
-      }
-      if (!targetEp30.startsWith('http://') && !targetEp30.startsWith('https://')) {
-        showWebsiteNotice('error', '⚠️ API Endpoint URL must start with http:// or https://');
-        return;
+      if (targetSite && !targetSite.startsWith('http://') && !targetSite.startsWith('https://')) {
+        targetSite = 'https://' + targetSite;
+        if (siteInput) siteInput.value = targetSite;
       }
 
       if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Testing API & Verifying...';
+        btn.innerHTML = '<svg class="o101-ico o101-spin mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg> Saving Platform URL...';
       }
-      showWebsiteNotice('info', '🔍 Testing live draw connection to custom API endpoint...');
 
       try {
-        const testUrl = targetEp30 + (targetEp30.includes('?') ? '&' : '?') + 'pageNo=1&_=' + Date.now();
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 6000);
-        const resp = await fetch(testUrl, { signal: ctrl.signal });
-        clearTimeout(timer);
-
-        if (!resp.ok) {
-          throw new Error('Server responded with HTTP status ' + resp.status);
+        // Save the custom website URL immediately
+        if (targetSite) {
+          localStorage.setItem('custom_default_website_url', targetSite);
         }
 
-        const data = await resp.json();
-        let list = [];
-        if (Array.isArray(data)) list = data;
-        else if (data?.data?.list) list = data.data.list;
-        else if (data?.list) list = data.list;
-        else if (typeof data === 'object') list = Object.values(data).filter(v => v && typeof v === 'object');
-
-        if (list.length === 0) {
-          throw new Error('API returned 0 round records / empty issue data');
+        // If user also provided custom API endpoints, save them; otherwise preserve default lottery history
+        if (targetEp30) {
+          const endpoints = { '30s': targetEp30 };
+          if (targetEp1m) endpoints['1m'] = targetEp1m;
+          localStorage.setItem('quant_custom_api_endpoints', JSON.stringify(endpoints));
         }
-
-        // VERIFICATION SUCCESSFUL!
-        localStorage.setItem('custom_default_website_url', targetSite);
-        const endpoints = { '30s': targetEp30 };
-        if (targetEp1m) endpoints['1m'] = targetEp1m;
-        localStorage.setItem('quant_custom_api_endpoints', JSON.stringify(endpoints));
 
         loadDefaultWebsiteUI();
-        showWebsiteNotice('success', '🎉 Verification Successful! ' + list.length + ' live round records verified. Custom platform set as default on Home tab.');
-        showToast('Custom website and API verified successfully!');
-
+        showWebsiteNotice('success', 'Custom platform saved successfully! Game view updated while preserving lottery history.');
+        showToast('Custom game URL applied successfully!');
       } catch (err) {
-        console.error('[Website Verify Error]', err);
-        // Auto-revert to old default website if error / no data
-        localStorage.removeItem('custom_default_website_url');
-        localStorage.removeItem('quant_custom_api_endpoints');
-        loadDefaultWebsiteUI();
-
-        showWebsiteNotice('error', '❌ Verification Failed: ' + (err.message || 'API endpoint did not return valid data') + '. Automatically reverted to default DhaniWin platform.');
-        showToast('Verification failed: Reverted to default DhaniWin', false);
+        console.error('[Website Save Error]', err);
+        showWebsiteNotice('error', 'Could not save custom URL: ' + err.message);
+        showToast('Failed to save URL', false);
       } finally {
         if (btn) {
           btn.disabled = false;
-          btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Verify & Set As Default Website';
+          btn.innerHTML = '<svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg> Save Custom Game URL';
         }
       }
     }
@@ -2470,7 +2990,7 @@
     <!-- Sub-page Navigation Bar -->
     <header class="ios-navbar" style="position: sticky; top: 0;">
       <button type="button" class="ios-nav-back" onclick="closeDefaultWebsiteSubpage()">
-        <i class="fa-solid fa-chevron-left" style="font-size: 15px;"></i>
+        <svg class="o101-ico" style="font-size: 15px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
         <span>Settings</span>
       </button>
       <div class="ios-nav-title" style="opacity: 1; transform: translateY(0);">Website &amp; API</div>
@@ -2481,40 +3001,40 @@
       <h1 class="ios-large-title" style="font-size: 26px; line-height: 32px;">Change Default Website</h1>
       <div class="ios-subtitle-pill">
         <span class="status-dot-active"></span>
-        <span>Active Live Mirror Configuration</span>
+        <span>Live mirror config</span>
       </div>
     </div>
 
     <!-- Group 1: Default Platform Website -->
     <div class="setting-category" style="margin-top: 10px;">
       <div class="ios-group-title">
-        <span>Home Screen Default Website</span>
+        <span>Custom Game Platform Website</span>
         <span id="badgeCurrentSite" class="ios-tag-micro tag-neutral">LOCKED DEFAULT</span>
       </div>
       <div class="ios-inset-group">
         <div class="ios-row-stack">
           <div class="ios-endpoint-header">
-            <span class="ios-label-primary">Embedded Web URL</span>
+            <span class="ios-label-primary">Game / Platform Web URL</span>
           </div>
           <input type="url" id="customWebsiteUrlInput" class="ios-endpoint-input" placeholder="https://dhaniwin44.com/" value="">
         </div>
       </div>
       <div class="ios-group-footer">
-        This replaces the default DhaniWin website embedded on the Home tab. To change this, you must also provide the matching API endpoint below so 01:01 can pull live prediction rounds.
+        Mirror domains work. History stays on the default feed.
       </div>
     </div>
 
-    <!-- Group 2: Matching Custom API Endpoints -->
+    <!-- Group 2: Matching Custom API Endpoints (Optional) -->
     <div class="setting-category">
       <div class="ios-group-title">
-        <span>Required Custom API Endpoint</span>
-        <span class="ios-tag-micro tag-neutral">WinGo Draw JSON</span>
+        <span>Custom Draw API Endpoint (Optional)</span>
+        <span class="ios-tag-micro tag-neutral">Optional</span>
       </div>
       <div class="ios-inset-group">
         <!-- 30s Endpoint -->
         <div class="ios-row-stack">
           <div class="ios-endpoint-header">
-            <span class="ios-label-primary">30s Interval Draw Endpoint (Required)</span>
+            <span class="ios-label-primary">30s Interval Draw Endpoint</span>
             <span id="badgeEndpoint30s" class="ios-tag-micro tag-neutral">DEFAULT</span>
           </div>
           <input type="url" id="endpointInput30s" class="ios-endpoint-input" placeholder="https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json">
@@ -2523,14 +3043,14 @@
         <!-- 1m Endpoint -->
         <div class="ios-row-stack">
           <div class="ios-endpoint-header">
-            <span class="ios-label-primary">1m Interval Draw Endpoint (Optional)</span>
+            <span class="ios-label-primary">1m Interval Draw Endpoint</span>
             <span id="badgeEndpoint1m" class="ios-tag-micro tag-neutral">DEFAULT</span>
           </div>
           <input type="url" id="endpointInput1m" class="ios-endpoint-input" placeholder="https://draw.ar-lottery01.com/WinGo/WinGo_1M/GetHistoryIssuePage.json">
         </div>
       </div>
       <div class="ios-group-footer">
-        Verification tests whether the API endpoint returns live round issue data. If the API returns no data or fails, 01:01 will automatically revert to default DhaniWin.
+        Blank = default feed.
       </div>
     </div>
 
@@ -2540,15 +3060,236 @@
     <!-- Action Buttons -->
     <div style="padding: 0 16px; display: flex; flex-direction: column; gap: 10px;">
       <button type="button" id="btnVerifyAndSaveWebsite" onclick="verifyAndSaveCustomWebsite()" class="ios-action-btn primary" style="width: 100%; justify-content: center; height: 44px; font-size: 13.5px; border-radius: 14px;">
-        <i class="fa-solid fa-circle-check"></i>
-        <span>Verify &amp; Set As Default Website</span>
+        <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+        <span>Save Custom Game URL</span>
       </button>
 
       <button type="button" onclick="restoreDefaultWebsiteAndApi()" class="ios-action-btn secondary" style="width: 100%; justify-content: center; height: 40px; font-size: 12.5px; border-radius: 14px;">
-        <i class="fa-solid fa-rotate-left"></i>
-        <span>Restore Original DhaniWin Default</span>
+        <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        <span>Restore Original Default</span>
       </button>
     </div>
   </div>
+
+  <script>
+    // ── DhaniWin Bridge diagnostic ──────────────────────────────────
+    // Shows the login + exact-balance system working, from the same
+    // sources orb-bridge uses: the bridge's published user state on
+    // BroadcastChannel('dhaniwin_quant_channel'), the RTDB /user_state
+    // node, and the local snapshot orb-bridge persists on the app page
+    // (o101_bridge_state_v1). VERIFIED means: state <=60s old,
+    // isLoggedIn=true, apiProven=true (the bridge proved the session
+    // from DhaniWin's own authenticated wallet API traffic).
+    (function initBridgeDiagnostic() {
+      var RTDB = 'https://zer0one-376d1-default-rtdb.asia-southeast1.firebasedatabase.app';
+      var startedAt = Date.now();
+      var last = null;       // { state, receivedAt }
+      var lastLogoutAt = 0;
+
+      function accept(st) {
+        if (!st || typeof st !== 'object' || typeof st.isLoggedIn !== 'boolean' && st.balance === undefined && st.apiProven === undefined) return;
+        last = { state: st, receivedAt: Date.now() };
+      }
+      try {
+        var raw = localStorage.getItem('o101_bridge_state_v1');
+        if (raw) {
+          var snap = JSON.parse(raw);
+          if (snap && snap.updatedAt && Date.now() - snap.updatedAt < 120000) {
+            accept({ isLoggedIn: snap.state === 'VERIFIED' || snap.state === 'NOT_LOGGED_IN' ? snap.state === 'VERIFIED' : null,
+                     balance: snap.balance, balanceSource: snap.balanceSource,
+                     apiProven: snap.state === 'VERIFIED', fetchMode: snap.fetchMode });
+            if (snap.state === 'NOT_LOGGED_IN') lastLogoutAt = snap.updatedAt;
+          }
+        }
+      } catch (e) {}
+      try {
+        if (typeof BroadcastChannel !== 'undefined') {
+          var ch = new BroadcastChannel('dhaniwin_quant_channel');
+          ch.onmessage = function (ev) {
+            var m = ev && ev.data;
+            if (!m || typeof m !== 'object') return;
+            if (m.type === 'DHANIWIN_USER_STATE') accept(m);
+            if (m.type === 'DHANIWIN_USER_LOGGED_OUT' || m.type === 'DHANIWIN_SESSION_OUT') { lastLogoutAt = Date.now(); accept({ isLoggedIn: false }); }
+          };
+        }
+      } catch (e) {}
+      function poll() {
+        try {
+          fetch(RTDB + '/user_state.json', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) { if (d) accept(d); }).catch(function () {});
+        } catch (e) {}
+      }
+      poll();
+      setInterval(poll, 5000);
+
+      function render() {
+        var tag = document.getElementById('bridgeDiagTag');
+        var line = document.getElementById('bridgeDiagLine');
+        var detail = document.getElementById('bridgeDiagDetail');
+        if (!tag || !line || !detail) return;
+        var now = Date.now();
+        var st = last ? last.state : null;
+        var ageMs = last ? Math.max(0, now - last.receivedAt) : null;
+        var ageText = ageMs !== null ? Math.round(ageMs / 1000) + 's ago' : 'never';
+        var state = 'UNKNOWN';
+        if (st && ageMs <= 60000 && st.isLoggedIn === true && st.apiProven === true) state = 'VERIFIED';
+        else if (st && st.isLoggedIn === false) state = 'NOT_LOGGED_IN';
+        else if (lastLogoutAt && (!st || lastLogoutAt >= last.receivedAt)) state = 'NOT_LOGGED_IN';
+        else if (!last && now - startedAt >= 15000) state = 'NO_SIGNAL';
+        var bal = st && st.balance !== null && st.balance !== undefined && isFinite(Number(st.balance))
+          ? '₹' + Number(st.balance).toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '—';
+        var src = st && st.balanceSource === 'api' ? 'exact · API' : st && st.balanceSource === 'dom' ? 'from page' : '—';
+        var mode = st && st.fetchMode ? st.fetchMode : '—';
+        // Transport honesty: on a direct load the bridge is never
+        // injected into the DhaniWin page, so the mode is inactive —
+        // not a pending/active promise. mobile.js records the route
+        // of every DhaniWin load under this key.
+        var transport = null;
+        try { transport = localStorage.getItem('o101_dhani_transport'); } catch (e) {}
+        if (transport === 'direct') mode = 'inactive (direct load)';
+        tag.textContent = state === 'VERIFIED' ? 'VERIFIED' : state === 'NOT_LOGGED_IN' ? 'LOGGED OUT' : state === 'NO_SIGNAL' ? 'NO SIGNAL' : 'CHECKING';
+        tag.className = 'ios-tag-micro ' + (state === 'VERIFIED' ? 'tag-active' : state === 'NOT_LOGGED_IN' ? 'tag-warning' : 'tag-neutral');
+        line.textContent = state === 'VERIFIED' ? 'Login verified · ' + bal + ' (' + src + ') · sync ' + ageText
+          : state === 'NOT_LOGGED_IN' ? 'Not logged in on DhaniWin'
+          : state === 'NO_SIGNAL' ? 'No bridge signal — open the DhaniWin tab in the 01.01 app; the app injects the bridge itself'
+          : 'Checking login… waiting for the bridge\'s API-proven user state';
+        detail.textContent = 'Balance ' + bal + ' · Source ' + src + ' · Mode ' + mode + ' · Sync ' + ageText;
+        if (transport === 'direct') {
+          // If the direct route is the proxy-failure fallback, name
+          // the failure itself (mobile.js records why under this key):
+          // proxy unreachable, direct mode, bridge injected by the app.
+          var proxyFailed = null;
+          try { proxyFailed = localStorage.getItem('o101_dhani_proxy_failed'); } catch (e) {}
+          line.textContent = proxyFailed
+            ? 'Proxy unreachable — direct mode · game frame loads directly, bridge injected by the app'
+            : 'Direct load — bridge inactive · reopen the DhaniWin tab in the 01.01 app (the app injects the bridge itself)';
+        }
+      }
+      render();
+      setInterval(render, 1000);
+    })();
+
+    // ── Bridge bookmarklet ──────────────────────────────────────────
+    // No-infra injection: the link's href is a javascript: loader
+    // baked with THIS page's origin, so it loads dhaniwin-bridge.js
+    // from the same deploy that served Settings (preview or
+    // production). The bridge file is idempotent (__o101BridgeLoaded)
+    // and refuses non-DhaniWin hostnames, so a stray tap is harmless.
+    (function initBridgeBookmarklet() {
+      var link = document.getElementById('bridgeBookmarkletLink');
+      var copyBtn = document.getElementById('bridgeBookmarkletCopyBtn');
+      if (!link) return;
+      var src = location.origin + '/dhaniwin-bridge.js';
+      var code = "(function(){"
+        + "if(window.__o101BridgeLoaded){alert('01.01 bridge is already active on this page.');return;}"
+        + "if(!/dhaniwin/i.test(location.hostname)){alert('Open the DhaniWin page first, then tap this bookmarklet there.');return;}"
+        + "var s=document.createElement('script');"
+        + "s.src=" + JSON.stringify(src) + ";"
+        + "s.onerror=function(){alert('Bridge could not load. The page may block external scripts, or this app host is unreachable. Fallback: install the same file as a Tampermonkey userscript.');};"
+        + "document.head.appendChild(s);"
+        + "})();";
+      var href = 'javascript:' + encodeURI(code);
+      link.setAttribute('href', href);
+      if (copyBtn) {
+        copyBtn.addEventListener('click', function () {
+          function done(ok) {
+            copyBtn.textContent = ok ? 'Copied' : 'Copy failed';
+            setTimeout(function () { copyBtn.textContent = 'Copy link'; }, 2000);
+          }
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(href).then(function () { done(true); }, function () { done(false); });
+            } else { done(false); }
+          } catch (e) { done(false); }
+        });
+      }
+    })();
+
+    // ── Bridge userscript (fix round #6) ───────────────────────────
+    // Same file as the bookmarklet loads, under the .user.js name
+    // Tampermonkey detects for install-from-URL. Baked from THIS
+    // page's origin so it works on preview and production.
+    (function initBridgeUserscript() {
+      var link = document.getElementById('bridgeUserscriptLink');
+      var copyBtn = document.getElementById('bridgeUserscriptCopyBtn');
+      if (!link) return;
+      var href = location.origin + '/dhaniwin-bridge.user.js';
+      link.setAttribute('href', href);
+      if (copyBtn) {
+        copyBtn.addEventListener('click', function () {
+          function done(ok) {
+            copyBtn.textContent = ok ? 'Copied' : 'Copy failed';
+            setTimeout(function () { copyBtn.textContent = 'Copy link'; }, 2000);
+          }
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(href).then(function () { done(true); }, function () { done(false); });
+            } else { done(false); }
+          } catch (e) { done(false); }
+        });
+      }
+    })();
+  </script>
+  <script>
+    // ── Auto-Pilot mirror ───────────────────────────────────────────
+    // Writes intents only; orb-bridge on the app page applies them
+    // (arming still requires login VERIFIED at that moment and is
+    // refused with the honest reason when it is not). This panel
+    // renders the ACTUAL persisted Auto-Pilot state.
+    (function initAutoPilotMirror() {
+      var INTENT_KEY = 'o101_autopilot_settings_v1';
+      var STATE_KEY = 'o101_autopilot_v1';
+      function readState() {
+        try { var raw = localStorage.getItem(STATE_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+      }
+      function writeIntent(patch) {
+        try {
+          var raw = localStorage.getItem(INTENT_KEY);
+          var cur = raw ? JSON.parse(raw) : {};
+          var next = Object.assign({}, cur, patch, { updatedAt: Date.now() });
+          localStorage.setItem(INTENT_KEY, JSON.stringify(next));
+        } catch (e) {}
+      }
+      var toggle = document.getElementById('autoPilotSettingsToggle');
+      var select = document.getElementById('autoPilotRiskSelect');
+      if (toggle) toggle.addEventListener('change', function () {
+        writeIntent({ desiredEnabled: !!toggle.checked });
+      });
+      if (select) select.addEventListener('change', function () {
+        writeIntent({ riskMode: select.value });
+      });
+      function render() {
+        var line = document.getElementById('autoPilotDiagLine');
+        var detail = document.getElementById('autoPilotDiagDetail');
+        if (!line || !detail) return;
+        var st = readState();
+        if (!st) {
+          line.textContent = 'Auto-Pilot off.';
+          detail.textContent = 'Stages governed BETs — you fire each one with a tap in the ball window.';
+          if (toggle) toggle.checked = false;
+          return;
+        }
+        if (toggle && document.activeElement !== toggle) toggle.checked = st.enabled === true;
+        if (select && document.activeElement !== select && st.riskMode) select.value = st.riskMode;
+        if (st.stopReason) {
+          line.textContent = st.stopReason;
+        } else if (st.enabled && st.paused) {
+          line.textContent = st.pauseReason || 'Paused.';
+        } else if (st.enabled && st.session) {
+          var pnl = st.session.pnl || 0;
+          line.textContent = 'On · session P&L ' + (pnl >= 0 ? '+' : '−') + '₹' + Math.abs(pnl).toFixed(2)
+            + ' · ' + (st.session.rounds || 0) + ' rounds · ' + (st.session.fired || 0) + ' fired';
+        } else if (st.enabled) {
+          line.textContent = 'On — staging governed BETs in the ball window.';
+        } else {
+          line.textContent = 'Auto-Pilot off.';
+        }
+        detail.textContent = 'Risk ' + (st.riskMode || 'balanced')
+          + ' · Base ' + (st.autoBase ? 'AUTO (from verified balance)' : 'manual chips')
+          + ' · Firing always needs your tap, one per bet';
+      }
+      render();
+      setInterval(render, 1000);
+    })();
+  </script>
 </body>
 </html>

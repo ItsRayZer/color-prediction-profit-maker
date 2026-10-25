@@ -17489,6 +17489,30 @@ window.addEventListener('resize', () => {
   </div>
 </div>
 
-
+<script>
+  // Settings panel toggle (standalone). The original definition lives in
+  // the big inline block above, but that block never executes: it declares
+  // `const ARENA_CANONICAL_MODELS`, which collides with the global const of
+  // the same name in algorithms/arena_models.js — a SyntaxError that kills
+  // the whole block. Reviving that entire dormant block crashes the
+  // renderer, so ONLY this small self-contained function is re-homed here,
+  // with logic identical to the original.
+  if (typeof window.toggleSettingsPanel !== 'function') {
+    window._settingsPanelOpenStandalone = false;
+    window.toggleSettingsPanel = function () {
+      window._settingsPanelOpenStandalone = !window._settingsPanelOpenStandalone;
+      const panel = document.getElementById('settingsPanel');
+      const backdrop = document.getElementById('settingsPanelBackdrop');
+      if (!panel) return;
+      if (window._settingsPanelOpenStandalone) {
+        panel.style.transform = 'translateX(0)';
+        if (backdrop) backdrop.classList.remove('hidden');
+      } else {
+        panel.style.transform = 'translateX(100%)';
+        if (backdrop) backdrop.classList.add('hidden');
+      }
+    };
+  }
+</script>
 </body>
 </html>

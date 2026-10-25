@@ -27,7 +27,7 @@
     if (window.self !== window.top) {
       document.documentElement.classList.add('in-embedded-frame');
       var s = document.createElement('style');
-      s.textContent = 'header, #dhaniwinFloatingOrb, #mobileBottomDock, #dhaniAuthBar, #homeTopAuthPill, #floatingAlreadyLoggedInBtn, #dhaniwinAssistantModal { display: none !important; } body { padding: 0 !important; background: transparent !important; }';
+      s.textContent = 'header, #dhaniwinFloatingOrb, #mobileBottomDock, #dhaniwinAssistantModal, #floatingSoundMuteBtn { display: none !important; } body { padding: 0 !important; background: transparent !important; }';
       document.head.appendChild(s);
     }
   </script>
@@ -112,6 +112,11 @@
   </script>
 </head>
 <body class="bg-[#09090b] text-white overflow-x-hidden min-h-screen">
+  <!-- Pull-to-refresh spinner (owner order 2026-10-25, Task C):
+       a small spinning ring ONLY — no text node, no label. Shown
+       and driven by mobile.js while the user pulls down at the top
+       of the main view; hidden otherwise. -->
+  <div id="o101PullSpinner" aria-hidden="true" style="display:none;"><div class="o101-pull-ring"></div></div>
 
   <!-- ════════════════════════════════════════════════════════════
        ULTRA-MINIMALIST APPLE 3-DOT RELOAD SCREEN (NO TEXT)
@@ -193,9 +198,6 @@
         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
         <span>LIVE</span>
       </div>
-      <button onclick="openDhaniAccountMenu()" class="w-7 h-7 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] flex items-center justify-center transition active:scale-95" title="DhaniWin Account (Login / Logout)">
-        <i id="headerAccountIcon" class="fa-solid fa-right-to-bracket text-xs text-sky-300"></i>
-      </button>
       <a href="settings.html" onclick="toggleMobileSettings();" id="headerSettingsBtn" class="w-7 h-7 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.08] text-white/70 flex items-center justify-center transition active:scale-95" title="Settings (AMOLED Minimalist • Universal)">
         <i class="fa-solid fa-gear text-xs"></i>
       </a>
@@ -273,16 +275,10 @@
           </div>
         </div>
 
-        <!-- Sequential Prediction Road (Balls with Mixed Colors 0,5; Newest Left -> Older Right) -->
-        <div class="space-y-1">
-          <div class="flex items-center justify-between text-[8px] font-mono text-zinc-400 px-0.5">
-            <span class="flex items-center gap-1 font-bold text-zinc-300"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>RECENT DRAWS ROAD</span>
-            <span class="text-[7.5px] text-zinc-500 uppercase tracking-wider flex items-center gap-1 font-bold">Newest (L) <i class="fa-solid fa-arrow-right text-[6.5px]"></i> Older (R)</span>
-          </div>
-          <div id="heroSequentialBallRoad" class="flex items-center gap-1.5 overflow-x-auto py-1 px-1 bg-black/40 rounded-xl border border-white/[0.06] seq-road-scroll min-h-[38px]">
-            <div class="text-[8px] text-zinc-500 font-mono py-1 px-2">Awaiting draw data...</div>
-          </div>
-        </div>
+        <!-- Sequential Prediction Road REMOVED (owner order
+             2026-10-25, UI batch): the old above road duplicated
+             the ball's own road. Only the ball's sequence road
+             (assistantMiniRoad, section 3 below) remains. -->
       </div>
 
       <!-- 2. ACCURACY CARD -->
@@ -680,6 +676,57 @@
         <div id="aiRosterList" class="space-y-1.5 max-h-80 overflow-y-auto pr-1"></div>
       </div>
 
+      <!-- 7. MODEL QUARANTINE, FORENSICS INVESTIGATION & SHADOW TRIAL PROBATION CHAMBER (Bottom of Page) -->
+      <div id="quarantineChamberCard" class="liquid-glass-card p-3.5 space-y-3 border border-rose-500/20">
+        <div class="flex items-center justify-between pb-1.5 border-b border-white/[0.08]">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-rose-400 animate-pulse"></span>
+            <div class="flex flex-col">
+              <span class="text-[10px] font-black uppercase tracking-wider text-white flex items-center gap-1.5">
+                <i class="fa-solid fa-shield-virus text-rose-400"></i>
+                Quarantine & Forensic Chamber
+              </span>
+              <span class="text-[7.5px] font-mono text-zinc-400">4-5 Loss Lockup · Synaptic Rehab · 20-Round Shadow Trial</span>
+            </div>
+          </div>
+          <span id="quarantinedCountBadge" class="text-[8px] font-mono px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30">
+            0 Quarantined
+          </span>
+        </div>
+
+        <!-- Quarantined Models Container -->
+        <div id="quarantineChamberList" class="space-y-2">
+          <div class="p-3 rounded-xl bg-black/40 border border-white/[0.06] text-center font-mono text-[8.5px] text-zinc-400">
+            <i class="fa-solid fa-circle-check text-emerald-400 text-sm mb-1 block"></i>
+            All 101 models operating above drawdown threshold. No models quarantined.
+          </div>
+        </div>
+      </div>
+
+
+      <!-- 8. PATTERNS (orb-bridge headless engine): live numbers from the
+           persisted pattern store (o101_pattern_history_v1) — every
+           catalog pattern that fired on a settled round, per timeframe.
+           The Patterns tab is gone from the menu by the owner's order;
+           the engine and its numbers live here in Analyse. -->
+      <div id="patternStatsCard" class="liquid-glass-card p-3.5 space-y-3">
+        <div class="flex items-center justify-between pb-1.5 border-b border-white/[0.08]">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
+            <div class="flex flex-col">
+              <span class="text-[10px] font-black uppercase tracking-wider text-white flex items-center gap-1.5">
+                <i class="fa-solid fa-shapes text-sky-400"></i>
+                Patterns — Headless Engine
+              </span>
+              <span class="text-[7.5px] font-mono text-zinc-400">Walk-forward firings on real settled rounds · saved continuously</span>
+            </div>
+          </div>
+        </div>
+        <div id="patternStatsMeta" class="text-[8px] font-mono text-zinc-500">Headless engine running — no firings yet</div>
+        <div id="patternStatsList" class="space-y-1.5">
+          <div class="text-[9px] font-mono text-zinc-500 px-1 py-2">No pattern firings yet. The engine evaluates the catalog patterns on every settled round and records each firing here — nothing is back-computed or invented.</div>
+        </div>
+      </div>
     </section>
 
     <!-- ╔══════════════════════════════════════════════════════════
@@ -762,34 +809,44 @@
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads">
       </iframe>
 
+      <!-- DhaniWin loading overlay (fix round #6, visuals swapped in
+           fix round #10 per owner order): the cross-origin iframe
+           paints white for 3-4s while DhaniWin boots. This overlay
+           covers OUR surface from navigation start until the
+           iframe's real `load` event (see show/hideDhaniLoadingOverlay
+           in mobile.js) — never a guessed timer. Its animation is
+           the app's OWN loading animation, reused exactly: the
+           3-dot quantum wave from #appleMinimalLoader (same markup
+           and classes, mobile.css .apple-dots-container/.apple-dot).
+           The dismiss button uncovers the page early for this load
+           only; the next navigation shows it again. -->
+      <div id="dhaniwinLoadingOverlay" aria-hidden="true">
+        <div style="font-size:22px;font-weight:900;letter-spacing:.14em;color:#f4f4f6;">01:01</div>
+        <div class="apple-dots-container" aria-hidden="true">
+          <span class="apple-dot dot-1"></span>
+          <span class="apple-dot dot-2"></span>
+          <span class="apple-dot dot-3"></span>
+        </div>
+        <div id="dhaniwinLoadingText" style="font-size:12px;font-weight:650;color:#f4f4f6;">Loading DhaniWin…</div>
+        <div style="font-size:10px;color:#8b8b93;">One moment while the game loads</div>
+        <button type="button" id="dhaniwinLoadingDismissBtn" style="margin-top:4px;padding:6px 14px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);font-size:11px;font-weight:650;color:#f4f4f6;">Show page anyway</button>
+      </div>
+
+      <!-- High-fidelity Invisible Touch & Gesture Shield to capture touches and swipes directly over iframe -->
+      <div id="dhaniwinTouchShield" style="position: absolute; inset: 0; z-index: 50;"></div>
+
       <!-- Pull handle: visible when our top bar is hidden; tap / swipe down to show it -->
       <button id="homeHeaderPullHandle" type="button" aria-label="Show top bar"></button>
 
-      <!-- Top-Middle Minimalist Auth Bar (Login & Register directly below topbar) -->
-      <div id="homeTopAuthPill" class="home-top-auth-pill" style="display:none;">
-        <button type="button" onclick="openDhaniLogin()" class="apple-auth-btn apple-auth-login">
-          <i class="fa-solid fa-arrow-right-to-bracket text-[10px]"></i>
-          <span>Login</span>
-        </button>
-        <button type="button" onclick="openDhaniRegister()" class="apple-auth-btn apple-auth-register">
-          <i class="fa-solid fa-user-plus text-[10px]"></i>
-          <span>Register</span>
-        </button>
-        <button type="button" onclick="dismissDhaniAuthBar()" class="apple-auth-close" title="Close" aria-label="Dismiss auth bar">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-
-      <!-- Floating "Already logged in before" button (floating above bottom dock menu in the middle) -->
-      <button id="floatingAlreadyLoggedInBtn" type="button" onclick="confirmDhaniLoggedInReal()" style="display:none;" title="Verify active DhaniWin session and unlock 01:01">
-        <i class="fa-solid fa-circle-check text-[11px] text-emerald-400"></i>
-        <span id="floatingAlreadyLoggedInText">Already logged in before</span>
+      <!-- Quick Win/Loss Sound Mute / Unmute Floating Button (Homepage / Dhani Embedded View) -->
+      <button id="floatingSoundMuteBtn"
+        type="button"
+        onclick="toggleQuickSoundMute()"
+        class="home-sound-mute-btn"
+        title="Win/Loss Sound: Tap to Mute/Unmute"
+        aria-label="Toggle win/loss sound">
+        <i id="floatingSoundMuteIcon" class="fa-solid fa-volume-high text-[11px] text-emerald-400 transition-colors"></i>
       </button>
-
-      <!-- Backward-compatible hidden container for state binding -->
-      <div id="dhaniAuthBar" style="display:none;">
-        <span id="dhaniAuthBarText" style="display:none;">Not logged in</span>
-      </div>
 
     </section>
 
@@ -803,11 +860,10 @@
     ════════════════════════════════════════════════════════════ -->
     <div id="dhaniwinFloatingOrb"
       class="fixed select-none cursor-pointer transition-transform active:scale-90 touch-none"
-      style="bottom: 90px; right: 16px; width: 62px; height: 62px; z-index: 99998; display: block;"
-      onclick="toggleDhaniwinAssistantModal(true); event.stopPropagation();"
+      style="bottom: 90px; right: 16px; width: 62px; height: 62px; z-index: 99998; display: none;"
       role="button"
       tabindex="0"
-      title="01:01 AI Assistant">
+      title="Axo — tap to open the assistant">
       
       <!-- Clock-Like Radial SVG Countdown Ring -->
       <svg class="absolute -inset-[3px] w-[68px] h-[68px] -rotate-90 pointer-events-none" viewBox="0 0 68 68">
@@ -815,200 +871,310 @@
         <circle id="orbTimerRing" cx="34" cy="34" r="31" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" fill="none" stroke-dasharray="194.8" stroke-dashoffset="0" style="transition: stroke-dashoffset 0.25s linear, stroke 0.3s ease, filter 0.3s ease;" />
       </svg>
 
-      <!-- Outer Glowing Pulsing Ring & Inner AMOLED Ball -->
-      <div id="floatingOrbRing" class="absolute inset-[3px] rounded-full bg-gradient-to-tr from-amber-500/80 via-emerald-500/90 to-cyan-500/80 p-[1.5px] shadow-[0_4px_24px_rgba(16,185,129,0.45)]">
-        <div class="w-full h-full rounded-full bg-[#09090d]/95 backdrop-blur-xl flex flex-col items-center justify-center text-center">
-          <span id="floatingOrbIcon" class="text-[11px] leading-none mb-0.5">🎯</span>
-          <span id="floatingOrbTarget" class="text-[9px] font-black font-mono text-amber-300 leading-tight tracking-tight">BIG</span>
-          <span id="floatingOrbStake" class="text-[8px] font-bold font-mono text-emerald-400 leading-none">₹2</span>
+      <!-- Axo ball (fix round #2, 2026-10-24): the ball IS Axo — the
+           full transparent face, no circle crop, no disc background,
+           matte, no gradient, no glow, no emoji. Subtitle-on default
+           shows the prediction in the floating subtitle line, never
+           cramped in the ball; the pick pill + under-bar appear only
+           with subtitles closed (silent in-ball display). -->
+      <div id="floatingOrbRing" class="absolute inset-[3px] pointer-events-none">
+        <img id="floatingOrbAxoFace" alt="" aria-hidden="true" draggable="false" class="absolute inset-0 w-full h-full object-contain pointer-events-none">
+        <span id="orbVerdictIcon" class="absolute left-1/2 -translate-x-1/2 top-0.5 pointer-events-none"></span>
+        <span id="floatingOrbTarget" class="absolute left-1/2 -translate-x-1/2 bottom-0.5 px-1.5 py-0.5 rounded-full bg-black/85 border border-white/15 text-[8px] font-black font-mono leading-none pointer-events-none text-amber-200">—</span>
+      </div>
+      <div id="floatingOrbUnderBar" class="absolute left-1/2 -translate-x-1/2 whitespace-nowrap px-1.5 py-0.5 rounded-full bg-black/85 border border-white/15 text-[6.5px] font-mono text-zinc-300 pointer-events-none" style="top: calc(100% + 2px);">—</div>
+      <!-- Pulse Status Indicator Dot -->
+      <span id="floatingOrbDotPing" class="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black animate-ping pointer-events-none"></span>
+      <span id="floatingOrbDot" class="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black pointer-events-none"></span>
+    </div>
+
+    <!-- Outside floating subtitle bubble (owner order 2026-10-25,
+         reverses fix round #5's deletion): the subtitle lives HERE,
+         outside the panel, next to the avatar — speaking or panel
+         opened. Rounded dark bubble, white text, small circular X
+         at the corner (closes the bubble only, never the bot).
+         Text is exactly the governed spoken subtitle string,
+         written by orb-bridge say(). -->
+    <div id="axoSubtitleBubble" aria-live="polite" style="display:none; position:fixed; z-index:100001; max-width:min(320px, calc(100vw - 100px)); pointer-events:auto;">
+      <div style="background:rgba(28,28,31,0.95); border:1px solid rgba(255,255,255,0.14); border-radius:20px; padding:10px 14px; box-shadow:0 8px 30px rgba(0,0,0,0.5);">
+        <span id="axoSubtitleBubbleText" style="color:#fff; font-size:13px; line-height:1.45;"></span>
+      </div>
+      <button type="button" id="axoSubtitleBubbleClose" aria-label="Close subtitle" title="Close subtitle" onclick="window.__smartBall && window.__smartBall.dismissAxoBubble()" style="position:absolute; top:-9px; right:-9px; width:22px; height:22px; border-radius:9999px; background:rgba(28,28,31,1); border:1px solid rgba(255,255,255,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer;">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M1 1L9 9M9 1L1 9" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <!-- Task H (owner order 2026-10-25): the no-skip warning as an
+         Apple-style minimal POPUP outside the panel box — a floating
+         rounded box over a dim backdrop, centered, dark matte, no
+         gloss, short warning text, Cancel + Confirm buttons only.
+         The old in-panel warning element is GONE: this popup is the
+         exactly-one warning surface. Tapping the NO-SKIP chip while
+         OFF opens it (never enables directly); Confirm enables
+         no-skip; Cancel closes without enabling; a backdrop tap
+         cancels too (same as Cancel). -->
+    <div id="axoNoSkipPopup" role="alertdialog" aria-modal="true" aria-label="No-skip warning" style="display:none; position:fixed; inset:0; z-index:100002; align-items:center; justify-content:center; padding:24px;">
+      <div id="axoNoSkipPopupBackdrop" onclick="window.__smartBall && window.__smartBall.cancelNoSkip()" style="position:absolute; inset:0; background:rgba(0,0,0,0.5);"></div>
+      <div style="position:relative; width:min(300px, calc(100vw - 48px)); padding:20px; border-radius:20px; background:rgba(28,28,31,0.95); border:1px solid rgba(255,255,255,0.14); box-shadow:0 16px 50px rgba(0,0,0,0.85);">
+        <p id="axoNoSkipWarnText" style="color:#f4f4f6; font-size:13px; line-height:1.5; font-family:ui-monospace,monospace; text-align:center; margin:0;">No-skip mode bets rounds the engine would skip for low confidence. Expect more losses — this does not improve the edge, it only bets more often. Bankroll guards (stop-loss, stop-win, ladder limits, Wilson check) still apply, and every bet still needs your tap.</p>
+        <div style="display:flex; gap:8px; margin-top:16px;">
+          <button type="button" id="axoNoSkipCancelBtn" onclick="window.__smartBall && window.__smartBall.cancelNoSkip()" style="flex:1; padding:10px; border-radius:12px; background:rgba(255,255,255,0.08); color:#e4e4e7; font-size:13px; font-weight:700; border:1px solid rgba(255,255,255,0.1); cursor:pointer;">Cancel</button>
+          <button type="button" id="axoNoSkipConfirmBtn" onclick="window.__smartBall && window.__smartBall.confirmNoSkip()" style="flex:1; padding:10px; border-radius:12px; background:rgba(244,63,94,0.25); color:#fda4af; font-size:13px; font-weight:700; border:1px solid rgba(244,63,94,0.4); cursor:pointer;">Confirm</button>
         </div>
       </div>
-      <!-- Pulse Status Indicator Dot -->
-      <span id="floatingOrbDotPing" class="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black animate-ping"></span>
-      <span id="floatingOrbDot" class="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black"></span>
     </div>
 
     <!-- ════════════════════════════════════════════════════════════
          REDESIGNED APPLE / GEN-Z ASSISTANT MODAL (AMOLED Liquid Glass)
     ════════════════════════════════════════════════════════════ -->
-    <div id="dhaniwinAssistantModal" class="fixed inset-0 bg-black/80 backdrop-blur-xl flex flex-col justify-end hidden" style="z-index: 100000; overscroll-behavior: contain;" onclick="if(event.target===this) toggleDhaniwinAssistantModal(false)">
-      <div id="dhaniwinAssistantSheet" class="w-full max-w-md mx-auto bg-[#0b0b0f] border-t border-white/[0.12] rounded-t-[36px] max-h-[88vh] overflow-y-auto pb-8 p-4 shadow-[0_-24px_64px_rgba(0,0,0,0.95)] space-y-3.5" style="overscroll-behavior: contain; touch-action: pan-y;">
-        
-        <!-- Top Grab Handle Area (Smooth swipe down / tap to dismiss) -->
-        <div id="dhaniwinGrabHandleArea" class="w-full pt-1 pb-2 flex items-center justify-center cursor-pointer select-none" style="touch-action: none;" onclick="toggleDhaniwinAssistantModal(false)">
-          <div class="w-12 h-1.5 bg-white/25 hover:bg-white/40 rounded-full transition-colors"></div>
+    <!-- ════════════════════════════════════════════════════════════
+         REDESIGNED APPLE / AMOLED LUXURY SQUARE FLOATING ASSISTANT
+    ════════════════════════════════════════════════════════════ -->
+    <div id="dhaniwinAssistantModal" class="fixed inset-0 pointer-events-none hidden" style="z-index: 100000; overscroll-behavior: contain;">
+      <!-- Non-blocking backdrop (No blur, no click blocker, transparent so user can interact and bet freely) -->
+      <div id="dhaniwinAssistantBackdrop" class="hidden pointer-events-none"></div>
+      <div id="dhaniwinAssistantSheet" class="pointer-events-auto flex flex-col bg-[#0b0b10]/95 border border-white/[0.12] rounded-[22px] overflow-hidden shadow-[0_16px_50px_rgba(0,0,0,0.85)]" style="position: fixed; width: min(270px, calc(100vw - 24px)); max-height: 380px; overscroll-behavior: contain; touch-action: none;">
+        <!-- Fix round #4 — opened Axo, Axofy-app pattern: a SMALL
+             circular avatar straddling the sheet's top-center edge
+             (avatar centered above the card, "Axo" label beneath it,
+             the header's own X stays top-right). It NEVER covers
+             panel content: pointer-events none, and the open class
+             gives the header top clearance for the name + badge.
+             The badge carries the governed prediction as written
+             text (Big/Small/colour/Skip) — empty when no verdict
+             is live, never stale, never invented. The giant
+             centered overlay from round #3 is deleted. -->
+        <div id="axoTopAvatar" aria-hidden="true" style="display:none;">
+          <img id="axoTopAvatarFace" alt="" aria-hidden="true" draggable="false">
+          <span id="axoTopAvatarName">Axo</span>
+          <span id="axoTopAvatarBadge" style="display:none;"></span>
         </div>
+        
+        <!-- Apple Resize Handles (Edges and Corners) -->
+        <div class="assistant-resize-handle resize-edge-r" data-resize="r" title="Drag to resize"></div>
+        <div class="assistant-resize-handle resize-edge-b" data-resize="b" title="Drag to resize"></div>
+        <div class="assistant-resize-handle resize-edge-l" data-resize="l" title="Drag to resize"></div>
+        <div class="assistant-resize-handle resize-edge-t" data-resize="t" title="Drag to resize"></div>
+        <div class="assistant-resize-handle resize-corner-br" data-resize="br" title="Drag to resize">
+          <svg class="w-3.5 h-3.5 text-white/30 pointer-events-none" viewBox="0 0 16 16" fill="currentColor">
+            <circle cx="12" cy="12" r="1.5" />
+            <circle cx="12" cy="7" r="1.5" />
+            <circle cx="7" cy="12" r="1.5" />
+          </svg>
+        </div>
+        <div class="assistant-resize-handle resize-corner-bl" data-resize="bl" title="Drag to resize"></div>
+        <div class="assistant-resize-handle resize-corner-tr" data-resize="tr" title="Drag to resize"></div>
+        <div class="assistant-resize-handle resize-corner-tl" data-resize="tl" title="Drag to resize"></div>
 
-        <!-- 1. Apple Dynamic Island: Scraped Balance, Live PnL & Quick Sync -->
-        <div class="apple-glass-card p-3 rounded-2xl flex items-center justify-between border border-white/[0.08]">
-          <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-2xl bg-white/[0.06] border border-white/[0.1] flex items-center justify-center text-base shadow-inner">
-              👛
+        <!-- Draggable Header Bar: Title + Drag Indicator + Size Toggle + Minimize Button -->
+        <div id="assistantSheetHeader" class="px-2.5 py-1.5 flex items-center justify-between border-b border-white/[0.06] select-none bg-white/[0.03] cursor-grab active:cursor-grabbing touch-none">
+          <div class="flex items-center gap-2 min-w-0">
+            <!-- Axo face (orb-bridge): two stacked frames crossfaded by
+                 setAxoFace; the corner chip is the Axo voice mute. -->
+            <div id="axoFaceHost" class="relative shrink-0" style="width:64px;height:64px">
+              <img id="axoFaceBack" alt="" aria-hidden="true" draggable="false" class="absolute inset-0 w-full h-full object-contain opacity-0" style="transition: opacity 140ms ease">
+              <img id="axoFaceFront" alt="" aria-hidden="true" draggable="false" class="absolute inset-0 w-full h-full object-contain opacity-100" style="transition: opacity 140ms ease">
             </div>
-            <div class="flex flex-col">
-              <span class="text-[7.5px] font-mono text-zinc-400 uppercase tracking-widest flex items-center gap-1">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> LIVE SCRAPED BALANCE
-              </span>
-              <span id="mobileWebBalance" class="text-base font-black font-mono text-white tracking-tight">₹0.00</span>
+            <div class="flex items-center gap-1.5 pointer-events-none">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span class="text-[9.5px] font-mono font-black text-white/90 tracking-wider">01:01 ASSISTANT</span>
             </div>
           </div>
-          <div class="flex items-center gap-2">
-            <div class="flex flex-col items-end mr-1">
-              <span class="text-[7px] font-mono text-zinc-400 uppercase tracking-wider">SESSION PnL</span>
-              <span id="mobileWebSessionPnl" class="text-xs font-black font-mono text-emerald-400">+₹0.00</span>
-            </div>
-            <button type="button" onclick="syncMobileUserWallet()" class="apple-glass-pill px-2.5 py-1.5 rounded-xl text-zinc-200 font-mono text-[9px] font-bold flex items-center gap-1 active:scale-95 transition" title="Scrape & Sync Balance">
-              <i class="fa-solid fa-arrows-rotate text-[8.5px]"></i>
-              <span>SYNC</span>
+          <!-- Subtle Drag Pill -->
+          <div class="w-8 h-1 bg-white/25 rounded-full pointer-events-none"></div>
+          <div class="flex items-center gap-1.5">
+            <button type="button" id="axoVoiceChip" aria-pressed="true" title="Axo voice on/off" onclick="window.__smartBall && window.__smartBall.toggleAxoVoice()" class="w-5 h-5 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-emerald-300 flex items-center justify-center transition" style="font-size:9px">
+              <i id="axoVoiceChipIcon" class="fa-solid fa-volume-high pointer-events-none"></i>
             </button>
-            <button type="button" onclick="toggleDhaniwinAssistantModal(false)" class="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-zinc-300 flex items-center justify-center text-xs active:scale-90 transition">
+            <!-- Task J (owner need 2026-10-25): one-tap history
+                 export — settled rounds + model stats as a JSON
+                 file (share sheet first, download fallback). No
+                 secrets by construction (see buildHistoryExport).
+                 A button, so the header drag ignores it. -->
+            <button type="button" id="axoExportBtn" aria-label="Export history as JSON" title="Export history (JSON)" onclick="window.__smartBall && window.__smartBall.exportHistory()" class="w-5 h-5 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-zinc-300 flex items-center justify-center transition">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none" aria-hidden="true"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M4 21h16"/></svg>
+            </button>
+            <button type="button" onclick="cycleAssistantBoxSizePreset(event)" id="assistantSizePresetBtn" class="w-5 h-5 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-zinc-300 flex items-center justify-center text-[9px] transition" title="Toggle Size (Compact / Normal / Large)">
+              <i class="fa-solid fa-up-right-and-down-left-from-center text-[8.5px]"></i>
+            </button>
+            <button type="button" onclick="toggleDhaniwinAssistantModal(false)" class="w-5 h-5 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-zinc-300 flex items-center justify-center text-[10px] transition" title="Minimize to Ball">
               <i class="fa-solid fa-xmark"></i>
             </button>
           </div>
         </div>
 
-        <!-- 2. Minimal Interval Selector (Auto-routes to WinGo_30S / 1M / 3M / 5M) -->
-        <div class="grid grid-cols-4 gap-1 p-1 rounded-2xl bg-black/60 border border-white/[0.08]">
-          <button type="button" onclick="setMobileDhaniWinTimeframe('30s')" id="webTf-30s" class="py-1.5 rounded-xl font-mono text-[10px] font-black transition active:scale-95 bg-amber-500/25 text-amber-300 border border-amber-400/40 shadow-sm">30s</button>
-          <button type="button" onclick="setMobileDhaniWinTimeframe('1m')" id="webTf-1m" class="py-1.5 rounded-xl font-mono text-[10px] font-black transition active:scale-95 text-white/50 hover:text-white hover:bg-white/5">1m</button>
-          <button type="button" onclick="setMobileDhaniWinTimeframe('3m')" id="webTf-3m" class="py-1.5 rounded-xl font-mono text-[10px] font-black transition active:scale-95 text-white/50 hover:text-white hover:bg-white/5">3m</button>
-          <button type="button" onclick="setMobileDhaniWinTimeframe('5m')" id="webTf-5m" class="py-1.5 rounded-xl font-mono text-[10px] font-black transition active:scale-95 text-white/50 hover:text-white hover:bg-white/5">5m</button>
+        <!-- Task K (owner order 2026-10-25): the control toggles
+             live HERE in the header strip only — compact, one row,
+             never a body section — so the body below is exactly the
+             four spec sections. Same row markup as Task E (same ids,
+             same 26px height, same onclick wiring); only the side
+             padding aligns to the header and a hairline separates it
+             from the body. It is NOT a drag handle (every chip is a
+             button, which the drag start ignores anyway). -->
+        <div id="axoControlRow" class="flex items-center justify-between px-2 h-[26px] shrink-0 border-b border-white/[0.06]">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="text-[7px] font-mono text-zinc-500 tracking-wider shrink-0">AXO</span>
+              <!-- Tap-for-voice affordance: visible ONLY while a line
+                   waits for the first ball/panel gesture. Tapping it
+                   unlocks voice and speaks the queued line. -->
+              <button type="button" id="axoVoiceBlockedBadge" onclick="window.__smartBall && window.__smartBall.unlockAxoVoice()" class="hidden text-[7px] font-mono font-black px-2 py-0.5 rounded-full bg-amber-500/25 text-amber-300 border border-amber-500/40 active:scale-95 transition animate-pulse" title="Tap to enable Axo voice">TAP FOR VOICE</button>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button type="button" id="axoCcChip" aria-pressed="true" title="Subtitles on/off — Axo keeps running" onclick="window.__smartBall && window.__smartBall.toggleAxoSubs()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 active:scale-95 transition">CC</button>
+              <button type="button" id="axoModeChip" aria-pressed="true" title="Axo mode: AI narration or Normal (templates only)" onclick="window.__smartBall && window.__smartBall.toggleAxoMode()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 active:scale-95 transition">AI</button>
+              <button type="button" id="axoLangChip" title="Axo language — tap to change" onclick="window.__smartBall && window.__smartBall.toggleAxoLang()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 border border-white/10 active:scale-95 transition">EN</button>
+              <button type="button" id="axoNoSkipChip" aria-pressed="false" title="No-skip mode — bets low-confidence rounds (warning first)" onclick="window.__smartBall && window.__smartBall.toggleNoSkip()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-white/10 text-zinc-400 border border-white/10 opacity-60 active:scale-95 transition">NO-SKIP</button>
+              <!-- Task E: the Auto-Pilot toggle lives here as a chip
+                   (the old autoPilotRow is removed) — same id, same
+                   onclick, same renderAutoPilot sync, so the control
+                   survives the essentials-only cut. -->
+              <button type="button" id="autoPilotToggle" role="switch" aria-checked="false" onclick="window.__smartBall && window.__smartBall.toggleAutoPilot()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 border border-white/10 active:scale-95 transition" title="Auto-Pilot on/off — staged bets still need your tap">AP OFF</button>
+              <span id="axoNoSkipBadge" class="hidden text-[7px] font-mono font-black px-1.5 py-0.5 rounded-full bg-rose-500/25 text-rose-300 border border-rose-500/40">NO-SKIP ON</span>
+            </div>
         </div>
 
-        <!-- 3. Gen-Z AMOLED Hero Prediction Card -->
-        <div class="relative overflow-hidden apple-glass-card p-3.5 rounded-3xl border border-white/[0.1] bg-gradient-to-br from-white/[0.04] to-transparent">
-          <div class="absolute -top-12 -right-12 w-28 h-28 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
-          
-          <div class="flex items-center justify-between">
-            <div class="flex flex-col space-y-1">
-              <div class="flex items-center gap-1.5">
-                <span class="text-[8.5px] font-mono text-zinc-400 tracking-wider">PERIOD</span>
-                <span id="assistantPeriodNum" class="text-[11px] font-mono font-black text-amber-300">--</span>
-              </div>
-              <div class="flex items-center gap-1.5">
-                <i class="fa-solid fa-stopwatch text-amber-400 text-xs"></i>
-                <span id="assistantCountdown" class="font-mono text-xl font-black text-white tracking-widest">00:00</span>
+        <!-- Body Content (Task K: exactly four sections, one view,
+             NO vertical scroll — the body is overflow-hidden and
+             the sheet never shrinks below its content (see the Task
+             K content floor in orb-bridge resolveAxoPanelSize + the
+             resize/preset clamps in mobile.js, and the short-
+             viewport tightening in mobile.css). Order top to
+             bottom: 1. game time pills, 2. next selection (hero +
+             skip reason + confirm slot), 3. road sequence, 4.
+             base-bet line. Nothing else is a body section. -->
+        <div class="p-2 space-y-1 overflow-hidden assistant-sheet-body" style="overscroll-behavior: contain;">
+          <!-- Task K: the in-panel subtitle strip is GONE — the
+               subtitle lives ONLY in the outside bubble
+               (#axoSubtitleBubble, synced by syncAxoSubtitleSurfaces
+               to exactly state.lastLine). say()/sync/applyAxoSubs/
+               setVerdictIcon all null-guard the strip, so removal
+               cannot throw; the hero + orb verdict slots stay. -->
+          <!-- Task K: the control row moved to the header strip
+               above (toggles are header-only, never a body
+               section). Nothing here. -->
+          <!-- 0a2. No-skip warning — REMOVED from the panel in Task H
+               (owner order 2026-10-25): the warning lives ONLY in
+               the outside-panel popup #axoNoSkipPopup above the
+               modal, so there is exactly one warning surface. -->
+          <!-- Task E: the 0b road strip is REMOVED (the ball's road
+               below, assistantMiniRoad, is the one road that stays).
+               renderAxoRoad null-guards, so it becomes a no-op. -->
+
+          <!-- 1. Live Period & Timer Bar with Active Interval — REMOVED
+               in Task E (essentials only): period, timer and balance
+               stay visible on the game page and the Home tab. The
+               countdown keeper span in the confirm slot below keeps
+               the autopilot ≤5s invalidation working. -->
+          <!-- 1b. Balance — REMOVED in Task E (see above). -->
+          <!-- 1. Game time selection — RESTORED in Task K (owner
+               order 2026-10-25): the interval pills sit ON TOP of
+               the panel body. They call the SAME setMobileTimeframe
+               as the Home tab pills (single source of truth:
+               MobileState.timeframe + dhaniwin_last_interval +
+               quant_default_tf; the sync writer overwrites these
+               compact classes on every call, so no duplicate state
+               and no desync). No interval badge: the pills ARE the
+               indicator. -->
+          <div class="flex items-center gap-1 shrink-0">
+            <span class="text-[7px] font-mono text-zinc-500 tracking-wider shrink-0">GAME TIME</span>
+            <button onclick="setMobileTimeframe('30s')" id="asstTfBtn-30s" class="flex-1 py-1 rounded-lg font-mono text-[8px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 transition active:scale-95 text-center">30s</button>
+            <button onclick="setMobileTimeframe('1m')" id="asstTfBtn-1m" class="flex-1 py-1 rounded-lg font-mono text-[8px] font-bold bg-white/5 text-zinc-400 border border-white/5 transition active:scale-95 text-center">1m</button>
+            <button onclick="setMobileTimeframe('3m')" id="asstTfBtn-3m" class="flex-1 py-1 rounded-lg font-mono text-[8px] font-bold bg-white/5 text-zinc-400 border border-white/5 transition active:scale-95 text-center">3m</button>
+            <button onclick="setMobileTimeframe('5m')" id="asstTfBtn-5m" class="flex-1 py-1 rounded-lg font-mono text-[8px] font-bold bg-white/5 text-zinc-400 border border-white/5 transition active:scale-95 text-center">5m</button>
+          </div>
+
+          <!-- 2. Hero Prediction Box (Apple AMOLED Glass; Task K:
+               padding tightened p-2.5 → p-2 so the four sections
+               fit the 340px content floor — no other change) -->
+          <div id="axoHeroBox" class="relative overflow-hidden p-2 rounded-xl border border-white/[0.1] bg-gradient-to-b from-white/[0.06] to-white/[0.01] flex items-center justify-between">
+            <div class="flex flex-col">
+              <span class="text-[7px] font-mono uppercase tracking-widest text-zinc-400">NEXT PREDICTION</span>
+              <span class="flex items-center gap-1.5"><span id="axoHeroVerdictIcon" class="inline-block"></span><span id="mobileWebTargetDisplay" class="text-2xl font-black tracking-tight text-zinc-500 mt-0.5 drop-shadow-[0_0_12px_rgba(245,158,11,0.35)]">—</span></span>
+            </div>
+            <div class="flex flex-col items-end gap-1">
+              <span id="assistantConfBadge" class="text-[8.5px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/35">—</span>
+              <div class="flex flex-col items-end text-[7px] font-mono leading-tight">
+                <span class="text-zinc-400">Base: <b id="assistantBaseStakeDisplay" class="text-zinc-200 font-bold">₹2</b></span>
+                <span class="text-zinc-400">Bet: <b id="mobileWebStakeDisplay" class="text-emerald-400 font-bold">₹2</b></span>
               </div>
             </div>
+          </div>
 
-            <div class="flex flex-col items-end">
-              <span class="text-[7.5px] font-mono uppercase tracking-widest text-zinc-400">01:01 CALL</span>
-              <div class="flex items-center gap-2 mt-0.5">
-                <span id="mobileWebTargetDisplay" class="text-3xl font-black tracking-tight text-amber-300 drop-shadow-[0_0_12px_rgba(245,158,11,0.35)]">BIG</span>
-                <span id="assistantConfBadge" class="text-[9px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/35">84%</span>
-              </div>
-              <span id="mobileWebLevelBadge" class="text-[7.5px] font-mono text-zinc-400 mt-0.5">Level 1 (Base)</span>
+
+          <!-- 2c. Skip reason (orb-bridge): when the hero shows SKIP,
+               this line says WHY — which gate fired, with its numbers
+               (sample count, required probability, streak state).
+               Written by renderHeroVerdict on every cycle; cleared on
+               BET/NONE so a stale reason never outlives its verdict. -->
+          <div id="mobileWebVerdictReason" class="text-[8px] font-mono leading-snug text-zinc-400 px-0.5 pb-0.5"></div>
+
+          <!-- 2b. Auto-Pilot confirm (orb-bridge): visible only while a
+               bet is staged. This tap is the ONLY way a staged bet fires.
+               The slot height is reserved whether or not a bet is
+               staged, so staging never resizes the sheet. Task E: the
+               HARD_STOP re-arm button lives here now (shown only while
+               hard-stopped — staging is blocked then, so it never
+               competes with the confirm button), and the hidden
+               countdown keeper preserves the autopilot ≤5s
+               invalidation (countdownMsLeft reads its text). -->
+          <div id="autoPilotConfirmSlot" class="h-[34px] shrink-0">
+            <button type="button" id="autoPilotConfirmBtn" onclick="window.__smartBall && window.__smartBall.confirmAutoPilotBet()" class="hidden w-full py-2 rounded-xl font-mono text-[10px] font-black bg-emerald-500/25 text-emerald-200 border border-emerald-500/40 active:scale-[0.98] transition">BET — tap to confirm</button>
+            <button type="button" id="hardStopRearmBtn" onclick="window.__smartBall && window.__smartBall.rearmHardStop()" class="hidden text-[7px] font-mono font-bold text-amber-300 underline underline-offset-2 transition active:scale-95">Re-arm manually (override the 3-loss stop)</button>
+            <span id="assistantCountdown" class="hidden" aria-hidden="true"></span>
+          </div>
+          <!-- 3. Recent Sequence Road (Last Draws) -->
+          <div class="space-y-1">
+            <div class="flex items-center justify-between text-[7.5px] font-mono text-zinc-400 px-0.5">
+              <span class="font-bold tracking-wider uppercase">SEQUENCE ROAD</span>
+              <span class="text-[6.5px] text-zinc-500">NEW → OLD</span>
+            </div>
+            <div id="assistantMiniRoad" class="flex items-center gap-1.5 p-1.5 rounded-xl bg-black/40 border border-white/[0.06] overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
+              <span class="text-[7.5px] font-mono text-zinc-500 px-1 py-0.5">Loading results...</span>
             </div>
           </div>
+
+          <!-- 3b. Long runs — REMOVED in Task E (owner order):
+               the long-runs analysis block is gone from the opened
+               window. scheduleLongAnalysis null-guards, so it is a
+               no-op without the element. -->
+
+
+          <!-- 4. Base-bet line (Task K): base-bet chips + the
+               working win/loss doubling state. The step is the
+               Level badge below (governed session level / app-side
+               recovery level — same writers as before); the next
+               stake after win/loss is the hero's Bet figure above
+               (governed nextStake / app-side currentStake) — no new
+               ladder, no new maths, no duplicate figure to desync. -->
+          <!-- 4. 1-Tap Base Bet Quick Select & Loss Recovery Status -->
+          <div id="axoBaseBetSection" class="space-y-1 pt-0.5">
+            <div class="flex items-center justify-between text-[7.5px] font-mono px-0.5">
+              <div class="flex items-center gap-1">
+                <span class="font-bold tracking-wider uppercase text-zinc-300">BASE BET:</span>
+                <span id="mobileWebLevelBadge" class="text-[7.5px] font-mono font-bold px-1.5 py-0.2 rounded bg-white/10 text-amber-300 border border-white/10">Level 1 (Base)</span>
+                <button type="button" id="autoBaseToggle" aria-pressed="false" onclick="window.__smartBall && window.__smartBall.toggleAutoBase()" class="text-[7.5px] font-mono font-bold px-1.5 py-0.2 rounded bg-white/10 text-zinc-300 border border-white/10 transition active:scale-95" title="AUTO base bet from your verified balance">AUTO</button>
+              </div>
+              <button type="button" onclick="stopAndResetMobileRecovery()" class="text-[7px] font-mono text-rose-400 hover:text-rose-300 underline underline-offset-2 transition active:scale-95" title="Reset Recovery Level">Reset</button>
+            </div>
+            <div class="grid grid-cols-6 gap-1">
+              <button type="button" onclick="setAssistantBaseStake(1)"   id="chipBtn-1"   class="py-1 rounded-lg font-mono text-[8.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95 transition">₹1</button>
+              <button type="button" onclick="setAssistantBaseStake(2)"   id="chipBtn-2"   class="py-1 rounded-lg font-mono text-[8.5px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 active:scale-95 transition">₹2</button>
+              <button type="button" onclick="setAssistantBaseStake(5)"   id="chipBtn-5"   class="py-1 rounded-lg font-mono text-[8.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95 transition">₹5</button>
+              <button type="button" onclick="setAssistantBaseStake(10)"  id="chipBtn-10"  class="py-1 rounded-lg font-mono text-[8.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95 transition">₹10</button>
+              <button type="button" onclick="setAssistantBaseStake(50)"  id="chipBtn-50"  class="py-1 rounded-lg font-mono text-[8.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95 transition">₹50</button>
+              <button type="button" onclick="setAssistantBaseStake(100)" id="chipBtn-100" class="py-1 rounded-lg font-mono text-[8.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95 transition">₹100</button>
+            </div>
+          </div>
+
+          <!-- 5. Bridge status + 5b. Axo AI readout — REMOVED in Task E
+               (essentials only): diagnostics and analysis output, not
+               betting essentials. Their renderers null-guard. -->
+          <!-- 6. Auto-Pilot row — REMOVED in Task E: the toggle lives
+               as the AP chip in the control row above; the re-arm
+               button lives in the confirm slot; the session/stop
+               lines (stats/diagnostics) are gone from the window. -->
+
         </div>
-
-        <!-- 4. Macro Sequence Road (Last 8 Draws) -->
-        <div class="space-y-1.5">
-          <div class="flex items-center justify-between text-[8px] font-mono text-zinc-400 px-1">
-            <span class="tracking-wider">RECENT SEQUENCE ROAD</span>
-            <span class="text-zinc-500">NEWEST ◄ OLDER</span>
-          </div>
-          <div id="assistantMiniRoad" class="flex items-center gap-2 p-2 rounded-2xl bg-black/50 border border-white/[0.06] overflow-x-auto min-h-[42px]">
-            <!-- Dynamically populated with 8 latest balls with prediction result badges -->
-          </div>
-        </div>
-
-        <!-- 5. 4 Risk Modes & Loss Recovery Controller (Solvency Guard) -->
-        <div class="apple-glass-card p-3 rounded-3xl border border-white/[0.08] space-y-2.5">
-          <div class="flex items-center justify-between text-[8.5px] font-mono">
-            <span class="text-zinc-300 font-black uppercase tracking-wider flex items-center gap-1.5">
-              <i class="fa-solid fa-shield-halved text-emerald-400 text-[10px]"></i> RISK &amp; RECOVERY MODE
-            </span>
-            <button type="button" onclick="toggleAutoOptimizeBase()" id="autoOptimizeToggleBtn" class="px-2.5 py-0.5 rounded-full font-mono text-[8px] font-black border transition active:scale-95 bg-emerald-500/20 text-emerald-300 border-emerald-500/30">
-              ⚡ Auto-Base: ON
-            </button>
-          </div>
-
-          <!-- 4 Mode Selector Pills -->
-          <div class="grid grid-cols-4 gap-1.5">
-            <button type="button" onclick="setRiskMode('safe')" id="riskModeBtn-safe" class="py-2 rounded-2xl font-mono text-[9px] font-black border flex flex-col items-center justify-center transition active:scale-95 bg-white/5 text-zinc-400 border-white/5">
-              <span>🛡️ SAFE</span>
-              <span class="text-[6.5px] opacity-70 font-normal">2L / Low DD</span>
-            </button>
-            <button type="button" onclick="setRiskMode('profitable')" id="riskModeBtn-profitable" class="py-2 rounded-2xl font-mono text-[9px] font-black border flex flex-col items-center justify-center transition active:scale-95 bg-amber-500/25 text-amber-300 border-amber-500/40 shadow-sm">
-              <span>💰 PROFIT</span>
-              <span class="text-[6.5px] opacity-70 font-normal">3L / Balanced</span>
-            </button>
-            <button type="button" onclick="setRiskMode('risk')" id="riskModeBtn-risk" class="py-2 rounded-2xl font-mono text-[9px] font-black border flex flex-col items-center justify-center transition active:scale-95 bg-white/5 text-zinc-400 border-white/5">
-              <span>⚡ SURGE</span>
-              <span class="text-[6.5px] opacity-70 font-normal">4L / Growth</span>
-            </button>
-            <button type="button" onclick="setRiskMode('high_risk')" id="riskModeBtn-high_risk" class="py-2 rounded-2xl font-mono text-[9px] font-black border flex flex-col items-center justify-center transition active:scale-95 bg-white/5 text-zinc-400 border-white/5">
-              <span>🔥 HYPER</span>
-              <span class="text-[6.5px] opacity-70 font-normal">5L / Max</span>
-            </button>
-          </div>
-
-          <!-- Solvency Guard Assurance -->
-          <div class="text-[7.5px] font-mono text-zinc-400 flex items-center justify-between px-1">
-            <span id="riskModeSummary">Ladder: 1x, 2x, 4x • Multiplier: 2.0x</span>
-            <span class="text-emerald-400 font-bold flex items-center gap-1">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>Solvency Guard Active</span>
-            </span>
-          </div>
-        </div>
-
-        <!-- 6. 1-Tap Base Bet Quick Set Chips & Next Stake Display -->
-        <div class="apple-glass-card p-3 rounded-3xl border border-white/[0.08] space-y-2">
-          <div class="flex items-center justify-between text-[8.5px] font-mono">
-            <span class="text-zinc-300 font-bold tracking-wider">1-TAP BASE BET (₹):</span>
-            <span class="text-zinc-400">Next Prep Stake: <b id="mobileWebStakeDisplay" class="text-emerald-400 font-bold text-[10px]">₹2</b></span>
-          </div>
-          <div class="grid grid-cols-6 gap-1">
-            <button type="button" onclick="setAssistantBaseStake(1)"   id="chipBtn-1"   class="py-1.5 rounded-xl font-mono text-[9.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95">₹1</button>
-            <button type="button" onclick="setAssistantBaseStake(2)"   id="chipBtn-2"   class="py-1.5 rounded-xl font-mono text-[9.5px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 active:scale-95">₹2</button>
-            <button type="button" onclick="setAssistantBaseStake(5)"   id="chipBtn-5"   class="py-1.5 rounded-xl font-mono text-[9.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95">₹5</button>
-            <button type="button" onclick="setAssistantBaseStake(10)"  id="chipBtn-10"  class="py-1.5 rounded-xl font-mono text-[9.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95">₹10</button>
-            <button type="button" onclick="setAssistantBaseStake(50)"  id="chipBtn-50"  class="py-1.5 rounded-xl font-mono text-[9.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95">₹50</button>
-            <button type="button" onclick="setAssistantBaseStake(100)" id="chipBtn-100" class="py-1.5 rounded-xl font-mono text-[9.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95">₹100</button>
-          </div>
-        </div>
-
-        <!-- 7. Stop Loss Protection -->
-        <div class="apple-glass-card p-3 rounded-2xl border border-white/[0.08] flex items-center justify-between gap-2">
-          <div class="flex items-center gap-1.5 text-[8.5px] font-mono text-zinc-300">
-            <i class="fa-solid fa-shield-halved text-rose-400 text-xs"></i>
-            <span>Stop Bet if Loss Reaches:</span>
-          </div>
-          <div class="flex items-center gap-1 font-mono text-xs">
-            <span class="text-rose-400 font-bold">-₹</span>
-            <input id="mobileWebStopLossLimit" type="number" value="100" min="5" step="5" onchange="updateAssistantLossLimit(this.value)" class="w-16 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-right font-bold text-rose-300 outline-none">
-          </div>
-        </div>
-
-        <!-- 8. Apple VisionOS Primary Action Button: AUTO-PREP & AUTO-SHAKE -->
-        <button id="mobileBridgeToggleBtn" onclick="toggleMobileRealAutoBet()" class="w-full py-3.5 rounded-2xl font-mono text-xs font-black bg-emerald-500/25 hover:bg-emerald-500/35 text-emerald-300 border border-emerald-500/50 active:scale-95 transition shadow-[0_8px_24px_rgba(16,185,129,0.25)] flex items-center justify-center gap-2">
-          <span id="mobileBridgeDot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span id="mobileBridgeStatusLabel">▶ ACTIVATE AUTO-PREP &amp; AUTO-SHAKE</span>
-        </button>
-
-        <!-- 9. Luxury AMOLED Utilities Dock (Reload, WinGo, Full View, Script) -->
-        <div class="grid grid-cols-4 gap-1.5 pt-1 border-t border-white/[0.06] text-[8.5px] font-mono">
-          <button type="button" onclick="reloadWebIframe()" class="py-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 border border-white/10 text-center active:scale-95 transition">
-            🔄 Reload
-          </button>
-          <button type="button" onclick="loadMobileWebUrl('https://dhaniwin44.com/WinGo/WinGo_30S')" class="py-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold text-center active:scale-95 transition">
-            🎮 WinGo
-          </button>
-          <button type="button" onclick="toggleDhaniWinTrueFullscreen()" id="btnTrueFullscreenToggle" class="py-2 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold text-center active:scale-95 transition">
-            📺 Full View
-          </button>
-          <button type="button" onclick="copyMobileBridgeScript()" class="py-2 rounded-xl bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-bold text-center active:scale-95 transition">
-            📋 Script
-          </button>
-        </div>
-
-        <!-- Disclaimer / Safety Assurance -->
-        <p class="text-[7.5px] font-mono text-zinc-500 text-center">
-          🔒 Auto-prep opens sheet &amp; sets stake. Final confirmation remains strictly manual.
-        </p>
-
       </div>
     </div>
 
@@ -1027,94 +1193,12 @@
   </main>
 
   <!-- ════════════════════════════════════════════════════════════
-       UNLOCK 01:01 MODAL (AMOLED Liquid Glass Full Access Gate)
-  ════════════════════════════════════════════════════════════ -->
-  <div id="unlock0101Modal" class="fixed inset-0 z-[100005] bg-black/85 backdrop-blur-2xl flex items-center justify-center p-4 transition-all duration-300 hidden" onclick="if(event.target===this) toggleUnlockModal(false)">
-    <div class="relative w-full max-w-sm rounded-[36px] bg-gradient-to-b from-white/[0.08] via-white/[0.03] to-black/90 border border-white/[0.14] shadow-[0_20px_60px_rgba(0,0,0,0.95)] p-6 flex flex-col items-center text-center overflow-hidden select-none">
-      
-      <!-- Subtle Ambient Glow -->
-      <div class="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-48 bg-amber-500/15 rounded-full blur-3xl pointer-events-none"></div>
-
-      <!-- Close Button (Top-Right) -->
-      <button type="button" onclick="toggleUnlockModal(false)" class="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center text-white/70 hover:text-white transition active:scale-95" title="Close">
-        <i class="fa-solid fa-xmark text-xs"></i>
-      </button>
-
-      <!-- Floating Crown Glass Badge -->
-      <div class="relative w-24 h-24 flex items-center justify-center mt-2 mb-1">
-        <div class="absolute inset-0 rounded-full bg-amber-400/20 blur-xl animate-pulse"></div>
-        <div class="relative w-20 h-20 rounded-3xl bg-gradient-to-tr from-amber-400/15 via-white/10 to-orange-500/15 border border-amber-300/30 flex items-center justify-center text-4xl shadow-[0_0_35px_rgba(245,158,11,0.3)]">
-          👑
-        </div>
-      </div>
-
-      <!-- Title & Subtitle -->
-      <h2 class="text-2xl font-black tracking-tight text-white mt-1">
-        Unlock <span class="bg-gradient-to-r from-white via-amber-200 to-amber-400 bg-clip-text text-transparent">01:01</span>
-      </h2>
-      <p class="text-[10px] font-mono font-black tracking-[0.25em] text-zinc-400 uppercase mt-0.5">
-        GET FULL ACCESS
-      </p>
-
-      <!-- 4 Glass Feature Badges -->
-      <div class="grid grid-cols-2 gap-2.5 w-full my-4">
-        <div class="p-3 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex flex-col items-center text-center gap-1.5 backdrop-blur-md">
-          <div class="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 text-xs">
-            <i class="fa-solid fa-chart-column"></i>
-          </div>
-          <span class="text-[10px] font-bold text-white leading-tight">All Prediction Systems</span>
-        </div>
-        <div class="p-3 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex flex-col items-center text-center gap-1.5 backdrop-blur-md">
-          <div class="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 text-xs">
-            <i class="fa-solid fa-brain"></i>
-          </div>
-          <span class="text-[10px] font-bold text-white leading-tight">Advanced Analysis</span>
-        </div>
-        <div class="p-3 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex flex-col items-center text-center gap-1.5 backdrop-blur-md">
-          <div class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 text-xs">
-            <i class="fa-solid fa-layer-group"></i>
-          </div>
-          <span class="text-[10px] font-bold text-white leading-tight">Exclusive Patterns</span>
-        </div>
-        <div class="p-3 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex flex-col items-center text-center gap-1.5 backdrop-blur-md">
-          <div class="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-xs">
-            <i class="fa-solid fa-bolt"></i>
-          </div>
-          <span class="text-[10px] font-bold text-white leading-tight">All Premium Menus</span>
-        </div>
-      </div>
-
-      <!-- Action Button -->
-      <button type="button" onclick="startDhaniAuthFlow()" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-blue-600/80 via-indigo-600/80 to-purple-600/80 hover:from-blue-500 hover:to-indigo-500 border border-white/20 text-white font-black text-sm tracking-wide flex items-center justify-between shadow-[0_8px_30px_rgba(79,70,229,0.35)] active:scale-[0.98] transition">
-        <div class="flex items-center gap-2.5">
-          <span class="text-base">🎲</span>
-          <span class="font-black text-sm">Login with Dhani</span>
-        </div>
-        <i class="fa-solid fa-chevron-right text-xs text-white/70"></i>
-      </button>
-
-      <p class="text-[9.5px] text-zinc-400 mt-2.5 leading-relaxed font-medium">
-        Login with your Dhaniwin account to unlock everything for free.
-      </p>
-
-      <!-- Already logged in verify link -->
-      <div class="mt-3 pt-3 border-t border-white/[0.08] w-full flex items-center justify-center">
-        <button type="button" onclick="confirmDhaniLoggedIn()" class="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 flex items-center gap-1.5 underline underline-offset-4 cursor-pointer">
-          <i class="fa-solid fa-circle-check"></i>
-          <span>Already logged in? Tap to verify</span>
-        </button>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- ════════════════════════════════════════════════════════════
        BUY ME A COFFEE / SUPPORT POPUP MODAL (Compact & Daily)
   ════════════════════════════════════════════════════════════ -->
-  <div id="coffeeSupportModal" class="fixed inset-0 z-[100000] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4 transition-all duration-300 opacity-0 pointer-events-none" onclick="if(event.target===this) closeCoffeeSupportModal(false)">
+  <div id="coffeeSupportModal" class="fixed inset-0 z-[100000] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4 transition-all duration-300 opacity-0 pointer-events-none" onclick="if(event.target===this) dismissCoffeeSupportModalToday()">
     <div class="w-full max-w-[290px] bg-[#0c0c0e] border border-white/[0.18] rounded-[24px] overflow-hidden shadow-2xl relative flex flex-col items-center animate-scale-up select-none cursor-pointer group" onclick="openRazorpayCheckout(); closeCoffeeSupportModal(true);">
       <!-- Close Button (Top-Right) -->
-      <button onclick="event.stopPropagation(); closeCoffeeSupportModal(false);" class="absolute top-2.5 right-2.5 z-30 w-7 h-7 rounded-full bg-black/70 hover:bg-black/90 text-white/80 hover:text-white border border-white/25 flex items-center justify-center text-xs transition active:scale-95 shadow-md" title="Close">
+      <button onclick="event.stopPropagation(); dismissCoffeeSupportModalToday();" class="absolute top-2.5 right-2.5 z-30 w-7 h-7 rounded-full bg-black/70 hover:bg-black/90 text-white/80 hover:text-white border border-white/25 flex items-center justify-center text-xs transition active:scale-95 shadow-md" title="Close">
         <i class="fa-solid fa-xmark"></i>
       </button>
 
@@ -1133,7 +1217,7 @@
           ✨ After buying a coffee, this won't come again for a while
         </p>
         <div class="w-full flex items-center justify-between text-[9.5px] text-zinc-400 px-1 pt-0.5 font-mono">
-          <button onclick="event.stopPropagation(); closeCoffeeSupportModal(false);" class="hover:text-white transition">Maybe Later</button>
+          <button onclick="event.stopPropagation(); dismissCoffeeSupportModalToday();" class="hover:text-white transition">Maybe Later</button>
           <button onclick="event.stopPropagation(); confirmCoffeePaidPrompt();" class="text-amber-400 font-bold hover:text-amber-300 transition flex items-center gap-1 cursor-pointer">
             <i class="fa-solid fa-check text-[9px]"></i>
             <span>I Have Paid</span>
@@ -1371,16 +1455,13 @@
         <span class="dock-indicator"></span>
       </button>
 
-      <!-- 4. Pattern Tab (Live Pattern Intelligence) -->
-      <button type="button" onclick="switchMobileTab('pattern')" class="dock-btn" data-tab="pattern">
-        <div class="dock-btn-pill"></div>
-        <i class="fa-solid fa-shapes"></i>
-        <span class="tab-title">Pattern</span>
-        <span class="dock-indicator"></span>
-      </button>
-
     </div>
   </nav>
+
+  <!-- Bottom Swipe / Tap Handle to restore dock when hidden or compact -->
+  <div id="dockRestoreHandle" class="dock-restore-handle" title="Swipe up or tap to show menu" aria-label="Restore Menu">
+    <div class="dock-restore-bar"></div>
+  </div>
 
   <!-- ════════════════════════════════════════════════════════════
        MODULAR ENGINES & SCRIPTS
@@ -1398,11 +1479,15 @@
   <script src="./systems/wingo_3m.js"></script>
   <script src="./systems/wingo_5m.js"></script>
   <script src="./systems/timeframe_manager.js"></script>
+  <script src="./systems/balls.js"></script>
+  <script src="./systems/axo-faces.js"></script>
+  <script src="./systems/dhani-transport.js"></script>
 
   <!-- Core Mobile Orchestrator -->
   <script src="mobile.js"></script>
 
   <!-- Isolated Pattern Intelligence Layer (4th Tab) -->
   <script type="module" src="./src/pattern/index.js"></script>
+  <script type="module" src="./systems/orb-bridge.js"></script>
 </body>
 </html>

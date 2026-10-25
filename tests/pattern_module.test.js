@@ -244,15 +244,21 @@ test('TEST 9 — PREDICTION ISOLATION: Models Retain Exact Prediction Output and
   assert.equal(predictionB.confidence, 0.74);
 });
 
-test('TEST 10 — MENU INTEGRITY: Menus 1, 2, 3 Unchanged, Pattern Appears as Item 4', () => {
+test('TEST 10 — MENU INTEGRITY: live app dock (owner spec superseded 2026-10-24)', () => {
+  // SUPERSEDED AGAIN at the rebase: the 3-destination dock was a
+  // branch-only restyle. The owner's LIVE app (now the base, per his
+  // "exact same" order) ships a 4-destination dock — Web (the embedded
+  // DhaniWin home), Home (Analyse), AI (Ranking), Pattern — and the
+  // menu integrity rule is now: the dock is exactly the live app's.
+  //
+  // SUPERSEDED ONCE MORE by the owner's Auto-Pilot-build order
+  // (2026-10-24): remove the Patterns entry from the menu ONLY. The
+  // pattern engine, its persisted store and the Analyse numbers stay;
+  // the #tab-pattern section stays in the DOM, unlinked. The dock is
+  // now exactly Web / Home / AI.
   const mobileHtmlPath = path.resolve('mobile.html');
   const content = fs.readFileSync(mobileHtmlPath, 'utf8');
 
-  // Verify dock-container buttons order:
-  // 1. Home (data-tab="web")
-  // 2. Analyse (data-tab="home")
-  // 3. AI Adaptive (data-tab="ai")
-  // 4. Pattern (data-tab="pattern")
   const dockRegex = /<nav id="mobileBottomDock"[\s\S]*?<\/nav>/;
   const dockMatch = content.match(dockRegex);
   assert.ok(dockMatch, 'mobileBottomDock must exist');
@@ -260,12 +266,11 @@ test('TEST 10 — MENU INTEGRITY: Menus 1, 2, 3 Unchanged, Pattern Appears as It
   const dockHtml = dockMatch[0];
   const tabMatches = [...dockHtml.matchAll(/data-tab="([^"]+)"/g)].map(m => m[1]);
 
-  assert.equal(tabMatches.length, 4, 'Must contain exactly 4 navigation tabs');
-  assert.equal(tabMatches[0], 'web', 'Menu 1 must be Home (web)');
-  assert.equal(tabMatches[1], 'home', 'Menu 2 must be Analyse (home)');
-  assert.equal(tabMatches[2], 'ai', 'Menu 3 must be AI Adaptive (ai)');
-  assert.equal(tabMatches[3], 'pattern', 'Menu 4 must be Pattern (pattern)');
+  assert.deepEqual(tabMatches, ['web', 'home', 'ai'], 'dock is Web / Home / AI — Patterns entry removed from the menu by owner order (engine + data stay)');
 
-  // Verify section #tab-pattern exists
-  assert.ok(content.includes('id="tab-pattern"'), 'tab-pattern section must exist in DOM');
+  // Every dock destination has its section in the DOM — and the
+  // pattern section also stays in the DOM, unlinked from the menu.
+  for (const tab of ['web', 'home', 'ai', 'pattern', 'sim']) {
+    assert.ok(content.includes(`id="tab-${tab}"`), `tab-${tab} section must exist in DOM`);
+  }
 });
