@@ -73,7 +73,12 @@
   // itself is NEVER part of the built state.
   function extractUserIdFromJson(data, depth = 0) {
     if (!data || typeof data !== 'object' || depth > 3) return null;
-    const idKeys = ['userid', 'user_id', 'uid', 'memberid', 'member_id', 'tenantaccount', 'accountid', 'id'];
+    // Round 3: bare `id` is NOT an identity key — every object has
+    // an id (round ids, bet ids, period ids), so an id-only payload
+    // must not verify a login. Real user keys (userid, uid,
+    // memberid, …) still count, and a payload with a real userId
+    // and no balance still proves login (balance unknown, never 0).
+    const idKeys = ['userid', 'user_id', 'uid', 'memberid', 'member_id', 'tenantaccount', 'accountid'];
     for (const k of Object.keys(data)) {
       const lk = k.toLowerCase().replace(/[^a-z0-9_]/g, '');
       if (idKeys.includes(lk)) {
@@ -150,13 +155,21 @@
       },
       noteApiPayload(payload, now) {
         // An authenticated wallet/user payload succeeded: this IS the
-        // login proof, and its balance is the exact figure.
+        // login proof. Round 3 overwrite discipline: the balance is
+        // stored ONLY when the caller declares it qualified
+        // (payload.balanceQualified === true) AND it is a finite
+        // number ≥ 0. An unqualified value (generic-0, failed-op,
+        // proof-only) NEVER overwrites, and NEVER clears, an
+        // existing strict balance — it leaves apiBalance untouched
+        // while still setting proof, flags and identity. Undefined
+        // balanceQualified means NOT qualified (fail-safe): every
+        // caller must pass it explicitly.
         t.apiProven = true;
         t.lastProofAt = now;
         t.pollAuthFailed = false;
         t.pollEmptyCount = 0;
         if (t.tokenPresent) t.everConfirmed = true;
-        if (payload && payload.balance !== null && payload.balance !== undefined && Number.isFinite(Number(payload.balance))) {
+        if (payload && payload.balanceQualified === true && payload.balance !== null && payload.balance !== undefined && Number.isFinite(Number(payload.balance)) && Number(payload.balance) >= 0) {
           t.apiBalance = Number(payload.balance);
           t.apiBalanceAt = now;
         }
@@ -180,7 +193,10 @@
       noteActivePoll(result, now) {
         if (!result) return;
         if (result.verdict === 'ok') {
-          t.noteApiPayload({ balance: result.balance, userId: result.userId }, now);
+          // Round 3: the poll threads balanceQualified through, so
+          // an unqualified replay value can prove the session
+          // without overwriting a verified balance.
+          t.noteApiPayload({ balance: result.balance, balanceQualified: result.balanceQualified === true, userId: result.userId }, now);
         } else if (result.verdict === 'auth') {
           // The session itself rejected the re-query: logged out.
           // NOTE: the active poll no longer uses this branch (Fix 8:
@@ -383,39 +399,38 @@
   }
 
   // ── 0. Real Balance Engine (Network XHR/Fetch Interception + DOM Scanner) ────
-  // Wallet-specific balance keys (Fix 9): a payload counts as wallet
-  // proof only if it carries one of these. Generic keys (amount,
-  // coin, money) and bare identifiers (id, userid) do NOT count — an
-  // unrelated amount:0 payload must never verify a login. Note the
-  // balance extractor below is deliberately looser (it accepts
-  // amount/coin for display); this stricter set gates only the
-  // apiProven login proof, not balance display or endpoint learning.
+  // Wallet balance keys (Fix 9, tightened round 3): a balance number
+  // counts ONLY when found under one of these keys via the subKeys
+  // traversal below. Generic keys (amount, coin, money, realmoney)
+  // NEVER count — the old extractor scanned top-level keys in
+  // document order, so {data:{amount:0, wallet:{balance:67.45}}}
+  // returned 0 by shadowing and a nested zero wallet inside a
+  // user-info payload displayed as an exact ₹0. The presence-only
+  // gate (hasWalletSpecificKey) is DELETED: a key merely existing
+  // (e.g. `wallet` holding an object) proved nothing. The proof is
+  // now "strict extraction is non-null" — a real number under a
+  // wallet key — plus the error gate and the zero-provenance rule
+  // in onApiWalletPayload.
   const WALLET_BALANCE_KEYS = ['balance', 'userbalance', 'user_balance', 'availablebalance', 'available_balance', 'wallet', 'userwallet', 'user_wallet', 'walletbalance', 'wallet_balance', 'totalbalance', 'total_balance'];
-  function hasWalletSpecificKey(data, depth = 0) {
-    if (!data || typeof data !== 'object' || depth > 4) return false;
-    for (const k of Object.keys(data)) {
-      const lk = k.toLowerCase().replace(/[^a-z0-9_]/g, '');
-      if (WALLET_BALANCE_KEYS.includes(lk)) return true;
-      if (hasWalletSpecificKey(data[k], depth + 1)) return true;
-    }
-    return false;
-  }
 
+  // Strict balance extraction (round 3): at each visited object
+  // (depth ≤ 5), a WALLET_BALANCE_KEYS key holding a finite number
+  // ≥ 0 (numeric strings coerced after stripping commas) is the
+  // value; a wallet key holding a non-number is skipped as a value
+  // but still recursed into when it is a subKey. Recursion goes
+  // ONLY through subKeys — never arbitrary keys, never
+  // amount/coin/money. Shallowest depth wins (level-first
+  // traversal), so {data:{amount:0, wallet:{balance:67.45}}}
+  // returns 67.45, {amount:0} alone returns null, and
+  // {data:{user:{wallet:{balance:0}}}} returns a strict 0 (whose
+  // display is then decided by the zero-provenance rule, not here).
   function extractBalanceFromJson(data, depth = 0) {
     if (!data || typeof data !== 'object' || depth > 5) return null;
-    
-    // 1. Direct candidate inspection
-    const primaryKeys = [
-      'balance', 'userbalance', 'user_balance', 'availablebalance', 'available_balance',
-      'wallet', 'userwallet', 'user_wallet', 'walletbalance', 'wallet_balance',
-      'money', 'usermoney', 'user_money', 'realmoney', 'real_money',
-      'coin', 'amount', 'totalbalance', 'total_balance'
-    ];
 
-    // Check at current level
+    // 1. Wallet keys at the current level, in document order.
     for (const k of Object.keys(data)) {
       const lowerKey = k.toLowerCase().replace(/[^a-z0-9_]/g, '');
-      if (primaryKeys.includes(lowerKey)) {
+      if (WALLET_BALANCE_KEYS.includes(lowerKey)) {
         const val = data[k];
         if (typeof val === 'number' && Number.isFinite(val) && val >= 0) return val;
         if (typeof val === 'string' && val.trim() !== '') {
@@ -425,7 +440,7 @@
       }
     }
 
-    // 2. Recursive inspection for nested wrappers like data, result, payload, body, info
+    // 2. Recurse ONLY through wrapper keys.
     const subKeys = ['data', 'result', 'payload', 'body', 'userInfo', 'user_info', 'user', 'wallet', 'wallets', 'member', 'account'];
     for (const sk of subKeys) {
       if (data[sk] && typeof data[sk] === 'object') {
@@ -455,38 +470,69 @@
     return pairs;
   }
 
+  // Round 3 error-body gate (shared by the payload handler and the
+  // active poll — the two must never drift apart): a body code of
+  // 401/403 (coerced, so string "401"/"403" count) or a non-empty
+  // auth-flavoured message (token/unauthor/login/session/expired/
+  // re-login, regardless of the success field) means the session is
+  // NOT proven by this payload. A bare success:false with a
+  // non-auth message does NOT block: an authenticated response to a
+  // failed operation still proves the session is alive (it just
+  // carries no balance — see the failed-op decoupling below).
+  function isAuthErrorBody(data) {
+    const errCode = (data.code !== undefined ? data.code : data.status);
+    if (Number(errCode) === 401 || Number(errCode) === 403) return true;
+    const errMsg = String(data.msg || data.message || '');
+    if (errMsg !== '' && /token|unauthor|login|session|expired|re-login/i.test(errMsg)) return true;
+    return false;
+  }
+
+  // Round 3 zero-provenance test: a strict 0 counts as a DISPLAYABLE
+  // balance only when the request URL itself looks like a wallet
+  // read (contains wallet|balance). A strict 0 from a user-info /
+  // money / financial / ar-lottery URL sustains LOGIN PROOF but
+  // must not set a displayed balance, be learned, or refresh a
+  // replay — otherwise a nested zero wallet inside a user-info
+  // boot payload (the most likely false-₹0 shape) displays as an
+  // exact ₹0 and is replayed every 20s while the real wallet
+  // endpoint never fires.
+  function urlHasWalletOrBalance(url) {
+    if (typeof url !== 'string') return false;
+    const u = url.toLowerCase();
+    return u.includes('wallet') || u.includes('balance');
+  }
+
   // One authenticated wallet/user API payload: login proof for the
-  // tracker, legacy notification for the app, and — when it came from
-  // a successful balance-bearing request — the endpoint to learn for
-  // session-powered active re-query.
+  // tracker, legacy notification for the app, and — when it came
+  // from a qualified balance-bearing request — the endpoint to learn
+  // for session-powered active re-query. Round 3 order (each step
+  // returns before any state it must not touch):
+  // (1) non-object → return; (2) strict extraction + userId; both
+  // absent → return; (3) !httpOk → return (no proof at all);
+  // (4) error body → return (no proof); (5) success === false →
+  // proof-only (balance null): a failed operation's 0 must never
+  // overwrite apiBalance; (6) otherwise balanceQualified =
+  // strictBal non-null AND (strictBal > 0 OR wallet|balance URL);
+  // noteApiPayload with balanceQualified; (7) qualified → display
+  // notification; (8) learning only when qualified AND a real
+  // request URL AND not a firebase URL; (9) publish.
   function onApiWalletPayload(data, via, reqDesc, httpOk) {
     if (!data || typeof data !== 'object') return;
-    const bal = extractBalanceFromJson(data);
+    const strictBal = extractBalanceFromJson(data);
     const userId = extractUserIdFromJson(data);
-    if (bal === null && !userId) return;
-    // State-side proof gate (Fix 9): a payload verifies the login
-    // only on a successful HTTP response carrying a wallet-specific
-    // key. An id-only or generic amount/coin payload (e.g. an
-    // unrelated amount:0) is not login proof and must not set
-    // apiProven — otherwise the app shows "verified Rs.0" for a
-    // session that never proved. Error-body gate (Fix 9
-    // strengthening): some APIs answer HTTP 200 with an error code
-    // in the body — a "token expired / please login" body must
-    // never verify even when it carries a balance-shaped key. This
-    // is the same test the active poll uses (code 401/403, or
-    // success:false with an auth-flavoured message); a bare
-    // success:false with a non-auth message does NOT block, since
-    // an authenticated response to a failed operation still proves
-    // the session is alive. The polling-learning rule below is
-    // unchanged: it already requires httpOk plus a balance value,
-    // so state tracking and endpoint learning stay distinct.
-    if (!httpOk || !hasWalletSpecificKey(data)) return;
-    const errCode = (data.code !== undefined ? data.code : data.status);
-    const errMsg = String(data.msg || data.message || '');
-    if (errCode === 401 || errCode === 403 || (data.success === false && /token|unauthor|login|session/i.test(errMsg))) return;
-    _userState.noteApiPayload({ balance: bal, userId }, Date.now());
-    if (bal !== null) onRealBalanceDetected(bal, via);
-    if (httpOk && bal !== null && reqDesc && reqDesc.url && !String(reqDesc.url).includes('firebasedatabase.app')) {
+    if (strictBal === null && !userId) return;
+    if (!httpOk) return;
+    if (isAuthErrorBody(data)) return;
+    if (data.success === false) {
+      _userState.noteApiPayload({ balance: null, balanceQualified: false, userId }, Date.now());
+      publishUserState('api-payload');
+      return;
+    }
+    const balanceQualified = strictBal !== null
+      && (strictBal > 0 || urlHasWalletOrBalance(reqDesc && reqDesc.url));
+    _userState.noteApiPayload({ balance: balanceQualified ? strictBal : null, balanceQualified, userId }, Date.now());
+    if (balanceQualified) onRealBalanceDetected(strictBal, via);
+    if (balanceQualified && reqDesc && reqDesc.url && !String(reqDesc.url).includes('firebasedatabase.app')) {
       const att = detectTokenAttachment(reqDesc.headerPairs || []);
       _userState.noteEndpoint({
         url: String(reqDesc.url),
@@ -901,19 +947,20 @@
     '5m':  '/WinGo/WinGo_5M'
   };
 
-  // ── 4. Post-login routing (prefix-preserving — user may browse any DhaniWin page) ──
+  // ── 4. Post-login routing (root-canonical since round 3 — user may browse any DhaniWin page) ──
   // After a fresh login/register success, land on the DhaniWin home page once.
-  // Under the proxy the home is /proxy/dhaniwin/, never the worker root:
-  // a root landing drops the prefix-scoped session cookies, so DhaniWin
-  // bounces back to login. Direct (bookmarklet) loads have no prefix
-  // and keep the old root home. The guard (href must contain /login
-  // or /register) means this fires at most once per login.
+  // Round 3 — ROOT-CANONICAL (replaces the round-2 prefix-aware
+  // logic; do not leave both): home is always origin + '/'.
+  // Origin-relative construction is correct on the worker root
+  // and on direct dhaniwin44.com loads alike (pivot default).
+  // The guard (href must
+  // contain /login or /register) means this fires at most once per
+  // login, and origin-relative construction means it can never
+  // escape to a non-worker host.
   function goHomeAfterLogin() {
     const href = window.location.href.toLowerCase();
     if (href.includes('/login') || href.includes('/register')) {
-      const pathname = window.location.pathname || '/';
-      const prefix = (pathname === '/proxy/dhaniwin' || pathname.startsWith('/proxy/dhaniwin/')) ? '/proxy/dhaniwin' : '';
-      window.location.href = window.location.origin + prefix + '/';
+      window.location.href = window.location.origin + '/';
     }
   }
 
@@ -964,6 +1011,29 @@
   // LOGGED_OUT fires once per transition (Fix 5g): while the page
   // sits on /login after grace, the 1.5s tick must not re-emit it.
   let _sessionOutNotified = false;
+  // Late-injection recovery (pivot): native APK injection lands
+  // after page load, so the fetch hook may have missed the SPA boot
+  // calls and activeWalletPoll has no learned endpoint to replay.
+  // When a scrape tick finds a live token with no learned endpoint
+  // and no API proof yet, nudge the SPA to re-fetch once (refresh
+  // button click — the same nudge the app's sync request uses) and
+  // re-run poll + scrape after the refetch lands. Once per
+  // document; never a login proof by itself — proof still comes
+  // only from an intercepted/poll payload through the strict gate,
+  // and the state stays pending/unknown until then.
+  let _lateInjectionRecoveryAttempted = false;
+  function findWalletRefreshButton() {
+    return document.querySelector('.van-icon-replay, [class*="refresh"], [class*="reload"], .wallet-refresh, .refresh-btn');
+  }
+  function maybeRecoverLateInjection() {
+    if (_lateInjectionRecoveryAttempted) return false;
+    _lateInjectionRecoveryAttempted = true;
+    if (_userState.endpoint) return false;
+    try { const btn = findWalletRefreshButton(); if (btn) btn.click(); } catch (e) {}
+    setTimeout(() => { activeWalletPoll(); scrapeUserSession(); }, 1500);
+    return true;
+  }
+
   function scrapeUserSession() {
     const href = window.location.href.toLowerCase();
     const isAuthPage = href.includes('/login') || href.includes('/register');
@@ -1090,6 +1160,13 @@
       url: window.location.href,
       timestamp: Date.now()
     });
+    // Late-injection recovery: a live token with no learned endpoint
+    // and no API proof yet means the hook missed the boot calls —
+    // nudge once (per document) so the next SPA fetch can be
+    // intercepted and learned. A DOM balance, when scraped, stays
+    // 'from page' provenance; an exact balance still needs the
+    // strict API gate, and a missing proof stays unknown, never 0.
+    if (token && !_userState.endpoint && !_userState.apiProven) maybeRecoverLateInjection();
   }
   // Run immediately and every 1.5s for instant login/logout responsiveness
   scrapeUserSession();
@@ -1507,11 +1584,13 @@
       const targetPath = INTERVAL_URL_MAP[msg.timeframe] || '/WinGo/WinGo_30S';
       if (!window.location.href.toLowerCase().includes(targetPath.toLowerCase())) {
         console.log('[Quant AI Bridge] Switching interval page to:', targetPath);
-        // Prefix-preserving, exactly like goHomeAfterLogin: under the
-        // proxy the timeframe page lives under /proxy/dhaniwin/.
-        const pathname = window.location.pathname || '/';
-        const prefix = (pathname === '/proxy/dhaniwin' || pathname.startsWith('/proxy/dhaniwin/')) ? '/proxy/dhaniwin' : '';
-        window.location.href = window.location.origin + prefix + targetPath;
+        // Round 3 — ROOT-CANONICAL (replaces the round-2
+        // prefix-aware logic; do not leave both): the timeframe
+        // page lives at origin + targetPath (targetPath is
+        // root-absolute), on worker-root and direct hosts alike.
+        // The href guard above already handles legacy prefixed
+        // pages by falling through to switchTimerTab.
+        window.location.href = window.location.origin + targetPath;
       } else {
         switchTimerTab(msg.timeframe);
       }
@@ -1519,7 +1598,7 @@
       executeRealBet(msg);
     } else if (msg.type === 'DHANIWIN_REQUEST_SYNC') {
       console.log('[Quant AI Bridge] 🔄 Sync requested by app — probing wallet API & DOM...');
-      const refreshBtn = document.querySelector('.van-icon-replay, [class*="refresh"], [class*="reload"], .wallet-refresh, .refresh-btn');
+      const refreshBtn = findWalletRefreshButton();
       if (refreshBtn) simulateClick(refreshBtn);
       const domBal = scrapeRealBalanceFromDOM();
       if (domBal !== null) {
@@ -1662,19 +1741,34 @@
       let data = null;
       try { data = await resp.json(); } catch (e) {}
       if (data && typeof data === 'object') {
-        const code = (data.code !== undefined ? data.code : data.status);
-        const msg = String(data.msg || data.message || '');
-        if (code === 401 || code === 403 || (data.success === false && /token|unauthor|login|session/i.test(msg))) {
-          // Failed replay: intercept-only from here, never a logout.
+        // Round 3: the SAME fixed error gate as the payload handler
+        // (coerced codes, auth message regardless of success) —
+        // a failed replay is diagnostic only, never a logout.
+        if (isAuthErrorBody(data)) {
           _userState.notePollAuthFailure(Date.now());
           publishUserState('poll-auth-fail');
           return;
         }
-        const bal = extractBalanceFromJson(data);
+        // Round 3 failed-op decoupling: success:false (non-auth)
+        // proves the session is alive but carries no balance — it
+        // must not overwrite a verified balance via the poll.
+        if (data.success === false) {
+          _userState.noteActivePoll({ verdict: 'ok', balance: null, balanceQualified: false, userId: extractUserIdFromJson(data) }, Date.now());
+          publishUserState('poll-ok');
+          return;
+        }
+        // Round 3: strict extraction + the same zero-provenance
+        // test as the payload handler, against the learned
+        // endpoint's own URL. An unqualified replay value (e.g. a
+        // user-info endpoint returning strict 0) proves the
+        // session but refreshes NO displayed balance.
+        const strictBal = extractBalanceFromJson(data);
         const userId = extractUserIdFromJson(data);
-        if (bal !== null || userId) {
-          _userState.noteActivePoll({ verdict: 'ok', balance: bal, userId }, Date.now());
-          if (bal !== null) onRealBalanceDetected(bal, 'active-poll');
+        if (strictBal !== null || userId) {
+          const balanceQualified = strictBal !== null
+            && (strictBal > 0 || urlHasWalletOrBalance(desc.url));
+          _userState.noteActivePoll({ verdict: 'ok', balance: balanceQualified ? strictBal : null, balanceQualified, userId }, Date.now());
+          if (balanceQualified) onRealBalanceDetected(strictBal, 'active-poll');
           publishUserState('poll-ok');
           return;
         }

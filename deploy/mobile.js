@@ -3999,23 +3999,37 @@ const DHANIWIN_LOGIN_URL = 'https://dhaniwin44.com/login';
 const DHANIWIN_HOME_URL = 'https://dhaniwin44.com/';
 
 // ── DhaniWin transport: proxy vs direct ─────────────────────────────
-// The login/balance bridge (dhaniwin-bridge.js) runs inside the
-// DhaniWin page ONLY when the page is served through the Cloudflare
-// edge proxy: the worker appends the bridge <script> to HTML on its
-// /proxy/dhaniwin route. A direct load never receives the bridge, so
-// login can never be API-proven and the exact balance never arrives.
-// Built-in DhaniWin URLs therefore ride the proxy; a user-customised
-// entry URL (a mirror domain they chose) is left exactly as set.
+// PIVOT: the game frame loads DhaniWin DIRECTLY and the APK injects
+// the bridge natively into the frame (MainActivity), so a direct
+// load DOES carry the bridge and CAN API-prove login + balance.
+// The worker frame survives only as an explicit override
+// (dhaniFrameUseProxy). Built-in DhaniWin URLs therefore stay
+// direct by default; a user-customised entry URL (a mirror domain
+// they chose) is left exactly as set, as before.
 function proxifyDhaniUrl(url) {
   return window.DhaniTransport ? window.DhaniTransport.proxifyDhaniUrl(url, CF_WORKER_BASE) : url;
 }
 function unproxifyDhaniUrl(url) {
   return window.DhaniTransport ? window.DhaniTransport.unproxifyDhaniUrl(url, CF_WORKER_BASE) : url;
 }
-// Interval deep links ride the proxy too, so the bridge is present on
-// the WinGo pages themselves, not just the entry page.
+// PIVOT — direct frame default: the game frame loads DhaniWin
+// DIRECTLY and the APK injects the bridge natively. The worker
+// frame survives ONLY as an explicit override: localStorage
+// 'o101_dhani_frame_proxy' === '1'. This key is separate from
+// 'o101_dhani_transport' (which noteDhaniTransport overwrites on
+// every load with the ACTUAL transport) so a direct load can never
+// erase the override. No Settings UI: the override is a power-user
+// escape hatch, never the default.
+const DHANI_FRAME_PROXY_KEY = 'o101_dhani_frame_proxy';
+function dhaniFrameUseProxy() {
+  try { return localStorage.getItem(DHANI_FRAME_PROXY_KEY) === '1'; } catch (e) { return false; }
+}
+window.dhaniFrameUseProxy = dhaniFrameUseProxy;
+// Interval deep links: direct by default (pivot); proxified only
+// under the explicit proxy override, so the bridge is present on
+// the WinGo pages themselves either way.
 for (const tfKey of Object.keys(DHANIWIN_INTERVAL_URLS)) {
-  DHANIWIN_INTERVAL_URLS[tfKey] = proxifyDhaniUrl(DHANIWIN_INTERVAL_URLS[tfKey]);
+  if (dhaniFrameUseProxy()) DHANIWIN_INTERVAL_URLS[tfKey] = proxifyDhaniUrl(DHANIWIN_INTERVAL_URLS[tfKey]);
 }
 
 const DHANI_TRANSPORT_KEY = 'o101_dhani_transport';
@@ -4077,6 +4091,13 @@ window.noteDhaniBridgeSignal = noteDhaniBridgeSignal;
 // Never fakes a bridge on any route.
 function runDhaniProxyFallback(reason) {
   if (_dhaniProxyFallbackUsed) return;
+  // Pivot guard: a direct frame must NEVER be "retried" onto the
+  // proxy — that swap would drop the direct session and re-enter
+  // the broken proxy path. Report honestly and stay put.
+  if (window.__o101DhaniTransport === 'direct') {
+    setMobileBridgeStatus(false, 'Direct DhaniWin load — bridge inactive · reopen the DhaniWin tab in the app');
+    return;
+  }
   const iframe = $('dhaniwinIframe');
   const expected = _dhaniExpectedProxyUrl || (iframe ? iframe.src : null);
   if (!expected) return;
@@ -4109,7 +4130,7 @@ function runDhaniProxyFallback(reason) {
   const barText = $('mobileWebAddressBarText');
   if (barText) barText.textContent = direct;
   noteDhaniTransport(direct);
-  setMobileBridgeStatus(false, 'Proxy unreachable — direct mode · bridge inactive · login cannot be verified in this mode');
+  setMobileBridgeStatus(false, 'Proxy unreachable — direct mode · game frame loads directly, bridge injected by the app');
 }
 window.runDhaniProxyFallback = runDhaniProxyFallback;
 // ── DhaniWin loading overlay (fix round #6, visuals swapped round #10)
@@ -4189,7 +4210,14 @@ function noteDhaniTransport(url) {
   if (typeof url !== 'string') return;
   const transport = window.DhaniTransport
     ? window.DhaniTransport.dhaniTransportForUrl(url, CF_WORKER_BASE)
-    : (url.includes('/proxy/dhaniwin') ? 'proxy' : 'direct');
+    // Fallback when the transport module failed to load: any worker
+    // URL is the proxy route (root-served since round 3, legacy
+    // prefixed included), except the worker-native routes.
+    : (url.indexOf(CF_WORKER_BASE) === 0
+      && !url.slice(CF_WORKER_BASE.length).startsWith('/o101/')
+      && !url.slice(CF_WORKER_BASE.length).startsWith('/proxy/dhaniapi/')
+      && !url.slice(CF_WORKER_BASE.length).startsWith('/api/')
+      ? 'proxy' : 'direct');
   if (transport !== 'proxy' && !/dhaniwin/i.test(url)) return; // not a DhaniWin load
   window.__o101DhaniTransport = transport;
   try { localStorage.setItem(DHANI_TRANSPORT_KEY, transport); } catch (e) {}
@@ -4243,7 +4271,9 @@ function getDhaniEntryUrl() {
   if (custom !== DHANIWIN_HOME_URL) {
     return custom;
   }
-  return proxifyDhaniUrl(DHANIWIN_HOME_URL);
+  // Pivot: direct by default; the worker frame is an explicit
+  // override only, never the default.
+  return dhaniFrameUseProxy() ? proxifyDhaniUrl(DHANIWIN_HOME_URL) : DHANIWIN_HOME_URL;
 }
 window.getDhaniEntryUrl = getDhaniEntryUrl;
 window.DHANIWIN_HOME_URL = DHANIWIN_HOME_URL;
@@ -5827,8 +5857,18 @@ function initMobileDhaniWinBridge() {
       console.warn('[Mobile Bridge] BroadcastChannel init error:', e);
     }
   }
+  // Pivot origin allowlist: bridge state is accepted ONLY from the
+  // app's own origin (self-posted orders) or a DhaniWin family
+  // origin (the natively injected bridge in a direct frame) — never
+  // '*' and never an unlisted origin. The BroadcastChannel path is
+  // origin-scoped by the platform and needs no gate.
   window.addEventListener('message', (ev) => {
     if (ev && ev.data && typeof ev.data === 'object') {
+      const origin = ev.origin;
+      const selfOrigin = (typeof window !== 'undefined' && window.location) ? window.location.origin : null;
+      const dhaniOrigin = window.DhaniTransport && typeof window.DhaniTransport.isDhaniwinOrigin === 'function'
+        ? window.DhaniTransport.isDhaniwinOrigin(origin) : false;
+      if (origin !== selfOrigin && !dhaniOrigin) return;
       handleMobileBridgeMessage(ev.data);
     }
   });
@@ -6379,10 +6419,11 @@ function loadMobileWebUrl(url) {
   if (targetSrc === DHANIWIN_HOME_URL && typeof getDefaultDhaniUrl === 'function') {
     targetSrc = getDefaultDhaniUrl();
   }
-  // The raw built-in home constant means "no custom URL set": ride
-  // the proxy so the bridge is injected. A custom URL is never
-  // rewritten (see getDhaniEntryUrl).
-  if (targetSrc === DHANIWIN_HOME_URL) targetSrc = proxifyDhaniUrl(targetSrc);
+  // The raw built-in home constant means "no custom URL set":
+  // pivot default is DIRECT (the APK injects the bridge natively);
+  // the proxy applies only under the explicit override. A custom
+  // URL is never rewritten (see getDhaniEntryUrl).
+  if (targetSrc === DHANIWIN_HOME_URL && dhaniFrameUseProxy()) targetSrc = proxifyDhaniUrl(targetSrc);
   if (iframe) iframe.src = targetSrc;
   noteDhaniTransport(targetSrc);
   if (barText) barText.textContent = targetSrc;

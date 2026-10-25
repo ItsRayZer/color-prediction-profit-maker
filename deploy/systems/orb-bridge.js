@@ -521,10 +521,16 @@ export function loginEvidenceLine(login) {
   switch (login.state) {
     case LOGIN_STATES.VERIFIED: {
       const label = login.balanceSource === 'api' ? 'exact · API' : login.balanceSource === 'dom' ? 'from page' : 'API-proven';
+      // Round 3: a VERIFIED state with no qualified balance (proof
+      // came from userId alone) must NEVER render as ₹0 — that was
+      // the false-₹0 display path. Unknown renders as unknown.
+      if (login.balance === null || login.balance === undefined) {
+        return `Login verified · balance unknown (${label})${age}`;
+      }
       return `Login verified · ${inrFmt(login.balance)} (${label})${age}`;
     }
     case LOGIN_STATES.NOT_LOGGED_IN: return 'Not logged in';
-    case LOGIN_STATES.NO_SIGNAL: return 'No bridge signal — open DhaniWin from the app, then tap the 01.01 bridge bookmarklet on the DhaniWin tab';
+    case LOGIN_STATES.NO_SIGNAL: return 'No bridge signal — open the DhaniWin tab in the 01.01 app; the app injects the bridge itself';
     default: {
       const ev = Array.isArray(login.evidence) ? login.evidence : [];
       if (ev.some(e => e.includes('API wallet proof'))) return 'Bridge connected · waiting for API wallet proof…';
@@ -540,10 +546,10 @@ export function loginEvidenceLine(login) {
  * mode, last sync age). Pure — fed from a LoginVerifier status object.
  */
 // The one plain-words line for "we are on the direct route BECAUSE
-// the proxy failed": proxy unreachable, direct mode, bridge inactive,
-// and login cannot be verified in this mode. Shared by the sheet
+// the proxy failed": proxy unreachable, direct mode — the game frame
+// still loads directly and the app injects the bridge. Shared by the
 // status line and the settings diagnostic so they can never disagree.
-export const PROXY_FAILED_LINE = 'Proxy unreachable — direct mode · bridge inactive · login cannot be verified in this mode';
+export const PROXY_FAILED_LINE = 'Proxy unreachable — direct mode · game frame loads directly, bridge injected by the app';
 
 export function bridgeDiagnostic(login, transport, proxyFailed) {
   const direct = transport === 'direct';
@@ -557,13 +563,14 @@ export function bridgeDiagnostic(login, transport, proxyFailed) {
     loginState: login.state,
     balanceText: login.balance !== null && login.balance !== undefined ? inrFmt(login.balance) : '—',
     balanceSource: login.balanceSource || null,
-    // On a direct load the bridge is never injected, so its fetch
-    // mode is honestly "inactive" — never a pending/active promise.
-    fetchMode: direct ? 'inactive (direct load)' : (login.fetchMode || null),
+    // Pivot: a direct load CAN carry the bridge (APK native
+    // injection), so the mode is the verifier's own — never a
+    // forced "inactive". No-login direct stays "inactive" above.
+    fetchMode: (login.fetchMode || null),
     syncAgeText: ageMs !== null && ageMs !== undefined ? `${Math.max(0, Math.round(ageMs / 1000))}s ago` : 'never',
     // After a proxy failure the line names the failure itself — a
-    // generic "direct load" or "checking" line would hide WHY login
-    // can never verify on this route.
+    // generic "direct load" or "checking" line would hide WHY the
+    // route changed.
     line: failed ? PROXY_FAILED_LINE : loginEvidenceLine(login),
     transport: transport || null,
     proxyFailed: failed
@@ -1308,7 +1315,7 @@ export function balanceBlockView(login) {
     return {
       text: '—', tag: 'no signal', ageText: '', stale: true, hasState: false,
       emptyText: login && login.state === LOGIN_STATES.NO_SIGNAL
-        ? 'No bridge signal — open DhaniWin from the app, then tap the 01.01 bridge bookmarklet on the DhaniWin tab'
+        ? 'No bridge signal — open the DhaniWin tab in the 01.01 app'
         : 'No balance state yet'
     };
   }
@@ -1558,7 +1565,21 @@ function initBridge() {
     state.login = login;
     renderLogin(login);
   }
-  window.addEventListener('message', ev => { feedBridgeMessage(ev && ev.data); });
+  // Pivot origin allowlist (mirror of systems/dhani-transport.js —
+  // update both together): bridge state is accepted ONLY from the
+  // app's own origin or a DhaniWin family origin, never '*' and
+  // never an unlisted origin. The BroadcastChannel path below is
+  // origin-scoped by the platform and needs no gate.
+  const O101_DHANIWIN_ORIGINS = ['https://dhaniwin44.com', 'https://dhaniwin.99.com', 'https://dhaniwin99.com', 'https://dhaniwin0.com', 'https://dhaniwin2.com'];
+  function isAllowedBridgeOrigin(origin) {
+    if (typeof origin !== 'string') return false;
+    if (typeof window !== 'undefined' && window.location && origin === window.location.origin) return true;
+    return O101_DHANIWIN_ORIGINS.indexOf(origin) !== -1;
+  }
+  window.addEventListener('message', ev => {
+    if (!ev || !isAllowedBridgeOrigin(ev.origin)) return;
+    feedBridgeMessage(ev.data);
+  });
   try {
     if (typeof BroadcastChannel !== 'undefined') {
       const bridgeChannel = new BroadcastChannel('dhaniwin_quant_channel');
@@ -1621,7 +1642,9 @@ function initBridge() {
 
   // Which transport the embedded DhaniWin load used (mobile.js
   // records it on every load; localStorage carries it to the
-  // settings document). 'direct' means the bridge was never injected.
+  // settings document). 'direct' means the game frame loads
+  // directly; under the pivot the bridge arrives via APK native
+  // injection, not via the worker.
   function currentDhaniTransport() {
     try {
       return window.__o101DhaniTransport || localStorage.getItem('o101_dhani_transport') || null;
@@ -2232,7 +2255,7 @@ function initBridge() {
   function loginLine(login) {
     if (login.state === LOGIN_STATES.VERIFIED) return `Login verified · ${inr(login.balance)} on DhaniWin (bridge API proof).`;
     if (login.state === LOGIN_STATES.NOT_LOGGED_IN) return 'Not logged into DhaniWin — signals and stakes still show here; an order needs DhaniWin login and will report its real result.';
-    if (login.state === LOGIN_STATES.NO_SIGNAL) return 'No bridge signal yet — signals still show here; open DhaniWin from the app and tap the 01.01 bridge bookmarklet on the DhaniWin tab to send orders.';
+    if (login.state === LOGIN_STATES.NO_SIGNAL) return 'No bridge signal yet — signals still show here; open the DhaniWin tab in the 01.01 app to connect.';
     return 'Checking login… waiting for the bridge\'s API-proven user state.';
   }
 
@@ -2261,17 +2284,18 @@ function initBridge() {
   function renderWindowStatus() {
     const el = $('bridgeStatusLine');
     if (!el) return;
-    // Direct load: the bridge was never injected into the DhaniWin
-    // page, so no verification is coming — say exactly that instead
-    // of the "waiting for the bridge" line.
-    if (currentDhaniTransport() === 'direct') {
+    // Direct load with NO live bridge signal: say exactly that
+    // instead of the "waiting for the bridge" line. A direct load
+    // WITH a live login falls through to the normal evidence line —
+    // under the pivot the bridge arrives via APK native injection,
+    // so "direct" no longer means "bridge inactive".
+    if (currentDhaniTransport() === 'direct' && (!state.login || state.login.state === LOGIN_STATES.NO_SIGNAL)) {
       // If this direct load is the proxy-failure fallback, name the
-      // failure: the proxy was unreachable, and login cannot be
-      // verified in this mode — never imply a bridge might still
-      // arrive on a direct route.
+      // failure; otherwise name the remedy (reopen the tab — the
+      // app injects the bridge itself).
       el.textContent = currentDhaniProxyFailed()
         ? PROXY_FAILED_LINE
-        : 'Direct load — bridge inactive · tap the 01.01 bridge bookmarklet on a DhaniWin tab opened from the app to connect';
+        : 'Direct load — bridge inactive · reopen the DhaniWin tab in the 01.01 app (the app injects the bridge itself)';
       el.setAttribute('data-transport', 'direct');
       el.setAttribute('data-login-state', state.login ? state.login.state : 'UNKNOWN');
       return;

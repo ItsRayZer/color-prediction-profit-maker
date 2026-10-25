@@ -3150,18 +3150,18 @@
         tag.className = 'ios-tag-micro ' + (state === 'VERIFIED' ? 'tag-active' : state === 'NOT_LOGGED_IN' ? 'tag-warning' : 'tag-neutral');
         line.textContent = state === 'VERIFIED' ? 'Login verified · ' + bal + ' (' + src + ') · sync ' + ageText
           : state === 'NOT_LOGGED_IN' ? 'Not logged in on DhaniWin'
-          : state === 'NO_SIGNAL' ? 'No bridge signal — open DhaniWin from the app, then tap the 01.01 bridge bookmarklet on the DhaniWin tab'
+          : state === 'NO_SIGNAL' ? 'No bridge signal — open the DhaniWin tab in the 01.01 app; the app injects the bridge itself'
           : 'Checking login… waiting for the bridge\'s API-proven user state';
         detail.textContent = 'Balance ' + bal + ' · Source ' + src + ' · Mode ' + mode + ' · Sync ' + ageText;
         if (transport === 'direct') {
           // If the direct route is the proxy-failure fallback, name
           // the failure itself (mobile.js records why under this key):
-          // proxy unreachable, bridge inactive, login unverifiable here.
+          // proxy unreachable, direct mode, bridge injected by the app.
           var proxyFailed = null;
           try { proxyFailed = localStorage.getItem('o101_dhani_proxy_failed'); } catch (e) {}
           line.textContent = proxyFailed
-            ? 'Proxy unreachable — direct mode · bridge inactive · login cannot be verified in this mode'
-            : 'Direct load — bridge inactive · tap the 01.01 bridge bookmarklet on a DhaniWin tab opened from the app to connect';
+            ? 'Proxy unreachable — direct mode · game frame loads directly, bridge injected by the app'
+            : 'Direct load — bridge inactive · reopen the DhaniWin tab in the 01.01 app (the app injects the bridge itself)';
         }
       }
       render();
