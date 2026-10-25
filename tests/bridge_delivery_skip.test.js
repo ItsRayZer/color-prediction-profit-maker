@@ -62,12 +62,18 @@ test('bridge delivery: the bridge publishes NO raw token field, only a boolean',
 
 test('bridge delivery: the app reads tokenPresent only, never msg.token', () => {
   const mobile = fs.readFileSync(new URL('../mobile.js', import.meta.url), 'utf8');
+  const bridge = fs.readFileSync(new URL('../dhaniwin-bridge.js', import.meta.url), 'utf8');
   // msg.tokenPresent is the boolean; a bare msg.token read would be
   // the raw field (the regex excludes the Present suffix).
   assert.ok(!/msg\.token(?![A-Za-z])/.test(mobile), 'no msg.token read in the app');
   assert.ok(!mobile.includes("setItem('ar_token'"), 'no raw-token persist in the app');
   assert.ok(mobile.includes('msg.tokenPresent'), 'app handles the boolean presence flag');
-  assert.ok(mobile.includes("removeItem('ar_token')"), 'leftover raw tokens are purged');
+  // DhaniWin's session key lives in the SAME localStorage the app
+  // shares (one worker-host origin), so the app must never delete
+  // it: the old raw-token leak is gone (bridge publishes a boolean
+  // only), and deleting 'ar_token' would kill a live DhaniWin login.
+  assert.ok(!mobile.includes("removeItem('ar_token')"), 'app never deletes DhaniWin\'s live session token');
+  assert.ok(!bridge.includes("removeItem('ar_token')"), 'bridge never deletes DhaniWin\'s live session token');
 });
 
 test('bridge delivery: signalFromBridgeMessage ignores a legacy raw token field', () => {

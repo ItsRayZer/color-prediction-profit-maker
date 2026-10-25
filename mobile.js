@@ -367,13 +367,17 @@ function markUserLoggedIn() {
 }
 window.markUserLoggedIn = markUserLoggedIn;
 
-// Clear all login keys (only on confirmed session-out)
+// Clear all login keys (only on confirmed session-out). NOTE: the
+// app's OWN keys only — DhaniWin's session key 'ar_token' is NEVER
+// deleted here. The app page and the DhaniWin frame share one origin
+// (the worker host) and therefore one localStorage, so 'ar_token' IS
+// the live DhaniWin session; deleting it would kill a live login.
+// DhaniWin's own logout flow owns its token.
 function markUserLoggedOut() {
   _authGracePeriodUntil = 0;
   try {
     localStorage.removeItem('dhaniwin_is_logged_in');
     localStorage.removeItem('dhaniwin_logged_in');
-    localStorage.removeItem('ar_token');
     sessionStorage.removeItem('dhaniwin_auth_grace_until');
   } catch(e) {}
   try {
@@ -5823,13 +5827,16 @@ function initMobileDhaniWinBridge() {
     }
   });
 
-  // Credential cleanup: older builds persisted the bridge's raw
-  // session token under 'ar_token'. The app never stores a raw
-  // session value anymore — purge any leftover. Login state now
-  // comes from the boolean flags + live bridge state; the user ID
-  // comes from the bridge's published userId field (see the
+  // No credential purge here: older builds persisted the bridge's
+  // raw session token under 'ar_token', but that leak is long gone —
+  // the bridge now publishes a tokenPresent boolean only and never
+  // stores a raw value, so there is nothing left to purge. And
+  // 'ar_token' is DhaniWin's own live session key on the shared
+  // origin (app page + DhaniWin frame share one localStorage), so
+  // deleting it would kill a live login on every app boot. Login
+  // state comes from the boolean flags + live bridge state; the user
+  // ID comes from the bridge's published userId field (see the
   // DHANIWIN_USER_STATE branch in handleMobileBridgeMessage).
-  try { localStorage.removeItem('ar_token'); } catch(e) {}
 
   // Restore saved risk mode & auto optimize preference
   try {

@@ -459,7 +459,11 @@
               _wasLoggedInBefore = false;
               _justLoggedInGrace = 0;
               _userState.noteLogout(Date.now());
-              try { localStorage.removeItem('ar_token'); } catch(e) {}
+              // NOTE: never delete 'ar_token' here. It is DhaniWin's
+              // own live session key on the shared origin; DhaniWin's
+              // logout call invalidates the session server-side and
+              // owns its token storage. Deleting it would destroy a
+              // live session on any mis-matched URL (e.g. 'exit').
               try { sessionStorage.removeItem('dhaniwin_auth_grace_until'); } catch(e) {}
               notifyApp({
                 type: 'DHANIWIN_USER_LOGGED_OUT',
@@ -561,7 +565,9 @@
           _wasLoggedInBefore = false;
           _justLoggedInGrace = 0;
           _userState.noteLogout(Date.now());
-          try { localStorage.removeItem('ar_token'); } catch(e) {}
+          // NOTE: never delete 'ar_token' here — it is DhaniWin's own
+          // live session key on the shared origin; DhaniWin's logout
+          // owns its token. Reporting the logout is enough.
           try { sessionStorage.removeItem('dhaniwin_auth_grace_until'); } catch(e) {}
           notifyApp({
             type: 'DHANIWIN_USER_LOGGED_OUT',
@@ -794,9 +800,11 @@
     let token = null;
     if (!isAuthPage) {
       try { token = localStorage.getItem('ar_token'); } catch(e) {}
-    } else {
-      try { localStorage.removeItem('ar_token'); } catch(e) {}
     }
+    // NOTE: on an auth page the token is simply not READ for login
+    // detection — it is never deleted. The frame can land on /login
+    // transiently (redirects, SPA flashes) while a session is still
+    // alive, and deleting here would destroy that live session.
 
     let balance = _lastScrapedBalance;
     if (balance === null) {
@@ -837,7 +845,10 @@
         return;
       }
       _wasLoggedInBefore = false;
-      try { localStorage.removeItem('ar_token'); } catch(e) {}
+      // NOTE: report the session-out only — never delete 'ar_token'.
+      // A scrape misread (slow load, transient auth prompt) must not
+      // destroy a live session; the next tick re-detects login if
+      // the session is actually alive.
       notifyApp({
         type: 'DHANIWIN_USER_LOGGED_OUT',
         url: window.location.href,
