@@ -1003,24 +1003,15 @@
           </div>
         </div>
 
-        <!-- Body Content (Task E: essentials only, one view — the
-             sections are cut to fit the default 270×380 window, so
-             no scroll is needed at default size; overflow-y-auto
-             stays only as a fallback when the user shrinks the
-             window below its content with resize/presets). -->
-        <div class="p-2 space-y-1.5 overflow-y-auto assistant-sheet-body" style="-webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y;">
-          <!-- 0. Axo subtitle (orb-bridge say()): the assistant's
-               current line — every spoken line appears here
-               verbatim. Fix round #4: styled like the Axofy app's
-               compact pill — small, matte black, rounded-full, first
-               in the body so it reads as the line under the avatar.
-               Fixed height, so a new line never resizes the sheet. -->
-          <div id="smartBallLine" aria-live="polite" class="px-2.5 py-1.5 rounded-full bg-[rgba(28,28,31,0.92)] border border-[rgba(255,255,255,0.1)] text-[8.5px] font-mono text-zinc-100 leading-relaxed text-center h-[34px] overflow-y-auto"><span id="axoSheetVerdictIcon" class="inline-block align-middle mr-1"></span><span id="axoSheetVerdictText"></span></div>
-          <!-- 0a. Axo controls (orb-bridge): CC closes ONLY the
-               subtitle strip (Axo keeps running); MODE switches AI
-               narration vs Normal (governed templates only). Voice
-               has its own chip on the face. Fixed height. -->
-          <div id="axoControlRow" class="flex items-center justify-between px-1 h-[26px] shrink-0">
+        <!-- Task K (owner order 2026-10-25): the control toggles
+             live HERE in the header strip only — compact, one row,
+             never a body section — so the body below is exactly the
+             four spec sections. Same row markup as Task E (same ids,
+             same 26px height, same onclick wiring); only the side
+             padding aligns to the header and a hairline separates it
+             from the body. It is NOT a drag handle (every chip is a
+             button, which the drag start ignores anyway). -->
+        <div id="axoControlRow" class="flex items-center justify-between px-2 h-[26px] shrink-0 border-b border-white/[0.06]">
             <div class="flex items-center gap-1.5 min-w-0">
               <span class="text-[7px] font-mono text-zinc-500 tracking-wider shrink-0">AXO</span>
               <!-- Tap-for-voice affordance: visible ONLY while a line
@@ -1040,7 +1031,27 @@
               <button type="button" id="autoPilotToggle" role="switch" aria-checked="false" onclick="window.__smartBall && window.__smartBall.toggleAutoPilot()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 border border-white/10 active:scale-95 transition" title="Auto-Pilot on/off — staged bets still need your tap">AP OFF</button>
               <span id="axoNoSkipBadge" class="hidden text-[7px] font-mono font-black px-1.5 py-0.5 rounded-full bg-rose-500/25 text-rose-300 border border-rose-500/40">NO-SKIP ON</span>
             </div>
-          </div>
+        </div>
+
+        <!-- Body Content (Task K: exactly four sections, one view,
+             NO vertical scroll — the body is overflow-hidden and
+             the sheet never shrinks below its content (see the Task
+             K content floor in orb-bridge resolveAxoPanelSize + the
+             resize/preset clamps in mobile.js, and the short-
+             viewport tightening in mobile.css). Order top to
+             bottom: 1. game time pills, 2. next selection (hero +
+             skip reason + confirm slot), 3. road sequence, 4.
+             base-bet line. Nothing else is a body section. -->
+        <div class="p-2 space-y-1 overflow-hidden assistant-sheet-body" style="overscroll-behavior: contain;">
+          <!-- Task K: the in-panel subtitle strip is GONE — the
+               subtitle lives ONLY in the outside bubble
+               (#axoSubtitleBubble, synced by syncAxoSubtitleSurfaces
+               to exactly state.lastLine). say()/sync/applyAxoSubs/
+               setVerdictIcon all null-guard the strip, so removal
+               cannot throw; the hero + orb verdict slots stay. -->
+          <!-- Task K: the control row moved to the header strip
+               above (toggles are header-only, never a body
+               section). Nothing here. -->
           <!-- 0a2. No-skip warning — REMOVED from the panel in Task H
                (owner order 2026-10-25): the warning lives ONLY in
                the outside-panel popup #axoNoSkipPopup above the
@@ -1055,12 +1066,27 @@
                countdown keeper span in the confirm slot below keeps
                the autopilot ≤5s invalidation working. -->
           <!-- 1b. Balance — REMOVED in Task E (see above). -->
-          <!-- Quick Interval Switcher Pills — REMOVED in Task E
-               (essentials only): timeframe switching lives on the
-               Home tab's own pills. -->
+          <!-- 1. Game time selection — RESTORED in Task K (owner
+               order 2026-10-25): the interval pills sit ON TOP of
+               the panel body. They call the SAME setMobileTimeframe
+               as the Home tab pills (single source of truth:
+               MobileState.timeframe + dhaniwin_last_interval +
+               quant_default_tf; the sync writer overwrites these
+               compact classes on every call, so no duplicate state
+               and no desync). No interval badge: the pills ARE the
+               indicator. -->
+          <div class="flex items-center gap-1 shrink-0">
+            <span class="text-[7px] font-mono text-zinc-500 tracking-wider shrink-0">GAME TIME</span>
+            <button onclick="setMobileTimeframe('30s')" id="asstTfBtn-30s" class="flex-1 py-1 rounded-lg font-mono text-[8px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 transition active:scale-95 text-center">30s</button>
+            <button onclick="setMobileTimeframe('1m')" id="asstTfBtn-1m" class="flex-1 py-1 rounded-lg font-mono text-[8px] font-bold bg-white/5 text-zinc-400 border border-white/5 transition active:scale-95 text-center">1m</button>
+            <button onclick="setMobileTimeframe('3m')" id="asstTfBtn-3m" class="flex-1 py-1 rounded-lg font-mono text-[8px] font-bold bg-white/5 text-zinc-400 border border-white/5 transition active:scale-95 text-center">3m</button>
+            <button onclick="setMobileTimeframe('5m')" id="asstTfBtn-5m" class="flex-1 py-1 rounded-lg font-mono text-[8px] font-bold bg-white/5 text-zinc-400 border border-white/5 transition active:scale-95 text-center">5m</button>
+          </div>
 
-          <!-- 2. Hero Prediction Box (Apple AMOLED Glass) -->
-          <div class="relative overflow-hidden p-2.5 rounded-xl border border-white/[0.1] bg-gradient-to-b from-white/[0.06] to-white/[0.01] flex items-center justify-between">
+          <!-- 2. Hero Prediction Box (Apple AMOLED Glass; Task K:
+               padding tightened p-2.5 → p-2 so the four sections
+               fit the 340px content floor — no other change) -->
+          <div id="axoHeroBox" class="relative overflow-hidden p-2 rounded-xl border border-white/[0.1] bg-gradient-to-b from-white/[0.06] to-white/[0.01] flex items-center justify-between">
             <div class="flex flex-col">
               <span class="text-[7px] font-mono uppercase tracking-widest text-zinc-400">NEXT PREDICTION</span>
               <span class="flex items-center gap-1.5"><span id="axoHeroVerdictIcon" class="inline-block"></span><span id="mobileWebTargetDisplay" class="text-2xl font-black tracking-tight text-zinc-500 mt-0.5 drop-shadow-[0_0_12px_rgba(245,158,11,0.35)]">—</span></span>
@@ -1113,8 +1139,15 @@
                no-op without the element. -->
 
 
+          <!-- 4. Base-bet line (Task K): base-bet chips + the
+               working win/loss doubling state. The step is the
+               Level badge below (governed session level / app-side
+               recovery level — same writers as before); the next
+               stake after win/loss is the hero's Bet figure above
+               (governed nextStake / app-side currentStake) — no new
+               ladder, no new maths, no duplicate figure to desync. -->
           <!-- 4. 1-Tap Base Bet Quick Select & Loss Recovery Status -->
-          <div class="space-y-1 pt-0.5">
+          <div id="axoBaseBetSection" class="space-y-1 pt-0.5">
             <div class="flex items-center justify-between text-[7.5px] font-mono px-0.5">
               <div class="flex items-center gap-1">
                 <span class="font-bold tracking-wider uppercase text-zinc-300">BASE BET:</span>

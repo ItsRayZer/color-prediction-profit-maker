@@ -1275,14 +1275,29 @@ export function axoBubbleGeometry({ anchor = null, vw = 0, vh = 0, bw = 280, bh 
  * 270×380); a saved drag/preset size is honored exactly — the old
  * open path forced minimums of 360×480, so a smaller saved size
  * was silently discarded on every reopen. Saved values are
- * validated (finite, positive) and clamped to the viewport and to
- * the drag floor (200×220, the resize handles' own minimums).
+ * validated (finite, positive) and clamped to the viewport.
+ *
+ * Task K (owner order 2026-10-25): the panel body is exactly four
+ * sections with NO vertical scroll, so the sheet must never shrink
+ * below its content. AXO_PANEL_MIN_SIZE (200×220) stays the ABSOLUTE
+ * floor — it is what the resize handles and the tiny-viewport path
+ * bottom out at — but at normal viewports the effective floor is
+ * the CONTENT floor: 340px, softening to (vh − 64) on short
+ * viewports so the sheet still fits inside the viewport (50px top
+ * clearance for the straddling avatar + 14px bottom margin). The
+ * short-viewport tightening in mobile.css covers the residual gap
+ * between the softened floor and the tightened content.
  * Published for the classic script (mobile.js cannot import this
  * module) with an inline fallback there.
  */
 export const AXO_PANEL_DEFAULT_SIZE = { width: 270, height: 380 };
 export const AXO_PANEL_MIN_SIZE = { width: 200, height: 220 };
 export const AXO_PANEL_SIZE_KEY = 'dhaniwin_assistant_box_size';
+export const AXO_PANEL_CONTENT_MIN_HEIGHT = 340;
+
+export function axoPanelContentFloor(vh) {
+  return Math.max(AXO_PANEL_MIN_SIZE.height, Math.min(AXO_PANEL_CONTENT_MIN_HEIGHT, (Number(vh) || 0) - 64));
+}
 
 export function resolveAxoPanelSize({ saved = null, vw = 0, vh = 0 } = {}) {
   const maxW = Math.max(AXO_PANEL_MIN_SIZE.width, (Number(vw) || 0) - 16);
@@ -1292,7 +1307,7 @@ export function resolveAxoPanelSize({ saved = null, vw = 0, vh = 0 } = {}) {
   const h = num(saved && saved.height);
   return {
     width: Math.min(maxW, Math.max(AXO_PANEL_MIN_SIZE.width, w ?? AXO_PANEL_DEFAULT_SIZE.width)),
-    height: Math.min(maxH, Math.max(AXO_PANEL_MIN_SIZE.height, h ?? AXO_PANEL_DEFAULT_SIZE.height))
+    height: Math.min(maxH, Math.max(axoPanelContentFloor(vh), h ?? AXO_PANEL_DEFAULT_SIZE.height))
   };
 }
 

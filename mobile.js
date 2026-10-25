@@ -6948,8 +6948,12 @@ let _assistantBoxPos = null;
 let _assistantBoxSize = null;
 
 // Apple Liquid Glass size presets
+// Task K (owner order 2026-10-25): the compact preset used to be
+// 230×280 — below the panel's 340px content floor, so opening it
+// would clip the no-scroll body. Compact is now 230×340: still the
+// narrowest preset, but tall enough for all four sections.
 const ASSISTANT_SIZE_PRESETS = [
-  { name: 'compact', width: 230, height: 280 },
+  { name: 'compact', width: 230, height: 340 },
   { name: 'normal',  width: 275, height: 360 },
   { name: 'large',   width: 325, height: 440 }
 ];
@@ -6972,8 +6976,12 @@ function cycleAssistantBoxSizePreset(e) {
 
   const maxW = Math.max(200, window.innerWidth - 16);
   const maxH = Math.max(220, window.innerHeight - 60);
+  // Task K: a preset must never shrink the sheet below its
+  // content (same floor as resolveAxoPanelSize); the viewport
+  // cap still wins on short viewports.
+  const contentFloor = Math.max(220, Math.min(340, window.innerHeight - 64));
   const targetW = Math.min(maxW, nextPreset.width);
-  const targetH = Math.min(maxH, nextPreset.height);
+  const targetH = Math.min(maxH, Math.max(contentFloor, nextPreset.height));
 
   sheet.style.transition = 'width 0.28s cubic-bezier(0.16, 1, 0.3, 1), height 0.28s cubic-bezier(0.16, 1, 0.3, 1), max-height 0.28s cubic-bezier(0.16, 1, 0.3, 1), transform 0.28s cubic-bezier(0.16, 1, 0.3, 1)';
   sheet.style.width = `${targetW}px`;
@@ -7029,12 +7037,18 @@ function toggleDhaniwinAssistantModal(show) {
       : (function () {
           const maxW = Math.max(200, window.innerWidth - 16);
           const maxH = Math.max(220, window.innerHeight - 60);
+          // Task K: same content floor as resolveAxoPanelSize
+          // (orb-bridge) — 340px at normal viewports, softening
+          // to (vh − 64) on short viewports, never below the
+          // 220 drag floor. Inline fallback only; the module rule
+          // wins whenever it is present.
+          const contentFloor = Math.max(220, Math.min(340, window.innerHeight - 64));
           const num = v => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.floor(Number(v)) : null);
           const w = num(_assistantBoxSize && _assistantBoxSize.width);
           const h = num(_assistantBoxSize && _assistantBoxSize.height);
           return {
             width: Math.min(maxW, Math.max(200, w !== null ? w : 270)),
-            height: Math.min(maxH, Math.max(220, h !== null ? h : 380))
+            height: Math.min(maxH, Math.max(contentFloor, h !== null ? h : 380))
           };
         })();
     const boxWidth = _panelSize.width;
@@ -7046,7 +7060,9 @@ function toggleDhaniwinAssistantModal(show) {
     // sheet's open class gives the header top clearance for the
     // name + prediction badge. Saved drag positions are ignored
     // on open (dragging after open still works); the size keeps
-    // its saved value, clamped only to the 200×220 drag floor.
+    // its saved value, clamped to the Task K content floor
+    // (340px at normal viewports, softening on short viewports,
+    // never below the 200×220 drag floor).
     const orbRect = orb ? orb.getBoundingClientRect() : { left: window.innerWidth - 76, top: window.innerHeight - 150, width: 62, height: 62 };
 
     // Task G (owner order 2026-10-25): reopen starts from the ball's
@@ -7316,6 +7332,12 @@ function initDhaniwinAssistantSheetDrag() {
 
     const maxWidth = window.innerWidth - 16;
     const maxHeight = window.innerHeight - 60;
+    // Task K: the vertical floor is the panel CONTENT floor
+    // (340px at normal viewports, softening to vh − 64 on short
+    // viewports, never below the 220 drag floor) — a resize must
+    // never shrink the sheet below its no-scroll body. Width
+    // keeps the plain 200 drag floor.
+    const minH = Math.max(MIN_HEIGHT, Math.min(340, window.innerHeight - 64));
 
     let newW = resizeStartW;
     let newH = resizeStartH;
@@ -7338,15 +7360,15 @@ function initDhaniwinAssistantSheetDrag() {
 
     // Vertical adjustments
     if (activeResizeDir.includes('b')) {
-      newH = Math.max(MIN_HEIGHT, Math.min(maxHeight - resizeStartT, resizeStartH + dy));
+      newH = Math.max(minH, Math.min(maxHeight - resizeStartT, resizeStartH + dy));
     } else if (activeResizeDir.includes('t')) {
       const prospectiveH = resizeStartH - dy;
-      if (prospectiveH >= MIN_HEIGHT) {
+      if (prospectiveH >= minH) {
         newH = prospectiveH;
         newT = Math.max(50, resizeStartT + dy);
       } else {
-        newH = MIN_HEIGHT;
-        newT = resizeStartT + (resizeStartH - MIN_HEIGHT);
+        newH = minH;
+        newT = resizeStartT + (resizeStartH - minH);
       }
     }
 

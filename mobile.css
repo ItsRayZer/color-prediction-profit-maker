@@ -1268,12 +1268,6 @@ a[href*="tradingview.com"] {
    without movement still does nothing. */
 #dhaniwinAssistantSheet.axo-top-avatar-open{overflow:visible}
 #dhaniwinAssistantSheet.axo-top-avatar-open #assistantSheetHeader{border-radius:22px 22px 0 0}
-/* Fix round #5 — panel subtitle background = the Axofy app's
-   subtitle background: the .axo-site-card surface the spoken line
-   sits on in axo-site.js (rgba(28,28,31,.92) + 1px
-   rgba(255,255,255,.1) border), replacing the generic matte black
-   pill from round #4. Position, size, and content are unchanged. */
-#smartBallLine{background:rgba(28,28,31,.92);border-color:rgba(255,255,255,.1)}
 #axoTopAvatar{position:absolute;left:50%;top:0;transform:translate(-50%,-50%);z-index:60;display:flex;flex-direction:column;align-items:center;pointer-events:auto;background:transparent;cursor:grab}
 #axoTopAvatar:active{cursor:grabbing}
 #axoTopAvatar #axoTopAvatarFace{display:block;width:64px;height:64px;border-radius:50%;object-fit:contain;background:transparent}
@@ -1316,3 +1310,28 @@ a[href*="tradingview.com"] {
    black/90 blurred backdrop the app loader uses. */
 #dhaniwinLoadingOverlay { position: absolute; inset: 0; z-index: 60; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: rgba(0,0,0,.9); backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px); }
 #dhaniwinLoadingOverlay.o101-loading-visible { display: flex; }
+
+/* Task K (owner order 2026-10-25): the opened panel never scrolls,
+   so on SHORT viewports (landscape phones) it tightens instead of
+   clipping. Normal content budgets to ~327px tall at 270 wide
+   (header 33 + chip row 27 + body 267); the JS content floor is
+   340px, softening to vh − 64. This tier saves ~31px (body padding
+   16→8, section rhythm 4→3px, hero padding 16→8, road padding
+   12→8, base top padding 2→0, reason bottom padding 2→0, bead
+   padding 4→2), bringing content to ~296px — inside the sheet at
+   every viewport vh ≥ 360 (sheet 300 at vh 360, content box 298).
+   Below ~vh 355 the sheet is viewport-capped and the bottom body
+   padding absorbs the first pixels; below ~vh 350 the base chips
+   start to clip — a physical limit for a ~300px panel in a
+   ~290px viewport, not a scroll fallback (there is none by
+   design). ID selectors beat the Tailwind utilities they tighten.
+   Matte only; no new elements, no gloss. */
+@media (max-height: 440px) {
+  #dhaniwinAssistantSheet .assistant-sheet-body { padding: 4px; }
+  #dhaniwinAssistantSheet .assistant-sheet-body > * + * { margin-top: 3px; }
+  #dhaniwinAssistantSheet #axoHeroBox { padding: 4px; }
+  #dhaniwinAssistantSheet #assistantMiniRoad { padding: 4px; }
+  #dhaniwinAssistantSheet #assistantMiniRoad span { padding-top: 1px; padding-bottom: 1px; }
+  #dhaniwinAssistantSheet #axoBaseBetSection { padding-top: 0; }
+  #dhaniwinAssistantSheet #mobileWebVerdictReason { padding-bottom: 0; }
+}
