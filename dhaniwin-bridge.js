@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         DhaniWin Quant AI Live Scraper & Auto-Bet Bridge
 // @namespace    https://dhaniwin.99.com/
-// @version      3.2
-// @description  Scrapes live WinGo draws, auto-navigates to WinGo, and pre-selects bet amount & target color/size from Quant AI. v3.2: publishes an API-proven user state (login + exact balance) on channel/postMessage/RTDB and actively re-queries the learned wallet endpoint with the live session.
+// @version      3.3
+// @description  Scrapes live WinGo draws, auto-navigates to WinGo, and pre-selects bet amount & target color/size from Quant AI. v3.3: one-time Tampermonkey install — auto-runs on DhaniWin pages with NO per-session tap and NO second tab. It runs inside the 01.01 app's own DhaniWin iframe too (no @noframes BY DESIGN: the iframe is how the app and the bridge talk — state up via parent postMessage, orders down via the iframe window). v3.2: publishes an API-proven user state (login + exact balance) on channel/postMessage and actively re-queries the learned wallet endpoint with the live session. NOTE: the bridge also attempts an RTDB publish, but live RTDB rules currently deny even reads (proven 2026-10-25), so postMessage through the app's iframe window is the working transport — never RTDB.
 // @match        *://*.dhaniwin44.com/*
 // @match        *://*.dhaniwin.99.com/*
 // @match        *://*.dhaniwin99.com/*
@@ -12,6 +12,27 @@
 // @run-at       document-idle
 // @grant        none
 // ==/UserScript==
+// INSTALL (one time, then fully automatic — no bookmarklet tap, no second
+// DhaniWin tab, no second login):
+//   1. Install Tampermonkey (Firefox for Android, or Kiwi Browser —
+//      Brave for Android does not run userscript extensions).
+//   2. In Tampermonkey, install from URL: <this app's origin>/dhaniwin-bridge.user.js
+//      (the same file, served with the .user.js name Tampermonkey detects;
+//      Tampermonkey checks that same URL for updates, so no @updateURL is needed).
+//   3. Open the 01.01 app and switch to the DhaniWin tab. The script
+//      auto-runs inside the app's DhaniWin iframe, the bridge HUD shows
+//      "Bridge Active", and the app shows VERIFIED + exact balance.
+//      Orders travel back down through the same iframe window, so
+//      Auto-Pilot staging + firing works from the one tab.
+// ROTATED DOMAINS: the @match list covers the dhaniwin family, including
+// any host containing "dhaniwin". If DhaniWin rotates to a hostname with
+// NO "dhaniwin" in it, the script stops matching: add one line
+//   // @match  *://<the-new-host>/*
+// and reinstall. The bridge itself never changes for a rotation.
+// SECURITY (unchanged): the bridge reads DhaniWin's own APIs with the
+// page's own session (same-origin, like the page itself) and relays ONLY
+// the 7 state fields. It NEVER publishes, logs, or stores any raw cookie,
+// token, API key, or session value — only a boolean "token present" flag.
 (function() {
   'use strict';
   // Idempotence guard: the bridge must never run twice on one page

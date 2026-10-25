@@ -810,6 +810,21 @@
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads">
       </iframe>
 
+      <!-- DhaniWin loading overlay (fix round #6): the cross-origin
+           iframe paints white for 3-4s while DhaniWin boots. This
+           matte splash covers OUR surface from navigation start
+           until the iframe's real `load` event (see
+           show/hideDhaniLoadingOverlay in mobile.js) — never a
+           guessed timer. The dismiss button uncovers the page early
+           for this load only; the next navigation shows it again. -->
+      <div id="dhaniwinLoadingOverlay" aria-hidden="true">
+        <div style="font-size:22px;font-weight:900;letter-spacing:.14em;color:#f4f4f6;">01:01</div>
+        <div class="o101-loading-ring" aria-hidden="true"></div>
+        <div id="dhaniwinLoadingText" style="font-size:12px;font-weight:650;color:#f4f4f6;">Loading DhaniWin…</div>
+        <div style="font-size:10px;color:#8b8b93;">One moment while the game loads</div>
+        <button type="button" id="dhaniwinLoadingDismissBtn" style="margin-top:4px;padding:6px 14px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);font-size:11px;font-weight:650;color:#f4f4f6;">Show page anyway</button>
+      </div>
+
       <!-- High-fidelity Invisible Touch & Gesture Shield to capture touches and swipes directly over iframe -->
       <div id="dhaniwinTouchShield" style="position: absolute; inset: 0; z-index: 50;"></div>
 

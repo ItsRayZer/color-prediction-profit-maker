@@ -1277,6 +1277,35 @@
           <a id="bridgeBookmarkletLink" href="#" class="ios-tag-micro tag-amber" style="text-decoration:none">01.01 bridge</a>
           <button type="button" id="bridgeBookmarkletCopyBtn" class="ios-tag-micro tag-neutral">Copy link</button>
         </div>
+        <!-- Bridge userscript (fix round #6 — the AUTOMATED path, no
+             second tab, no per-session tap): install the same bridge
+             file once in Tampermonkey and it auto-runs inside the
+             app's own DhaniWin iframe. State flows up to the app via
+             parent postMessage and orders flow down through the same
+             iframe window, so VERIFIED + exact balance + Auto-Pilot
+             firing all work from the one tab. Tampermonkey needs a
+             userscript-capable browser: Firefox for Android or Kiwi
+             Browser. Brave for Android does NOT run userscript
+             extensions — on Brave, the bookmarklet above (or a new
+             worker proxy, the owner's call) is the route. If DhaniWin
+             rotates to a hostname with no "dhaniwin" in it, the
+             script stops matching: add a @match line for the new
+             host in Tampermonkey and reinstall. The href is baked
+             at runtime from location.origin, like the bookmarklet. -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-green">
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z"/></svg>
+            </div>
+            <div>
+              <div class="ios-label-primary">Bridge userscript (automatic)</div>
+              <div class="ios-label-secondary">1. Install Tampermonkey (Firefox for Android or Kiwi Browser) · 2. In Tampermonkey, install from URL with this link · 3. Open the app's DhaniWin tab — the bridge auto-runs in the iframe, no tap, no second login.</div>
+              <div class="ios-label-secondary">Reads login + balance from DhaniWin's own page code and relays only the 7 state fields. Never your cookie, token, or key.</div>
+            </div>
+          </div>
+          <a id="bridgeUserscriptLink" href="#" class="ios-tag-micro tag-emerald" style="text-decoration:none">Install script</a>
+          <button type="button" id="bridgeUserscriptCopyBtn" class="ios-tag-micro tag-neutral">Copy link</button>
+        </div>
         <!-- Auto-Pilot mirror (orb-bridge): the toggle writes an intent
              (o101_autopilot_settings_v1); the app page is the authority
              that arms/disarms and this row mirrors the ACTUAL state
@@ -3159,6 +3188,31 @@
         + "document.head.appendChild(s);"
         + "})();";
       var href = 'javascript:' + encodeURI(code);
+      link.setAttribute('href', href);
+      if (copyBtn) {
+        copyBtn.addEventListener('click', function () {
+          function done(ok) {
+            copyBtn.textContent = ok ? 'Copied' : 'Copy failed';
+            setTimeout(function () { copyBtn.textContent = 'Copy link'; }, 2000);
+          }
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(href).then(function () { done(true); }, function () { done(false); });
+            } else { done(false); }
+          } catch (e) { done(false); }
+        });
+      }
+    })();
+
+    // ── Bridge userscript (fix round #6) ───────────────────────────
+    // Same file as the bookmarklet loads, under the .user.js name
+    // Tampermonkey detects for install-from-URL. Baked from THIS
+    // page's origin so it works on preview and production.
+    (function initBridgeUserscript() {
+      var link = document.getElementById('bridgeUserscriptLink');
+      var copyBtn = document.getElementById('bridgeUserscriptCopyBtn');
+      if (!link) return;
+      var href = location.origin + '/dhaniwin-bridge.user.js';
       link.setAttribute('href', href);
       if (copyBtn) {
         copyBtn.addEventListener('click', function () {

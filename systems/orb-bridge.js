@@ -2657,6 +2657,11 @@ function initBridge() {
     const key = tf + ':' + history.length + ':' + (history.length ? history[history.length - 1].period : '');
     if (state.backfilledKey === key) return;
     state.backfilledKey = key;
+    // Generation guard (fix round #6): every new settled round used
+    // to spawn a fresh walk WITHOUT stopping the old chains, so several
+    // 101-model walks contended on the main thread at once. A stale
+    // chain now exits at its next chunk boundary.
+    const walkGen = (state.backfillGen = (state.backfillGen || 0) + 1);
     const gen = genFn(), ev = evalFn();
     if (!gen || !ev || history.length < 2) return;
     const models = arenaModels();
@@ -2665,6 +2670,7 @@ function initBridge() {
     // Only rounds not already recorded (live or earlier backfill).
     let idx = history.length - 1;
     const step = () => {
+      if (walkGen !== state.backfillGen) return; // superseded walk: stop
       const t0 = Date.now();
       while (idx >= 1 && Date.now() - t0 < 24) {
         const round = history[idx];
@@ -2678,6 +2684,66 @@ function initBridge() {
       else { store.save(); }
     };
     setTimeout(step, 300);
+  }
+
+  // ── Deep backfill (fix round #6): walk the warm-up's OLDER rounds ──
+  // Same chunked walk as backfill, but over mobile.js's deep list
+  // (MobileState.deepHistoryByTf, persisted as quant_deep_history_<tf>),
+  // which the live fetch loop never wipes. recordRound is idempotent
+  // per (tf, period), so live, backfill, and deep walks can never
+  // double-count a round. This is what feeds a fresh origin's starved
+  // store up to (and past) the 200-round gate from REAL settled
+  // rounds — the "shadow evaluation" the owner asked for: every
+  // observed round gets every model's pick recorded against its
+  // outcome, whether or not any bet was placed.
+  function backfillDeep(tf, deepHistory) {
+    if (!Array.isArray(deepHistory) || deepHistory.length < 2) return;
+    const key = tf + ':deep:' + deepHistory.length + ':' + deepHistory[deepHistory.length - 1].period;
+    if (state.deepBackfilledKey === key) return;
+    state.deepBackfilledKey = key;
+    const walkGen = (state.deepBackfillGen = (state.deepBackfillGen || 0) + 1);
+    const gen = genFn(), ev = evalFn();
+    if (!gen || !ev) return;
+    const models = arenaModels();
+    if (!models.length) return;
+    const patternCtx = activePatternContext(tf);
+    let idx = deepHistory.length - 1;
+    const step = () => {
+      if (walkGen !== state.deepBackfillGen) return; // superseded walk: stop
+      const t0 = Date.now();
+      while (idx >= 1 && Date.now() - t0 < 24) {
+        const round = deepHistory[idx];
+        if (round && !store.hasPeriod(tf, round.period)) {
+          const entries = walkForwardEntries(models, deepHistory, idx, gen, ev, patternCtx, 'deep');
+          store.recordRound(tf, round.period, entries);
+        }
+        idx -= 1;
+      }
+      if (idx >= 1) setTimeout(step, 60);
+      else { store.save(); }
+    };
+    setTimeout(step, 300);
+  }
+
+  // Consume the warm-up's deep list whenever cycle() runs (cheap:
+  // key-checked inside backfillDeep). Rehydrates from localStorage
+  // when the in-memory slot is empty, so a reload resumes warming
+  // without re-fetching upstream pages.
+  function consumeDeepHistory(tf) {
+    try {
+      const ms = (typeof window !== 'undefined' && window.MobileState) || null;
+      if (!ms) return;
+      if (!ms.deepHistoryByTf) ms.deepHistoryByTf = {};
+      let deep = ms.deepHistoryByTf[tf];
+      if ((!deep || !deep.length) && typeof localStorage !== 'undefined') {
+        try {
+          const raw = localStorage.getItem('quant_deep_history_' + tf);
+          const parsed = raw ? JSON.parse(raw) : null;
+          if (Array.isArray(parsed) && parsed.length) { ms.deepHistoryByTf[tf] = parsed; deep = parsed; }
+        } catch (e) {}
+      }
+      if (deep && deep.length) backfillDeep(tf, deep);
+    } catch (e) {}
   }
 
   // ── One background cycle ─────────────────────────────────────────
@@ -2846,6 +2912,11 @@ function initBridge() {
       // idle chunks so ranking/blacklist start from the full record.
       backfill(tf, history);
     }
+
+    // Deep-history warm-up (fix round #6): every cycle, cheap
+    // key-checked consume of mobile.js's deep list, so a fresh
+    // origin's store warms even when no new round settles that tick.
+    consumeDeepHistory(tf);
 
     // 3) Engines on the governance scope for this timeframe (per-tf
     //    record, or the labelled global fallback while it warms up)

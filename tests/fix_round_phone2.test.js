@@ -132,7 +132,10 @@ test('fallback: completed load with no bridge signal falls back to direct within
   const proxied = WORKER + '/proxy/dhaniwin/';
   t.iframe.src = proxied;
   t.noteDhaniTransport(proxied);
-  assert.deepEqual(J(t.pendingMs()), [15000], 'no-load watchdog armed at 15s');
+  // Fix round #6 adds the overlay's 8s slow-connection note timer
+  // alongside the watchdog; the load handler clears it (proven by
+  // the [5000] assertion below), so it is not a transport timer.
+  assert.deepEqual(J(t.pendingMs()), [8000, 15000], 'no-load watchdog armed at 15s (+ 8s overlay slow note)');
   t.fire('load'); // e.g. the browser DNS error page completing
   assert.deepEqual(J(t.pendingMs()), [5000], 'load swaps the watchdog for the 5s bridge-signal window');
   assert.equal(t.fireTimer(5000), true);
@@ -152,7 +155,13 @@ test('fallback: a hard embed error falls back immediately, without waiting for a
   t.fire('error');
   assert.equal(t.iframe.src, ORIGIN + '/login', 'direct equivalent loaded at once');
   assert.equal(t.proxyFailed(), true);
-  assert.deepEqual(J(t.pendingMs()), [], 'all timers cleared');
+  // Fix round #6: the fallback's own direct navigation re-arms the
+  // overlay's 8s slow note (the direct page also takes seconds to
+  // paint); it is NOT a leftover transport timer — the direct page's
+  // load event clears it, proven by the next two lines.
+  assert.deepEqual(J(t.pendingMs()), [8000], 'only the overlay slow note for the new direct load remains');
+  t.fire('load');
+  assert.deepEqual(J(t.pendingMs()), [], 'direct page load clears the splash');
 });
 
 test('fallback: the 15s no-load watchdog still bounds a load that never completes', () => {

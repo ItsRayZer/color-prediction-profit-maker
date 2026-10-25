@@ -1061,6 +1061,11 @@ async function fetchLiveAPIResults(tfOverride) {
       localStorage.setItem(`quant_history_${tf}`, JSON.stringify(processedList.slice(-500)));
     } catch(e) {}
 
+    // Deep-history warm-up (fix round #6): once per session, in the
+    // background, so a fresh origin's starved model store warms from
+    // real older rounds instead of waiting 90+ minutes of live play.
+    if (!_deepWarmupStarted[tf]) setTimeout(() => { try { warmDeepHistory(tf); } catch (e) {} }, 1500);
+
     // Hide loader on first successful fetch
     const loader = $('appleMinimalLoader');
     if (loader && !loader.classList.contains('hidden')) {
@@ -1093,6 +1098,92 @@ async function fetchLiveAPIResults(tfOverride) {
   return false;
 }
 window.fetchLiveAPIResults = fetchLiveAPIResults;
+
+// ── Deep-history warm-up (fix round #6) ─────────────────────────────
+// WHY: the live loop above REPLACES historyByTf with ONE upstream page
+// every cycle, and localStorage is per-origin — so every new preview
+// URL starts with a near-empty model store. The gate needs 200
+// evaluated rounds; live accrual alone is 2/min at 30s, so 14 → 200
+// costs 93 minutes of open app. The warm-up fetches OLDER upstream
+// pages (pageNo=2..N — page 1 is the live page) once, while the store
+// is starved, and orb-bridge's deep backfill records every model's
+// walk-forward pick against each settled outcome. No invented data:
+// every round comes from the same public feed the live loop polls.
+// No threshold moves: the 200-round minimum is unchanged — warm-up
+// just gives the engine real rounds to evaluate instead of making it
+// wait 90+ minutes.
+// The deep list lives in MobileState.deepHistoryByTf + localStorage
+// quant_deep_history_<tf>, NEVER in historyByTf (the live loop would
+// wipe it on the next refresh). orb-bridge consumes it via backfillDeep.
+const DEEP_WARMUP_TARGET = 300; // rounds (buffer above the 200 gate)
+const DEEP_WARMUP_MAX_PAGES = 25;
+const DEEP_WARMUP_MAX_MS = 75000;
+const _deepWarmupStarted = {};
+function deepHistoryStoreCount(tf) {
+  try {
+    const raw = localStorage.getItem('o101_model_history_v1');
+    if (!raw) return 0;
+    const d = JSON.parse(raw);
+    const bucket = d && d.tf && d.tf[tf];
+    return bucket && Array.isArray(bucket.periods) ? bucket.periods.length : 0;
+  } catch (e) { return 0; }
+}
+function readStoredDeepHistory(tf) {
+  try {
+    const raw = localStorage.getItem('quant_deep_history_' + tf);
+    const list = raw ? JSON.parse(raw) : null;
+    return Array.isArray(list) ? list : [];
+  } catch (e) { return []; }
+}
+async function warmDeepHistory(tf) {
+  try {
+    if (_deepWarmupStarted[tf]) return;
+    _deepWarmupStarted[tf] = true;
+    if (deepHistoryStoreCount(tf) >= 200) return; // gate already fed
+    if (!MobileState.deepHistoryByTf) MobileState.deepHistoryByTf = {};
+    const existing = readStoredDeepHistory(tf);
+    if (existing.length) MobileState.deepHistoryByTf[tf] = existing;
+    if (existing.length >= DEEP_WARMUP_TARGET) return; // already deep
+    const base = (typeof TF_UPSTREAM_URLS !== 'undefined' && (TF_UPSTREAM_URLS[tf] || TF_UPSTREAM_URLS['30s'])) || null;
+    if (!base) return;
+    const tfCode = TF_CODES[tf];
+    const byPeriod = new Map();
+    for (const r of existing) if (r && r.period) byPeriod.set(String(r.period), r);
+    const t0 = Date.now();
+    for (let page = 2, fetched = 0; fetched < DEEP_WARMUP_MAX_PAGES; page++, fetched++) {
+      if (byPeriod.size >= DEEP_WARMUP_TARGET) break;
+      if (Date.now() - t0 > DEEP_WARMUP_MAX_MS) break;
+      let list = [];
+      try {
+        const raw = await _fetchWithTimeout(`${base}?pageNo=${page}&_=${Date.now()}`, 4000);
+        list = _parseRawList(raw);
+      } catch (e) { break; } // upstream hiccup: keep what we have; retry next session
+      if (!Array.isArray(list) || list.length < 2) break; // exhausted (short/empty page)
+      let added = 0;
+      for (const item of list) {
+        const period = String(item.issueNumber || item.issue || item.period || item.expect || '');
+        const num = parseInt(item.number !== undefined ? item.number : (item.openNumber !== undefined ? item.openNumber : (item.code || 0)), 10);
+        if (!period || isNaN(num)) continue;
+        if (tfCode && !period.includes(tfCode)) continue;
+        if (byPeriod.has(period)) continue;
+        const size = item.size || (num >= 5 ? 'BIG' : 'SMALL');
+        const color = item.color || (num === 0 ? 'RED,VIOLET' : num === 5 ? 'GREEN,VIOLET' : [1, 3, 7, 9].includes(num) ? 'GREEN' : 'RED');
+        byPeriod.set(period, { period, number: num, size, color });
+        added++;
+      }
+      if (added === 0) break; // pages repeat: nothing new to gain
+    }
+    const merged = [...byPeriod.values()].sort((a, b) => String(a.period).localeCompare(String(b.period)));
+    MobileState.deepHistoryByTf[tf] = merged;
+    try { localStorage.setItem('quant_deep_history_' + tf, JSON.stringify(merged.slice(-600))); } catch (e) {}
+    // Still starved after this attempt (upstream short/failed): allow
+    // one retry next session window instead of giving up forever.
+    if (merged.length < DEEP_WARMUP_TARGET && deepHistoryStoreCount(tf) < 200) {
+      setTimeout(() => { _deepWarmupStarted[tf] = false; }, 300000);
+    }
+  } catch (e) { /* warm-up must never break the live loop */ }
+}
+window.warmDeepHistory = warmDeepHistory;
 
 // ── 9. Apply Cloud History from RTDB Listener ─────────────────────────────────
 
@@ -3990,17 +4081,55 @@ function runDhaniProxyFallback(reason) {
   setMobileBridgeStatus(false, 'Proxy unreachable — direct mode · bridge inactive · login cannot be verified in this mode');
 }
 window.runDhaniProxyFallback = runDhaniProxyFallback;
+// ── DhaniWin loading overlay (fix round #6) ─────────────────────────
+// The cross-origin iframe paints white for 3-4s while DhaniWin boots,
+// and no app-side code can observe the page's inner paint. So the app
+// covers its OWN surface (#dhaniwinLoadingOverlay in mobile.html,
+// matte #040405 + spinner) from the moment a DhaniWin navigation
+// starts until the iframe's real `load` event — never a guessed
+// timer. After 8s the text turns into a slow-connection note (still
+// not a success claim). The dismiss button uncovers the page early
+// for this load only; the next navigation shows the splash again.
+let _dhaniLoading = false;
+let _dhaniLoadingSlowTimer = null;
+function showDhaniLoadingOverlay() {
+  _dhaniLoading = true;
+  const txt = $('dhaniwinLoadingText');
+  if (txt) txt.textContent = 'Loading DhaniWin…';
+  const el = $('dhaniwinLoadingOverlay');
+  if (el) el.classList.add('o101-loading-visible');
+  if (_dhaniLoadingSlowTimer) clearTimeout(_dhaniLoadingSlowTimer);
+  _dhaniLoadingSlowTimer = setTimeout(() => {
+    _dhaniLoadingSlowTimer = null;
+    if (!_dhaniLoading) return;
+    const t = $('dhaniwinLoadingText');
+    if (t) t.textContent = 'Still loading DhaniWin — slow connection…';
+  }, 8000);
+}
+function hideDhaniLoadingOverlay() {
+  _dhaniLoading = false;
+  if (_dhaniLoadingSlowTimer) { clearTimeout(_dhaniLoadingSlowTimer); _dhaniLoadingSlowTimer = null; }
+  const el = $('dhaniwinLoadingOverlay');
+  if (el) el.classList.remove('o101-loading-visible');
+}
+window.showDhaniLoadingOverlay = showDhaniLoadingOverlay;
+window.hideDhaniLoadingOverlay = hideDhaniLoadingOverlay;
 function hookDhaniIframeLoad() {
   if (_dhaniIframeLoadHooked) return;
   const iframe = $('dhaniwinIframe');
   if (!iframe) return;
   _dhaniIframeLoadHooked = true;
+  const dismiss = $('dhaniwinLoadingDismissBtn');
+  if (dismiss) dismiss.addEventListener('click', () => { hideDhaniLoadingOverlay(); });
   iframe.addEventListener('load', () => {
     // A completed load ends the no-load watchdog, but it is not proof
     // of life: an error document (e.g. a DNS failure page) fires
     // `load` too and contains no bridge. While riding the proxy with
     // no bridge signal yet, give the bridge a short window to prove
     // itself; silence inside it means the proxy route failed.
+    // Either way the document arrived: the loading splash clears on
+    // this REAL signal (fix round #6), never on a guessed timer.
+    hideDhaniLoadingOverlay();
     clearDhaniProxyWatchdog();
     if (_dhaniProxyFallbackUsed || _dhaniBridgeSeenForLoad) return;
     if (window.__o101DhaniTransport !== 'proxy') return;
@@ -4013,7 +4142,9 @@ function hookDhaniIframeLoad() {
   });
   iframe.addEventListener('error', () => {
     // Hard load error on the embed: fail fast instead of waiting out
-    // either timer.
+    // either timer. The splash clears so the owner sees the error
+    // page itself, not a permanent loading screen.
+    hideDhaniLoadingOverlay();
     if (_dhaniProxyFallbackUsed) return;
     if (window.__o101DhaniTransport !== 'proxy') return;
     runDhaniProxyFallback('load-error');
@@ -4030,8 +4161,13 @@ function noteDhaniTransport(url) {
   if (transport !== 'proxy' && !/dhaniwin/i.test(url)) return; // not a DhaniWin load
   window.__o101DhaniTransport = transport;
   try { localStorage.setItem(DHANI_TRANSPORT_KEY, transport); } catch (e) {}
+  // Every DhaniWin navigation gets the load listener (fix round #6:
+  // it used to attach only on the proxy branch, so direct-mode loads
+  // — the only mode left since the worker died — had no listener at
+  // all) and the loading splash, which the `load` event clears.
+  hookDhaniIframeLoad();
+  showDhaniLoadingOverlay();
   if (transport === 'proxy') {
-    hookDhaniIframeLoad();
     clearDhaniProxyWatchdog();
     clearDhaniBridgeSignalTimer();
     if (_dhaniProxyFallbackUsed) return;
@@ -5395,7 +5531,7 @@ window.toggleRealAutoBet = toggleRealAutoBet;
 
 function reloadWebIframe() {
   const iframe = $('dhaniwinIframe');
-  if (iframe) { iframe.src = iframe.src; }
+  if (iframe) { showDhaniLoadingOverlay(); iframe.src = iframe.src; }
 }
 window.reloadWebIframe = reloadWebIframe;
 

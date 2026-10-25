@@ -76,6 +76,20 @@ console.log('Copied index.html -> deploy/index.html (source, unprocessed)');
     }
   });
 
+  // Tampermonkey install target (fix round #6): the SAME bridge bytes
+  // under the .user.js name Tampermonkey detects for install-from-URL.
+  // It is generated from dhaniwin-bridge.js on every run, so the two
+  // files can never drift apart. Tampermonkey checks the install URL
+  // for updates, so no @updateURL/@downloadURL tags are needed.
+  {
+    const src = path.join(rootDir, 'dhaniwin-bridge.js');
+    const dest = path.join(deployDir, 'dhaniwin-bridge.user.js');
+    if (fs.existsSync(src)) {
+      fs.copyFileSync(src, dest);
+      console.log('Copied dhaniwin-bridge.js -> deploy/dhaniwin-bridge.user.js (Tampermonkey install target)');
+    }
+  }
+
   // Also copy worker to deploy root for universal worker path resolution
   const workerSrc = path.join(rootDir, 'src', 'workers', 'modelWorker.js');
   if (fs.existsSync(workerSrc)) {
