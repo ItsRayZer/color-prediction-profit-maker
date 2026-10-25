@@ -4269,6 +4269,15 @@ function initHomeHeaderAutoHide() {
   syncHeight();
   window.addEventListener('resize', syncHeight);
 
+  // Task D: the pull handle is visible whenever home-header-hidden is set, including
+  // on Home (where the scroll listener hides chrome). setHomeHeaderHidden is
+  // web-gated, so on Home the restore must also run the Home chrome show path —
+  // otherwise the handle would appear on Home and do nothing. Web behavior is
+  // untouched: the extra call is Home-gated.
+  const showTopBar = () => {
+    setHomeHeaderHidden(false);
+    if (document.getElementById('tab-home')?.style.display !== 'none') window.__o101ShowHomeChrome?.();
+  };
   const attachSwipe = (el) => {
     let y0 = null;
     el.addEventListener('touchstart', (e) => { y0 = e.touches[0].clientY; }, { passive: true });
@@ -4277,14 +4286,14 @@ function initHomeHeaderAutoHide() {
       const dy = e.changedTouches[0].clientY - y0;
       y0 = null;
       if (dy < -18) setHomeHeaderHidden(true);
-      else if (dy > 18) setHomeHeaderHidden(false);
+      else if (dy > 18) showTopBar();
     }, { passive: true });
   };
   attachSwipe(header);
   const handle = document.getElementById('homeHeaderPullHandle');
   if (handle) {
     attachSwipe(handle);
-    handle.addEventListener('click', () => setHomeHeaderHidden(false));
+    handle.addEventListener('click', showTopBar);
   }
 }
 
@@ -4327,6 +4336,26 @@ function initDockAutoCompact() {
     syncShield();
   };
 
+  // ── Task D — Home view scroll auto-hide ──
+  // On Home ONLY, scroll-down FULLY hides the top bar + dock (not compact);
+  // scroll-up restores both. Reuses the existing home-header-hidden rule (header
+  // translateY(-110%), 0.35s transition) and dock-hidden (off-screen + opacity 0 +
+  // pointer-events none), so both transitions stay CSS-smoothed and hidden chrome
+  // never intercepts touches. The bet slip / confirm tap lives in page content,
+  // not in the header or dock, so it stays fully usable while chrome is hidden.
+  const isHomeView = () => document.getElementById('tab-home')?.style.display !== 'none';
+  const hideHomeChrome = () => {
+    dock.classList.remove('dock-compact');
+    dock.classList.add('dock-hidden');
+    document.body.classList.add('home-header-hidden');
+    syncShield();
+  };
+  const showHomeChrome = () => {
+    expand();
+    document.body.classList.remove('home-header-hidden');
+  };
+  window.__o101ShowHomeChrome = showHomeChrome;
+
   // Expose methods on window for global access and bridge handlers
   window._dockSetCompact = (isCompact) => {
     if (isCompact) compact();
@@ -4340,23 +4369,28 @@ function initDockAutoCompact() {
   window._dockSyncShield = syncShield;
 
   // ── 1. Window scroll: scrolling down = compact, scrolling up = full big size ──
+  // Task D: on Home, scroll-down FULLY hides top bar + dock; everywhere else the
+  // existing compact/expand behavior is untouched.
   window.addEventListener('scroll', () => {
     const y = window.scrollY || 0;
 
     // At top of screen: restore full normal menu
     if (y <= 15) {
-      expand();
+      if (isHomeView()) showHomeChrome();
+      else expand();
       lastScrollY = y;
       return;
     }
 
     const delta = y - lastScrollY;
     if (delta > SCROLL_THRESHOLD) {
-      // User scrolled DOWN → make menu compact
-      compact();
+      // User scrolled DOWN → on Home fully hide, elsewhere make menu compact
+      if (isHomeView()) hideHomeChrome();
+      else compact();
     } else if (delta < -SCROLL_THRESHOLD) {
       // User scrolled UP → make menu come back big
-      expand();
+      if (isHomeView()) showHomeChrome();
+      else expand();
     }
 
     lastScrollY = y;
@@ -4389,6 +4423,11 @@ function initDockAutoCompact() {
   const handleTouchMove = (clientY, clientX, target) => {
     if (touchStartY === null) return;
     if (isProtectedElement(target)) return;
+    // Task D: on Home, scroll alone drives chrome. The gesture engine's compact()
+    // would otherwise un-hide the dock mid-scroll (compact removes dock-hidden)
+    // and a tap would bring back a capsule — so on Home, gestures never touch
+    // chrome. Everywhere else this engine is untouched.
+    if (isHomeView()) return;
 
     const dy = clientY - touchStartY;
     const dx = clientX - (touchStartX || clientX);
@@ -4411,15 +4450,19 @@ function initDockAutoCompact() {
   const handleTouchEnd = (target) => {
     if (touchStartY === null) return;
     const duration = Date.now() - touchStartTime;
-
-    // Clean tap outside dock/modal/orb across any tab/menu -> compact dock
-    if (!touchMoved && duration < 400 && !isProtectedElement(target)) {
-      compact();
-    }
+    const moved = touchMoved;
 
     touchStartY = null;
     touchStartX = null;
     touchMoved = false;
+
+    // Task D: on Home, chrome is scroll-driven only — a tap must not un-hide it.
+    if (isHomeView()) return;
+
+    // Clean tap outside dock/modal/orb across any tab/menu -> compact dock
+    if (!moved && duration < 400 && !isProtectedElement(target)) {
+      compact();
+    }
   };
 
   // Attach to window & document
@@ -4695,6 +4738,11 @@ function switchMobileTab(tab) {
     if (orb) orb.style.display = 'none';
     if (typeof toggleDhaniwinAssistantModal === 'function') toggleDhaniwinAssistantModal(false);
   }
+
+  // Bubble-tracks-Axo: anchor visibility changed (orb shown or
+  // hidden) — the bubble tracks it or hides with it, never parks
+  // at a stale spot.
+  if (window.__smartBall && typeof window.__smartBall.repositionAxoBubble === 'function') window.__smartBall.repositionAxoBubble();
 }
 window.switchMobileTab = switchMobileTab;
 
@@ -6515,6 +6563,129 @@ function clampFloatingOrb() {
 }
 window.clampFloatingOrb = clampFloatingOrb;
 
+// Bubble-tracks-Axo (owner order 2026-10-25): one rAF-throttled
+// reposition queue shared by the orb drag, sheet drag, and sheet
+// resize handlers, so the subtitle bubble follows Axo mid-gesture
+// without a full sync (and its face re-render) on every move.
+let __o101BubbleRepositionQueued = false;
+function queueAxoBubbleReposition() {
+  if (__o101BubbleRepositionQueued) return;
+  __o101BubbleRepositionQueued = true;
+  const run = () => {
+    __o101BubbleRepositionQueued = false;
+    if (window.__smartBall && typeof window.__smartBall.repositionAxoBubble === 'function') window.__smartBall.repositionAxoBubble();
+  };
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+  else run();
+}
+
+// ── Pull-to-refresh (owner order 2026-10-25, Task C) ─────────────
+// The owner could not refresh inside the app. Pulling down at the
+// top of the main view shows a small spinner (no text) and, on
+// release past the threshold, re-syncs live data:
+//   1. syncMobileUserWallet() — posts DHANIWIN_REQUEST_SYNC to the
+//      bridge, which clicks wallet refresh, scrapes DOM, and runs
+//      its active wallet poll + session scrape (API-proven balance).
+//   2. fetchLiveAPIResults(current timeframe) — the guarded live
+//      history fetch (no-op while a fetch is already in flight).
+// It NEVER reloads the document and NEVER touches governed session
+// state: evaluated rounds (persisted model store), calibration
+// records, ladder/session P&L, and the locked verdict all survive
+// untouched, because neither leg resets anything — the history
+// list itself is live data, replaced by fresh upstream rounds.
+// Touch only (phone first): touches inside the DhaniWin iframe
+// never reach this document, so a pull inside the game frame
+// cannot trigger this — pull on the app's own views. Disabled
+// while the assistant panel is open, and never hijacks taps on
+// the orb, dock, sheet, resize handles, or form controls.
+const O101_PULL_THRESHOLD = 64;
+function refreshAppLiveData() {
+  try { if (typeof syncMobileUserWallet === 'function') syncMobileUserWallet(); } catch (e) {}
+  try {
+    const p = fetchLiveAPIResults(MobileState.timeframe);
+    return Promise.resolve(p).catch(() => {});
+  } catch (e) { return Promise.resolve(); }
+}
+function initPullRefresh() {
+  if (window.__o101PullRefreshInit) return;
+  window.__o101PullRefreshInit = true;
+  const spinner = document.getElementById('o101PullSpinner');
+  if (!spinner) return;
+  let pulling = false;
+  let refreshing = false;
+  let startY = 0;
+  let startX = 0;
+  let triggered = false;
+
+  const visual = (dy) => {
+    if (typeof window.__o101PullVisual === 'function') return window.__o101PullVisual(dy, O101_PULL_THRESHOLD);
+    const pull = Math.max(0, dy || 0);
+    const offset = Math.min(pull * 0.5, 56);
+    return { offset, opacity: Math.min(1, offset / 56), shouldRefresh: pull >= O101_PULL_THRESHOLD };
+  };
+  const setSpinner = (offset, opacity, animate) => {
+    spinner.style.transition = animate ? 'transform .22s ease, opacity .22s ease' : 'none';
+    spinner.style.transform = `translate(-50%, ${offset}px)`;
+    spinner.style.opacity = String(opacity);
+    spinner.style.display = opacity > 0 ? 'flex' : 'none';
+  };
+  const modalOpen = () => {
+    const modal = document.getElementById('dhaniwinAssistantModal');
+    return !!(modal && !modal.classList.contains('hidden') && modal.classList.contains('sheet-open'));
+  };
+  const EXCLUDED = '#dhaniwinFloatingOrb, #dhaniwinAssistantModal, #mobileBottomDock, .assistant-resize-handle, button, a, input, select, textarea';
+
+  document.addEventListener('touchstart', (e) => {
+    if (refreshing || pulling || modalOpen()) return;
+    if (window.scrollY !== 0) return;
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+    if (t.target && t.target.closest && t.target.closest(EXCLUDED)) return;
+    pulling = true;
+    triggered = false;
+    startY = t.clientY;
+    startX = t.clientX;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!pulling || refreshing) return;
+    const t = e.touches && e.touches[0];
+    if (!t) return;
+    const dy = t.clientY - startY;
+    const dx = t.clientX - startX;
+    if (Math.abs(dx) > Math.abs(dy)) { pulling = false; setSpinner(0, 0, true); return; }
+    if (dy <= 0) { triggered = false; setSpinner(0, 0, false); return; }
+    if (window.scrollY !== 0) { pulling = false; setSpinner(0, 0, true); return; }
+    if (e.cancelable) e.preventDefault(); // suppress the browser's native pull-to-refresh while ours tracks
+    const v = visual(dy);
+    triggered = v.shouldRefresh;
+    setSpinner(v.offset, v.opacity, false);
+  }, { passive: false });
+
+  document.addEventListener('touchend', () => {
+    if (!pulling) return;
+    pulling = false;
+    if (!triggered) { setSpinner(0, 0, true); return; }
+    refreshing = true;
+    setSpinner(44, 1, true);
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      refreshing = false;
+      setSpinner(0, 0, true);
+    };
+    // Spinner lifetime covers the history fetch plus a floor so the
+    // bridge sync has a chance to land; bridge states re-render on
+    // arrival after the spinner hides. Never spins forever.
+    const minWait = new Promise(r => setTimeout(r, 600));
+    Promise.all([refreshAppLiveData(), minWait]).then(finish);
+    setTimeout(finish, 5000);
+  }, { passive: true });
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initPullRefresh);
+else initPullRefresh();
+
 function clampAssistantSheetToViewport() {
   if (window.__assistantBoxBusy) return;
   const modal = $('dhaniwinAssistantModal');
@@ -6869,10 +7040,6 @@ function toggleDhaniwinAssistantModal(show) {
     const boxWidth = _panelSize.width;
     const boxHeight = _panelSize.height;
 
-    sheet.style.width = `${boxWidth}px`;
-    sheet.style.height = `${boxHeight}px`;
-    sheet.style.maxHeight = `${boxHeight}px`;
-
     // Fix round #4: the opened Axo is SMALL, Axofy-app pattern —
     // a circular avatar straddling the sheet's top-center edge,
     // never a giant overlay, never covering panel content. The
@@ -6882,12 +7049,27 @@ function toggleDhaniwinAssistantModal(show) {
     // its saved value, clamped only to the 200×220 drag floor.
     const orbRect = orb ? orb.getBoundingClientRect() : { left: window.innerWidth - 76, top: window.innerHeight - 150, width: 62, height: 62 };
 
-    const targetLeft = Math.max(8, Math.floor((window.innerWidth - boxWidth) / 2));
-    const targetTop = Math.max(50, Math.floor((window.innerHeight - boxHeight) / 2));
+    // Task G (owner order 2026-10-25): reopen starts from the ball's
+    // LAST position — the window rests centered on the orb (not
+    // viewport-centered), clamped to the same bounds the drag uses,
+    // so the open morph travels from the ball to its own rest spot
+    // and a close→reopen round-trip lands in the same place.
+    const orbCenterX = orbRect.left + (orbRect.width || 62) / 2;
+    const orbCenterY = orbRect.top + (orbRect.height || 62) / 2;
+    const targetLeft = Math.max(8, Math.min(window.innerWidth - boxWidth - 8, Math.floor(orbCenterX - boxWidth / 2)));
+    const targetTop = Math.max(50, Math.min(window.innerHeight - boxHeight - 14, Math.floor(orbCenterY - boxHeight / 2)));
 
-    // Set box position
-    sheet.style.left = `${targetLeft}px`;
-    sheet.style.top = `${targetTop}px`;
+    // Task E: the window OPENS FROM the ball — it starts at the orb
+    // rect (the ball's position and size) and animates rect + scale
+    // to its rest rect, so it grows out of the ball's position. The
+    // transition covers left/top/width/height for the travel; the
+    // existing sheet-open scale/opacity morph composes on top.
+    sheet.style.transition = 'left 0.28s cubic-bezier(0.16, 1, 0.3, 1), top 0.28s cubic-bezier(0.16, 1, 0.3, 1), width 0.28s cubic-bezier(0.16, 1, 0.3, 1), height 0.28s cubic-bezier(0.16, 1, 0.3, 1), max-height 0.28s cubic-bezier(0.16, 1, 0.3, 1), transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+    sheet.style.left = `${Math.floor(orbRect.left)}px`;
+    sheet.style.top = `${Math.floor(orbRect.top)}px`;
+    sheet.style.width = `${Math.floor(orbRect.width || 62)}px`;
+    sheet.style.height = `${Math.floor(orbRect.height || 62)}px`;
+    sheet.style.maxHeight = `${Math.floor(orbRect.height || 62)}px`;
     sheet.style.right = 'auto';
     sheet.style.bottom = 'auto';
     sheet.classList.add('axo-top-avatar-open');
@@ -6900,9 +7082,8 @@ function toggleDhaniwinAssistantModal(show) {
     const faceHost = $('axoFaceHost');
     if (faceHost) faceHost.style.display = 'none';
 
-    // Calculate morph origin from ball center (morphs from the ball and back to the ball)
-    const orbCenterX = orbRect.left + (orbRect.width || 62) / 2;
-    const orbCenterY = orbRect.top + (orbRect.height || 62) / 2;
+    // Calculate morph origin from ball center (morphs from the ball and back to the ball).
+    // orbCenterX/Y were computed above for the ball-anchored rest rect (Task G).
     const originX = orbCenterX - targetLeft;
     const originY = orbCenterY - targetTop;
     sheet.style.transformOrigin = `${originX}px ${originY}px`;
@@ -6918,8 +7099,15 @@ function toggleDhaniwinAssistantModal(show) {
       orb.style.pointerEvents = 'none';
     }
 
-    // Force browser reflow to guarantee smooth animation
+    // Force browser reflow to guarantee smooth animation: the start
+    // rect (at the ball) is flushed first, so the rest rect below
+    // transitions instead of jumping.
     void sheet.offsetWidth;
+    sheet.style.left = `${targetLeft}px`;
+    sheet.style.top = `${targetTop}px`;
+    sheet.style.width = `${boxWidth}px`;
+    sheet.style.height = `${boxHeight}px`;
+    sheet.style.maxHeight = `${boxHeight}px`;
     modal.classList.add('sheet-open');
 
     // The subtitle bubble stays outside the panel while it is open
@@ -6927,12 +7115,44 @@ function toggleDhaniwinAssistantModal(show) {
     // it next to the top-center avatar.
     if (window.__smartBall && typeof window.__smartBall.syncAxoSubtitleSurfaces === 'function') window.__smartBall.syncAxoSubtitleSurfaces();
 
+    // Bubble-tracks-Axo: the sheet morphs open — reposition once
+    // it settles, so the bubble follows the avatar to its rest spot.
+    try {
+      sheet.addEventListener('transitionend', function onSheetOpenSettled() { if (window.__smartBall && typeof window.__smartBall.repositionAxoBubble === 'function') window.__smartBall.repositionAxoBubble(); }, { once: true });
+    } catch (e) {}
+
     // Update mini road on open
     const history = MobileState.historyByTf[MobileState.timeframe] || [];
     renderAssistantMiniRoad(history);
   } else {
     if (_assistantModalClosing) return;
     _assistantModalClosing = true;
+    // Task G (owner order 2026-10-25): the ball takes the window's
+    // LAST position — the orb glides to the sheet's last center
+    // (clamped to the viewport, same 68×86 footprint the orb drag
+    // uses) and that spot persists, so reopen starts there. The
+    // collapse pivot moves to the new ball center BEFORE the
+    // sheet-open class drops, so the window collapses into the
+    // ball instead of toward its stale open-time origin.
+    if (orb) {
+      const sheetRect = sheet.getBoundingClientRect();
+      const clamp = window.__o101ClampBall || clampBallRectFallback;
+      const ballSpot = clamp({ left: sheetRect.left + sheetRect.width / 2 - 34, top: sheetRect.top + sheetRect.height / 2 - 43, width: 68, height: 86, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 10, bottomMargin: 12 });
+      const ballCenterX = ballSpot.left + 34;
+      const ballCenterY = ballSpot.top + 43;
+      sheet.style.transformOrigin = `${ballCenterX - sheetRect.left}px ${ballCenterY - sheetRect.top}px`;
+      orb.style.pointerEvents = 'auto';
+      orb.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.24s ease, left 0.3s cubic-bezier(0.16, 1, 0.3, 1), top 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+      orb.style.left = `${ballSpot.left}px`;
+      orb.style.top = `${ballSpot.top}px`;
+      orb.style.right = 'auto';
+      orb.style.bottom = 'auto';
+      orb.style.transform = 'scale(1)';
+      orb.style.opacity = '1';
+      try {
+        localStorage.setItem('dhaniwin_orb_pos', JSON.stringify({ left: ballSpot.left, top: ballSpot.top }));
+      } catch (err) {}
+    }
     modal.classList.remove('sheet-open');
     sheet.classList.remove('axo-top-avatar-open');
 
@@ -6943,14 +7163,6 @@ function toggleDhaniwinAssistantModal(show) {
     const faceHostClose = $('axoFaceHost');
     if (faceHostClose) faceHostClose.style.display = '';
 
-    // Restore orb: smooth morph back to full ball shape
-    if (orb) {
-      orb.style.pointerEvents = 'auto';
-      orb.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.24s ease';
-      orb.style.transform = 'scale(1)';
-      orb.style.opacity = '1';
-    }
-
     setTimeout(() => {
       if (_assistantModalClosing) {
         modal.classList.add('hidden');
@@ -6958,6 +7170,11 @@ function toggleDhaniwinAssistantModal(show) {
         _assistantModalClosing = false;
         // Panel fully closed: the floating subtitle may show again.
         if (window.__smartBall && typeof window.__smartBall.syncAxoSubtitleSurfaces === 'function') window.__smartBall.syncAxoSubtitleSurfaces();
+        // Bubble-tracks-Axo: the orb morphs back over 0.3s —
+        // reposition when it settles on its rest rect.
+        try {
+          if (orb) orb.addEventListener('transitionend', function onOrbCloseSettled() { if (window.__smartBall && typeof window.__smartBall.repositionAxoBubble === 'function') window.__smartBall.repositionAxoBubble(); }, { once: true });
+        } catch (e) {}
       }
     }, 280);
   }
@@ -7016,6 +7233,8 @@ function initDhaniwinAssistantSheetDrag() {
 
     sheet.style.left = `${newLeft}px`;
     sheet.style.top = `${newTop}px`;
+    // Bubble-tracks-Axo: the top avatar rides the sheet's top edge.
+    queueAxoBubbleReposition();
   };
 
   const onDragUp = () => {
@@ -7028,6 +7247,7 @@ function initDhaniwinAssistantSheetDrag() {
     try {
       localStorage.setItem('dhaniwin_assistant_box_pos', JSON.stringify(_assistantBoxPos));
     } catch(err) {}
+    queueAxoBubbleReposition();
   };
 
   header.addEventListener('touchstart', onDragDown, { passive: true });
@@ -7037,6 +7257,19 @@ function initDhaniwinAssistantSheetDrag() {
   header.addEventListener('mousedown', onDragDown);
   window.addEventListener('mousemove', onDragMove);
   window.addEventListener('mouseup', onDragUp);
+
+  // Task G (owner order 2026-10-25): the AI is a drag handle — a
+  // press-and-drag on the top avatar moves the whole window, using
+  // exactly the header-drag machinery above. A tap without movement
+  // starts and ends the drag with no move, so it does nothing (the
+  // avatar has no tap action). Resize keeps its own zones: the
+  // avatar's z-index beats the top-edge handle only inside the
+  // avatar's own rect; edges/corners outside it still resize.
+  const axoAvatar = document.getElementById('axoTopAvatar');
+  if (axoAvatar) {
+    axoAvatar.addEventListener('touchstart', onDragDown, { passive: true });
+    axoAvatar.addEventListener('mousedown', onDragDown);
+  }
 
   // 2. APPLE-LIKE INTERACTIVE RESIZE LOGIC (Touching in the edge or corner makes it bigger/smaller)
   let isResizing = false;
@@ -7123,6 +7356,8 @@ function initDhaniwinAssistantSheetDrag() {
     sheet.style.maxHeight = `${Math.round(newH)}px`;
     sheet.style.left = `${Math.round(newL)}px`;
     sheet.style.top = `${Math.round(newT)}px`;
+    // Bubble-tracks-Axo: top/left-edge resizes move the avatar.
+    queueAxoBubbleReposition();
   };
 
   const onResizeEnd = () => {
@@ -7140,6 +7375,7 @@ function initDhaniwinAssistantSheetDrag() {
       localStorage.setItem('dhaniwin_assistant_box_size', JSON.stringify(_assistantBoxSize));
       localStorage.setItem('dhaniwin_assistant_box_pos', JSON.stringify(_assistantBoxPos));
     } catch(err) {}
+    queueAxoBubbleReposition();
   };
 
   // Bind handles
@@ -7222,6 +7458,8 @@ function updateFloatingOrbUI() {
   // The orb becomes visible on tab switch — clamp then, too, so a
   // restored position can never sit half off an edge on first sight.
   clampFloatingOrb();
+  // Bubble-tracks-Axo: a clamp can move the orb — follow it.
+  if (window.__smartBall && typeof window.__smartBall.repositionAxoBubble === 'function') window.__smartBall.repositionAxoBubble();
 }
 window.updateFloatingOrbUI = updateFloatingOrbUI;
 
@@ -7293,6 +7531,8 @@ function setupFloatingOrb() {
       orb.style.top = `${next.top}px`;
       orb.style.right = 'auto';
       orb.style.bottom = 'auto';
+      // Bubble-tracks-Axo: the subtitle follows the ball mid-drag.
+      queueAxoBubbleReposition();
     }
   }
 
@@ -7326,6 +7566,13 @@ function setupFloatingOrb() {
     try {
       localStorage.setItem('dhaniwin_orb_pos', JSON.stringify({ left: targetLeft, top: targetTop }));
     } catch(err) {}
+
+    // Bubble-tracks-Axo: reposition now at the snap target, and
+    // once more when the 0.3s snap slide settles on the ball.
+    queueAxoBubbleReposition();
+    try {
+      orb.addEventListener('transitionend', function onOrbSnapSettled() { queueAxoBubbleReposition(); }, { once: true });
+    } catch (e) {}
   }
 
   orb.addEventListener('touchstart', onPointerDown, { passive: true });

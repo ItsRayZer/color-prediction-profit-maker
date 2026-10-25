@@ -112,6 +112,11 @@
   </script>
 </head>
 <body class="bg-[#09090b] text-white overflow-x-hidden min-h-screen">
+  <!-- Pull-to-refresh spinner (owner order 2026-10-25, Task C):
+       a small spinning ring ONLY — no text node, no label. Shown
+       and driven by mobile.js while the user pulls down at the top
+       of the main view; hidden otherwise. -->
+  <div id="o101PullSpinner" aria-hidden="true" style="display:none;"><div class="o101-pull-ring"></div></div>
 
   <!-- ════════════════════════════════════════════════════════════
        ULTRA-MINIMALIST APPLE 3-DOT RELOAD SCREEN (NO TEXT)
@@ -899,6 +904,26 @@
       </button>
     </div>
 
+    <!-- Task H (owner order 2026-10-25): the no-skip warning as an
+         Apple-style minimal POPUP outside the panel box — a floating
+         rounded box over a dim backdrop, centered, dark matte, no
+         gloss, short warning text, Cancel + Confirm buttons only.
+         The old in-panel warning element is GONE: this popup is the
+         exactly-one warning surface. Tapping the NO-SKIP chip while
+         OFF opens it (never enables directly); Confirm enables
+         no-skip; Cancel closes without enabling; a backdrop tap
+         cancels too (same as Cancel). -->
+    <div id="axoNoSkipPopup" role="alertdialog" aria-modal="true" aria-label="No-skip warning" style="display:none; position:fixed; inset:0; z-index:100002; align-items:center; justify-content:center; padding:24px;">
+      <div id="axoNoSkipPopupBackdrop" onclick="window.__smartBall && window.__smartBall.cancelNoSkip()" style="position:absolute; inset:0; background:rgba(0,0,0,0.5);"></div>
+      <div style="position:relative; width:min(300px, calc(100vw - 48px)); padding:20px; border-radius:20px; background:rgba(28,28,31,0.95); border:1px solid rgba(255,255,255,0.14); box-shadow:0 16px 50px rgba(0,0,0,0.85);">
+        <p id="axoNoSkipWarnText" style="color:#f4f4f6; font-size:13px; line-height:1.5; font-family:ui-monospace,monospace; text-align:center; margin:0;">No-skip mode bets rounds the engine would skip for low confidence. Expect more losses — this does not improve the edge, it only bets more often. Bankroll guards (stop-loss, stop-win, ladder limits, Wilson check) still apply, and every bet still needs your tap.</p>
+        <div style="display:flex; gap:8px; margin-top:16px;">
+          <button type="button" id="axoNoSkipCancelBtn" onclick="window.__smartBall && window.__smartBall.cancelNoSkip()" style="flex:1; padding:10px; border-radius:12px; background:rgba(255,255,255,0.08); color:#e4e4e7; font-size:13px; font-weight:700; border:1px solid rgba(255,255,255,0.1); cursor:pointer;">Cancel</button>
+          <button type="button" id="axoNoSkipConfirmBtn" onclick="window.__smartBall && window.__smartBall.confirmNoSkip()" style="flex:1; padding:10px; border-radius:12px; background:rgba(244,63,94,0.25); color:#fda4af; font-size:13px; font-weight:700; border:1px solid rgba(244,63,94,0.4); cursor:pointer;">Confirm</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ════════════════════════════════════════════════════════════
          REDESIGNED APPLE / GEN-Z ASSISTANT MODAL (AMOLED Liquid Glass)
     ════════════════════════════════════════════════════════════ -->
@@ -961,6 +986,14 @@
             <button type="button" id="axoVoiceChip" aria-pressed="true" title="Axo voice on/off" onclick="window.__smartBall && window.__smartBall.toggleAxoVoice()" class="w-5 h-5 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-emerald-300 flex items-center justify-center transition" style="font-size:9px">
               <i id="axoVoiceChipIcon" class="fa-solid fa-volume-high pointer-events-none"></i>
             </button>
+            <!-- Task J (owner need 2026-10-25): one-tap history
+                 export — settled rounds + model stats as a JSON
+                 file (share sheet first, download fallback). No
+                 secrets by construction (see buildHistoryExport).
+                 A button, so the header drag ignores it. -->
+            <button type="button" id="axoExportBtn" aria-label="Export history as JSON" title="Export history (JSON)" onclick="window.__smartBall && window.__smartBall.exportHistory()" class="w-5 h-5 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-zinc-300 flex items-center justify-center transition">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pointer-events-none" aria-hidden="true"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M4 21h16"/></svg>
+            </button>
             <button type="button" onclick="cycleAssistantBoxSizePreset(event)" id="assistantSizePresetBtn" class="w-5 h-5 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-zinc-300 flex items-center justify-center text-[9px] transition" title="Toggle Size (Compact / Normal / Large)">
               <i class="fa-solid fa-up-right-and-down-left-from-center text-[8.5px]"></i>
             </button>
@@ -970,7 +1003,11 @@
           </div>
         </div>
 
-        <!-- Scrollable Body Content (Compact & Sleek) -->
+        <!-- Body Content (Task E: essentials only, one view — the
+             sections are cut to fit the default 270×380 window, so
+             no scroll is needed at default size; overflow-y-auto
+             stays only as a fallback when the user shrinks the
+             window below its content with resize/presets). -->
         <div class="p-2 space-y-1.5 overflow-y-auto assistant-sheet-body" style="-webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y;">
           <!-- 0. Axo subtitle (orb-bridge say()): the assistant's
                current line — every spoken line appears here
@@ -996,60 +1033,31 @@
               <button type="button" id="axoModeChip" aria-pressed="true" title="Axo mode: AI narration or Normal (templates only)" onclick="window.__smartBall && window.__smartBall.toggleAxoMode()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 active:scale-95 transition">AI</button>
               <button type="button" id="axoLangChip" title="Axo language — tap to change" onclick="window.__smartBall && window.__smartBall.toggleAxoLang()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 border border-white/10 active:scale-95 transition">EN</button>
               <button type="button" id="axoNoSkipChip" aria-pressed="false" title="No-skip mode — bets low-confidence rounds (warning first)" onclick="window.__smartBall && window.__smartBall.toggleNoSkip()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-white/10 text-zinc-400 border border-white/10 opacity-60 active:scale-95 transition">NO-SKIP</button>
+              <!-- Task E: the Auto-Pilot toggle lives here as a chip
+                   (the old autoPilotRow is removed) — same id, same
+                   onclick, same renderAutoPilot sync, so the control
+                   survives the essentials-only cut. -->
+              <button type="button" id="autoPilotToggle" role="switch" aria-checked="false" onclick="window.__smartBall && window.__smartBall.toggleAutoPilot()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 border border-white/10 active:scale-95 transition" title="Auto-Pilot on/off — staged bets still need your tap">AP OFF</button>
               <span id="axoNoSkipBadge" class="hidden text-[7px] font-mono font-black px-1.5 py-0.5 rounded-full bg-rose-500/25 text-rose-300 border border-rose-500/40">NO-SKIP ON</span>
             </div>
           </div>
-          <!-- 0a2. No-skip warning (owner order 2026-10-25): shown
-               when the NO-SKIP chip is tapped while OFF. Enabling
-               needs the Confirm tap — the chip alone never turns
-               the mode on. -->
-          <div id="axoNoSkipWarn" class="hidden px-2 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/30 space-y-1 shrink-0">
-            <p id="axoNoSkipWarnText" class="text-[8px] font-mono leading-snug text-rose-200">No-skip mode bets rounds the engine would skip for low confidence. Expect more losses — this does not improve the edge, it only bets more often. Bankroll guards (stop-loss, stop-win, ladder limits, Wilson check) still apply, and every bet still needs your tap.</p>
-            <div class="flex items-center gap-1.5">
-              <button type="button" id="axoNoSkipConfirmBtn" onclick="window.__smartBall && window.__smartBall.confirmNoSkip()" class="text-[7.5px] font-mono font-black px-2 py-1 rounded-lg bg-rose-500/25 text-rose-200 border border-rose-500/40 active:scale-95 transition">Yes, turn on no-skip</button>
-              <button type="button" id="axoNoSkipCancelBtn" onclick="window.__smartBall && window.__smartBall.cancelNoSkip()" class="text-[7.5px] font-mono font-black px-2 py-1 rounded-lg bg-white/10 text-zinc-300 border border-white/10 active:scale-95 transition">Keep governed</button>
-            </div>
-          </div>
-          <!-- 0b. Axo road strip (orb-bridge): the round sequence road
-               in one view — each settled result with the governed
-               pick for that period, plus the NEXT period pick.
-               Fixed height, so it never resizes the sheet. -->
-          <div id="axoRoadStrip" class="flex items-center gap-0.5 px-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] h-[30px] overflow-x-auto shrink-0" style="-webkit-overflow-scrolling: touch;"></div>
+          <!-- 0a2. No-skip warning — REMOVED from the panel in Task H
+               (owner order 2026-10-25): the warning lives ONLY in
+               the outside-panel popup #axoNoSkipPopup above the
+               modal, so there is exactly one warning surface. -->
+          <!-- Task E: the 0b road strip is REMOVED (the ball's road
+               below, assistantMiniRoad, is the one road that stays).
+               renderAxoRoad null-guards, so it becomes a no-op. -->
 
-          <!-- 1. Live Period & Timer Bar with Active Interval -->
-          <div class="flex items-center justify-between px-2.5 py-1 rounded-xl bg-white/[0.04] border border-white/[0.08]">
-            <div class="flex flex-col">
-              <div class="flex items-center gap-1.5">
-                <span class="text-[7px] font-mono text-zinc-400 tracking-wider">PERIOD</span>
-                <span id="assistantIntervalBadge" class="text-[7px] font-mono font-bold px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">30S</span>
-              </div>
-              <span id="assistantPeriodNum" class="text-[11px] font-mono font-black text-amber-300">--</span>
-            </div>
-            <div class="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-black/40 border border-white/5">
-              <i class="fa-solid fa-stopwatch text-amber-400 text-[10px]"></i>
-              <span id="assistantCountdown" class="font-mono text-xs font-black text-white tracking-wider">00:00</span>
-            </div>
-          </div>
-
-
-          <!-- 1b. Balance (orb-bridge): the bridge's exact figure + source
-               tag + sync age. Renders only what the verifier state
-               carries — "—" when there is no state at all. -->
-          <div class="flex items-center justify-between px-2.5 py-1 rounded-xl bg-white/[0.04] border border-white/[0.08]">
-            <span class="text-[7px] font-mono text-zinc-400 tracking-wider">BALANCE</span>
-            <div class="flex items-center gap-1.5">
-              <span id="assistantBalanceAge" class="text-[6.5px] font-mono text-zinc-500"></span>
-              <span id="assistantBalanceTag" class="text-[6.5px] font-mono font-bold px-1 py-0.2 rounded bg-white/10 text-zinc-300 border border-white/10">no signal</span>
-              <span id="assistantBalanceValue" class="text-[11px] font-mono font-black text-zinc-500">—</span>
-            </div>
-          </div>
-          <!-- Quick Interval Switcher Pills (30S | 1M | 3M | 5M) -->
-          <div class="flex items-center justify-between gap-1 p-1 rounded-xl bg-black/40 border border-white/[0.06]">
-            <button type="button" onclick="setMobileTimeframeAndSyncBridge('30s')" id="asstTfBtn-30s" class="flex-1 py-1 rounded-lg font-mono text-[8px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 transition active:scale-95 text-center">30S</button>
-            <button type="button" onclick="setMobileTimeframeAndSyncBridge('1m')"  id="asstTfBtn-1m"  class="flex-1 py-1 rounded-lg font-mono text-[8px] font-bold bg-white/5 text-zinc-400 border border-white/5 transition active:scale-95 text-center">1M</button>
-            <button type="button" onclick="setMobileTimeframeAndSyncBridge('3m')"  id="asstTfBtn-3m"  class="flex-1 py-1 rounded-lg font-mono text-[8px] font-bold bg-white/5 text-zinc-400 border border-white/5 transition active:scale-95 text-center">3M</button>
-            <button type="button" onclick="setMobileTimeframeAndSyncBridge('5m')"  id="asstTfBtn-5m"  class="flex-1 py-1 rounded-lg font-mono text-[8px] font-bold bg-white/5 text-zinc-400 border border-white/5 transition active:scale-95 text-center">5M</button>
-          </div>
+          <!-- 1. Live Period & Timer Bar with Active Interval — REMOVED
+               in Task E (essentials only): period, timer and balance
+               stay visible on the game page and the Home tab. The
+               countdown keeper span in the confirm slot below keeps
+               the autopilot ≤5s invalidation working. -->
+          <!-- 1b. Balance — REMOVED in Task E (see above). -->
+          <!-- Quick Interval Switcher Pills — REMOVED in Task E
+               (essentials only): timeframe switching lives on the
+               Home tab's own pills. -->
 
           <!-- 2. Hero Prediction Box (Apple AMOLED Glass) -->
           <div class="relative overflow-hidden p-2.5 rounded-xl border border-white/[0.1] bg-gradient-to-b from-white/[0.06] to-white/[0.01] flex items-center justify-between">
@@ -1077,9 +1085,16 @@
           <!-- 2b. Auto-Pilot confirm (orb-bridge): visible only while a
                bet is staged. This tap is the ONLY way a staged bet fires.
                The slot height is reserved whether or not a bet is
-               staged, so staging never resizes the sheet. -->
+               staged, so staging never resizes the sheet. Task E: the
+               HARD_STOP re-arm button lives here now (shown only while
+               hard-stopped — staging is blocked then, so it never
+               competes with the confirm button), and the hidden
+               countdown keeper preserves the autopilot ≤5s
+               invalidation (countdownMsLeft reads its text). -->
           <div id="autoPilotConfirmSlot" class="h-[34px] shrink-0">
             <button type="button" id="autoPilotConfirmBtn" onclick="window.__smartBall && window.__smartBall.confirmAutoPilotBet()" class="hidden w-full py-2 rounded-xl font-mono text-[10px] font-black bg-emerald-500/25 text-emerald-200 border border-emerald-500/40 active:scale-[0.98] transition">BET — tap to confirm</button>
+            <button type="button" id="hardStopRearmBtn" onclick="window.__smartBall && window.__smartBall.rearmHardStop()" class="hidden text-[7px] font-mono font-bold text-amber-300 underline underline-offset-2 transition active:scale-95">Re-arm manually (override the 3-loss stop)</button>
+            <span id="assistantCountdown" class="hidden" aria-hidden="true"></span>
           </div>
           <!-- 3. Recent Sequence Road (Last Draws) -->
           <div class="space-y-1">
@@ -1092,11 +1107,10 @@
             </div>
           </div>
 
-          <!-- 3b. Long runs (orb-bridge background analysis): what the
-               FULL history already contains, longest first. Observed
-               history only — never a prediction, never a guarantee,
-               and never an input to any verdict, stake or gate. -->
-          <div id="axoLongRuns" class="space-y-1 px-1 py-1 rounded-xl bg-white/[0.03] border border-white/[0.06]"></div>
+          <!-- 3b. Long runs — REMOVED in Task E (owner order):
+               the long-runs analysis block is gone from the opened
+               window. scheduleLongAnalysis null-guards, so it is a
+               no-op without the element. -->
 
 
           <!-- 4. 1-Tap Base Bet Quick Select & Loss Recovery Status -->
@@ -1119,24 +1133,13 @@
             </div>
           </div>
 
-          <!-- 5. Bridge status (orb-bridge): login evidence + governed call reason.
-               Smallest possible addition — one slim line in the window's own idiom. -->
-          <div id="bridgeStatusLine" class="px-2 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[7.5px] font-mono text-zinc-400 leading-relaxed h-[62px] overflow-y-auto">Bridge: checking login…</div>
-          <!-- 5b. Axo AI readout (orb-bridge / axo-ai.js): regime label,
-               session summary, ask-Axo answers. DISPLAY ONLY — it
-               never carries a verdict or a stake. Fixed height. -->
-          <div id="axoAiLine" class="px-2 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-[7.5px] font-mono text-zinc-400 leading-relaxed h-[26px] overflow-y-auto">Axo readout: —</div>
-          <!-- 6. Auto-Pilot (orb-bridge): toggle + session line + stop
-               reason. Staging is automatic; firing is one tap per bet. -->
-          <div id="autoPilotRow" class="px-2 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-1">
-            <div class="flex items-center justify-between">
-              <span class="text-[7.5px] font-mono font-bold tracking-wider text-zinc-300">AUTO-PILOT</span>
-              <button type="button" id="autoPilotToggle" role="switch" aria-checked="false" onclick="window.__smartBall && window.__smartBall.toggleAutoPilot()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 border border-white/10 active:scale-95 transition">OFF</button>
-            </div>
-            <div id="autoPilotSessionLine" class="text-[7.5px] font-mono text-zinc-400 leading-relaxed h-[26px] overflow-y-auto">Auto-Pilot off.</div>
-            <div id="autoPilotStopLine" class="hidden text-[7.5px] font-mono text-rose-300 leading-relaxed"></div>
-            <button type="button" id="hardStopRearmBtn" onclick="window.__smartBall && window.__smartBall.rearmHardStop()" class="hidden text-[7px] font-mono font-bold text-amber-300 underline underline-offset-2 transition active:scale-95">Re-arm manually (override the 3-loss stop)</button>
-          </div>
+          <!-- 5. Bridge status + 5b. Axo AI readout — REMOVED in Task E
+               (essentials only): diagnostics and analysis output, not
+               betting essentials. Their renderers null-guard. -->
+          <!-- 6. Auto-Pilot row — REMOVED in Task E: the toggle lives
+               as the AP chip in the control row above; the re-arm
+               button lives in the confirm slot; the session/stop
+               lines (stats/diagnostics) are gone from the window. -->
 
         </div>
       </div>

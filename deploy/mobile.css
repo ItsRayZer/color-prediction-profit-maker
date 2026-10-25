@@ -1260,7 +1260,12 @@ a[href*="tradingview.com"] {
    the avatar paint outside its top edge. Fix round #5: the avatar
    overlaps the top edge WITHOUT displacing content — the header
    keeps its old offset and spacing, no clearance band; the avatar
-   is pointer-events none, so it can never block a tap. */
+   is pointer-events none, so it can never block a tap. Task G
+   (owner order 2026-10-25) changes this: the avatar is now the
+   drag handle for the open window, so it takes pointer events
+   (z-index above the resize handles, so the face zone wins inside
+   its own rect) and grabs the window on press-and-drag. A tap
+   without movement still does nothing. */
 #dhaniwinAssistantSheet.axo-top-avatar-open{overflow:visible}
 #dhaniwinAssistantSheet.axo-top-avatar-open #assistantSheetHeader{border-radius:22px 22px 0 0}
 /* Fix round #5 — panel subtitle background = the Axofy app's
@@ -1269,10 +1274,32 @@ a[href*="tradingview.com"] {
    rgba(255,255,255,.1) border), replacing the generic matte black
    pill from round #4. Position, size, and content are unchanged. */
 #smartBallLine{background:rgba(28,28,31,.92);border-color:rgba(255,255,255,.1)}
-#axoTopAvatar{position:absolute;left:50%;top:0;transform:translate(-50%,-50%);z-index:30;display:flex;flex-direction:column;align-items:center;pointer-events:none;background:transparent}
+#axoTopAvatar{position:absolute;left:50%;top:0;transform:translate(-50%,-50%);z-index:60;display:flex;flex-direction:column;align-items:center;pointer-events:auto;background:transparent;cursor:grab}
+#axoTopAvatar:active{cursor:grabbing}
 #axoTopAvatar #axoTopAvatarFace{display:block;width:64px;height:64px;border-radius:50%;object-fit:contain;background:transparent}
 #axoTopAvatar #axoTopAvatarName{margin-top:2px;font-size:13px;font-weight:650;line-height:1.2;color:#f4f4f6;text-shadow:0 1px 6px rgba(0,0,0,.9)}
 #axoTopAvatar #axoTopAvatarBadge{margin-top:2px;padding:2px 8px;border-radius:999px;background:rgba(0,0,0,.85);border:1px solid rgba(255,255,255,.15);font-size:8px;font-family:ui-monospace,monospace;font-weight:700;color:#f4f4f6;white-space:nowrap}
+/* Axo Chat motion, ported verbatim from ItsRayZer/axo-ai
+ * (dist/axo-chat.css) for the 01.01 ball (owner order 2026-10-25,
+ * Task B). axo-bounce becomes o101-axo-bounce: same keyframes
+ * (translateY 0 → -4px, 1s), applied as a short celebration hop
+ * on the face IMAGE on governed WIN + VERIFIED moments — never
+ * the avatar container, whose centering/morph transforms stay
+ * untouched. The launcher hover scale (1.06, .15s ease) ports to
+ * the opened top avatar only, centering translate preserved; the
+ * floating orb is excluded on purpose, its transform is owned by
+ * the JS open/close morph and a hover rule would fight it. */
+@keyframes o101-axo-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+.o101-axo-bounce { animation: o101-axo-bounce 1s ease-in-out 2; }
+#axoTopAvatar{transition:transform .15s ease}
+#axoTopAvatar:hover { transform: translate(-50%, -50%) scale(1.06); }
+/* Pull-to-refresh spinner (owner order 2026-10-25, Task C): a
+ * small matte ring, NO text — the element carries no text node at
+ * all. Positioned top-center above content but below the assistant
+ * modal; mobile.js drives its transform/opacity while pulling. */
+#o101PullSpinner{position:fixed;top:10px;left:50%;transform:translate(-50%,0);z-index:90000;pointer-events:none;display:none;align-items:center;justify-content:center}
+.o101-pull-ring{width:22px;height:22px;border-radius:50%;border:2px solid rgba(255,255,255,.25);border-top-color:#fff;animation:o101-pull-spin .8s linear infinite}
+@keyframes o101-pull-spin { to { transform: rotate(360deg); } }
 
 /* Fix round #6 — DhaniWin loading overlay: the cross-origin iframe
    paints white for 3-4s while DhaniWin boots, and no app-side code can

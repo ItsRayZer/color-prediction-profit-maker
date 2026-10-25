@@ -855,6 +855,21 @@ export function axoEventEffects(event) {
   return { face, spoken: !!face };
 }
 
+/** Axo Chat celebration bounce (owner order 2026-10-25, Task B):
+ *  the axo-ai repo's axo-bounce keyframes, ported verbatim as
+ *  o101-axo-bounce in mobile.css, celebrate the governed WIN and
+ *  LOGIN_VERIFIED moments on the ball. Display-only: never a
+ *  verdict, stake, or gate input. axo-ai uses the bounce for
+ *  typing dots; the ball has no typing phase, so the motion
+ *  itself is the port, applied as a short hop on the face image.
+ *  Faces stay the real 14 frames — axo-ai's robot-emoji default
+ *  glyph is a configurable placeholder, not character art, and
+ *  never replaces a frame. */
+export const AXO_BOUNCE_EVENTS = new Set([BOT_EVENTS.WIN, BOT_EVENTS.LOGIN_VERIFIED]);
+export function axoBounceForEvent(event) {
+  return AXO_BOUNCE_EVENTS.has(event);
+}
+
 /** The Axo voice setting ('o101_axo_voice'), default ON (!== '0'),
  *  wired exactly like quant_sound. Read live at speak time. */
 export function axoVoiceEnabled(storage) {
@@ -1136,6 +1151,99 @@ export function applyNoSkip(gate, { enabled = false, pick = null } = {}) {
 }
 
 /**
+ * Task J (owner need 2026-10-25, swarm binding constraint): one-tap
+ * history export — PURE builder. Secrets are excluded BY
+ * CONSTRUCTION: the output is built field-by-field from an
+ * allowlist below. No state object is ever spread, so no token,
+ * key, cookie, session identifier, balance, UPI detail, or personal
+ * data can leak into the file — rounds and model stats only.
+ * - rounds: settled rounds only (gap rows and number-less rows
+ *   dropped), deep history merged under live history, deduped by
+ *   tf:period with live winning. Governed pick/outcome ride on the
+ *   session's dispositions where one exists (dispositions are
+ *   session-scoped, so older rounds carry result only — honest,
+ *   never backfilled). outcome is 'none' on SKIP rounds (no pick)
+ *   and null when the pick cannot be evaluated.
+ * - settledPnl: set ONLY for fired bets, derived with the governed
+ *   0.96 payout exactly as settleFired computes it (win: stake ×
+ *   0.96, loss: −stake), from the recorded fired stake and the
+ *   fired target's outcome. Unfired rounds carry null, never 0.
+ * - models: one row per (timeframe, model) so per-scope stats are
+ *   never lossily merged; Wilson bound from the real wins/evaluated.
+ */
+export function buildHistoryExport({ liveByTf = {}, deepByTf = {}, dispositions = {}, fired = {}, modelsByTf = {}, calibration = null, evaluateWin = null } = {}) {
+  const r2 = v => Math.round(Number(v) * 100) / 100;
+  const settled = r => r && !r.gap && r.number !== null && r.number !== undefined;
+  const byKey = new Map();
+  for (const [tf, list] of Object.entries(deepByTf)) {
+    for (const r of (Array.isArray(list) ? list : [])) {
+      if (settled(r)) byKey.set(`${tf}:${String(r.period)}`, { tf, round: r });
+    }
+  }
+  for (const [tf, list] of Object.entries(liveByTf)) {
+    for (const r of (Array.isArray(list) ? list : [])) {
+      if (settled(r)) byKey.set(`${tf}:${String(r.period)}`, { tf, round: r });
+    }
+  }
+  const rounds = [...byKey.values()].map(({ tf, round }) => {
+    const key = `${tf}:${String(round.period)}`;
+    const disp = dispositions[key] || null;
+    const governedDecision = disp ? (disp.decision || null) : null;
+    const governedPick = governedDecision === 'BET' ? (disp.pick ?? null) : null;
+    const wonGov = (governedPick && typeof evaluateWin === 'function')
+      ? evaluateWin(governedPick, round.number, round.size, round.color) : null;
+    const outcome = governedPick === null ? 'none'
+      : (wonGov === null || wonGov === undefined ? null : (wonGov ? 'win' : 'loss'));
+    const frec = fired[key] || null;
+    const stake = frec ? Number(frec.stake) : NaN;
+    const firedWon = (frec && typeof evaluateWin === 'function')
+      ? evaluateWin(frec.target, round.number, round.size, round.color) : null;
+    const settledPnl = (frec && Number.isFinite(stake) && firedWon !== null && firedWon !== undefined)
+      ? (firedWon ? r2(stake * 0.96) : -stake) : null;
+    return {
+      tf,
+      period: String(round.period),
+      number: Number(round.number),
+      size: round.size ?? null,
+      color: round.color ?? null,
+      governedDecision,
+      governedPick,
+      outcome,
+      fired: !!frec,
+      firedStake: Number.isFinite(stake) ? stake : null,
+      settledPnl
+    };
+  });
+  rounds.sort((a, b) => (a.tf < b.tf ? -1 : a.tf > b.tf ? 1 : (a.period < b.period ? -1 : a.period > b.period ? 1 : 0)));
+  const models = [];
+  for (const [tf, list] of Object.entries(modelsByTf)) {
+    for (const m of (Array.isArray(list) ? list : [])) {
+      const evaluated = Number(m.totalEvaluated ?? m.evaluated ?? 0) || 0;
+      const wins = Number(m.wins ?? 0) || 0;
+      models.push({
+        tf,
+        id: m.id ?? null,
+        name: m.name ?? null,
+        evaluated,
+        wins,
+        winRate: evaluated > 0 ? wins / evaluated : null,
+        wilsonLowerBound: wilsonLowerBound(wins, evaluated)
+      });
+    }
+  }
+  return {
+    app: '01.01',
+    exportedAt: new Date().toISOString(),
+    timeframes: [...new Set([...Object.keys(liveByTf), ...Object.keys(deepByTf)])].sort(),
+    roundCount: rounds.length,
+    rounds,
+    models,
+    calibration: calibration ? { count: calibration.count ?? null, ece: calibration.ece ?? null } : null,
+    notes: 'Rounds + model stats only. No tokens, keys, cookies, session identifiers, balances, UPI details, or personal data are included. outcome is none on SKIP rounds (no pick). settledPnl is set only for fired bets, derived with the governed 0.96 payout (win: stake x 0.96, loss: -stake).'
+  };
+}
+
+/**
  * Where the outside floating subtitle bubble sits, relative to the
  * visible avatar (owner reference screenshot: bubble LEFT of the
  * avatar, vertically centered on it). Falls back to above, then
@@ -1224,6 +1332,23 @@ export function subtitleSurfaces({ subsOn = true, panelOpen = false, text = '', 
     floatingVisible: vis,
     sheetHidden: true,
     pillVisible: !panelOpen
+  };
+}
+
+/** Pull-to-refresh visual math (owner order 2026-10-25, Task C):
+ *  pure + tested. A downward pull maps to a spinner offset with
+ *  0.5 resistance (capped at 56px) and full opacity at the cap;
+ *  the refresh itself triggers at the raw pull threshold. The
+ *  classic script (mobile.js) consumes this via window.__o101PullVisual
+ *  with an inline fallback when the module is absent. */
+export const PULL_REFRESH_THRESHOLD = 64;
+export function pullRefreshVisual(dy, threshold = PULL_REFRESH_THRESHOLD) {
+  const pull = Math.max(0, Number(dy) || 0);
+  const offset = Math.min(pull * 0.5, 56);
+  return {
+    offset,
+    opacity: Math.min(1, offset / 56),
+    shouldRefresh: pull >= (Number(threshold) || PULL_REFRESH_THRESHOLD)
   };
 }
 
@@ -1661,9 +1786,13 @@ function initBridge() {
     state.orderChannelAt = Date.now();
     if (sig.bridgeState) {
       // The published user state is the truth path: its balance is the
-      // exact figure (0 is a real balance), its login is API-proven.
+      // exact figure, its login is API-proven. Task F (balance-zero
+      // fix): a 0 state NEVER sets state.balance — the held figure
+      // stands (or null when nothing was held). observeBridgeState
+      // re-normalises internally and does not mutate this object, so
+      // the guard must live on this assignment itself.
       verifier.observeBridgeState(sig.bridgeState, Date.now());
-      if (sig.bridgeState.balance !== null) {
+      if (sig.bridgeState.balance !== null && sig.bridgeState.balance !== 0) {
         state.balance = sig.bridgeState.balance;
         state.balanceSource = BALANCE_SOURCES.BRIDGE;
       }
@@ -1745,7 +1874,9 @@ function initBridge() {
       const st = normaliseBridgeState(data);
       if (!st) return;
       verifier.observeBridgeState(st, Date.now());
-      if (st.balance !== null) { state.balance = st.balance; state.balanceSource = BALANCE_SOURCES.BRIDGE; }
+      // Task F (balance-zero fix): same guard as feedBridgeMessage —
+      // a 0 RTDB state never sets state.balance (held figure stands).
+      if (st.balance !== null && st.balance !== 0) { state.balance = st.balance; state.balanceSource = BALANCE_SOURCES.BRIDGE; }
       const login = verifier.status(Date.now());
       state.login = login;
       renderLogin(login);
@@ -1844,6 +1975,24 @@ function initBridge() {
     hid.style.opacity = '1';
     vis.style.opacity = '0';
     axo.visibleEl = hid === front ? 'front' : 'back';
+  }
+
+  /** Axo Chat celebration hop (owner order 2026-10-25, Task B):
+   *  the ported o101-axo-bounce keyframes on the visible face
+   *  IMAGE only — never the avatar container, whose own transform
+   *  (centering translate / orb morph) must not be overridden
+   *  mid-animation. Skipped under reduced motion. The class is
+   *  removed after the hop so a later win re-triggers cleanly. */
+  let axoBounceTimer = null;
+  function axoCelebrateBounce() {
+    if (reducedMotion()) return;
+    const img = axoPanelOpen() ? $('axoTopAvatarFace') : $('floatingOrbAxoFace');
+    if (!img) return;
+    img.classList.remove('o101-axo-bounce');
+    void img.offsetWidth; // restart the hop on repeat wins
+    img.classList.add('o101-axo-bounce');
+    if (axoBounceTimer) clearTimeout(axoBounceTimer);
+    axoBounceTimer = setTimeout(() => { img.classList.remove('o101-axo-bounce'); }, 2100);
   }
 
   // Idle behaviours, copied from the widget: the blink loop
@@ -2121,29 +2270,63 @@ function initBridge() {
    *  never appears twice. Old cached HTML without the bubble
    *  element keeps the previous sheet-line behaviour. Called from
    *  say(), applyAxoSubs(), and the panel open/close hook. */
+  /** Position the subtitle bubble next to Axo's CURRENT anchor rect
+   *  (owner order 2026-10-25, bubble-tracks-Axo): the single
+   *  positioning path used by the full sync AND by the lightweight
+   *  reposition hook. Returns true when the bubble is shown. A
+   *  hidden anchor (orb hidden on a tab switch) hides the bubble
+   *  instead of parking it at a meaningless fallback spot. */
+  function positionAxoBubble() {
+    const bubble = $('axoSubtitleBubble');
+    if (!bubble) return false;
+    const line = state.lastLine || '';
+    const show = bubbleVisible({ subsOn: axoSubsOn(), text: line, dismissedText: state.bubbleDismissedText || '' });
+    if (!show) {
+      bubble.style.display = 'none';
+      return false;
+    }
+    const anchorEl = axoPanelOpen() ? $('axoTopAvatar') : $('dhaniwinFloatingOrb');
+    if (anchorEl) {
+      try {
+        if (window.getComputedStyle && window.getComputedStyle(anchorEl).display === 'none') {
+          bubble.style.display = 'none';
+          return false;
+        }
+      } catch (e) { /* computed style unavailable: fall through to rect */ }
+    }
+    bubble.style.display = 'block';
+    const r = anchorEl ? anchorEl.getBoundingClientRect() : null;
+    const bw = bubble.offsetWidth || 280;
+    const bh = bubble.offsetHeight || 60;
+    const pos = axoBubbleGeometry({
+      anchor: r ? { left: r.left, top: r.top, width: r.width, height: r.height } : null,
+      vw: window.innerWidth, vh: window.innerHeight, bw, bh
+    });
+    bubble.style.left = pos.left + 'px';
+    bubble.style.top = pos.top + 'px';
+    return true;
+  }
+
+  /** Lightweight bubble tracking (owner order 2026-10-25): re-run
+   *  ONLY the positioning step when Axo moves — orb drag, sheet
+   *  drag/resize, open/close transitions — without rewriting the
+   *  subtitle text or re-rendering the orb face mid-gesture. A
+   *  hidden bubble stays hidden: the next say() shows it at the
+   *  then-current anchor through the full sync. */
+  function repositionAxoBubble() {
+    const bubble = $('axoSubtitleBubble');
+    if (!bubble || bubble.style.display !== 'block') return false;
+    return positionAxoBubble();
+  }
+
   function syncAxoSubtitleSurfaces() {
     renderAxoOrb();
     const bubble = $('axoSubtitleBubble');
     if (!bubble) return;
     const line = state.lastLine || '';
-    const show = bubbleVisible({ subsOn: axoSubsOn(), text: line, dismissedText: state.bubbleDismissedText || '' });
     const textEl = $('axoSubtitleBubbleText');
     if (textEl && line) textEl.textContent = line;
-    if (show) {
-      bubble.style.display = 'block';
-      const anchorEl = axoPanelOpen() ? $('axoTopAvatar') : $('dhaniwinFloatingOrb');
-      const r = anchorEl ? anchorEl.getBoundingClientRect() : null;
-      const bw = bubble.offsetWidth || 280;
-      const bh = bubble.offsetHeight || 60;
-      const pos = axoBubbleGeometry({
-        anchor: r ? { left: r.left, top: r.top, width: r.width, height: r.height } : null,
-        vw: window.innerWidth, vh: window.innerHeight, bw, bh
-      });
-      bubble.style.left = pos.left + 'px';
-      bubble.style.top = pos.top + 'px';
-    } else {
-      bubble.style.display = 'none';
-    }
+    positionAxoBubble();
     // Dedup: the bubble owns the subtitle now.
     const sheetLine = $('smartBallLine');
     if (sheetLine) sheetLine.classList.add('hidden');
@@ -2180,8 +2363,12 @@ function initBridge() {
     }
     const badge = $('axoNoSkipBadge');
     if (badge) badge.classList.toggle('hidden', !noSkipOn);
-    const warn = $('axoNoSkipWarn');
-    if (warn) warn.classList.toggle('hidden', !noSkipWarnOpen);
+    // Task H (owner order 2026-10-25): the warning is the Apple-style
+    // popup OUTSIDE the panel (the in-panel element is gone — exactly
+    // one warning surface). Show/hide via display, never a class
+    // that could fight the popup's inline flex layout.
+    const popup = $('axoNoSkipPopup');
+    if (popup) popup.style.display = noSkipWarnOpen ? 'flex' : 'none';
   }
 
   function toggleNoSkip() {
@@ -2316,6 +2503,7 @@ function initBridge() {
         }
       }
       if (first.spoken) axoSpeak(text);
+      if (group.some(ev => axoBounceForEvent(ev))) axoCelebrateBounce();
       if (group.some(ev => ev === BOT_EVENTS.STOP_LOSS || ev === BOT_EVENTS.STOP_WIN || ev === BOT_EVENTS.CIRCUIT_BREAKER)) {
         axoSessionSummary();
       }
@@ -2343,6 +2531,7 @@ function initBridge() {
   function axoOnVerified(login) {
     axo.lastInteractAt = Date.now();
     setAxoFace('wink');
+    if (axoBounceForEvent(BOT_EVENTS.LOGIN_VERIFIED)) axoCelebrateBounce();
     if (!verifiedLineApplies(login)) return;
     const { line } = botLine(BOT_EVENTS.LOGIN_VERIFIED, contextSnapshot({ balance: login.balance }));
     say(line);
@@ -2862,7 +3051,7 @@ function initBridge() {
     const toggle = $('autoPilotToggle');
     if (toggle) {
       toggle.setAttribute('aria-checked', ap.enabled ? 'true' : 'false');
-      toggle.textContent = ap.enabled ? 'ON' : 'OFF';
+      toggle.textContent = ap.enabled ? 'AP ON' : 'AP OFF';
       toggle.className = ap.enabled
         ? 'text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 active:scale-95 transition'
         : 'text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 border border-white/10 active:scale-95 transition';
@@ -3583,6 +3772,63 @@ function initBridge() {
     }
   }
 
+  // ── Task J: one-tap history export ─────────────────────────────
+  // Share-first (the APK WebView has no native download listener,
+  // so a Blob download may do nothing there — the Android share
+  // sheet is the reliable route on the phone), Blob download as the
+  // fallback for browsers. A user-cancelled share stops quietly
+  // instead of falling through to an unwanted download.
+  async function exportHistory() {
+    const ms = (typeof window !== 'undefined') ? window.MobileState : null;
+    const liveByTf = {};
+    const deepByTf = {};
+    const tfSet = new Set([
+      ...Object.keys((ms && ms.historyByTf) || {}),
+      ...Object.keys((ms && ms.deepHistoryByTf) || {})
+    ]);
+    for (const tf of tfSet) {
+      try { liveByTf[tf] = settledHistory(tf); } catch (e) { liveByTf[tf] = []; }
+      deepByTf[tf] = (ms && ms.deepHistoryByTf && ms.deepHistoryByTf[tf]) || [];
+    }
+    const modelsByTf = {};
+    for (const tf of tfSet) {
+      try { modelsByTf[tf] = governanceFor(tf).pool; } catch (e) { modelsByTf[tf] = []; }
+    }
+    let calib = null;
+    try { calib = { count: tracker.count, ece: tracker.expectedCalibrationError() }; } catch (e) { calib = null; }
+    const payload = buildHistoryExport({
+      liveByTf,
+      deepByTf,
+      dispositions: state.dispositions,
+      fired: (ap && ap.state && ap.state.fired) || {},
+      modelsByTf,
+      calibration: calib,
+      evaluateWin: evalFn()
+    });
+    const text = JSON.stringify(payload, null, 2);
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+    const filename = `o101-history-${stamp}.json`;
+    try {
+      const file = new File([text], filename, { type: 'application/json' });
+      if (typeof navigator !== 'undefined' && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: '01.01 history' });
+        return 'shared';
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return 'cancelled';
+      // Any other share failure falls through to the download below.
+    }
+    const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    return 'downloaded';
+  }
+
   // ── Public face ──────────────────────────────────────────────────
   window.__smartBall = {
     say,
@@ -3620,9 +3866,11 @@ function initBridge() {
     toggleNoSkip,
     confirmNoSkip,
     cancelNoSkip,
+    exportHistory,
     dismissAxoBubble,
     noSkipOn: () => noSkipOn,
     syncAxoSubtitleSurfaces,
+    repositionAxoBubble,
     toggleAxoMode: () => setAxoMode(axoMode() === 'ai' ? 'normal' : 'ai'),
     refreshAxoModeChip: renderAxoModeChip,
     toggleAxoLang,
@@ -3674,6 +3922,9 @@ function initBridge() {
   // module — same function, one source of truth, inline fallback
   // when the module is absent).
   window.__o101AxoPanelSize = resolveAxoPanelSize;
+  // Pull-to-refresh visual math for the classic script (same
+  // pattern: one source of truth, inline fallback when absent).
+  window.__o101PullVisual = pullRefreshVisual;
   renderAxoVoiceChip();
   renderAxoVoiceBadge();
   applyAxoSubs();
