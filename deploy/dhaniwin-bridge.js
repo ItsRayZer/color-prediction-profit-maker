@@ -164,12 +164,22 @@
         // while still setting proof, flags and identity. Undefined
         // balanceQualified means NOT qualified (fail-safe): every
         // caller must pass it explicitly.
+        // Owner rule (balance-zero fix): an extracted balance of
+        // exactly 0 is NEVER stored — not over a previous nonzero
+        // figure, and not as a first figure either. A 0 keeps the
+        // old balance displayed (or unknown when nothing was ever
+        // verified) while proof still lands and the poll keeps
+        // searching for a real update. Edge, ordered explicitly by
+        // the owner: if the real balance genuinely becomes 0, the
+        // app keeps showing the last nonzero figure and keeps
+        // searching — there is NO consecutive-zeros override and no
+        // other exception to this rule.
         t.apiProven = true;
         t.lastProofAt = now;
         t.pollAuthFailed = false;
         t.pollEmptyCount = 0;
         if (t.tokenPresent) t.everConfirmed = true;
-        if (payload && payload.balanceQualified === true && payload.balance !== null && payload.balance !== undefined && Number.isFinite(Number(payload.balance)) && Number(payload.balance) >= 0) {
+        if (payload && payload.balanceQualified === true && payload.balance !== null && payload.balance !== undefined && Number.isFinite(Number(payload.balance)) && Number(payload.balance) >= 0 && Number(payload.balance) !== 0) {
           t.apiBalance = Number(payload.balance);
           t.apiBalanceAt = now;
         }
@@ -177,6 +187,11 @@
       },
       noteDomBalance(balance, now) {
         if (balance === null || balance === undefined || !Number.isFinite(Number(balance))) return;
+        // Owner rule (balance-zero fix): a 0 scraped from the page
+        // is never stored — it must not displace an API-verified
+        // figure, and with no verified figure it must not become a
+        // displayed ₹0 either (unknown stands instead).
+        if (Number(balance) === 0) return;
         t.domBalance = Number(balance);
         t.domBalanceAt = now;
       },
@@ -513,8 +528,10 @@
   // proof-only (balance null): a failed operation's 0 must never
   // overwrite apiBalance; (6) otherwise balanceQualified =
   // strictBal non-null AND (strictBal > 0 OR wallet|balance URL);
-  // noteApiPayload with balanceQualified; (7) qualified → display
-  // notification; (8) learning only when qualified AND a real
+  // noteApiPayload with balanceQualified — the tracker itself never
+  // stores a 0 (owner rule), so a qualified 0 proves login and is
+  // learned for replay but displays nothing; (7) qualified nonzero
+  // → display notification; (8) learning only when qualified AND a real
   // request URL AND not a firebase URL; (9) publish.
   function onApiWalletPayload(data, via, reqDesc, httpOk) {
     if (!data || typeof data !== 'object') return;
@@ -548,6 +565,10 @@
 
   function onRealBalanceDetected(balance, source) {
     if (typeof balance !== 'number' || isNaN(balance) || balance < 0) return;
+    // Owner rule (balance-zero fix): a 0 is never notified to the
+    // app — no DHANIWIN_REAL_BALANCE, no USER_SYNC balance. The old
+    // displayed figure stands and the search for an update goes on.
+    if (balance === 0) return;
     if (_lastScrapedBalance === balance) return;
     _lastScrapedBalance = balance;
     console.log(`%c[RealBalanceEngine] 💰 Scraped real balance: ₹${balance.toFixed(2)} (via ${source})`, 'color:#10b981;font-weight:bold;');

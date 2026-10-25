@@ -1106,20 +1106,22 @@ window.fetchLiveAPIResults = fetchLiveAPIResults;
 // ── Deep-history warm-up (fix round #6) ─────────────────────────────
 // WHY: the live loop above REPLACES historyByTf with ONE upstream page
 // every cycle, and localStorage is per-origin — so every new preview
-// URL starts with a near-empty model store. The gate needs 200
-// evaluated rounds; live accrual alone is 2/min at 30s, so 14 → 200
+// URL starts with a near-empty model store. Full stake needs 200
+// evaluated rounds (graduated stakes: bets start at 20 rounds at
+// 0.25× base); live accrual alone is 2/min at 30s, so 14 → 200
 // costs 93 minutes of open app. The warm-up fetches OLDER upstream
 // pages (pageNo=2..N — page 1 is the live page) once, while the store
 // is starved, and orb-bridge's deep backfill records every model's
 // walk-forward pick against each settled outcome. No invented data:
 // every round comes from the same public feed the live loop polls.
-// No threshold moves: the 200-round minimum is unchanged — warm-up
+// No threshold moves: full stake still needs 200 rounds — warm-up
 // just gives the engine real rounds to evaluate instead of making it
-// wait 90+ minutes.
+// wait 90+ minutes. The tiers, not the warm-up, are what let early
+// data bet at reduced stake.
 // The deep list lives in MobileState.deepHistoryByTf + localStorage
 // quant_deep_history_<tf>, NEVER in historyByTf (the live loop would
 // wipe it on the next refresh). orb-bridge consumes it via backfillDeep.
-const DEEP_WARMUP_TARGET = 300; // rounds (buffer above the 200 gate)
+const DEEP_WARMUP_TARGET = 300; // rounds (buffer above full stake at 200)
 const DEEP_WARMUP_MAX_PAGES = 25;
 const DEEP_WARMUP_MAX_MS = 75000;
 const _deepWarmupStarted = {};
@@ -6047,7 +6049,11 @@ function handleMobileBridgeMessage(msg) {
     setMobileBridgeStatus(true, 'Login Verified ✓');
 
   } else if (msg.type === 'DHANIWIN_USER_SYNC' || msg.type === 'DHANIWIN_REAL_BALANCE') {
-    if (msg.balance !== null && msg.balance !== undefined && !isNaN(Number(msg.balance))) {
+    // Owner rule (balance-zero fix): a 0 balance never updates the
+    // displayed figure — the previous balance (or blank, when none
+    // was ever verified) stands while the search for an update goes
+    // on. The login-state handling below still runs for the message.
+    if (msg.balance !== null && msg.balance !== undefined && !isNaN(Number(msg.balance)) && Number(msg.balance) !== 0) {
       const prevBal = MobileBridgeState.userBalance;
       MobileBridgeState.userBalance = Number(msg.balance);
       const balEl = $('mobileWebBalance');

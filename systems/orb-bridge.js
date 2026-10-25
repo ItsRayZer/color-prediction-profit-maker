@@ -33,7 +33,7 @@
 
 import { InchargeEngine, INCHARGE_MODES, wilsonLowerBound } from './inchargeEngine.js';
 import { CalibrationTracker, plattScale } from './calibration.js';
-import { evaluateSignalGate, GATE_DECISIONS, GateCooldown, GovernedStreakGuard, HARD_STOP_REASON } from './signalGate.js';
+import { evaluateSignalGate, GATE_DECISIONS, GateCooldown, GovernedStreakGuard, HARD_STOP_REASON, sampleStakeFactor } from './signalGate.js';
 import { BlacklistManager } from './blacklist.js';
 import {
   createSession, settle, planLadder, suggestBaseBet,
@@ -337,6 +337,12 @@ export class LoginVerifier {
   observeBridgeState(raw, receivedAt = Date.now()) {
     const st = normaliseBridgeState(raw);
     if (!st) return this.status(receivedAt);
+    // Owner rule (balance-zero fix): a 0 bridge state never
+    // displaces a held balance. status() prefers bs.balance, so the
+    // carried figure must live IN the stored state: a 0 becomes the
+    // held figure (or null when nothing was ever held — unknown,
+    // never ₹0).
+    if (st.balance === 0) st.balance = this.balance;
     const t = Number.isFinite(Number(receivedAt)) ? Number(receivedAt) : Date.now();
     if (this.bridgeState) {
       const olderTs = st.ts !== null && this.bridgeState.ts !== null && st.ts < this.bridgeState.ts;
@@ -357,7 +363,10 @@ export class LoginVerifier {
       this.lastPositiveAt = t;
       if (this.negativeAt !== null && this.negativeAt < t) this.negativeAt = null;
     }
-    if (st.balance !== null) {
+    // Owner rule (balance-zero fix): a 0 bridge state never
+    // displaces a held balance — the old figure stands, and with no
+    // held figure the state stays unknown instead of becoming ₹0.
+    if (st.balance !== null && st.balance !== 0) {
       this.balance = st.balance;
       this.lastBalanceAt = t;
     }
@@ -380,7 +389,9 @@ export class LoginVerifier {
       this.lastSyncAt = t;
       this.lastPositiveAt = t;
     }
-    if (sig.balance !== null && sig.balance !== undefined && Number.isFinite(Number(sig.balance))) {
+    // Owner rule (balance-zero fix): a 0 signal never displaces a
+    // held balance, and never becomes the first figure either.
+    if (sig.balance !== null && sig.balance !== undefined && Number.isFinite(Number(sig.balance)) && Number(sig.balance) !== 0) {
       this.balance = Number(sig.balance);
       this.lastBalanceAt = t;
       this.lastSyncAt = t;
@@ -592,7 +603,12 @@ export function heroVerdictView(gate) {
       targetText: gate.pick || '—',
       confText: gate.prob !== null && gate.prob !== undefined ? Math.round(gate.prob * 100) + '%' : '—',
       pick: gate.pick || null,
-      reasonText: ''
+      reasonText: '',
+      // Graduated-stake note (rendered under NEXT PREDICTION by
+      // renderHeroVerdict): a BET never carries a reason line, but
+      // it MUST carry the early-data note so a reduced stake is
+      // never presented as a full-confidence bet.
+      sampleNote: gate.sampleNote || ''
     };
   }
   // SKIP carries the firing gate's reason verbatim (numbers included:
@@ -2471,12 +2487,24 @@ function initBridge() {
    *  blocks staging. null = no chip value either. */
   function desiredBaseBet(login) {
     const chip = window.MobileBridgeState ? Number(window.MobileBridgeState.baseStake) : NaN;
-    return resolveBaseBet({
+    const raw = resolveBaseBet({
       autoBase: ap.state.autoBase,
       verifiedBalance: freshVerifiedBalance(login) ? login.balance : null,
       riskMode: ap.state.riskMode,
       chipBase: chip
     });
+    if (raw === null || raw === undefined) return raw;
+    // Graduated stakes: the raw base (AUTO or manual chip alike —
+    // the factor is a safety rule, not a default the user can bypass
+    // by tapping a big chip) is scaled by the current leader's
+    // sample factor. The factor lives on state (set from each
+    // cycle's gate); before the first gate it defaults to 1 and the
+    // post-gate re-sync in cycle() corrects it before any staging
+    // in the same cycle. A 0 factor means the gate SKIPs, so no bet
+    // can stage — the raw base stands for display only.
+    const f = state.graduatedFactor ?? 1;
+    if (f === 0) return raw;
+    return Math.max(1, Math.floor(raw * f));
   }
 
   /** Keep the ONE governed session's base in step with chips / AUTO /
@@ -2728,7 +2756,7 @@ function initBridge() {
   // which the live fetch loop never wipes. recordRound is idempotent
   // per (tf, period), so live, backfill, and deep walks can never
   // double-count a round. This is what feeds a fresh origin's starved
-  // store up to (and past) the 200-round gate from REAL settled
+  // store up to (and past) full stake at 200 rounds from REAL settled
   // rounds — the "shadow evaluation" the owner asked for: every
   // observed round gets every model's pick recorded against its
   // outcome, whether or not any bet was placed.
@@ -2997,10 +3025,16 @@ function initBridge() {
       // through the fit learned from recorded outcomes.
       const calibratedProb = rawConf !== null ? displayProbability(rawConf, tracker) : null;
       const poolEntry = pool.find(m => m.id === incharge.id) || null;
+      // Strict Wilson check (owner order 2026-10-25): the leader's
+      // defended win rate from its real wins/evaluated — the same
+      // stats the engine ranking already uses (pool entries carry
+      // wins + totalEvaluated). Null when no pool entry exists.
+      const wilsonLower = poolEntry ? wilsonLowerBound(poolEntry.wins || 0, poolEntry.totalEvaluated || 0) : null;
       let gate = evaluateSignalGate({
         pick: myPick ? myPick.target : null,
         model: incharge,
         sampleSize: poolEntry ? poolEntry.totalEvaluated : 0,
+        wilsonLowerBound: wilsonLower,
         calibratedProb,
         calibration: tracker,
         contenders,
@@ -3037,6 +3071,20 @@ function initBridge() {
     const engineGate = locked.gate;
     const gate = displayGateFor(engineGate, { hardStopped: guard.hardStopped });
     state.gate = gate;
+    // Graduated stakes: the session base follows the CURRENT
+    // leader's sample factor. The gate just ran, so take the factor
+    // from it (falling back to the sample size when the gate came
+    // from an overlay that dropped the field) and re-sync now —
+    // before any render or staging in this cycle — so the displayed
+    // base, the staged stake and the ladder all use the scaled base.
+    // syncSessionBase is idempotent: it replans only when the
+    // desired base changes. A tier crossing mid-ladder replans from
+    // rung 0 at the new base (existing replan semantics; loss streak
+    // and P&L carry over, so the breaker still counts). Once the
+    // leader passes 200 rounds the factor pins at 1.0 and planning
+    // is identical to before.
+    state.graduatedFactor = gate.sampleFactor ?? sampleStakeFactor(gate.sampleSize ?? 0);
+    syncSessionBase(login);
     // Remember the locked pick so its outcome can settle calibration,
     // the streak guard and (when fired) the bankroll when the round lands.
     state.lastPick = locked.pick;
@@ -3133,9 +3181,11 @@ function initBridge() {
     if (conf) conf.textContent = view.confText;
     // Skip reason on the hero surface itself (mobile.html
     // #mobileWebVerdictReason, under NEXT PREDICTION). Cleared on
-    // BET/NONE so a stale reason never outlives its verdict.
+    // BET/NONE so a stale reason never outlives its verdict — except
+    // the graduated-stake note, which a BET carries so a reduced
+    // stake is never presented as a full-confidence bet.
     const why = $('mobileWebVerdictReason');
-    if (why) why.textContent = view.reasonText || '';
+    if (why) why.textContent = view.decision === 'BET' ? (view.sampleNote || '') : (view.reasonText || '');
   }
 
   function renderSignal(gate, incharge, login) {
