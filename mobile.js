@@ -1081,7 +1081,6 @@ async function fetchLiveAPIResults(tfOverride) {
       renderPredictionAudit(processedList);
       renderHistoryTable(processedList);
       renderMobileHistoryGraph(processedList);
-      renderHeroSequentialBallRoad(processedList);
       renderDigitFrequencies(processedList);
       renderChartData(processedList);
       renderAdaptiveAI(processedList);
@@ -1244,7 +1243,6 @@ function applyCloudHistory(tfKey, val) {
     renderPredictionAudit(list);
     renderHistoryTable(list);
     renderMobileHistoryGraph(list);
-    renderHeroSequentialBallRoad(list);
     renderDigitFrequencies(list);
     renderChartData(list);
     renderAdaptiveAI(list);
@@ -1632,9 +1630,6 @@ function _updateAllPredictionUI(target, predType, conf, inChargeName, periodStr,
   const champType = $('aiChampionTypeBadge');
   if (champType) champType.textContent = predType || 'SIZE';
 
-  // Sequential Prediction Road (Balls with mixed colors for 0,5, newest on left)
-  renderHeroSequentialBallRoad(list);
-
   // DhaniWin Web Tab Target & Floating Assistant Display
   // The sheet hero is OWNED by the governed verdict (orb-bridge
   // publishes window.__o101Verdict from the per-period LOCKED gate
@@ -1673,42 +1668,6 @@ function _updateAllPredictionUI(target, predType, conf, inChargeName, periodStr,
   }
 }
 
-function renderHeroSequentialBallRoad(list) {
-  const container = $('heroSequentialBallRoad');
-  if (!container) return;
-
-  if (!list || list.length === 0) {
-    container.innerHTML = '<div class="text-[8px] text-zinc-500 font-mono py-1 px-2">Awaiting draw data...</div>';
-    return;
-  }
-
-  // Universal ordering: NEW results are at LEFT, OLD results to RIGHT.
-  // FULL history — no count cap (fix round 2026-10-24), chunked.
-  const display = [...list].reverse();
-
-  const cells = display.map((r, idx) => {
-    const n = Number(r.number);
-    let ballBg = 'ball-red';
-    if (n === 0) ballBg = 'ball-split-0';
-    else if (n === 5) ballBg = 'ball-split-5';
-    else if (n === 1 || n === 3 || n === 7 || n === 9) ballBg = 'ball-green';
-
-    const isNewest = idx === 0;
-    const periodShort = String(r.period).slice(-4);
-
-    return `<div class="flex flex-col items-center gap-0.5 shrink-0" title="Period #${r.period} - Num ${n} (${r.size})">
-      <div class="relative">
-        ${(window.ballImg && window.ballImg(n, 24, isNewest ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-black shadow-sm' : 'shadow-sm')) || `<div class="ball-3d ${ballBg} w-6 h-6 rounded-full flex items-center justify-center font-mono font-black text-[10.5px] text-white shadow-sm ${isNewest ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-black' : ''}">
-          ${n}
-        </div>`}
-        ${isNewest ? '<span class="absolute -top-1 -right-1 flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span></span>' : ''}
-      </div>
-      <span class="text-[7px] font-mono text-zinc-500 font-semibold">${periodShort}</span>
-    </div>`;
-  });
-  renderRoadCellsChunked(container, cells);
-}
-window.renderHeroSequentialBallRoad = renderHeroSequentialBallRoad;
 
 function _updateTrendSummary(list) {
   if (!list || list.length < 3) return;
@@ -4780,7 +4739,6 @@ function setMobileTimeframe(tf) {
   renderPredictionAudit(cached);
   renderHistoryTable(cached);
   renderMobileHistoryGraph(cached);
-  renderHeroSequentialBallRoad(cached);
   renderDigitFrequencies(cached);
   renderChartData(cached);
   renderAdaptiveAI(cached);
@@ -6889,11 +6847,27 @@ function toggleDhaniwinAssistantModal(show) {
         if (rawSize) _assistantBoxSize = JSON.parse(rawSize);
       } catch(e) {}
     }
-    const maxAvailableWidth = Math.max(200, window.innerWidth - 16);
-    const maxAvailableHeight = Math.max(220, window.innerHeight - 60);
-
-    const boxWidth = Math.min(maxAvailableWidth, Math.max(360, (_assistantBoxSize?.width || 360)));
-    const boxHeight = Math.min(maxAvailableHeight, Math.max(480, (_assistantBoxSize?.height || 480)));
+    // Owner order 2026-10-25 (UI batch): the panel opens SMALL by
+    // default and the last resized size stays — the old path forced
+    // minimums of 360×480, silently discarding a smaller saved size
+    // on every reopen. resolveAxoPanelSize (orb-bridge, same rule,
+    // one source of truth) with an inline fallback when the module
+    // is absent.
+    const _panelSize = (typeof window.__o101AxoPanelSize === 'function')
+      ? window.__o101AxoPanelSize({ saved: _assistantBoxSize, vw: window.innerWidth, vh: window.innerHeight })
+      : (function () {
+          const maxW = Math.max(200, window.innerWidth - 16);
+          const maxH = Math.max(220, window.innerHeight - 60);
+          const num = v => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.floor(Number(v)) : null);
+          const w = num(_assistantBoxSize && _assistantBoxSize.width);
+          const h = num(_assistantBoxSize && _assistantBoxSize.height);
+          return {
+            width: Math.min(maxW, Math.max(200, w !== null ? w : 270)),
+            height: Math.min(maxH, Math.max(220, h !== null ? h : 380))
+          };
+        })();
+    const boxWidth = _panelSize.width;
+    const boxHeight = _panelSize.height;
 
     sheet.style.width = `${boxWidth}px`;
     sheet.style.height = `${boxHeight}px`;
@@ -6905,7 +6879,7 @@ function toggleDhaniwinAssistantModal(show) {
     // sheet's open class gives the header top clearance for the
     // name + prediction badge. Saved drag positions are ignored
     // on open (dragging after open still works); the size keeps
-    // its saved value but never opens smaller than the minimums.
+    // its saved value, clamped only to the 200×220 drag floor.
     const orbRect = orb ? orb.getBoundingClientRect() : { left: window.innerWidth - 76, top: window.innerHeight - 150, width: 62, height: 62 };
 
     const targetLeft = Math.max(8, Math.floor((window.innerWidth - boxWidth) / 2));
@@ -6948,8 +6922,9 @@ function toggleDhaniwinAssistantModal(show) {
     void sheet.offsetWidth;
     modal.classList.add('sheet-open');
 
-    // The floating subtitle hides while the panel is open (the
-    // sheet's own line shows the same text).
+    // The subtitle bubble stays outside the panel while it is open
+    // (owner order 2026-10-25) — syncAxoSubtitleSurfaces anchors
+    // it next to the top-center avatar.
     if (window.__smartBall && typeof window.__smartBall.syncAxoSubtitleSurfaces === 'function') window.__smartBall.syncAxoSubtitleSurfaces();
 
     // Update mini road on open
@@ -7490,7 +7465,6 @@ function initMobileApp() {
       renderPredictionAudit(initialList);
       renderHistoryTable(initialList);
       renderMobileHistoryGraph(initialList);
-      renderHeroSequentialBallRoad(initialList);
       renderDigitFrequencies(initialList);
       renderChartData(initialList);
       renderAdaptiveAI(initialList);

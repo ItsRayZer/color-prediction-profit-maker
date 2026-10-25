@@ -297,9 +297,15 @@ export function evaluateSignalGate(input = {}, config = {}) {
   const prob = Number(input.calibratedProb ?? input.predictedProb ?? input.confidence ?? NaN);
   const wilson = Number(input.wilsonLowerBound ?? NaN);
 
-  const skip = reason => ({
+  const skip = (reason, kind) => ({
     decision: GATE_DECISIONS.SKIP,
     reason,
+    // Machine-readable SKIP family (owner UI batch 2026-10-25):
+    // no-skip mode converts ONLY 'edge' SKIPs into a forced pick.
+    // Every other family stays a SKIP no matter the mode — Wilson,
+    // floor, disagreement, calibration, and hard-stop are guards,
+    // not confidence verdicts to override.
+    skipKind: kind || null,
     pick,
     prob: Number.isFinite(prob) ? prob : null,
     wilsonLowerBound: Number.isFinite(wilson) ? wilson : null,
@@ -313,7 +319,7 @@ export function evaluateSignalGate(input = {}, config = {}) {
   });
 
   // 1. A pick must exist.
-  if (!pick) return skip('No pick from the Incharge model yet, so there is nothing to bet on.');
+  if (!pick) return skip('No pick from the Incharge model yet, so there is nothing to bet on.', 'nopick');
 
   // 2. Sanity floor: below 20 rounds one round swings the Wilson
   // bound by 10+ points, so no ranking is stable enough to bet on.
@@ -321,7 +327,7 @@ export function evaluateSignalGate(input = {}, config = {}) {
   // (step 3) and the calibrated edge below is the second money
   // check — and the stake scales with sample size (graduated stakes).
   if (!Number.isFinite(sampleSize) || sampleSize < cfg.minSamples) {
-    return skip(`Too few rounds to rank: the leading model has only ${Math.max(0, Math.floor(sampleSize) || 0)} evaluated rounds (need ${cfg.minSamples} before any ranking is stable enough to bet on).`);
+    return skip(`Too few rounds to rank: the leading model has only ${Math.max(0, Math.floor(sampleSize) || 0)} evaluated rounds (need ${cfg.minSamples} before any ranking is stable enough to bet on).`, 'floor');
   }
 
   // 3. Strict Wilson check (owner order 2026-10-25): ranking by
@@ -329,10 +335,10 @@ export function evaluateSignalGate(input = {}, config = {}) {
   // must clear breakeven + margin. A thin record with high stated
   // confidence bets nothing until its Wilson bound clears.
   if (!Number.isFinite(wilson)) {
-    return skip('Wilson bound is unmeasurable: no win record for the leading model, so its defended win rate cannot be shown.');
+    return skip('Wilson bound is unmeasurable: no win record for the leading model, so its defended win rate cannot be shown.', 'wilson');
   }
   if (wilson < requiredProb) {
-    return skip(`Wilson bound ${(wilson * 100).toFixed(1)}% is below the ${(requiredProb * 100).toFixed(1)}% needed (breakeven ${(breakeven * 100).toFixed(2)}% plus safety margin).${cooldownNote}`);
+    return skip(`Wilson bound ${(wilson * 100).toFixed(1)}% is below the ${(requiredProb * 100).toFixed(1)}% needed (breakeven ${(breakeven * 100).toFixed(2)}% plus safety margin).${cooldownNote}`, 'wilson');
   }
 
   // 4. Top-model agreement: a split vote at the top is not a signal.
@@ -341,7 +347,7 @@ export function evaluateSignalGate(input = {}, config = {}) {
     const picks = contenders.map(pickOf).filter(Boolean);
     const distinct = [...new Set(picks)];
     if (picks.length > 1 && distinct.length > 1) {
-      return skip(`Top models disagree on the pick (${distinct.join(' vs ')}), so there is no clean signal this round.`);
+      return skip(`Top models disagree on the pick (${distinct.join(' vs ')}), so there is no clean signal this round.`, 'disagreement');
     }
   }
 
@@ -349,17 +355,17 @@ export function evaluateSignalGate(input = {}, config = {}) {
   const cal = calibrationStatus(input.calibration);
   if (cfg.requireCalibrated) {
     if (!cal.present) {
-      return skip('Confidence is uncalibrated: no outcome history has been measured against these probabilities yet.');
+      return skip('Confidence is uncalibrated: no outcome history has been measured against these probabilities yet.', 'calibration');
     }
     if (!cal.calibrated) {
-      return skip('Confidence is uncalibrated: stated probabilities do not match real outcomes closely enough yet, so the number cannot be trusted for money.');
+      return skip('Confidence is uncalibrated: stated probabilities do not match real outcomes closely enough yet, so the number cannot be trusted for money.', 'calibration');
     }
   }
 
   // 6. Real edge only: calibrated probability must clear breakeven + margin.
-  if (!Number.isFinite(prob)) return skip('No probability was produced for this pick, so no edge can be shown.');
+  if (!Number.isFinite(prob)) return skip('No probability was produced for this pick, so no edge can be shown.', 'noprob');
   if (prob < requiredProb) {
-    return skip(`Edge too thin: calibrated chance ${(prob * 100).toFixed(1)}% is below the ${(requiredProb * 100).toFixed(1)}% needed (breakeven ${(breakeven * 100).toFixed(2)}% at ${cfg.payout} payout plus safety margin).${cooldownNote}`);
+    return skip(`Edge too thin: calibrated chance ${(prob * 100).toFixed(1)}% is below the ${(requiredProb * 100).toFixed(1)}% needed (breakeven ${(breakeven * 100).toFixed(2)}% at ${cfg.payout} payout plus safety margin).${cooldownNote}`, 'edge');
   }
 
   // Graduated-stake note: a small-sample bet is never presented as

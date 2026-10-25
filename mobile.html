@@ -270,16 +270,10 @@
           </div>
         </div>
 
-        <!-- Sequential Prediction Road (Balls with Mixed Colors 0,5; Newest Left -> Older Right) -->
-        <div class="space-y-1">
-          <div class="flex items-center justify-between text-[8px] font-mono text-zinc-400 px-0.5">
-            <span class="flex items-center gap-1 font-bold text-zinc-300"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>RECENT DRAWS ROAD</span>
-            <span class="text-[7.5px] text-zinc-500 uppercase tracking-wider flex items-center gap-1 font-bold">Newest (L) <i class="fa-solid fa-arrow-right text-[6.5px]"></i> Older (R)</span>
-          </div>
-          <div id="heroSequentialBallRoad" class="flex items-center gap-1.5 overflow-x-auto py-1 px-1 bg-black/40 rounded-xl border border-white/[0.06] seq-road-scroll min-h-[38px]">
-            <div class="text-[8px] text-zinc-500 font-mono py-1 px-2">Awaiting draw data...</div>
-          </div>
-        </div>
+        <!-- Sequential Prediction Road REMOVED (owner order
+             2026-10-25, UI batch): the old above road duplicated
+             the ball's own road. Only the ball's sequence road
+             (assistantMiniRoad, section 3 below) remains. -->
       </div>
 
       <!-- 2. ACCURACY CARD -->
@@ -889,6 +883,22 @@
       <span id="floatingOrbDot" class="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black pointer-events-none"></span>
     </div>
 
+    <!-- Outside floating subtitle bubble (owner order 2026-10-25,
+         reverses fix round #5's deletion): the subtitle lives HERE,
+         outside the panel, next to the avatar — speaking or panel
+         opened. Rounded dark bubble, white text, small circular X
+         at the corner (closes the bubble only, never the bot).
+         Text is exactly the governed spoken subtitle string,
+         written by orb-bridge say(). -->
+    <div id="axoSubtitleBubble" aria-live="polite" style="display:none; position:fixed; z-index:100001; max-width:min(320px, calc(100vw - 100px)); pointer-events:auto;">
+      <div style="background:rgba(28,28,31,0.95); border:1px solid rgba(255,255,255,0.14); border-radius:20px; padding:10px 14px; box-shadow:0 8px 30px rgba(0,0,0,0.5);">
+        <span id="axoSubtitleBubbleText" style="color:#fff; font-size:13px; line-height:1.45;"></span>
+      </div>
+      <button type="button" id="axoSubtitleBubbleClose" aria-label="Close subtitle" title="Close subtitle" onclick="window.__smartBall && window.__smartBall.dismissAxoBubble()" style="position:absolute; top:-9px; right:-9px; width:22px; height:22px; border-radius:9999px; background:rgba(28,28,31,1); border:1px solid rgba(255,255,255,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer;">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M1 1L9 9M9 1L1 9" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
     <!-- ════════════════════════════════════════════════════════════
          REDESIGNED APPLE / GEN-Z ASSISTANT MODAL (AMOLED Liquid Glass)
     ════════════════════════════════════════════════════════════ -->
@@ -932,7 +942,7 @@
         <div class="assistant-resize-handle resize-corner-tl" data-resize="tl" title="Drag to resize"></div>
 
         <!-- Draggable Header Bar: Title + Drag Indicator + Size Toggle + Minimize Button -->
-        <div id="assistantSheetHeader" class="px-3 py-2 flex items-center justify-between border-b border-white/[0.06] select-none bg-white/[0.03] cursor-grab active:cursor-grabbing touch-none">
+        <div id="assistantSheetHeader" class="px-2.5 py-1.5 flex items-center justify-between border-b border-white/[0.06] select-none bg-white/[0.03] cursor-grab active:cursor-grabbing touch-none">
           <div class="flex items-center gap-2 min-w-0">
             <!-- Axo face (orb-bridge): two stacked frames crossfaded by
                  setAxoFace; the corner chip is the Axo voice mute. -->
@@ -961,7 +971,7 @@
         </div>
 
         <!-- Scrollable Body Content (Compact & Sleek) -->
-        <div class="p-2.5 space-y-2 overflow-y-auto assistant-sheet-body" style="-webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y;">
+        <div class="p-2 space-y-1.5 overflow-y-auto assistant-sheet-body" style="-webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y;">
           <!-- 0. Axo subtitle (orb-bridge say()): the assistant's
                current line — every spoken line appears here
                verbatim. Fix round #4: styled like the Axofy app's
@@ -985,6 +995,19 @@
               <button type="button" id="axoCcChip" aria-pressed="true" title="Subtitles on/off — Axo keeps running" onclick="window.__smartBall && window.__smartBall.toggleAxoSubs()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 active:scale-95 transition">CC</button>
               <button type="button" id="axoModeChip" aria-pressed="true" title="Axo mode: AI narration or Normal (templates only)" onclick="window.__smartBall && window.__smartBall.toggleAxoMode()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 active:scale-95 transition">AI</button>
               <button type="button" id="axoLangChip" title="Axo language — tap to change" onclick="window.__smartBall && window.__smartBall.toggleAxoLang()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 border border-white/10 active:scale-95 transition">EN</button>
+              <button type="button" id="axoNoSkipChip" aria-pressed="false" title="No-skip mode — bets low-confidence rounds (warning first)" onclick="window.__smartBall && window.__smartBall.toggleNoSkip()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-white/10 text-zinc-400 border border-white/10 opacity-60 active:scale-95 transition">NO-SKIP</button>
+              <span id="axoNoSkipBadge" class="hidden text-[7px] font-mono font-black px-1.5 py-0.5 rounded-full bg-rose-500/25 text-rose-300 border border-rose-500/40">NO-SKIP ON</span>
+            </div>
+          </div>
+          <!-- 0a2. No-skip warning (owner order 2026-10-25): shown
+               when the NO-SKIP chip is tapped while OFF. Enabling
+               needs the Confirm tap — the chip alone never turns
+               the mode on. -->
+          <div id="axoNoSkipWarn" class="hidden px-2 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/30 space-y-1 shrink-0">
+            <p id="axoNoSkipWarnText" class="text-[8px] font-mono leading-snug text-rose-200">No-skip mode bets rounds the engine would skip for low confidence. Expect more losses — this does not improve the edge, it only bets more often. Bankroll guards (stop-loss, stop-win, ladder limits, Wilson check) still apply, and every bet still needs your tap.</p>
+            <div class="flex items-center gap-1.5">
+              <button type="button" id="axoNoSkipConfirmBtn" onclick="window.__smartBall && window.__smartBall.confirmNoSkip()" class="text-[7.5px] font-mono font-black px-2 py-1 rounded-lg bg-rose-500/25 text-rose-200 border border-rose-500/40 active:scale-95 transition">Yes, turn on no-skip</button>
+              <button type="button" id="axoNoSkipCancelBtn" onclick="window.__smartBall && window.__smartBall.cancelNoSkip()" class="text-[7.5px] font-mono font-black px-2 py-1 rounded-lg bg-white/10 text-zinc-300 border border-white/10 active:scale-95 transition">Keep governed</button>
             </div>
           </div>
           <!-- 0b. Axo road strip (orb-bridge): the round sequence road
@@ -994,7 +1017,7 @@
           <div id="axoRoadStrip" class="flex items-center gap-0.5 px-1.5 rounded-xl bg-white/[0.03] border border-white/[0.06] h-[30px] overflow-x-auto shrink-0" style="-webkit-overflow-scrolling: touch;"></div>
 
           <!-- 1. Live Period & Timer Bar with Active Interval -->
-          <div class="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08]">
+          <div class="flex items-center justify-between px-2.5 py-1 rounded-xl bg-white/[0.04] border border-white/[0.08]">
             <div class="flex flex-col">
               <div class="flex items-center gap-1.5">
                 <span class="text-[7px] font-mono text-zinc-400 tracking-wider">PERIOD</span>
@@ -1012,7 +1035,7 @@
           <!-- 1b. Balance (orb-bridge): the bridge's exact figure + source
                tag + sync age. Renders only what the verifier state
                carries — "—" when there is no state at all. -->
-          <div class="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08]">
+          <div class="flex items-center justify-between px-2.5 py-1 rounded-xl bg-white/[0.04] border border-white/[0.08]">
             <span class="text-[7px] font-mono text-zinc-400 tracking-wider">BALANCE</span>
             <div class="flex items-center gap-1.5">
               <span id="assistantBalanceAge" class="text-[6.5px] font-mono text-zinc-500"></span>

@@ -1058,10 +1058,12 @@ export function axoNextLang(code) {
 //    the HARD_STOP overlay only — login state is not an input at all,
 //    so it can never flip a BET to SKIP again. The base bet resolves
 //    from the verified balance when fresh, else the manual chip base.
-// 3. SUBTITLE SURFACES. Fix round #5: no floating subtitle exists
-//    anymore — minimized state always shows the prediction inside
-//    the Axo ball; the sheet line hides only when subtitles are
-//    closed; voice follows its own switch, not the subtitle element.
+// 3. SUBTITLE SURFACES. Owner order 2026-10-25 (UI batch, reverses
+//    fix round #5's deletion): the subtitle is an OUTSIDE FLOATING
+//    bubble next to the avatar whenever a subtitle exists —
+//    speaking or panel opened. Minimized state still shows the
+//    prediction inside the Axo ball; voice follows its own switch,
+//    not the subtitle element.
 // 4. CENTERED OVERLAY. The opened sheet's geometry: centered in the
 //    viewport, never smaller than the overlay minimums.
 // 5. VOICE MATCHING. Website voice matching (axofy.shop axo-site.js):
@@ -1096,8 +1098,94 @@ export function resolveBaseBet({ autoBase = false, verifiedBalance = null, riskM
  * parameter — it cannot change what is shown or staged.
  */
 export function displayGateFor(engineGate, { hardStopped = false } = {}) {
-  if (hardStopped) return { ...engineGate, decision: GATE_DECISIONS.SKIP, prob: null, reason: HARD_STOP_REASON };
+  if (hardStopped) return { ...engineGate, decision: GATE_DECISIONS.SKIP, prob: null, reason: HARD_STOP_REASON, skipKind: 'hardstop' };
   return engineGate;
+}
+
+/**
+ * No-skip mode (owner order 2026-10-25, UI batch). Pure layer.
+ * A gate SKIP is convertible ONLY when its family is 'edge'
+ * (calibrated chance below the bar) — the one confidence verdict.
+ * Wilson, floor, disagreement, calibration, noprob, nopick,
+ * conflict and hard-stop SKIPs are guards, never convertible, and
+ * the conversion never touches bankroll guards: staging still
+ * refuses STOP/STOP_LOSS/STOP_WIN/LADDER_EXHAUSTED sessions and
+ * non-positive stakes, and firing still needs the per-bet tap.
+ * The converted verdict is marked forced everywhere it displays.
+ */
+export const NO_SKIP_WARNING_TEXT = 'No-skip mode bets rounds the engine would skip for low confidence. Expect more losses — this does not improve the edge, it only bets more often. Bankroll guards (stop-loss, stop-win, ladder limits, Wilson check) still apply, and every bet still needs your tap.';
+
+export function noSkipConvertible(gate) {
+  return !!gate && gate.decision === GATE_DECISIONS.SKIP && gate.skipKind === 'edge';
+}
+
+export function applyNoSkip(gate, { enabled = false, pick = null } = {}) {
+  if (!enabled || !noSkipConvertible(gate) || !pick) return gate;
+  const factor = gate.sampleFactor ?? 1;
+  const earlyNote = factor < 1
+    ? ` Early-data stake: ${factor}× base (${Math.floor(gate.sampleSize || 0)} evaluated rounds; full stake at 200).`
+    : '';
+  return {
+    ...gate,
+    decision: GATE_DECISIONS.BET,
+    pick,
+    forced: true,
+    reason: `No-skip forced pick: ${pick} — ${gate.reason} (No-skip mode: this bets a round the engine would skip for low confidence.)`,
+    sampleNote: `${earlyNote} No-skip forced pick.`.trim()
+  };
+}
+
+/**
+ * Where the outside floating subtitle bubble sits, relative to the
+ * visible avatar (owner reference screenshot: bubble LEFT of the
+ * avatar, vertically centered on it). Falls back to above, then
+ * below, then a dock-clear bottom-right slot when no anchor exists.
+ * All positions are clamped into the viewport. Pure + tested.
+ */
+export function axoBubbleGeometry({ anchor = null, vw = 0, vh = 0, bw = 280, bh = 60, gap = 10, margin = 8 } = {}) {
+  const w = Math.max(1, Number(bw) || 280);
+  const h = Math.max(1, Number(bh) || 60);
+  const maxLeft = Math.max(margin, (Number(vw) || 0) - w - margin);
+  const maxTop = Math.max(margin, (Number(vh) || 0) - h - margin);
+  const clamp = (v, max) => Math.max(margin, Math.min(max, Math.round(v)));
+  if (anchor && Number.isFinite(Number(anchor.left)) && Number.isFinite(Number(anchor.top))) {
+    const a = anchor;
+    if (a.left - gap - w >= margin) {
+      return { left: clamp(a.left - gap - w, maxLeft), top: clamp(a.top + ((Number(a.height) || 0) - h) / 2, maxTop) };
+    }
+    if (a.top - gap - h >= margin) {
+      return { left: clamp(a.left + ((Number(a.width) || 0) - w) / 2, maxLeft), top: clamp(a.top - gap - h, maxTop) };
+    }
+    return { left: clamp(a.left + ((Number(a.width) || 0) - w) / 2, maxLeft), top: clamp(a.top + (Number(a.height) || 0) + gap, maxTop) };
+  }
+  return { left: clamp(vw - w - 16, maxLeft), top: clamp(vh - h - 100, maxTop) };
+}
+
+/**
+ * Axo panel size on open (owner order 2026-10-25, UI batch).
+ * The panel opens SMALL by default (its own authored compact
+ * 270×380); a saved drag/preset size is honored exactly — the old
+ * open path forced minimums of 360×480, so a smaller saved size
+ * was silently discarded on every reopen. Saved values are
+ * validated (finite, positive) and clamped to the viewport and to
+ * the drag floor (200×220, the resize handles' own minimums).
+ * Published for the classic script (mobile.js cannot import this
+ * module) with an inline fallback there.
+ */
+export const AXO_PANEL_DEFAULT_SIZE = { width: 270, height: 380 };
+export const AXO_PANEL_MIN_SIZE = { width: 200, height: 220 };
+export const AXO_PANEL_SIZE_KEY = 'dhaniwin_assistant_box_size';
+
+export function resolveAxoPanelSize({ saved = null, vw = 0, vh = 0 } = {}) {
+  const maxW = Math.max(AXO_PANEL_MIN_SIZE.width, (Number(vw) || 0) - 16);
+  const maxH = Math.max(AXO_PANEL_MIN_SIZE.height, (Number(vh) || 0) - 60);
+  const num = v => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.floor(Number(v)) : null);
+  const w = num(saved && saved.width);
+  const h = num(saved && saved.height);
+  return {
+    width: Math.min(maxW, Math.max(AXO_PANEL_MIN_SIZE.width, w ?? AXO_PANEL_DEFAULT_SIZE.width)),
+    height: Math.min(maxH, Math.max(AXO_PANEL_MIN_SIZE.height, h ?? AXO_PANEL_DEFAULT_SIZE.height))
+  };
 }
 
 /** Website voice matching: exact tag, then tag-prefix, then language-prefix. */
@@ -1114,17 +1202,27 @@ export function pickAxoVoice(voices, tag) {
 }
 
 /**
- * Which prediction surfaces show, from CC + panel state. Fix round
- * #5: the floating subtitle element is DELETED — minimized state
- * always shows the prediction inside the Axo ball (pillVisible
- * whenever the panel is closed, regardless of CC); the sheet line
- * hides only when subtitles are closed. Voice is untouched by
- * this: it follows its own switch, not the subtitle element.
+ * Which prediction surfaces show, from CC + panel state + subtitle.
+ * Owner order 2026-10-25 (REVERSES fix round #5's deletion): the
+ * subtitle is an OUTSIDE FLOATING bubble next to the avatar whenever
+ * a subtitle exists — AI speaking AND panel opened. The in-panel
+ * sheet line is still written (state) but never displayed while the
+ * bubble ships, so the same text never appears twice. The ball's
+ * pick pill is independent of CC, as before.
  */
-export function subtitleSurfaces({ subsOn = true, panelOpen = false } = {}) {
+export function bubbleVisible({ subsOn = true, text = '', dismissedText = '' } = {}) {
+  if (!subsOn) return false;
+  const t = typeof text === 'string' ? text : '';
+  if (!t) return false;
+  return dismissedText !== t;
+}
+
+export function subtitleSurfaces({ subsOn = true, panelOpen = false, text = '', dismissedText = '' } = {}) {
+  const vis = bubbleVisible({ subsOn, text, dismissedText });
   return {
-    floatingVisible: false,
-    sheetHidden: !subsOn,
+    bubbleVisible: vis,
+    floatingVisible: vis,
+    sheetHidden: true,
     pillVisible: !panelOpen
   };
 }
@@ -2005,32 +2103,116 @@ function initBridge() {
 
   // ── Speaking (orb's line) ────────────────────────────────────────
   /** The panel is open when the assistant modal is visible. The
-   *  floating subtitle lives only in the closed-ball state: with the
-   *  panel open, the sheet's own subtitle line shows the same text. */
+   *  subtitle bubble anchors next to the visible avatar in either
+   *  state: the top-center avatar when open, the floating ball
+   *  when closed (owner order 2026-10-25). */
   function axoPanelOpen() {
     const modal = $('dhaniwinAssistantModal');
     if (!modal) return false;
     return !modal.classList.contains('hidden') && modal.style.display !== 'none';
   }
 
-  /** Sync prediction surfaces with CC + panel state. Fix round #5:
-   *  no floating subtitle exists anymore: the closed ball always
-   *  shows the prediction inside it (renderAxoOrb), and the panel
-   *  subtitle line follows CC via applyAxoSubs. Called from say(),
-   *  applyAxoSubs(), and the panel open/close hook in mobile.js. */
+  /** Sync prediction surfaces with CC + panel state. Owner order
+   *  2026-10-25 (UI batch, reverses fix round #5): the subtitle is
+   *  an OUTSIDE FLOATING bubble next to the avatar whenever a
+   *  subtitle exists — speaking or panel opened. The bubble is the
+   *  single subtitle surface: the in-panel sheet line is written
+   *  but never displayed while the bubble ships, so the same text
+   *  never appears twice. Old cached HTML without the bubble
+   *  element keeps the previous sheet-line behaviour. Called from
+   *  say(), applyAxoSubs(), and the panel open/close hook. */
   function syncAxoSubtitleSurfaces() {
     renderAxoOrb();
+    const bubble = $('axoSubtitleBubble');
+    if (!bubble) return;
+    const line = state.lastLine || '';
+    const show = bubbleVisible({ subsOn: axoSubsOn(), text: line, dismissedText: state.bubbleDismissedText || '' });
+    const textEl = $('axoSubtitleBubbleText');
+    if (textEl && line) textEl.textContent = line;
+    if (show) {
+      bubble.style.display = 'block';
+      const anchorEl = axoPanelOpen() ? $('axoTopAvatar') : $('dhaniwinFloatingOrb');
+      const r = anchorEl ? anchorEl.getBoundingClientRect() : null;
+      const bw = bubble.offsetWidth || 280;
+      const bh = bubble.offsetHeight || 60;
+      const pos = axoBubbleGeometry({
+        anchor: r ? { left: r.left, top: r.top, width: r.width, height: r.height } : null,
+        vw: window.innerWidth, vh: window.innerHeight, bw, bh
+      });
+      bubble.style.left = pos.left + 'px';
+      bubble.style.top = pos.top + 'px';
+    } else {
+      bubble.style.display = 'none';
+    }
+    // Dedup: the bubble owns the subtitle now.
+    const sheetLine = $('smartBallLine');
+    if (sheetLine) sheetLine.classList.add('hidden');
+  }
+
+  /** The bubble's X: closes the CURRENT subtitle bubble only —
+   *  never the bot, never CC, never voice. The next say() line
+   *  shows the bubble again: dismissal is per-line, not a setting. */
+  function dismissAxoBubble() {
+    state.bubbleDismissedText = state.lastLine || '';
+    syncAxoSubtitleSurfaces();
+  }
+
+  // ── No-skip mode (owner order 2026-10-25, UI batch) ─────────────
+  // Session-scoped by construction: plain closure flags, never
+  // localStorage, so every launch starts OFF. Tapping the chip
+  // while OFF only OPENS the warning — enabling requires an
+  // explicit tap on the warning's Confirm button. Turning OFF
+  // needs no warning. While ON, the chip + badge stay visible.
+  let noSkipOn = false;
+  let noSkipWarnOpen = false;
+
+  function renderNoSkipChip() {
+    const chip = $('axoNoSkipChip');
+    if (chip) {
+      chip.setAttribute('aria-pressed', noSkipOn ? 'true' : 'false');
+      chip.classList.toggle('bg-rose-500/25', noSkipOn);
+      chip.classList.toggle('text-rose-300', noSkipOn);
+      chip.classList.toggle('border-rose-500/40', noSkipOn);
+      chip.classList.toggle('bg-white/10', !noSkipOn);
+      chip.classList.toggle('text-zinc-400', !noSkipOn);
+      chip.classList.toggle('border-white/10', !noSkipOn);
+      chip.classList.toggle('opacity-60', !noSkipOn);
+    }
+    const badge = $('axoNoSkipBadge');
+    if (badge) badge.classList.toggle('hidden', !noSkipOn);
+    const warn = $('axoNoSkipWarn');
+    if (warn) warn.classList.toggle('hidden', !noSkipWarnOpen);
+  }
+
+  function toggleNoSkip() {
+    if (noSkipOn) { noSkipOn = false; noSkipWarnOpen = false; }
+    else noSkipWarnOpen = true;
+    renderNoSkipChip();
+  }
+
+  function confirmNoSkip() {
+    noSkipOn = true;
+    noSkipWarnOpen = false;
+    renderNoSkipChip();
+  }
+
+  function cancelNoSkip() {
+    noSkipWarnOpen = false;
+    renderNoSkipChip();
   }
 
   function say(text) {
     const el = $('smartBallLine');
     // The sheet line carries an icon slot beside the text (fix round
     // #3): write the text span only, so a subtitle write never wipes
-    // the verdict icon. Fix round #5: no floating subtitle exists —
-    // the closed ball shows the prediction inside it (renderAxoOrb).
+    // the verdict icon. The line is state only now — the bubble is
+    // the visible subtitle (owner order 2026-10-25).
     const sheetText = $('axoSheetVerdictText');
     if (sheetText && text) sheetText.textContent = text;
     else if (el && text) el.textContent = text;
+    // A new line clears a previous bubble dismissal: the X closed
+    // THAT line, not subtitles in general.
+    if (text && text !== state.lastLine) state.bubbleDismissedText = '';
     state.lastLine = text;
     syncAxoSubtitleSurfaces();
   }
@@ -2038,8 +2220,8 @@ function initBridge() {
   /** Write one verdict icon into every icon slot that exists. Icons
    *  are visual only and never enter a spoken string; a null kind
    *  clears all slots. Each surface's own visibility logic (sheet
-   *  open/closed, subtitles on/off) still governs display. Fix round
-   *  #5: the floating subtitle's slot is gone with the element. */
+   *  open/closed, subtitles on/off, bubble dismissed) still governs
+   *  display. */
   function setVerdictIcon(kind) {
     const svg = (kind && VERDICT_ICONS[kind]) || '';
     for (const id of ['axoSheetVerdictIcon', 'axoHeroVerdictIcon', 'orbVerdictIcon']) {
@@ -3069,7 +3251,15 @@ function initBridge() {
     // Overlays change what is shown and staged, never the locked
     // verdict itself.
     const engineGate = locked.gate;
-    const gate = displayGateFor(engineGate, { hardStopped: guard.hardStopped });
+    // No-skip (owner order 2026-10-25, UI batch): an edge SKIP
+    // becomes the leader's pick when the mode is ON — and ONLY an
+    // edge SKIP. The conversion never mutates the locked verdict
+    // (overlays change what is shown/staged, never the lock
+    // itself), and the HARD_STOP overlay below still wins over a
+    // forced pick. Staging guards (session stop states, ladder
+    // affordability, per-bet tap) apply to forced picks unchanged.
+    const noSkipGate = applyNoSkip(engineGate, { enabled: noSkipOn, pick: locked.pick ? locked.pick.target : null });
+    const gate = displayGateFor(noSkipGate, { hardStopped: guard.hardStopped });
     state.gate = gate;
     // Graduated stakes: the session base follows the CURRENT
     // leader's sample factor. The gate just ran, so take the factor
@@ -3098,8 +3288,12 @@ function initBridge() {
         // The governed pick rides along so the road strip can pair
         // each settled result with the pick the governor made for it.
         // A SKIP carries NO pick: the governor picked nothing that
-        // round, and the strip must never invent one for it.
-        state.dispositions[dKey] = { decision: engineGate.decision, pick: engineGate.decision === GATE_DECISIONS.BET ? (engineGate.pick || null) : null, fired: ap.hasFired(tf, openP), apOn: ap.enabled };
+        // round, and the strip must never invent one for it. A
+        // forced pick stages as a BET, so the disposition carries
+        // the STAGED decision (post-conversion, post-overlay) — a
+        // SKIP disposition must never shadow a fired forced bet,
+        // and a HARD_STOP overlay still records SKIP (nothing staged).
+        state.dispositions[dKey] = { decision: gate.decision, pick: gate.decision === GATE_DECISIONS.BET ? (gate.pick || null) : null, fired: ap.hasFired(tf, openP), apOn: ap.enabled };
         const keys = Object.keys(state.dispositions);
         if (keys.length > 60) delete state.dispositions[keys[0]];
       }
@@ -3423,6 +3617,11 @@ function initBridge() {
     refreshAxoVoiceChip: renderAxoVoiceChip,
     toggleAxoSubs: () => setAxoSubs(!axoSubsOn()),
     refreshAxoSubs: applyAxoSubs,
+    toggleNoSkip,
+    confirmNoSkip,
+    cancelNoSkip,
+    dismissAxoBubble,
+    noSkipOn: () => noSkipOn,
     syncAxoSubtitleSurfaces,
     toggleAxoMode: () => setAxoMode(axoMode() === 'ai' ? 'normal' : 'ai'),
     refreshAxoModeChip: renderAxoModeChip,
@@ -3471,11 +3670,16 @@ function initBridge() {
   // source of truth, inline fallback when the module is absent).
   // Blink/sleep run from here.
   window.__o101ClampBall = clampBallRect;
+  // Panel size for the classic script (mobile.js cannot import this
+  // module — same function, one source of truth, inline fallback
+  // when the module is absent).
+  window.__o101AxoPanelSize = resolveAxoPanelSize;
   renderAxoVoiceChip();
   renderAxoVoiceBadge();
   applyAxoSubs();
   renderAxoModeChip();
   renderAxoLangChip();
+  renderNoSkipChip();
   setAxoFace('base');
   axoBlinkLoop();
 
