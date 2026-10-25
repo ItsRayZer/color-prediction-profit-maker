@@ -1147,7 +1147,9 @@ a[href*="tradingview.com"] {
 }
 #autoPilotConfirmSlot {
   box-sizing: border-box;
-  height: 34px;
+  /* Task L: no fixed height here — the slot height is JS-managed
+     (syncConfirmSlotHeight: 0px when empty, 34px while a button
+     shows), so a stylesheet 34px cannot resurrect the blank gap. */
   flex-shrink: 0;
 }
 
