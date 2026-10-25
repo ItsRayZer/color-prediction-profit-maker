@@ -159,7 +159,10 @@ test('loading overlay: element, styles, and load-event wiring', () => {
   }
   const css = read('mobile.css');
   assert.ok(css.includes('o101-loading-visible'), 'mobile.css must define the visible overlay class');
-  assert.ok(css.includes('@keyframes o101spin'), 'mobile.css must define the spinner keyframes');
+  // Round #10 (owner order): the matte spinner is gone; the overlay now
+  // reuses the app loader's 3-dot quantum-wave animation exactly.
+  assert.ok(css.includes('@keyframes appleQuantumWave'), 'mobile.css must define the reused app-loader wave keyframes');
+  assert.ok(css.includes('.apple-dot {'), 'mobile.css must define the reused app-loader dot class');
   const mobile = read('mobile.js');
   for (const marker of ['showDhaniLoadingOverlay', 'hideDhaniLoadingOverlay', '8000']) {
     assert.ok(mobile.includes(marker), `mobile.js must contain ${marker}`);

@@ -64,7 +64,7 @@ function resolveWith(preset) {
 }
 
 test('worker base: default when no override is set', () => {
-  assert.equal(resolveWith(null), 'https://wingo-edge-sync.itsrayzer.workers.dev');
+  assert.equal(resolveWith(null), 'https://o101-dhani-proxy.mrabensojan.workers.dev');
 });
 
 test('worker base: o101_worker_base override wins and is normalised', () => {
@@ -73,12 +73,12 @@ test('worker base: o101_worker_base override wins and is normalised', () => {
 });
 
 test('worker base: a non-URL override is ignored, never trusted', () => {
-  assert.equal(resolveWith('notaurl'), 'https://wingo-edge-sync.itsrayzer.workers.dev');
-  assert.equal(resolveWith(''), 'https://wingo-edge-sync.itsrayzer.workers.dev');
+  assert.equal(resolveWith('notaurl'), 'https://o101-dhani-proxy.mrabensojan.workers.dev');
+  assert.equal(resolveWith(''), 'https://o101-dhani-proxy.mrabensojan.workers.dev');
 });
 
 test('worker base: the URL literal lives in exactly one place in mobile.js', () => {
-  const count = MOBILE.split('wingo-edge-sync.itsrayzer.workers.dev').length - 1;
+  const count = MOBILE.split('o101-dhani-proxy.mrabensojan.workers.dev').length - 1;
   assert.equal(count, 1, 'one literal — the default; everything else reads CF_WORKER_BASE');
   assert.ok(MOBILE.includes('`${CF_WORKER_BASE}/api/wingo?tf=${tf}&_=${Date.now()}`'.replace('${tf}', '${tf}')) || MOBILE.includes('${CF_WORKER_BASE}/api/wingo'), 'results fetch consumes the resolved base');
   assert.ok(MOBILE.includes("const WORKER_BASE_OVERRIDE_KEY = 'o101_worker_base'"), 'override key named once');

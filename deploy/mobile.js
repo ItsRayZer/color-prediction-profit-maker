@@ -762,7 +762,7 @@ window.clearBoundaryRetries = clearBoundaryRetries;
 // without a rebuild: set the key, reload, and all consumers follow.
 // The override is resolved once at boot and normalised (no trailing
 // slash) so `${CF_WORKER_BASE}/api/wingo` can never double-slash.
-const CF_WORKER_BASE_DEFAULT = 'https://wingo-edge-sync.itsrayzer.workers.dev';
+const CF_WORKER_BASE_DEFAULT = 'https://o101-dhani-proxy.mrabensojan.workers.dev';
 const WORKER_BASE_OVERRIDE_KEY = 'o101_worker_base';
 function resolveWorkerBase() {
   try {
@@ -4081,15 +4081,16 @@ function runDhaniProxyFallback(reason) {
   setMobileBridgeStatus(false, 'Proxy unreachable — direct mode · bridge inactive · login cannot be verified in this mode');
 }
 window.runDhaniProxyFallback = runDhaniProxyFallback;
-// ── DhaniWin loading overlay (fix round #6) ─────────────────────────
+// ── DhaniWin loading overlay (fix round #6, visuals swapped round #10)
 // The cross-origin iframe paints white for 3-4s while DhaniWin boots,
 // and no app-side code can observe the page's inner paint. So the app
 // covers its OWN surface (#dhaniwinLoadingOverlay in mobile.html,
-// matte #040405 + spinner) from the moment a DhaniWin navigation
-// starts until the iframe's real `load` event — never a guessed
-// timer. After 8s the text turns into a slow-connection note (still
-// not a success claim). The dismiss button uncovers the page early
-// for this load only; the next navigation shows the splash again.
+// now the app's own 3-dot quantum-wave animation from
+// #appleMinimalLoader on its black/90 blurred backdrop) from the moment
+// a DhaniWin navigation starts until the iframe's real `load` event —
+// never a guessed timer. After 8s the text turns into a slow-connection
+// note (still not a success claim). The dismiss button uncovers the
+// page early for this load only; the next navigation shows it again.
 let _dhaniLoading = false;
 let _dhaniLoadingSlowTimer = null;
 function showDhaniLoadingOverlay() {

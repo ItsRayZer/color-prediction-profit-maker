@@ -1277,14 +1277,15 @@ a[href*="tradingview.com"] {
 /* Fix round #6 — DhaniWin loading overlay: the cross-origin iframe
    paints white for 3-4s while DhaniWin boots, and no app-side code can
    observe the page's inner paint. So the app covers its OWN surface
-   with a branded matte splash (this file's .o101-spin ring) from the
-   moment a DhaniWin navigation starts until the iframe's real `load`
-   event — never a guessed timer. A slow-load line replaces the text
-   after 8s; the dismiss button lets the owner uncover the page early.
-   The overlay sits above the touch shield (z-50) but below the
-   assistant sheet/orb, which live outside #tab-web. */
-@keyframes o101spin { to { transform: rotate(360deg); } }
-.o101-spin { animation: o101spin 1s linear infinite; }
-#dhaniwinLoadingOverlay { position: absolute; inset: 0; z-index: 60; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: #040405; }
+   from the moment a DhaniWin navigation starts until the iframe's
+   real `load` event — never a guessed timer. A slow-load line replaces
+   the text after 8s; the dismiss button lets the owner uncover the
+   page early. The overlay sits above the touch shield (z-50) but below
+   the assistant sheet/orb, which live outside #tab-web.
+   Fix round #10 (owner order): the matte-black spinner visuals are
+   gone. The overlay now reuses the app's OWN loading animation
+   exactly — the 3-dot quantum wave from #appleMinimalLoader
+   (.apple-dots-container/.apple-dot above) — on the same
+   black/90 blurred backdrop the app loader uses. */
+#dhaniwinLoadingOverlay { position: absolute; inset: 0; z-index: 60; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: rgba(0,0,0,.9); backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px); }
 #dhaniwinLoadingOverlay.o101-loading-visible { display: flex; }
-#dhaniwinLoadingOverlay .o101-loading-ring { width: 44px; height: 44px; border-radius: 50%; border: 3px solid rgba(255,255,255,.12); border-top-color: #ffd166; animation: o101spin 1s linear infinite; }
