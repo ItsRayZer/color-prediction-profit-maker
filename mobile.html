@@ -1110,14 +1110,20 @@
 
           <!-- 2b. Auto-Pilot confirm (orb-bridge): visible only while a
                bet is staged. This tap is the ONLY way a staged bet fires.
-               The slot height is reserved whether or not a bet is
-               staged, so staging never resizes the sheet. Task E: the
-               HARD_STOP re-arm button lives here now (shown only while
-               hard-stopped — staging is blocked then, so it never
-               competes with the confirm button), and the hidden
-               countdown keeper preserves the autopilot ≤5s
-               invalidation (countdownMsLeft reads its text). -->
-          <div id="autoPilotConfirmSlot" class="h-[34px] shrink-0">
+               Task L (owner screenshot 2026-10-26): the slot NO LONGER
+               reserves 34px when empty — that reserved height was the
+               blank gap between the skip reason and the road. The slot
+               starts collapsed (0px, overflow hidden) and expands to
+               34px only while a button shows (syncConfirmSlotHeight,
+               called from renderAutoPilot); fitSheetToContent grows
+               the sheet when the staged slot pushes content past the
+               sheet height, so staging never clips the chip row.
+               Task E: the HARD_STOP re-arm button lives here now
+               (shown only while hard-stopped — staging is blocked
+               then, so it never competes with the confirm button),
+               and the hidden countdown keeper preserves the autopilot
+               ≤5s invalidation (countdownMsLeft reads its text). -->
+          <div id="autoPilotConfirmSlot" class="h-0 overflow-hidden shrink-0">
             <button type="button" id="autoPilotConfirmBtn" onclick="window.__smartBall && window.__smartBall.confirmAutoPilotBet()" class="hidden w-full py-2 rounded-xl font-mono text-[10px] font-black bg-emerald-500/25 text-emerald-200 border border-emerald-500/40 active:scale-[0.98] transition">BET — tap to confirm</button>
             <button type="button" id="hardStopRearmBtn" onclick="window.__smartBall && window.__smartBall.rearmHardStop()" class="hidden text-[7px] font-mono font-bold text-amber-300 underline underline-offset-2 transition active:scale-95">Re-arm manually (override the 3-loss stop)</button>
             <span id="assistantCountdown" class="hidden" aria-hidden="true"></span>
@@ -1128,7 +1134,7 @@
               <span class="font-bold tracking-wider uppercase">SEQUENCE ROAD</span>
               <span class="text-[6.5px] text-zinc-500">NEW → OLD</span>
             </div>
-            <div id="assistantMiniRoad" class="flex items-center gap-1.5 p-1.5 rounded-xl bg-black/40 border border-white/[0.06] overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
+            <div id="assistantMiniRoad" class="flex items-center gap-1.5 p-1 rounded-xl bg-black/40 border border-white/[0.06] overflow-x-auto" style="-webkit-overflow-scrolling: touch;">
               <span class="text-[7.5px] font-mono text-zinc-500 px-1 py-0.5">Loading results...</span>
             </div>
           </div>

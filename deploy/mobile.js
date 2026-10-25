@@ -6987,6 +6987,8 @@ function cycleAssistantBoxSizePreset(e) {
   sheet.style.width = `${targetW}px`;
   sheet.style.height = `${targetH}px`;
   sheet.style.maxHeight = `${targetH}px`;
+  // Task L: a preset must never clip content — grow to measured content if needed.
+  if (window.__smartBall && typeof window.__smartBall.fitSheetToContent === 'function') window.__smartBall.fitSheetToContent();
 
   // Make sure it doesn't overflow screen bounds
   const rect = sheet.getBoundingClientRect();
@@ -7133,8 +7135,10 @@ function toggleDhaniwinAssistantModal(show) {
 
     // Bubble-tracks-Axo: the sheet morphs open — reposition once
     // it settles, so the bubble follows the avatar to its rest spot.
+    // Task L: also fit the sheet to its measured content, so the
+    // chip row can never be clipped by the resolved height.
     try {
-      sheet.addEventListener('transitionend', function onSheetOpenSettled() { if (window.__smartBall && typeof window.__smartBall.repositionAxoBubble === 'function') window.__smartBall.repositionAxoBubble(); }, { once: true });
+      sheet.addEventListener('transitionend', function onSheetOpenSettled() { if (window.__smartBall && typeof window.__smartBall.repositionAxoBubble === 'function') window.__smartBall.repositionAxoBubble(); if (window.__smartBall && typeof window.__smartBall.fitSheetToContent === 'function') window.__smartBall.fitSheetToContent(); }, { once: true });
     } catch (e) {}
 
     // Update mini road on open
@@ -7392,6 +7396,8 @@ function initDhaniwinAssistantSheetDrag() {
     const rect = sheet.getBoundingClientRect();
     _assistantBoxSize = { width: Math.round(rect.width), height: Math.round(rect.height) };
     _assistantBoxPos = { left: Math.round(rect.left), top: Math.round(rect.top) };
+    // Task L: a user resize must never end below the content — grow back to measured content if needed.
+    if (window.__smartBall && typeof window.__smartBall.fitSheetToContent === 'function') window.__smartBall.fitSheetToContent();
 
     try {
       localStorage.setItem('dhaniwin_assistant_box_size', JSON.stringify(_assistantBoxSize));

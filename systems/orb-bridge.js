@@ -1151,6 +1151,76 @@ export function applyNoSkip(gate, { enabled = false, pick = null } = {}) {
 }
 
 /**
+ * Task L (owner screenshot 2026-10-26): which avatar the subtitle
+ * bubble anchors to. The panel-open anchor used to be ONLY the
+ * top-center avatar — but the header face is the visible Axo
+ * whenever the open morph's avatar swap did not run (stale script
+ * or another open path), so the bubble hid behind the
+ * hidden-anchor guard and NO subtitle showed at all, even with CC
+ * on and a spoken SKIP line. The chain now falls through to the
+ * next VISIBLE avatar: top-center avatar → header face → orb →
+ * none (bubble stays hidden only when no Axo is visible at all).
+ */
+export function axoBubbleAnchorChoice({ panelOpen = false, topVisible = false, faceVisible = false, orbVisible = false } = {}) {
+  if (panelOpen) {
+    if (topVisible) return 'top';
+    if (faceVisible) return 'face';
+    if (orbVisible) return 'orb';
+    return null;
+  }
+  return orbVisible ? 'orb' : null;
+}
+
+/**
+ * Task L: plain wording for the reason line when NO-SKIP is ON but
+ * the verdict is a SKIP no-skip cannot convert. Display only — it
+ * never changes the locked verdict or the conversion scope.
+ */
+export function noSkipBlockedNote(skipKind, hasPick = true) {
+  const tail = 'No-skip only converts low-confidence edge skips.';
+  if (!hasPick) return `No-skip is ON but this round has no leader pick to force. ${tail}`;
+  switch (skipKind) {
+    case 'floor': return `No-skip is ON but cannot convert this skip — too few rounds to rank (needs 20). ${tail}`;
+    case 'wilson': return `No-skip is ON but cannot convert this skip — the Wilson bound is below the bar. ${tail}`;
+    case 'hardstop': return `No-skip is ON but cannot convert this skip — the 3-loss stop blocks all picks. ${tail}`;
+    default: return `No-skip is ON but cannot convert this kind of skip. ${tail}`;
+  }
+}
+
+/**
+ * Task L: confirm-slot height from its buttons' visibility — 34px
+ * when a button shows, 0px when both are hidden. Pure so the
+ * collapse rule is testable; the DOM sync below applies it.
+ */
+export function confirmSlotHeight({ confirmHidden = true, rearmHidden = true } = {}) {
+  return (!confirmHidden || !rearmHidden) ? 34 : 0;
+}
+
+/**
+ * Task L: true sheet content height from measured parts (header +
+ * control row + the body's full scroll height + the sheet border).
+ * The Task K budget counted a 33px header; the real header carries
+ * the 64px face, so it is ~77px — that 44px miss plus the reserved
+ * slot is why the chip row clipped under the 380px cap.
+ */
+export function sheetContentHeight({ headerH = 0, controlsH = 0, bodyScrollH = 0, border = 2 } = {}) {
+  return Math.ceil(headerH + controlsH + bodyScrollH + border);
+}
+
+/**
+ * Task L: grow-only sheet fit. Returns the new height when measured
+ * content exceeds the current sheet height, capped by the viewport
+ * (never below the 220px drag floor); null when no growth is
+ * needed, so callers never shrink a user's size and never loop.
+ */
+export function fitSheetHeight({ need = 0, current = 0, vh = 0 } = {}) {
+  if (need <= current) return null;
+  const cap = Math.max(220, (Number(vh) || 0) - 24);
+  const target = Math.min(need, cap);
+  return target > current ? target : null;
+}
+
+/**
  * Task J (owner need 2026-10-25, swarm binding constraint): one-tap
  * history export — PURE builder. Secrets are excluded BY
  * CONSTRUCTION: the output is built field-by-field from an
@@ -1287,6 +1357,15 @@ export function axoBubbleGeometry({ anchor = null, vw = 0, vh = 0, bw = 280, bh 
  * clearance for the straddling avatar + 14px bottom margin). The
  * short-viewport tightening in mobile.css covers the residual gap
  * between the softened floor and the tightened content.
+ * Task L (owner screenshot 2026-10-26): the floor is a MINIMUM,
+ * not a fit guarantee — the Task K "content ~327" budget was wrong
+ * (it counted a 33px header; the real header carries the 64px face,
+ * so it is ~77px, and true content with the reserved slot was
+ * ~395-400px > the 380px cap, which clipped the chip row).
+ * fitSheetToContent() grows the sheet to measured content whenever
+ * content exceeds the resolved height, so no functional control can
+ * ever be clipped by the cap again; the collapsed empty confirm
+ * slot brings default content to ~359px, inside the 380px cap.
  * Published for the classic script (mobile.js cannot import this
  * module) with an inline fallback there.
  */
@@ -2288,9 +2367,31 @@ function initBridge() {
   /** Position the subtitle bubble next to Axo's CURRENT anchor rect
    *  (owner order 2026-10-25, bubble-tracks-Axo): the single
    *  positioning path used by the full sync AND by the lightweight
-   *  reposition hook. Returns true when the bubble is shown. A
-   *  hidden anchor (orb hidden on a tab switch) hides the bubble
-   *  instead of parking it at a meaningless fallback spot. */
+   *  reposition hook. Returns true when the bubble is shown. Task L:
+   *  the anchor is the first VISIBLE avatar (top-center avatar →
+   *  header face → orb) — a hidden anchor hides the bubble only
+   *  when NO Axo is visible at all, never because the open morph's
+   *  avatar swap did not run while the header face is on screen. */
+  function axoBubbleAnchorEl() {
+    const open = axoPanelOpen();
+    const visible = (el) => {
+      if (!el) return false;
+      try {
+        return !window.getComputedStyle || window.getComputedStyle(el).display !== 'none';
+      } catch (e) { return true; }
+    };
+    const choice = axoBubbleAnchorChoice({
+      panelOpen: open,
+      topVisible: visible($('axoTopAvatar')),
+      faceVisible: visible($('axoFaceHost')),
+      orbVisible: visible($('dhaniwinFloatingOrb'))
+    });
+    if (choice === 'top') return $('axoTopAvatar');
+    if (choice === 'face') return $('axoFaceHost');
+    if (choice === 'orb') return $('dhaniwinFloatingOrb');
+    return null;
+  }
+
   function positionAxoBubble() {
     const bubble = $('axoSubtitleBubble');
     if (!bubble) return false;
@@ -2300,14 +2401,10 @@ function initBridge() {
       bubble.style.display = 'none';
       return false;
     }
-    const anchorEl = axoPanelOpen() ? $('axoTopAvatar') : $('dhaniwinFloatingOrb');
-    if (anchorEl) {
-      try {
-        if (window.getComputedStyle && window.getComputedStyle(anchorEl).display === 'none') {
-          bubble.style.display = 'none';
-          return false;
-        }
-      } catch (e) { /* computed style unavailable: fall through to rect */ }
+    const anchorEl = axoBubbleAnchorEl();
+    if (!anchorEl) {
+      bubble.style.display = 'none';
+      return false;
     }
     bubble.style.display = 'block';
     const r = anchorEl ? anchorEl.getBoundingClientRect() : null;
@@ -3062,6 +3159,50 @@ function initBridge() {
     } catch (e) { /* the tick must never break the app */ }
   }
 
+  /**
+   * Task L: collapse the confirm slot when it has nothing to show.
+   * The slot's old always-34px reservation was the blank gap between
+   * the skip reason and the road in the owner's screenshot. 0px when
+   * both buttons are hidden, 34px when either shows; the hidden
+   * countdown keeper never counts as visible content.
+   */
+  function syncConfirmSlotHeight() {
+    const slot = $('autoPilotConfirmSlot');
+    if (!slot) return;
+    const btn = $('autoPilotConfirmBtn');
+    const rearm = $('hardStopRearmBtn');
+    slot.style.height = confirmSlotHeight({
+      confirmHidden: !btn || btn.classList.contains('hidden'),
+      rearmHidden: !rearm || rearm.classList.contains('hidden')
+    }) + 'px';
+  }
+
+  /**
+   * Task L: grow the open sheet to its measured content whenever
+   * content exceeds the sheet height, so a staged confirm slot, a
+   * long reason, or a taller road can never clip the base-bet chip
+   * row under the sheet cap again. Grow-only and viewport-capped
+   * (fitSheetHeight); never shrinks a user's size, never scrolls.
+   */
+  function fitSheetToContent() {
+    if (!axoPanelOpen()) return false;
+    const sheet = $('dhaniwinAssistantSheet');
+    const body = sheet ? sheet.querySelector('.assistant-sheet-body') : null;
+    const header = $('assistantSheetHeader');
+    const controls = $('axoControlRow');
+    if (!sheet || !body || !header || !controls) return false;
+    const need = sheetContentHeight({
+      headerH: header.offsetHeight || 0,
+      controlsH: controls.offsetHeight || 0,
+      bodyScrollH: body.scrollHeight || 0
+    });
+    const target = fitSheetHeight({ need, current: sheet.offsetHeight || 0, vh: window.innerHeight || 0 });
+    if (target === null) return false;
+    sheet.style.height = target + 'px';
+    sheet.style.maxHeight = target + 'px';
+    return true;
+  }
+
   function renderAutoPilot() {
     const toggle = $('autoPilotToggle');
     if (toggle) {
@@ -3100,6 +3241,11 @@ function initBridge() {
         ? 'text-[7.5px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 transition active:scale-95'
         : 'text-[7.5px] font-mono font-bold px-1.5 py-0.2 rounded bg-white/10 text-zinc-300 border border-white/10 transition active:scale-95';
     }
+    // Task L: the confirm slot collapses when empty (no reserved
+    // blank gap) and the sheet grows to its measured content so a
+    // staged bet or a long reason can never clip the chip row.
+    syncConfirmSlotHeight();
+    fitSheetToContent();
   }
 
   // ── Backfill: walk the stored history once per (tf, history length)
@@ -3582,8 +3728,27 @@ function initBridge() {
     // BET/NONE so a stale reason never outlives its verdict — except
     // the graduated-stake note, which a BET carries so a reduced
     // stake is never presented as a full-confidence bet.
+    // Task L: when NO-SKIP is ON but the verdict is a SKIP no-skip
+    // cannot convert (floor, Wilson, disagreement, calibration,
+    // conflict, noprob, nopick, hard-stop, or an edge skip with no
+    // leader pick), the reason line says so plainly — display only,
+    // the locked verdict and the conversion scope never change, and
+    // the published verdict below keeps the pure reason.
     const why = $('mobileWebVerdictReason');
-    if (why) why.textContent = view.decision === 'BET' ? (view.sampleNote || '') : (view.reasonText || '');
+    if (why) {
+      let text = view.decision === 'BET' ? (view.sampleNote || '') : (view.reasonText || '');
+      if (view.decision === 'SKIP' && noSkipOn && gate) {
+        const nonConvertible = gate.skipKind && gate.skipKind !== 'edge';
+        const edgeNoPick = gate.skipKind === 'edge' && !gate.pick;
+        if (nonConvertible || edgeNoPick) {
+          text = (text ? text + ' ' : '') + noSkipBlockedNote(gate.skipKind, !!gate.pick);
+        }
+      }
+      why.textContent = text;
+    }
+    // Task L: the sheet grows to its measured content on every
+    // verdict render, so no verdict can clip the chip row.
+    fitSheetToContent();
   }
 
   function renderSignal(gate, incharge, login) {
@@ -3886,6 +4051,8 @@ function initBridge() {
     noSkipOn: () => noSkipOn,
     syncAxoSubtitleSurfaces,
     repositionAxoBubble,
+    fitSheetToContent,
+    syncConfirmSlotHeight,
     toggleAxoMode: () => setAxoMode(axoMode() === 'ai' ? 'normal' : 'ai'),
     refreshAxoModeChip: renderAxoModeChip,
     toggleAxoLang,
