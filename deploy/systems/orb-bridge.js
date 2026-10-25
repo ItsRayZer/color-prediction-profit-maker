@@ -302,7 +302,12 @@ export function normaliseBridgeState(raw) {
     fetchMode: raw.fetchMode === 'active' || raw.fetchMode === 'intercept' || raw.fetchMode === 'pending' ? raw.fetchMode : null,
     userId: raw.userId !== null && raw.userId !== undefined ? String(raw.userId) : null,
     ts: Number.isFinite(Number(raw.ts)) ? Number(raw.ts) : null,
-    seq: Number.isFinite(Number(raw.seq)) ? Number(raw.seq) : null
+    seq: Number.isFinite(Number(raw.seq)) ? Number(raw.seq) : null,
+    // Task O (connection resilience): the bridge's per-load instance id.
+    // A restart resets seq to 1; the verifier re-baselines on an
+    // instance change instead of stalling. Absent on older bridge
+    // builds (null) — the ts rules below still cover those.
+    instance: typeof raw.instance === 'string' && raw.instance !== '' ? raw.instance : null
   };
 }
 
@@ -324,15 +329,32 @@ export class LoginVerifier {
     // The bridge's published user state (the only path to VERIFIED).
     this.bridgeState = null;      // last normalised state accepted
     this.bridgeStateAt = null;    // app-clock time it was received
+    // Task O: the bridge instance id of the last accepted state.
+    // A new instance re-baselines immediately (see observeBridgeState).
+    this.bridgeInstance = null;
   }
 
   /**
    * Feed one published bridge state (already normalised, or raw — it
    * is normalised here). receivedAt is the APP clock; the bridge's own
    * ts is kept for display but freshness is judged on receivedAt so a
-   * skewed page clock cannot fake or kill freshness. Out-of-order
-   * states (older ts AND older seq than the last accepted) are
-   * ignored, except after a long silence (bridge restart resets seq).
+   * skewed page clock cannot fake or kill freshness.
+   * Task O (connection resilience) acceptance rules — a replayed or
+   * stale state is NEVER accepted, but a bridge restart no longer
+   * stalls for 120s:
+   *  * older ts than the last accepted → rejected (replay/stale),
+   *    except after a long silence (the old backstop, kept);
+   *  * same ts + older seq → rejected as an out-of-order duplicate,
+   *    except from a NEW bridge instance or after a long silence;
+   *  * NEWER ts → accepted even with an older seq: a restart resets
+   *    seq to 1 while its clock keeps moving, so a fresh-ts +
+   *    reset-seq state is a restart, not a replay (the old rule
+   *    rejected on olderSeq alone and stalled every restart);
+   *  * a NEW bridge instance (instance id changed) re-baselines
+   *    immediately, provided its ts is not older than the last
+   *    accepted ts; null-ts states keep the old seq + longSilence
+   *    rule. Freshness for VERIFIED still needs ≤60s age AND
+   *    isLoggedIn AND apiProven from a real authenticated payload.
    */
   observeBridgeState(raw, receivedAt = Date.now()) {
     const st = normaliseBridgeState(raw);
@@ -347,12 +369,20 @@ export class LoginVerifier {
     if (this.bridgeState) {
       const olderTs = st.ts !== null && this.bridgeState.ts !== null && st.ts < this.bridgeState.ts;
       const olderSeq = st.seq !== null && this.bridgeState.seq !== null && st.seq < this.bridgeState.seq;
+      const sameTsOlderSeq = st.ts !== null && this.bridgeState.ts !== null && st.ts === this.bridgeState.ts && olderSeq;
+      // A new bridge instance re-baselines immediately — but only
+      // with a non-older ts, so a replayed old state (old ts, forged
+      // or stale instance) still loses to the ts rule below.
+      const newInstance = st.instance !== null && this.bridgeInstance !== null && st.instance !== this.bridgeInstance;
       const longSilence = t - this.bridgeStateAt > 120000;
-      if ((olderTs || olderSeq) && !longSilence) return this.status(t);
+      if (olderTs && !longSilence) return this.status(t);
+      if (sameTsOlderSeq && !newInstance && !longSilence) return this.status(t);
+      if (st.ts === null && olderSeq && !newInstance && !longSilence) return this.status(t);
     }
     this.everObserved = true;
     this.bridgeState = st;
     this.bridgeStateAt = t;
+    if (st.instance !== null) this.bridgeInstance = st.instance;
     this.lastSyncAt = t;
     // A pending state never records a negative (Fix 5a): its false
     // only means "nothing confirmed yet", not "logged out". A
@@ -2225,6 +2255,66 @@ function initBridge() {
   }
   setInterval(pollRtdbUserState, 5000);
   setTimeout(pollRtdbUserState, 2500);
+
+  // ── Task O (connection resilience): ALWAYS reconnect + auto-connect ──
+  // Backgrounding throttles/suspends every timer above (2s snapshot
+  // poll, 5s RTDB poll, the bridge's own 15s heartbeat + 20s wallet
+  // poll), and a bridge restart resets seq — so after a background
+  // gap the app used to sit UNKNOWN for minutes waiting for the next
+  // tick. The resume path below closes the gap immediately instead
+  // of waiting for any tick. VERIFIED is never weakened by this: a
+  // fresh state still needs isLoggedIn + apiProven from a real
+  // authenticated payload, and a dead session still surfaces as
+  // "login needed", never VERIFIED.
+  let bridgeSyncChannel = null;
+  function postBridgeSyncRequest() {
+    const payload = { type: 'DHANIWIN_REQUEST_SYNC', timestamp: Date.now() };
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        if (!bridgeSyncChannel) bridgeSyncChannel = new BroadcastChannel('dhaniwin_quant_channel');
+        bridgeSyncChannel.postMessage(payload);
+      }
+    } catch (e) { /* channel unavailable: iframe post still tries */ }
+    try {
+      const iframe = document.getElementById('dhaniwinIframe');
+      if (iframe && iframe.contentWindow) iframe.contentWindow.postMessage(payload, '*');
+    } catch (e) { /* no iframe: channel already tried */ }
+  }
+  let lastReverifyAt = 0;
+  function requestBridgeReverify() {
+    // Throttle: launch already calls this once, and pageshow fires
+    // on initial load too — a second call within 1s would only
+    // duplicate the probe. A real resume (>1s after the last run)
+    // always runs.
+    const now = Date.now();
+    if (now - lastReverifyAt < 1000) return;
+    lastReverifyAt = now;
+    try { pollBridgeState(); } catch (e) { /* polling must never break the app */ }
+    try { pollRtdbUserState(); } catch (e) { /* offline / rules: channel still feeds */ }
+    try {
+      // Gap recovery: re-render NOW so a state older than 60s decays
+      // to UNKNOWN/pending at once — a held figure (if any) renders
+      // flagged stale, never as a fresh verified balance — until a
+      // fresh probe lands and re-verifies it.
+      const login = verifier.status(Date.now());
+      state.login = login;
+      renderLogin(login);
+    } catch (e) { /* render must never break the app */ }
+    postBridgeSyncRequest();
+  }
+  // Exposed for mobile.js / console / tests: no tap required.
+  try { window.__o101BridgeReverify = requestBridgeReverify; } catch (e) {}
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') requestBridgeReverify();
+  });
+  // pageshow covers bfcache restores (persisted) and WebView resumes
+  // that do not fire visibilitychange; the 1s throttle above absorbs
+  // the initial-load pageshow, which the launch call already covers.
+  window.addEventListener('pageshow', () => { requestBridgeReverify(); });
+  window.addEventListener('online', () => { requestBridgeReverify(); });
+  // Launch auto-connect: do not wait for the first poll ticks or for
+  // the bridge's own init publish — ask for a probe immediately.
+  requestBridgeReverify();
 
   // Which transport the embedded DhaniWin load used (mobile.js
   // records it on every load; localStorage carries it to the

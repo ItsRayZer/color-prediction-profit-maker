@@ -5911,6 +5911,41 @@ function initMobileDhaniWinBridge() {
 
 
 
+// Task O (connection resilience): the auto-bet-shake animation is
+// added on DHANIWIN_BET_PREPARED and removed on confirmation /
+// failure / cancellation / settlement — all bridge-message or cycle
+// driven. When the app is backgrounded those drivers stall, so a
+// shake staged before the gap can stick forever if its clearing
+// message was missed while suspended. On every return to
+// foreground, reconcile: if no bet is currently staged for the LIVE
+// period, the shake is stale and comes off. This never clears a
+// live staged bet (same period still live), and it never invents
+// settlement — it only removes a visual class whose round is over.
+function reconcileAutoShakeState() {
+  try {
+    const prepBtn = $('mobileBridgeToggleBtn');
+    const targetDisplay = $('mobileWebTargetDisplay');
+    if (!prepBtn && !targetDisplay) return;
+    const dispatched = (typeof MobileBridgeState !== 'undefined' && MobileBridgeState.lastPeriodDispatched != null)
+      ? String(MobileBridgeState.lastPeriodDispatched) : '';
+    const live = (typeof MobileState !== 'undefined' && MobileState.activePrediction && MobileState.activePrediction.period != null)
+      ? String(MobileState.activePrediction.period) : '';
+    const stagedLive = dispatched !== '' && live !== '' && dispatched === live;
+    if (!stagedLive) {
+      if (prepBtn) prepBtn.classList.remove('auto-bet-shake');
+      if (targetDisplay) targetDisplay.classList.remove('auto-bet-shake');
+    }
+  } catch (e) { /* reconcile must never break the app */ }
+}
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') reconcileAutoShakeState();
+  });
+}
+if (typeof window !== 'undefined' && window.addEventListener) {
+  window.addEventListener('pageshow', () => { reconcileAutoShakeState(); });
+}
+
 let _syncLogoutCount = 0;
 
 function handleMobileBridgeMessage(msg) {
@@ -5942,6 +5977,10 @@ function handleMobileBridgeMessage(msg) {
     setMobileBridgeStatus(true);
     if (msg.type === 'DHANIWIN_BRIDGE_HANDSHAKE') {
       postMobileBridge({ type: 'UPDATE_BET_SETTINGS', stake: MobileBridgeState.currentStake, maxStake: MobileBridgeState.maxStakeCap, timeframe: MobileState.timeframe });
+      // Task O (connection resilience): a bridge (re)appearance is an
+      // auto-connect moment — ask for a fresh wallet/API probe at
+      // once instead of waiting for the bridge's 15s heartbeat.
+      postMobileBridge({ type: 'DHANIWIN_REQUEST_SYNC', timestamp: Date.now() });
     }
   } else if (msg.type === 'DHANIWIN_TIMEFRAME_CHANGE' && msg.timeframe) {
     if (MobileState.timeframe !== msg.timeframe && ['30s', '1m', '3m', '5m'].includes(msg.timeframe)) {
