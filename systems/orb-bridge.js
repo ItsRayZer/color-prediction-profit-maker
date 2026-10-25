@@ -258,7 +258,7 @@ export function nextRoundPicks(models, history, genFn) {
 // section 12): the bridge runs INSIDE the DhaniWin page, proves login
 // from the page's own authenticated wallet/user API traffic (and its
 // session-powered active re-query of the learned wallet endpoint),
-// and publishes { isLoggedIn, balance, balanceSource, apiProven,
+// and publishes { isLoggedIn, pending, balance, balanceSource, apiProven,
 // fetchMode, userId, ts, seq } on the BroadcastChannel, via window
 // postMessage AND to Firebase RTDB /user_state.
 // VERIFIED now requires: a bridge state received ≤60s ago with
@@ -291,6 +291,11 @@ export function normaliseBridgeState(raw) {
   const balance = raw.balance !== null && raw.balance !== undefined && Number.isFinite(Number(raw.balance)) ? Number(raw.balance) : null;
   return {
     isLoggedIn: typeof raw.isLoggedIn === 'boolean' ? raw.isLoggedIn : null,
+    // Pending (Fix 5a): the bridge reports its state as unproven.
+    // A pending state is NEVER a negative, even when isLoggedIn
+    // reads false (no previous confirmation exists yet) — the
+    // verifier must treat it as indeterminate, like null.
+    pending: raw.pending === true,
     balance,
     balanceSource: raw.balanceSource === 'api' || raw.balanceSource === 'dom' ? raw.balanceSource : null,
     apiProven: raw.apiProven === true,
@@ -343,7 +348,10 @@ export class LoginVerifier {
     this.bridgeState = st;
     this.bridgeStateAt = t;
     this.lastSyncAt = t;
-    if (st.isLoggedIn === false) {
+    // A pending state never records a negative (Fix 5a): its false
+    // only means "nothing confirmed yet", not "logged out". A
+    // non-pending false is still an explicit negative.
+    if (st.isLoggedIn === false && !st.pending) {
       this.negativeAt = t;
     } else if (st.isLoggedIn === true) {
       this.lastPositiveAt = t;
@@ -431,6 +439,7 @@ export class LoginVerifier {
       if (!stateFresh) kinds.push(`bridge state stale (${Math.round(stateAgeMs / 1000)}s old)`);
       else if (bs.isLoggedIn === true && !bs.apiProven) kinds.push('bridge reports login · waiting for API wallet proof');
       else if (bs.isLoggedIn === null) kinds.push('bridge connected · login not yet determined');
+      else if (bs.pending) kinds.push('bridge reports login pending · not yet proven');
       if (bs.fetchMode === 'pending') kinds.push('wallet endpoint not learned yet (active fetch pending)');
     }
     if (this.lastBridgeLoginAt !== null && t - this.lastBridgeLoginAt <= this.staleMs) kinds.push('legacy sync claims login (not API-proven)');
@@ -461,11 +470,14 @@ export function signalFromBridgeMessage(msg) {
       // Presence only: the bridge reports tokenPresent (boolean).
       // A raw token is never read here — the old msg.token field is
       // ignored even if an older bridge build still sends it.
+      // Pending (Fix 5a): an unproven sync is indeterminate, not a
+      // negative — map it to null, and do not let a transient
+      // auth-page URL during the pending window count as one.
       return {
-        isLoggedIn: typeof msg.isLoggedIn === 'boolean' ? msg.isLoggedIn : null,
+        isLoggedIn: msg.pending === true ? null : (typeof msg.isLoggedIn === 'boolean' ? msg.isLoggedIn : null),
         balance,
         hasToken: msg.tokenPresent === true,
-        isAuthPage
+        isAuthPage: msg.pending === true ? false : isAuthPage
       };
     case 'DHANIWIN_REAL_BALANCE':
       return balance !== null ? { balance } : null;

@@ -125,15 +125,28 @@
       pollAuthFailed: false,   // active re-query got 401/403/auth-error
       pollEmptyCount: 0,       // consecutive active re-queries with no balance in payload
       explicitLogoutAt: null,
+      graceActive: false,      // bridge post-login grace is active (set by the scrape each tick): while true, a transient auth-page view must not downgrade the state (Fix 5e)
+      createdAt: Date.now(),   // bridge-eval time: origin for the fresh-document pending window
+      everConfirmed: false,  // token + API proof have both held (the hold requires this, not bare apiProven: a payload alone, with no token ever seen, is not a confirmed login)
 
-      noteToken(present, now) { t.tokenPresent = !!present; },
+      noteToken(present, now) {
+        t.tokenPresent = !!present;
+        if (present && t.apiProven) t.everConfirmed = true;
+      },
       noteAuthPage(isAuth) { t.onAuthPage = !!isAuth; },
+      // Called by the scrape each tick with the effective post-login
+      // grace state (bridge grace + stored grace). While grace is
+      // active, auth-page evidence is transient (a redirect flash,
+      // an SPA /login flicker) and must not break a hold or force
+      // isLoggedIn false (Fix 5e).
+      noteGrace(active) { t.graceActive = !!active; },
       noteLogout(now) {
         t.explicitLogoutAt = now;
         t.apiProven = false;
         t.apiBalance = null;
         t.apiBalanceAt = null;
         t.pollAuthFailed = false;
+        t.everConfirmed = false;
       },
       noteApiPayload(payload, now) {
         // An authenticated wallet/user payload succeeded: this IS the
@@ -142,6 +155,7 @@
         t.lastProofAt = now;
         t.pollAuthFailed = false;
         t.pollEmptyCount = 0;
+        if (t.tokenPresent) t.everConfirmed = true;
         if (payload && payload.balance !== null && payload.balance !== undefined && Number.isFinite(Number(payload.balance))) {
           t.apiBalance = Number(payload.balance);
           t.apiBalanceAt = now;
@@ -169,6 +183,11 @@
           t.noteApiPayload({ balance: result.balance, userId: result.userId }, now);
         } else if (result.verdict === 'auth') {
           // The session itself rejected the re-query: logged out.
+          // NOTE: the active poll no longer uses this branch (Fix 8:
+          // it calls notePollAuthFailure instead, which must never
+          // set explicitLogoutAt). This branch is kept for a future
+          // intercepted-auth verdict, where an observed 401 on real
+          // page traffic is stronger evidence than a replay failure.
           t.pollAuthFailed = true;
           t.apiProven = false;
           t.explicitLogoutAt = now;
@@ -176,13 +195,46 @@
           t.pollEmptyCount += 1;
         }
       },
+      // A failed ACTIVE re-query is diagnostic ONLY (Fix 8, Grok
+      // refinement): it switches the poll channel to intercept-only
+      // (fetchMode) but must NEVER set explicitLogoutAt and must
+      // NEVER downgrade the login state — a replay can fail on a
+      // live session (stale endpoint, transient rejection), and
+      // only authoritative signals (explicit logout, auth page,
+      // intercepted proof) flip isLoggedIn. Only an explicit
+      // logout action/endpoint (noteLogout) sets explicitLogoutAt.
+      notePollAuthFailure(now) {
+        t.pollAuthFailed = true;
+      },
+      // Keep-previous-state (Fix 5, refined — no fixed count): a
+      // confirmed (token + API proof) state never flips on an
+      // uncertain scrape, at ANY document age. No N-count: the boot
+      // false repeats 2-3 ticks before the first wallet payload
+      // (which would beat a small N). Only authoritative signals
+      // break the hold: an auth page OUTSIDE grace, or an effective
+      // explicit logout. An auth page DURING grace is transient and
+      // does not break the hold (Fix 5e). A failed replay is
+      // diagnostic only (Fix 8) and never breaks the hold. Genuine
+      // session death still flips via the authoritative channels
+      // (explicit logout, or DhaniWin itself routing to /login and
+      // clearing its token).
+      hysteresisHolds(isAuthPageNow) {
+        if (isAuthPageNow && !t.graceActive) return false;
+        if (t.explicitLogoutAt !== null && (t.lastProofAt === null || t.explicitLogoutAt > t.lastProofAt)) return false;
+        return t.everConfirmed;
+      },
       fetchMode() {
         if (!t.endpoint) return t.apiProven ? 'intercept' : 'pending';
         if (t.pollAuthFailed || t.pollEmptyCount >= 3) return 'intercept';
         return 'active';
       },
       isLoggedIn() {
-        if (t.onAuthPage || !t.tokenPresent || !t.apiProven) return false;
+        // A held confirmed state still counts as logged in.
+        if (t.hysteresisHolds(t.onAuthPage)) return true;
+        // An auth page forces false ONLY outside grace (Fix 5e): a
+        // transient /login flash during post-login grace must not
+        // downgrade a state the tracker otherwise holds.
+        if ((t.onAuthPage && !t.graceActive) || !t.tokenPresent || !t.apiProven) return false;
         if (t.explicitLogoutAt !== null && (t.lastProofAt === null || t.explicitLogoutAt > t.lastProofAt)) return false;
         return true;
       },
@@ -193,8 +245,31 @@
         if (apiFresh) { balance = t.apiBalance; balanceSource = 'api'; }
         else if (t.domBalance !== null) { balance = t.domBalance; balanceSource = 'dom'; }
         else if (t.apiBalance !== null) { balance = t.apiBalance; balanceSource = 'api'; }
+        // Fresh-document pending (Fix 5a, refined): a token is
+        // present but no wallet payload has proven it yet and the
+        // document is young — the state is UNKNOWN, flagged with
+        // pending:true. isLoggedIn is NEVER published as null: it
+        // carries the previous confirmed value (the hold/seed, or
+        // false when nothing was ever confirmed), and every
+        // consumer must check pending FIRST and treat a pending
+        // state as "no change", never as logged-out. Authoritative
+        // failures never pend: a non-superseded explicit logout
+        // (ties go negative, as in the verifier) or a poll 401/403
+        // still reads false with pending:false.
+        // Auth-page detection alone never clears the proven flag
+        // (Grok grace rule): noteAuthPage only flips the computed
+        // value, and during post-login grace the scrape returns
+        // before noting anything at all.
+        const logoutSuperseded = t.explicitLogoutAt === null || (t.lastProofAt !== null && t.explicitLogoutAt < t.lastProofAt);
+        const isLoggedIn = t.isLoggedIn();
+        // The age window is [0, 8000): a synthetic clock behind
+        // createdAt (unit tests with fixed timestamps) must not read
+        // as "young" — only a genuinely young document pends.
+        const docAge = now - t.createdAt;
+        const pending = !!(t.tokenPresent && !t.apiProven && logoutSuperseded && !t.pollAuthFailed && docAge >= 0 && docAge < 8000);
         return {
-          isLoggedIn: t.isLoggedIn(),
+          isLoggedIn,
+          pending,
           balance,
           balanceSource,
           apiProven: t.apiProven,
@@ -265,6 +340,35 @@
     if (savedEp) _userState.noteEndpoint(JSON.parse(savedEp));
   } catch (e) {}
 
+  // Cross-document state seed (Fix 5b): a bare pending flag on a
+  // young document is not enough, because every new document
+  // starts with no memory — "keep previous" needs a previous to
+  // keep. On each publish the bridge persists {isLoggedIn,
+  // apiProven, ts} to sessionStorage (same tab, same origin, so
+  // the app page and the frame share it); a new document seeds
+  // its tracker from that entry when a token is present, the
+  // document is not an auth page, and ts is under ~120s old.
+  // Balance is deliberately NOT seeded: a stale figure must never
+  // present as an exact balance — only the login flags carry over,
+  // and the next real payload re-proves the figure.
+  const USER_STATE_SEED_KEY = 'o101_user_state_seed_v1';
+  try {
+    const rawSeed = sessionStorage.getItem(USER_STATE_SEED_KEY);
+    if (rawSeed) {
+      const seed = JSON.parse(rawSeed);
+      const hrefLower = (window.location.href || '').toLowerCase();
+      const onAuthPage = hrefLower.includes('/login') || hrefLower.includes('/register');
+      const tokenNow = readSessionToken();
+      const seedAge = seed && typeof seed.ts === 'number' ? Date.now() - seed.ts : -1;
+      if (!onAuthPage && tokenNow && seedAge >= 0 && seedAge < 120000 && seed.apiProven) {
+        _userState.apiProven = true;
+        _userState.lastProofAt = seed.ts;
+        _userState.tokenPresent = true;
+        if (seed.isLoggedIn) _userState.everConfirmed = true;
+      }
+    }
+  } catch (e) {}
+
   function persistLearnedEndpoint() {
     try {
       if (_userState.endpoint) localStorage.setItem(LEARNED_ENDPOINT_KEY, JSON.stringify(_userState.endpoint));
@@ -279,6 +383,24 @@
   }
 
   // ── 0. Real Balance Engine (Network XHR/Fetch Interception + DOM Scanner) ────
+  // Wallet-specific balance keys (Fix 9): a payload counts as wallet
+  // proof only if it carries one of these. Generic keys (amount,
+  // coin, money) and bare identifiers (id, userid) do NOT count — an
+  // unrelated amount:0 payload must never verify a login. Note the
+  // balance extractor below is deliberately looser (it accepts
+  // amount/coin for display); this stricter set gates only the
+  // apiProven login proof, not balance display or endpoint learning.
+  const WALLET_BALANCE_KEYS = ['balance', 'userbalance', 'user_balance', 'availablebalance', 'available_balance', 'wallet', 'userwallet', 'user_wallet', 'walletbalance', 'wallet_balance', 'totalbalance', 'total_balance'];
+  function hasWalletSpecificKey(data, depth = 0) {
+    if (!data || typeof data !== 'object' || depth > 4) return false;
+    for (const k of Object.keys(data)) {
+      const lk = k.toLowerCase().replace(/[^a-z0-9_]/g, '');
+      if (WALLET_BALANCE_KEYS.includes(lk)) return true;
+      if (hasWalletSpecificKey(data[k], depth + 1)) return true;
+    }
+    return false;
+  }
+
   function extractBalanceFromJson(data, depth = 0) {
     if (!data || typeof data !== 'object' || depth > 5) return null;
     
@@ -342,6 +464,26 @@
     const bal = extractBalanceFromJson(data);
     const userId = extractUserIdFromJson(data);
     if (bal === null && !userId) return;
+    // State-side proof gate (Fix 9): a payload verifies the login
+    // only on a successful HTTP response carrying a wallet-specific
+    // key. An id-only or generic amount/coin payload (e.g. an
+    // unrelated amount:0) is not login proof and must not set
+    // apiProven — otherwise the app shows "verified Rs.0" for a
+    // session that never proved. Error-body gate (Fix 9
+    // strengthening): some APIs answer HTTP 200 with an error code
+    // in the body — a "token expired / please login" body must
+    // never verify even when it carries a balance-shaped key. This
+    // is the same test the active poll uses (code 401/403, or
+    // success:false with an auth-flavoured message); a bare
+    // success:false with a non-auth message does NOT block, since
+    // an authenticated response to a failed operation still proves
+    // the session is alive. The polling-learning rule below is
+    // unchanged: it already requires httpOk plus a balance value,
+    // so state tracking and endpoint learning stay distinct.
+    if (!httpOk || !hasWalletSpecificKey(data)) return;
+    const errCode = (data.code !== undefined ? data.code : data.status);
+    const errMsg = String(data.msg || data.message || '');
+    if (errCode === 401 || errCode === 403 || (data.success === false && /token|unauthor|login|session/i.test(errMsg))) return;
     _userState.noteApiPayload({ balance: bal, userId }, Date.now());
     if (bal !== null) onRealBalanceDetected(bal, via);
     if (httpOk && bal !== null && reqDesc && reqDesc.url && !String(reqDesc.url).includes('firebasedatabase.app')) {
@@ -435,6 +577,18 @@
     return null;
   }
 
+  // Logout-URL test (Fix 5f): match whole PATH SEGMENTS only —
+  // logout, signout, loginout, or loginoff (DhaniWin's real
+  // /Home/LoginOff endpoint). The old bare-substring match fired
+  // on any URL containing 'exit' (e.g. an exit-survey link) and
+  // would nuke a live session's logout reporting; a query value
+  // mentioning logout must not match either, so only the path
+  // part (before ?/#) is segmented.
+  function isLogoutRequestUrl(urlLower) {
+    const path = String(urlLower || '').split('?')[0].split('#')[0];
+    return path.split('/').some(seg => seg === 'logout' || seg === 'signout' || seg === 'loginout' || seg === 'loginoff');
+  }
+
   // Intercept fetch & XHR to catch login/register, logout, AND wallet balance responses instantly
   (function hookNetworkAuth() {
     try {
@@ -453,22 +607,24 @@
           } catch(e) {}
           try {
             const url = (typeof args[0] === 'string' ? args[0] : args[0]?.url || '').toLowerCase();
-            // Intercept logout calls immediately
-            if (url.includes('logout') || url.includes('signout') || url.includes('exit')) {
+            // Intercept logout calls immediately (path-segment match, Fix 5f)
+            if (isLogoutRequestUrl(url)) {
               console.log('[Quant AI Bridge] 🚪 Logout API call intercepted:', url);
               _wasLoggedInBefore = false;
+              try { sessionStorage.removeItem('o101_bridge_was_logged_in'); } catch (e) {}
               _justLoggedInGrace = 0;
               _userState.noteLogout(Date.now());
               // NOTE: never delete 'ar_token' here. It is DhaniWin's
               // own live session key on the shared origin; DhaniWin's
               // logout call invalidates the session server-side and
               // owns its token storage. Deleting it would destroy a
-              // live session on any mis-matched URL (e.g. 'exit').
+              // live session on any mis-matched URL.
               try { sessionStorage.removeItem('dhaniwin_auth_grace_until'); } catch(e) {}
               notifyApp({
                 type: 'DHANIWIN_USER_LOGGED_OUT',
                 url: window.location.href,
                 reason: 'Logout API call',
+                explicit: true,
                 timestamp: Date.now()
               });
               publishUserState('logout-api');
@@ -491,6 +647,8 @@
                   _justLoggedInGrace = Date.now() + 15000;
                   try { sessionStorage.setItem('dhaniwin_auth_grace_until', String(_justLoggedInGrace)); } catch(e) {}
                   _wasLoggedInBefore = true;
+                  try { sessionStorage.setItem('o101_bridge_was_logged_in', '1'); } catch (e) {}
+                  _sessionOutNotified = false;
                   notifyApp({ type: 'DHANIWIN_AUTH_SUCCESS', data });
                   setTimeout(goHomeAfterLogin, 600);
                   // A wallet endpoint may already be learned: prove the
@@ -563,6 +721,7 @@
         if (isLogout) {
           console.log('[Quant AI Bridge] 🚪 User clicked logout button in DhaniWin UI');
           _wasLoggedInBefore = false;
+          try { sessionStorage.removeItem('o101_bridge_was_logged_in'); } catch (e) {}
           _justLoggedInGrace = 0;
           _userState.noteLogout(Date.now());
           // NOTE: never delete 'ar_token' here — it is DhaniWin's own
@@ -573,6 +732,7 @@
             type: 'DHANIWIN_USER_LOGGED_OUT',
             url: window.location.href,
             reason: 'User clicked logout button',
+            explicit: true,
             timestamp: Date.now()
           });
           publishUserState('logout-click');
@@ -741,12 +901,19 @@
     '5m':  '/WinGo/WinGo_5M'
   };
 
-  // ── 4. Post-login routing (NO forced redirects — user may browse any DhaniWin page) ──
+  // ── 4. Post-login routing (prefix-preserving — user may browse any DhaniWin page) ──
   // After a fresh login/register success, land on the DhaniWin home page once.
+  // Under the proxy the home is /proxy/dhaniwin/, never the worker root:
+  // a root landing drops the prefix-scoped session cookies, so DhaniWin
+  // bounces back to login. Direct (bookmarklet) loads have no prefix
+  // and keep the old root home. The guard (href must contain /login
+  // or /register) means this fires at most once per login.
   function goHomeAfterLogin() {
     const href = window.location.href.toLowerCase();
     if (href.includes('/login') || href.includes('/register')) {
-      window.location.href = window.location.origin + '/';
+      const pathname = window.location.pathname || '/';
+      const prefix = (pathname === '/proxy/dhaniwin' || pathname.startsWith('/proxy/dhaniwin/')) ? '/proxy/dhaniwin' : '';
+      window.location.href = window.location.origin + prefix + '/';
     }
   }
 
@@ -785,11 +952,21 @@
   }
 
   // ── 5. Scrape User Session & Wallet Balance ──────────────────────────────────
+  // LOGIN_DETECTED is edge-triggered per SESSION, not per document
+  // (Fix 5c): the flag persists in sessionStorage, so a fresh
+  // document does not re-send LOGIN_DETECTED, re-arm the app grace,
+  // or re-run the replay — which used to keep the grace
+  // permanently on and defeat real logout detection. Every path
+  // that clears the flag also clears the stored key, so a genuine
+  // re-login after a logout still fires exactly once.
   let _wasLoggedInBefore = false;
+  try { _wasLoggedInBefore = sessionStorage.getItem('o101_bridge_was_logged_in') === '1'; } catch (e) {}
+  // LOGGED_OUT fires once per transition (Fix 5g): while the page
+  // sits on /login after grace, the 1.5s tick must not re-emit it.
+  let _sessionOutNotified = false;
   function scrapeUserSession() {
     const href = window.location.href.toLowerCase();
     const isAuthPage = href.includes('/login') || href.includes('/register');
-    const isWinGoPage = href.includes('/wingo/');
 
     // Check for explicit "Login" / "Register" prompts in header or navigation
     const hasAuthPrompts = Array.from(document.querySelectorAll('button, a, span, div')).some(el => {
@@ -820,11 +997,44 @@
     // A user is only logged in if:
     // 1. Not on an auth page (/login, /register)
     // 2. AND no visible login prompt is displayed
-    // 3. AND (balance is confirmed, or token exists on WinGo page)
-    const isLoggedIn = !isAuthPage && !hasAuthPrompts && (balance !== null || (token !== null && isWinGoPage));
+    // 3. AND (balance is confirmed, or token exists)
+    // (Fix 5: the old WinGo-page requirement falsely reported
+    // session-out on non-WinGo pages with balance still pending.)
+    const rawLoggedIn = !isAuthPage && !hasAuthPrompts && (balance !== null || token !== null);
+    // Effective post-login grace for this tick (bridge grace +
+    // stored grace, whichever runs longer). The tracker is told
+    // before any state is computed, so an auth-page flash during
+    // grace neither breaks the hold nor forces false (Fix 5e).
+    let storedGrace = 0;
+    try { storedGrace = Number(sessionStorage.getItem('dhaniwin_auth_grace_until')) || 0; } catch (e) {}
+    const effectiveGrace = Math.max(_justLoggedInGrace, storedGrace);
+    _userState.noteGrace(Date.now() < effectiveGrace);
+    // Keep-previous-state (Fix 5, refined): a merely-uncertain scrape
+    // must never flip a confirmed state to logged-out, at ANY
+    // document age — no fixed count of failed validations. The
+    // effective value holds the previous confirmed state through
+    // transient failures; only an authoritative signal flips it
+    // (auth page after grace, API 401/403, explicit logout).
+    // During grace the function returns early below, so no
+    // downgrade notification can be observed inside grace (Grok
+    // grace rule: only an explicit logout may clear proven state
+    // during grace; auth-page detection alone never clears the
+    // apiProven flag).
+    let isLoggedIn = rawLoggedIn || _userState.hysteresisHolds(isAuthPage);
+    // An explicit logout that no later proof superseded keeps the
+    // scrape logged-out even if DhaniWin's token lingers for a
+    // tick before it clears it — otherwise the next tick
+    // re-detects login from the stale token and the app flaps
+    // back to logged-in right after a real logout. A later proof
+    // (wallet payload after a re-login) supersedes automatically.
+    if (_userState.explicitLogoutAt !== null && (_userState.lastProofAt === null || _userState.explicitLogoutAt > _userState.lastProofAt)) {
+      isLoggedIn = false;
+    }
 
     if (isLoggedIn && !_wasLoggedInBefore) {
       _wasLoggedInBefore = true;
+      try { sessionStorage.setItem('o101_bridge_was_logged_in', '1'); } catch (e) {}
+      _sessionOutNotified = false;
       _justLoggedInGrace = Date.now() + 15000;
       try { sessionStorage.setItem('dhaniwin_auth_grace_until', String(_justLoggedInGrace)); } catch(e) {}
       notifyApp({
@@ -838,23 +1048,28 @@
       setTimeout(() => { activeWalletPoll(); }, 400);
     } else if (!isLoggedIn && (_wasLoggedInBefore || isAuthPage)) {
       // Do not fire session-out during post-login grace transition
-      let storedGrace = 0;
-      try { storedGrace = Number(sessionStorage.getItem('dhaniwin_auth_grace_until')) || 0; } catch(e) {}
-      const effectiveGrace = Math.max(_justLoggedInGrace, storedGrace);
       if (Date.now() < effectiveGrace) {
         return;
       }
       _wasLoggedInBefore = false;
+      try { sessionStorage.removeItem('o101_bridge_was_logged_in'); } catch (e) {}
       // NOTE: report the session-out only — never delete 'ar_token'.
       // A scrape misread (slow load, transient auth prompt) must not
       // destroy a live session; the next tick re-detects login if
-      // the session is actually alive.
-      notifyApp({
-        type: 'DHANIWIN_USER_LOGGED_OUT',
-        url: window.location.href,
-        reason: isAuthPage ? 'On login page' : 'Logged out on DhaniWin',
-        timestamp: Date.now()
-      });
+      // the session is actually alive. Heuristic logout: explicit
+      // is false, so the app never zeroes its grace on this (Fix
+      // 5d) — only a real logout action/endpoint may do that.
+      // Emitted once per transition (Fix 5g), not every tick.
+      if (!_sessionOutNotified) {
+        _sessionOutNotified = true;
+        notifyApp({
+          type: 'DHANIWIN_USER_LOGGED_OUT',
+          url: window.location.href,
+          reason: isAuthPage ? 'On login page' : 'Logged out on DhaniWin',
+          explicit: false,
+          timestamp: Date.now()
+        });
+      }
     }
 
     // Feed the truth tracker (legacy USER_SYNC below keeps its exact
@@ -862,13 +1077,16 @@
     // is the strict, API-proven layer).
     _userState.noteToken(!isAuthPage && !!token, Date.now());
     _userState.noteAuthPage(isAuthPage);
-    publishUserState('tick');
+    const tickState = publishUserState('tick');
 
     notifyApp({
       type: 'DHANIWIN_USER_SYNC',
       tokenPresent: isLoggedIn ? !!token : false,
       balance: balance,
       isLoggedIn: isLoggedIn,
+      // Pending (Fix 5a): while the state is unproven, the app
+      // must treat this sync as "no change", never as logged-out.
+      pending: !!(tickState && tickState.pending),
       url: window.location.href,
       timestamp: Date.now()
     });
@@ -1289,7 +1507,11 @@
       const targetPath = INTERVAL_URL_MAP[msg.timeframe] || '/WinGo/WinGo_30S';
       if (!window.location.href.toLowerCase().includes(targetPath.toLowerCase())) {
         console.log('[Quant AI Bridge] Switching interval page to:', targetPath);
-        window.location.href = window.location.origin + targetPath;
+        // Prefix-preserving, exactly like goHomeAfterLogin: under the
+        // proxy the timeframe page lives under /proxy/dhaniwin/.
+        const pathname = window.location.pathname || '/';
+        const prefix = (pathname === '/proxy/dhaniwin' || pathname.startsWith('/proxy/dhaniwin/')) ? '/proxy/dhaniwin' : '';
+        window.location.href = window.location.origin + prefix + targetPath;
       } else {
         switchTimerTab(msg.timeframe);
       }
@@ -1381,6 +1603,10 @@
       const st = _userState.buildState(Date.now());
       const payload = { type: 'DHANIWIN_USER_STATE', ...st, ts: Date.now(), seq: ++_userStateSeq };
       notifyApp(payload);
+      // Cross-document seed (Fix 5b): persist the login flags for
+      // the next document in this tab session. Balance is not
+      // seeded (see the seed block above).
+      try { sessionStorage.setItem(USER_STATE_SEED_KEY, JSON.stringify({ isLoggedIn: st.isLoggedIn, apiProven: st.apiProven, ts: Date.now() })); } catch (e) {}
       const key = JSON.stringify([st.isLoggedIn, st.balance, st.balanceSource, st.apiProven, st.fetchMode, st.userId, st.betSlipOpen]);
       const now = Date.now();
       if (key !== _lastRtdbPutKey || now - _lastRtdbPutAt >= 15000) {
@@ -1388,7 +1614,8 @@
         _lastRtdbPutAt = now;
         rtdbPutUserState(st, payload.ts, payload.seq);
       }
-    } catch (e) {}
+      return st;
+    } catch (e) { return null; }
   }
 
   function rtdbPutUserState(st, ts, seq) {
@@ -1407,6 +1634,16 @@
     const desc = _userState.endpoint;
     if (!desc || !_nativeFetch || _activePollInFlight) return;
     if (_userState.pollAuthFailed) return; // intercept-only until a fresh intercepted success re-arms
+    // Fix 8 (Grok refinement): replay only GET endpoints. Header
+    // mode requires a header name (and a live token, checked below);
+    // cookie mode MAY replay with credentials included — the cookie
+    // IS the credential there, so disabling cookie-mode replay
+    // outright would drop the poll for cookie sessions. A POST
+    // replay sends no body and is never valid. In BOTH modes a
+    // failed replay is diagnostic only (notePollAuthFailure): it
+    // never sets explicitLogoutAt and never downgrades the login
+    // state.
+    if (desc.method !== 'GET' || (desc.tokenMode === 'header' && !desc.headerName)) return;
     _activePollInFlight = true;
     try {
       const headers = {};
@@ -1417,7 +1654,8 @@
       }
       const resp = await _nativeFetch(desc.url, { method: desc.method, headers, credentials: 'include' });
       if (resp.status === 401 || resp.status === 403) {
-        _userState.noteActivePoll({ verdict: 'auth' }, Date.now());
+        // Failed replay: intercept-only from here, never a logout.
+        _userState.notePollAuthFailure(Date.now());
         publishUserState('poll-auth-fail');
         return;
       }
@@ -1427,7 +1665,8 @@
         const code = (data.code !== undefined ? data.code : data.status);
         const msg = String(data.msg || data.message || '');
         if (code === 401 || code === 403 || (data.success === false && /token|unauthor|login|session/i.test(msg))) {
-          _userState.noteActivePoll({ verdict: 'auth' }, Date.now());
+          // Failed replay: intercept-only from here, never a logout.
+          _userState.notePollAuthFailure(Date.now());
           publishUserState('poll-auth-fail');
           return;
         }

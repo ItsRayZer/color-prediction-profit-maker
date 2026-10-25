@@ -4788,10 +4788,16 @@ function setMobileTimeframe(tf) {
     }
   });
 
-  // Synchronously route DhaniWin web view to matching interval
+  // Synchronously route DhaniWin web view to matching interval.
+  // The app navigates ONLY when no bridge is present for this load
+  // (Fix 7b): with a live bridge, the bridge itself owns the
+  // timeframe navigation (prefix-aware), and a second app-side
+  // navigation per tap is a competing navigator that can drop the
+  // prefix or double-load the frame. _dhaniBridgeSeenForLoad resets
+  // on every loadMobileWebUrl call and is set by any bridge signal.
   const iframe = $('dhaniwinIframe');
   const targetUrl = DHANIWIN_INTERVAL_URLS[tf] || DHANIWIN_INTERVAL_URLS['30s'];
-  if (iframe && (!iframe.src || !iframe.src.toLowerCase().includes(targetUrl.toLowerCase()))) {
+  if (iframe && !_dhaniBridgeSeenForLoad && (!iframe.src || !iframe.src.toLowerCase().includes(targetUrl.toLowerCase()))) {
     loadMobileWebUrl(targetUrl);
   }
 
@@ -5934,12 +5940,27 @@ function handleMobileBridgeMessage(msg) {
     if (targetDisplay) targetDisplay.classList.remove('auto-bet-shake');
     setMobileBridgeStatus(true, msg.reason || 'Bet Cancelled (Lockout)');
   } else if (msg.type === 'DHANIWIN_USER_LOGGED_OUT' || msg.type === 'DHANIWIN_SESSION_OUT') {
-    // Immediate logout handling - clear grace period; nothing is
-    // locked behind login (fix round #3), state reporting only.
-    _authGracePeriodUntil = 0;
-    try { sessionStorage.removeItem('dhaniwin_auth_grace_until'); } catch(e) {}
-    markUserLoggedOut();
-    handleDhaniSessionExpired(msg.reason || 'Session Expired');
+    // Authoritative logouts (an explicit logout action/endpoint
+    // observed by the bridge, flagged explicit:true) zero the grace
+    // period and expire immediately. A heuristic logout message
+    // (scrape session-out, transient auth-page view, explicit:false)
+    // must NEVER zero the grace period: inside grace it is ignored
+    // outright, and outside grace it expires through the grace guard
+    // inside handleDhaniSessionExpired. Zeroing grace here previously
+    // defeated that guard for every bridge logout message.
+    // Nothing is locked behind login (fix round #3); this is state
+    // reporting only. The reason strings are a legacy fallback for
+    // bridge builds that predate the explicit flag.
+    const authoritativeLogout = msg.explicit === true || msg.reason === 'Logout API call' || msg.reason === 'User clicked logout button';
+    if (authoritativeLogout) {
+      _authGracePeriodUntil = 0;
+      try { sessionStorage.removeItem('dhaniwin_auth_grace_until'); } catch(e) {}
+      markUserLoggedOut();
+      handleDhaniSessionExpired(msg.reason || 'Session Expired');
+    } else if (!isAuthGracePeriodActive()) {
+      markUserLoggedOut();
+      handleDhaniSessionExpired(msg.reason || 'Session Expired');
+    }
   } else if (msg.type === 'DHANIWIN_SCROLL') {
     // Bridge convention:
     // msg.direction='up' = finger swiped up = content scrolled DOWN
@@ -5977,8 +5998,13 @@ function handleMobileBridgeMessage(msg) {
     _syncLogoutCount = 0;
     // Bridge status line only — no login confirmation toast, no
     // unlock modal, no auth bar (fix round #3: login UI fully gone).
+    // NOTE (Fix 0): this branch must NEVER reload the frame. The
+    // bridge re-emits LOGIN_DETECTED on every new document (its
+    // _wasLoggedInBefore starts false), so a reload here re-fires
+    // this branch on every cycle — the 2-second verified /
+    // not-logged-in loop with a blank frame. The bridge already
+    // handles post-login routing (prefix-aware goHomeAfterLogin).
     setMobileBridgeStatus(true, 'Login Verified ✓');
-    loadMobileWebUrl(getDefaultDhaniUrl() === DHANIWIN_HOME_URL ? proxifyDhaniUrl(DHANIWIN_HOME_URL) : getDefaultDhaniUrl());
 
   } else if (msg.type === 'DHANIWIN_USER_SYNC' || msg.type === 'DHANIWIN_REAL_BALANCE') {
     if (msg.balance !== null && msg.balance !== undefined && !isNaN(Number(msg.balance))) {
@@ -5993,7 +6019,14 @@ function handleMobileBridgeMessage(msg) {
 
     const isAuthUrl = msg.url && (msg.url.toLowerCase().includes('/login') || msg.url.toLowerCase().includes('/register'));
 
-    if (msg.isLoggedIn) {
+    // Pending (Fix 5a) comes FIRST: while the bridge reports its
+    // state as unproven, this sync changes nothing — it must never
+    // revoke a login, and an auth-page flash inside the pending
+    // window must not either. The legacy null/undefined branch
+    // below still means "no change" for messages without the field.
+    if (msg.pending) {
+      _syncLogoutCount = 0;
+    } else if (msg.isLoggedIn) {
       _syncLogoutCount = 0;
       markUserLoggedIn();
     } else if (msg.isLoggedIn === false || isAuthUrl) {
