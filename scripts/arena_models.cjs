@@ -1391,6 +1391,330 @@ const ARENA_CANONICAL_MODELS = [
     "arch": "Supreme Meta-Intelligence · 100-Model Neural Conductor · Orthogonal Regime Gating",
     "desc": "Omniscient master meta-engine that monitors and synthesizes all 100 sub-algorithms in real-time, boosting active streak leaders, pruning toxic outliers, and delivering ultra-high accuracy consensus",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.88, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
+  },
+  {
+    "id": "exact-fly-1",
+    "name": "Exact Fly 1",
+    "cat": "fly",
+    "arch": "Digit Pattern Continuation · window 2 · full history",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 0, "conf": 0.1, "predType": "NUMBER", "predTarget": "0", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "pattern", "window": 2, "scope": "full"}}
+  },
+  {
+    "id": "exact-fly-2",
+    "name": "Exact Fly 2",
+    "cat": "fly",
+    "arch": "Digit Pattern Continuation · window 2 · last 100",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 3, "conf": 0.1, "predType": "NUMBER", "predTarget": "3", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "pattern", "window": 2, "scope": "recent100"}}
+  },
+  {
+    "id": "exact-fly-3",
+    "name": "Exact Fly 3",
+    "cat": "fly",
+    "arch": "Digit Pattern Continuation · window 3 · full history",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 6, "conf": 0.1, "predType": "NUMBER", "predTarget": "6", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "pattern", "window": 3, "scope": "full"}}
+  },
+  {
+    "id": "exact-fly-4",
+    "name": "Exact Fly 4",
+    "cat": "fly",
+    "arch": "Digit Pattern Continuation · window 3 · last 100",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 9, "conf": 0.1, "predType": "NUMBER", "predTarget": "9", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "pattern", "window": 3, "scope": "recent100"}}
+  },
+  {
+    "id": "exact-neural-1",
+    "name": "Exact Neural 1",
+    "cat": "neural",
+    "arch": "Digit Pattern Continuation · window 4 · full history",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 1, "conf": 0.1, "predType": "NUMBER", "predTarget": "1", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "pattern", "window": 4, "scope": "full"}}
+  },
+  {
+    "id": "exact-neural-2",
+    "name": "Exact Neural 2",
+    "cat": "neural",
+    "arch": "Digit Pattern Continuation · window 4 · last 100",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 4, "conf": 0.1, "predType": "NUMBER", "predTarget": "4", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "pattern", "window": 4, "scope": "recent100"}}
+  },
+  {
+    "id": "exact-neural-3",
+    "name": "Exact Neural 3",
+    "cat": "neural",
+    "arch": "Digit Pattern Continuation · window 5 · full history",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.1, "predType": "NUMBER", "predTarget": "7", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "pattern", "window": 5, "scope": "full"}}
+  },
+  {
+    "id": "exact-neural-4",
+    "name": "Exact Neural 4",
+    "cat": "neural",
+    "arch": "Digit Pattern Continuation · window 5 · last 100",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 0, "conf": 0.1, "predType": "NUMBER", "predTarget": "0", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "pattern", "window": 5, "scope": "recent100"}}
+  },
+  {
+    "id": "exact-classical-1",
+    "name": "Exact Classical 1",
+    "cat": "classical",
+    "arch": "Digit Pattern Continuation · window 6 · full history",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 2, "conf": 0.1, "predType": "NUMBER", "predTarget": "2", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "pattern", "window": 6, "scope": "full"}}
+  },
+  {
+    "id": "exact-classical-2",
+    "name": "Exact Classical 2",
+    "cat": "classical",
+    "arch": "Digit Pattern Continuation · window 6 · last 100",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 5, "conf": 0.1, "predType": "NUMBER", "predTarget": "5", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "pattern", "window": 6, "scope": "recent100"}}
+  },
+  {
+    "id": "exact-classical-3",
+    "name": "Exact Classical 3",
+    "cat": "classical",
+    "arch": "Digit Pattern Continuation · window 7 · full history",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 8, "conf": 0.1, "predType": "NUMBER", "predTarget": "8", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "pattern", "window": 7, "scope": "full"}}
+  },
+  {
+    "id": "exact-classical-4",
+    "name": "Exact Classical 4",
+    "cat": "classical",
+    "arch": "Digit Pattern Continuation · window 7 · last 100",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 1, "conf": 0.1, "predType": "NUMBER", "predTarget": "1", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "pattern", "window": 7, "scope": "recent100"}}
+  },
+  {
+    "id": "exact-statistical-1",
+    "name": "Exact Statistical 1",
+    "cat": "statistical",
+    "arch": "Digit Frequency · last 20 · full history",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 3, "conf": 0.1, "predType": "NUMBER", "predTarget": "3", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "freq", "window": 20, "scope": "full"}}
+  },
+  {
+    "id": "exact-statistical-2",
+    "name": "Exact Statistical 2",
+    "cat": "statistical",
+    "arch": "Digit Frequency · last 20 · last 100 cap",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 6, "conf": 0.1, "predType": "NUMBER", "predTarget": "6", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "freq", "window": 20, "scope": "recent100"}}
+  },
+  {
+    "id": "exact-statistical-3",
+    "name": "Exact Statistical 3",
+    "cat": "statistical",
+    "arch": "Digit Frequency · last 50 · full history",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 9, "conf": 0.1, "predType": "NUMBER", "predTarget": "9", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "freq", "window": 50, "scope": "full"}}
+  },
+  {
+    "id": "exact-meta-1",
+    "name": "Exact Meta 1",
+    "cat": "meta",
+    "arch": "Digit Frequency · last 50 · last 100 cap",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 4, "conf": 0.1, "predType": "NUMBER", "predTarget": "4", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "freq", "window": 50, "scope": "recent100"}}
+  },
+  {
+    "id": "exact-meta-2",
+    "name": "Exact Meta 2",
+    "cat": "meta",
+    "arch": "Digit Frequency · last 100 · full history",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.1, "predType": "NUMBER", "predTarget": "7", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "freq", "window": 100, "scope": "full"}}
+  },
+  {
+    "id": "exact-meta-3",
+    "name": "Exact Meta 3",
+    "cat": "meta",
+    "arch": "Digit Frequency · last 100 · last 100 cap",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 0, "conf": 0.1, "predType": "NUMBER", "predTarget": "0", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "freq", "window": 100, "scope": "recent100"}}
+  },
+  {
+    "id": "exact-signal-1",
+    "name": "Exact Signal 1",
+    "cat": "signal",
+    "arch": "Digit Frequency · last 200 · full history",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 5, "conf": 0.1, "predType": "NUMBER", "predTarget": "5", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "freq", "window": 200, "scope": "full"}}
+  },
+  {
+    "id": "exact-signal-2",
+    "name": "Exact Signal 2",
+    "cat": "signal",
+    "arch": "Digit Frequency · last 200 · last 100 cap",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 8, "conf": 0.1, "predType": "NUMBER", "predTarget": "8", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "freq", "window": 200, "scope": "recent100"}}
+  },
+  {
+    "id": "exact-signal-3",
+    "name": "Exact Signal 3",
+    "cat": "signal",
+    "arch": "Digit Momentum · window 3 · full history",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 1, "conf": 0.1, "predType": "NUMBER", "predTarget": "1", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "momentum", "window": 3, "scope": "full"}}
+  },
+  {
+    "id": "exact-chaos-1",
+    "name": "Exact Chaos 1",
+    "cat": "chaos",
+    "arch": "Digit Momentum · window 3 · last 100 cap",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 6, "conf": 0.1, "predType": "NUMBER", "predTarget": "6", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "momentum", "window": 3, "scope": "recent100"}}
+  },
+  {
+    "id": "exact-chaos-2",
+    "name": "Exact Chaos 2",
+    "cat": "chaos",
+    "arch": "Digit Momentum · window 5 · full history",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 9, "conf": 0.1, "predType": "NUMBER", "predTarget": "9", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "momentum", "window": 5, "scope": "full"}}
+  },
+  {
+    "id": "exact-chaos-3",
+    "name": "Exact Chaos 3",
+    "cat": "chaos",
+    "arch": "Digit Momentum · window 5 · last 100 cap",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 2, "conf": 0.1, "predType": "NUMBER", "predTarget": "2", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "momentum", "window": 5, "scope": "recent100"}}
+  },
+  {
+    "id": "exact-game_theory-1",
+    "name": "Exact Game Theory 1",
+    "cat": "game_theory",
+    "arch": "Digit Momentum · window 8 · full history",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.1, "predType": "NUMBER", "predTarget": "7", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "momentum", "window": 8, "scope": "full"}}
+  },
+  {
+    "id": "exact-game_theory-2",
+    "name": "Exact Game Theory 2",
+    "cat": "game_theory",
+    "arch": "Digit Momentum · window 8 · last 100 cap",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 0, "conf": 0.1, "predType": "NUMBER", "predTarget": "0", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "momentum", "window": 8, "scope": "recent100"}}
+  },
+  {
+    "id": "exact-game_theory-3",
+    "name": "Exact Game Theory 3",
+    "cat": "game_theory",
+    "arch": "Digit Momentum · window 13 · full history",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 3, "conf": 0.1, "predType": "NUMBER", "predTarget": "3", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "momentum", "window": 13, "scope": "full"}}
+  },
+  {
+    "id": "exact-pattern-1",
+    "name": "Exact Pattern 1",
+    "cat": "pattern",
+    "arch": "Digit Momentum · window 13 · last 100 cap",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 8, "conf": 0.1, "predType": "NUMBER", "predTarget": "8", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "momentum", "window": 13, "scope": "recent100"}}
+  },
+  {
+    "id": "exact-pattern-2",
+    "name": "Exact Pattern 2",
+    "cat": "pattern",
+    "arch": "Digit Anti-Momentum · last 20 · full history",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 1, "conf": 0.1, "predType": "NUMBER", "predTarget": "1", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "anti", "window": 20, "scope": "full"}}
+  },
+  {
+    "id": "exact-pattern-3",
+    "name": "Exact Pattern 3",
+    "cat": "pattern",
+    "arch": "Digit Anti-Momentum · last 20 · last 100 cap",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 4, "conf": 0.1, "predType": "NUMBER", "predTarget": "4", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "anti", "window": 20, "scope": "recent100"}}
+  },
+  {
+    "id": "exact-quantum-1",
+    "name": "Exact Quantum 1",
+    "cat": "quantum",
+    "arch": "Digit Anti-Momentum · last 50 · full history",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 9, "conf": 0.1, "predType": "NUMBER", "predTarget": "9", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "anti", "window": 50, "scope": "full"}}
+  },
+  {
+    "id": "exact-quantum-2",
+    "name": "Exact Quantum 2",
+    "cat": "quantum",
+    "arch": "Digit Anti-Momentum · last 50 · last 100 cap",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 2, "conf": 0.1, "predType": "NUMBER", "predTarget": "2", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "anti", "window": 50, "scope": "recent100"}}
+  },
+  {
+    "id": "exact-quantum-3",
+    "name": "Exact Quantum 3",
+    "cat": "quantum",
+    "arch": "Digit Last-2 Follower · full history",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 5, "conf": 0.1, "predType": "NUMBER", "predTarget": "5", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"digit": {"kind": "pair", "scope": "full"}}
+  },
+  {
+    "id": "quantum-color-extra-1",
+    "name": "Quantum Color Extra 1",
+    "cat": "quantum",
+    "arch": "Digit-Sequence Colour Pattern · window 3 · full history",
+    "desc": "Quantum-family colour gap-filler: brings quantum colour to 3 governed models. Parameterized, like all Phase 3A models.",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.75, "predType": "COLOR", "predTarget": "GREEN", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"color": {"kind": "pattern", "window": 3, "scope": "full"}}
+  },
+  {
+    "id": "quantum-size-extra-1",
+    "name": "Quantum Size Extra 1",
+    "cat": "quantum",
+    "arch": "Digit-Sequence Size Pattern · window 2 · full history",
+    "desc": "Quantum-family size gap-filler (1 of 2): brings quantum size to 3 governed models.",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.75, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"size": {"kind": "pattern", "window": 2, "scope": "full"}}
+  },
+  {
+    "id": "quantum-size-extra-2",
+    "name": "Quantum Size Extra 2",
+    "cat": "quantum",
+    "arch": "Digit-Sequence Size Frequency · last 100 · last-100 cap",
+    "desc": "Quantum-family size gap-filler (2 of 2): brings quantum size to 3 governed models.",
+    "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 2, "conf": 0.75, "predType": "SIZE", "predTarget": "SMALL", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
+    "gen": {"size": {"kind": "freq", "window": 100, "scope": "recent100"}}
   }
 ];
 
@@ -3295,6 +3619,96 @@ function generateModelNextPrediction(model, history, modelStats) {
   }
 
   // ── E. SINGLE PREDICTION DECISION: RESPECT NATIVE SPECIALIZATION & PICK HIGHEST EDGE ──
+
+  // ── Phase 3A: parameterized models (gen field) ─────────────────────
+  // New Phase 3A models (exact-ball + quantum gap-fillers) carry a
+  // `gen` strategy object instead of a hard-coded switch case (which
+  // they would miss, falling to the constant GREEN/BIG baseline).
+  // Existing models (no gen) skip this block entirely — zero change
+  // to their generation. Every signal returns a value + its observed
+  // share, never a claim. NUMBER models predict a digit; their
+  // colour/size derive from it (odd→GREEN, even→RED; ≥5→BIG, else
+  // SMALL — the same mapping the digit judge uses). NUMBER conf is
+  // clamped to [0.05, 0.95] below, never the colour/size [0.60, 0.96]
+  // clamp — a digit pick at 10% base rate must not pretend to be 60%+.
+  let digitDec = null;
+  let digitProb = null;
+  if (model.gen) {
+    const genSeq = (seq, scope) => (scope === 'recent100' ? seq.slice(-100) : seq);
+    const genFreq = (seq, window) => {
+      const s = seq.slice(-window);
+      if (s.length === 0) return null;
+      const counts = new Map();
+      for (const v of s) counts.set(v, (counts.get(v) || 0) + 1);
+      let top = null; let topN = -1;
+      for (const [v, n] of counts) if (n > topN) { top = v; topN = n; }
+      return { value: top, prob: topN / s.length };
+    };
+    const genContinuation = (seq, window) => {
+      if (!seq || seq.length < window + 1) return null;
+      const key = seq.slice(-window).join('|');
+      const counts = new Map(); let total = 0;
+      for (let i = 0; i <= seq.length - window - 1; i++) {
+        if (seq.slice(i, i + window).join('|') === key) {
+          const nx = seq[i + window];
+          counts.set(nx, (counts.get(nx) || 0) + 1); total += 1;
+        }
+      }
+      if (total === 0) return null;
+      let top = null; let topN = -1;
+      for (const [v, n] of counts) if (n > topN) { top = v; topN = n; }
+      return { value: top, prob: topN / total };
+    };
+    const genSignal = (dim, params) => {
+      if (!params) return null;
+      const base = dim === 'digit' ? nums : (dim === 'color' ? colors : sizes);
+      const seq = genSeq(base, params.scope);
+      const fallback = () => {
+        const f = genFreq(seq, 20) || genFreq(base, 20);
+        if (f) return f;
+        if (dim === 'digit') return { value: String(last1.number), prob: 0.10 };
+        if (dim === 'color') return { value: last1.color, prob: 0.5 };
+        return { value: last1.size, prob: 0.5 };
+      };
+      if (params.kind === 'pattern') {
+        return genContinuation(seq, params.window) || genContinuation(seq, Math.max(2, params.window - 1)) || fallback();
+      }
+      if (params.kind === 'freq') return genFreq(seq, params.window) || fallback();
+      if (params.kind === 'momentum') {
+        if (seq.length === 0) return fallback();
+        const last = seq[seq.length - 1];
+        const w = seq.slice(-params.window);
+        const share = w.filter(v => v === last).length / w.length;
+        return { value: last, prob: share };
+      }
+      if (params.kind === 'anti') {
+        const w = seq.slice(-params.window);
+        if (w.length === 0) return fallback();
+        const counts = new Map();
+        for (const v of w) counts.set(v, (counts.get(v) || 0) + 1);
+        let low = null; let lowN = Infinity;
+        for (const [v, n] of counts) if (n < lowN) { low = v; lowN = n; }
+        return { value: low, prob: lowN / w.length };
+      }
+      if (params.kind === 'pair') {
+        return genContinuation(seq, 2) || fallback();
+      }
+      return fallback();
+    };
+    const digitSig = genSignal('digit', model.gen.digit);
+    if (digitSig) { digitDec = String(digitSig.value); digitProb = digitSig.prob; }
+    if (model.predType !== 'NUMBER') {
+      const colorSig = genSignal('color', model.gen.color) || genContinuation(colors, 3) || genContinuation(colors, 2) || genFreq(colors, 20);
+      const sizeSig = genSignal('size', model.gen.size) || genContinuation(sizes, 3) || genContinuation(sizes, 2) || genFreq(sizes, 20);
+      if (colorSig) { cDec = colorSig.value; cProb = colorSig.prob; }
+      if (sizeSig) { sDec = sizeSig.value; sProb = sizeSig.prob; }
+    }
+    if (model.predType === 'NUMBER' && !digitSig) {
+      const d = genContinuation(nums, 3) || genContinuation(nums, 2) || genFreq(nums, 20);
+      if (d) { digitDec = String(d.value); digitProb = d.prob; }
+      else { digitDec = String(last1.number); digitProb = 0.10; }
+    }
+  }
   const preferredType = model.predType || (model.cat === 'fly' ? 'COLOR' : 'SIZE');
   let predType = preferredType;
   let predTarget = (preferredType === 'SIZE') ? sDec : cDec;
@@ -3322,6 +3736,13 @@ function generateModelNextPrediction(model, history, modelStats) {
       predTarget = cDec;
       conf = cProb;
     }
+  } else if (preferredType === 'NUMBER') {
+    // Phase 3A: exact-ball models predict a digit, never a colour/size.
+    // The +0.14 specialist override does NOT apply here — a digit pick
+    // is the model's whole prediction, not a dimension to trade away.
+    predType = 'NUMBER';
+    predTarget = digitDec !== null ? String(digitDec) : String(last1.number);
+    conf = digitProb !== null ? digitProb : 0.10;
   } else {
     // Generalist: pick whichever dimension has higher algorithmic probability
     if (sProb > cProb) {
@@ -3340,16 +3761,23 @@ function generateModelNextPrediction(model, history, modelStats) {
   if (predType === 'COLOR') predTarget = cDec;
   else if (predType === 'SIZE') predTarget = sDec;
 
-  conf = Math.min(0.96, Math.max(0.60, Number(conf.toFixed(2))));
-  const num = (cDec === 'GREEN')
-    ? (sDec === 'BIG' ? 7 : 1)
-    : (sDec === 'BIG' ? 8 : 2);
+  // NUMBER conf stays honest: clamp to [0.05, 0.95] (never the
+  // colour/size [0.60, 0.96] clamp — a 10%-base digit pick must not
+  // pretend to be 60%+ confident, or per-model ECE is meaningless).
+  if (predType === 'NUMBER') conf = Math.min(0.95, Math.max(0.05, Number(conf)));
+  else conf = Math.min(0.96, Math.max(0.60, Number(conf.toFixed(2))));
+  const num = predType === 'NUMBER' ? Number(predTarget)
+    : (cDec === 'GREEN')
+      ? (sDec === 'BIG' ? 7 : 1)
+      : (sDec === 'BIG' ? 8 : 2);
 
   return {
     predType,
     predTarget,
-    predColor: cDec,
-    predSize: sDec,
+    // NUMBER colour/size derive from the digit (odd→GREEN, even→RED;
+    // ≥5→BIG, else SMALL) — the same mapping the digit judge uses.
+    predColor: predType === 'NUMBER' ? (Number(predTarget) % 2 === 1 ? 'GREEN' : 'RED') : cDec,
+    predSize: predType === 'NUMBER' ? (Number(predTarget) >= 5 ? 'BIG' : 'SMALL') : sDec,
     num,
     conf
   };

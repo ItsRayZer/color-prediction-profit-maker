@@ -294,12 +294,234 @@ export function balanceSourceLabel(source) {
 
 export const BALANCE_NOT_DETECTED_MESSAGE = 'Balance not detected — open the DhaniWin tab or enter it manually';
 
+// ── Phase 3A: bankroll slices, exact-ball sessions, persistence ────
+/**
+ * Sliced equal thirds (v2 recommendation, changeable on owner word):
+ * the bankroll splits into one slice per bet type; each type's
+ * session + ±20% stops run on its own slice, so one type's drawdown
+ * never eats another type's stake. Whole rupees; the ₹0–2 remainder
+ * goes to COLOR, then SIZE, then NUMBER (deterministic).
+ * The LIVE colour/size session still runs on the full balance until
+ * the owner says to flip it (see the build report) — this helper is
+ * the slice model, and createExactSession takes a slice as input.
+ */
+export function sliceBalance(balance) {
+  const bal = cleanBalance(balance);
+  const base = Math.floor(bal / 3);
+  const rem = bal - base * 3;
+  return {
+    COLOR: base + (rem >= 1 ? 1 : 0),
+    SIZE: base + (rem >= 2 ? 1 : 0),
+    NUMBER: base
+  };
+}
+
+/** Exact-ball breaker (v2 §7.3 proposal, changeable on owner word). */
+export const EXACT_BREAKER_LOSSES = 8;
+
+/**
+ * Exact-ball session factory — STRUCTURE ONLY. Returns null while
+ * the exact gate is closed (no caller may fund an exact session
+ * before live payout verification + harness PASS). When open, the
+ * session is FLAT-stake (no doubling — one 7.82× win repays ~7.8 flat
+ * losses, so doubling only explodes risk), with the 8-loss breaker
+ * and ±20% stops on its slice. Same object shape as createSession
+ * so future wiring is drop-in. `balance` here is the type's SLICE.
+ */
+export function createExactSession(balance, { mode = DEFAULT_STAKING_MODE, baseBet, gateOpen = false } = {}) {
+  if (!gateOpen) return null;
+  const bal = cleanBalance(balance);
+  if (bal <= 0) {
+    return {
+      startingBalance: 0, balance: 0, mode, baseBet: 0, ladderLevels: 0,
+      planState: 'STOP', planReason: 'No balance available, so no exact session can be planned.',
+      level: 0, consecutiveLosses: 0, nextStake: 0, peakBalance: 0, drawdown: 0,
+      sessionPnL: 0, rounds: 0, state: 'STOP', progression: 'flat',
+      breakerLosses: EXACT_BREAKER_LOSSES
+    };
+  }
+  let base = baseBet !== undefined ? Math.floor(Number(baseBet)) : suggestBaseBet(bal, mode);
+  if (!(base >= MIN_BASE_BET)) base = MIN_BASE_BET;
+  return {
+    startingBalance: bal,
+    balance: bal,
+    mode,
+    baseBet: base,
+    ladderLevels: EXACT_BREAKER_LOSSES,
+    planState: 'OK',
+    planReason: 'Flat-stake exact session: no doubling, 8-loss breaker, ±20% stops on the slice.',
+    level: 0, // consecutive losses (the breaker counter for flat stakes)
+    consecutiveLosses: 0,
+    nextStake: base,
+    peakBalance: bal,
+    drawdown: 0,
+    sessionPnL: 0,
+    rounds: 0,
+    state: 'CONTINUE',
+    progression: 'flat',
+    breakerLosses: EXACT_BREAKER_LOSSES
+  };
+}
+
+/**
+ * Settle one exact-ball bet (flat stakes, never doubling). `payout`
+ * is the VERIFIED live profit multiple and is REQUIRED — when it is
+ * missing, zero, or not finite the session is returned unchanged
+ * with a refusal reason: no payout is ever invented, and the gate
+ * being closed means this function has no live caller yet.
+ */
+export function settleExactFlat(session, won, payout) {
+  if (!session || session.state === 'STOP' || !(session.nextStake > 0)) {
+    return { ...session, stakeUsed: 0, reason: 'Session is not active.' };
+  }
+  if (payout === undefined || payout === null || !Number.isFinite(Number(payout)) || Number(payout) <= 0) {
+    return { ...session, stakeUsed: 0, reason: 'No verified payout — exact settlement refused.' };
+  }
+  const stake = session.nextStake; // flat: always the base bet
+  const startingBalance = session.startingBalance;
+  let balance = session.balance;
+  let consecutiveLosses = session.consecutiveLosses;
+  let state;
+  let reason;
+  if (won) {
+    balance += stake * Number(payout);
+    consecutiveLosses = 0;
+  } else {
+    balance -= stake;
+    consecutiveLosses += 1;
+  }
+  const level = consecutiveLosses; // flat: level tracks the loss run
+  const sessionPnL = Math.round((balance - startingBalance) * 100) / 100;
+  const peakBalance = Math.max(session.peakBalance ?? startingBalance, balance);
+  const drawdown = Math.round((peakBalance - balance) * 100) / 100;
+  const breaker = session.breakerLosses || EXACT_BREAKER_LOSSES;
+  if (sessionPnL <= -(startingBalance * SESSION_STOP_LOSS_FRACTION)) {
+    state = 'STOP_LOSS';
+    reason = 'Session stop-loss hit: down 20% of the slice. The session ends here — no chasing.';
+  } else if (sessionPnL >= startingBalance * SESSION_STOP_WIN_FRACTION) {
+    state = 'STOP_WIN';
+    reason = 'Stop-win lock: up 20% on the slice. Bank the profit and stop.';
+  } else if (!won && consecutiveLosses >= breaker) {
+    state = 'LADDER_EXHAUSTED';
+    reason = `Exact breaker: ${breaker} losses in a row. Flat stakes end here — no chasing.`;
+  } else if (won) {
+    state = 'RESET';
+    reason = 'Win settled. Flat stake stays at the base bet.';
+  } else {
+    state = 'CONTINUE';
+    reason = `Loss settled. Flat stake stays at the base bet (${consecutiveLosses}/${breaker} toward the breaker).`;
+  }
+  const active = state === 'CONTINUE' || state === 'RESET';
+  return {
+    ...session,
+    balance: Math.round(balance * 100) / 100,
+    level,
+    consecutiveLosses,
+    peakBalance,
+    drawdown,
+    sessionPnL,
+    rounds: (session.rounds || 0) + 1,
+    stakeUsed: stake,
+    nextStake: active ? session.baseBet : 0, // FLAT: never doubles
+    state,
+    reason
+  };
+}
+
+// ── Ladder persistence (owner order 2026-10-26, add-on A) ───────────
+// The live session used to live only in memory: a reload forgot the
+// ladder (level, loss run, PnL, base) and the next stake silently
+// reverted to the base rung — breaking doubling after a loss. These
+// pure, storage-injected helpers save after every settlement/replan
+// and resume on load, keyed per session/type. No secrets ever: only
+// ladder numbers (level, stakes, PnL, mode) are stored.
+// Resume rules (all must hold, else a fresh session starts):
+//  - a saved record exists and parses with finite numbers;
+//  - savedAt is within 24h (a ladder older than a day is stale);
+//  - the live balance matches the saved running balance within ₹0.01
+//    (rounding only — a bigger gap means manual bets happened while
+//    the app was closed, so the saved ladder is invalid).
+export const SESSION_STORE_TTL_MS = 24 * 60 * 60 * 1000;
+export const SESSION_STORE_TOLERANCE = 0.01;
+
+export function sessionStoreKey(type) {
+  return `o101_session_v1_${String(type || 'SHARED').toUpperCase()}`;
+}
+
+export function saveSessionTo(storage, type, session) {
+  try {
+    if (!storage || !session) return false;
+    const record = {
+      savedAt: Date.now(),
+      startingBalance: session.startingBalance,
+      balance: session.balance,
+      mode: session.mode,
+      baseBet: session.baseBet,
+      ladderLevels: session.ladderLevels,
+      planState: session.planState,
+      level: session.level,
+      consecutiveLosses: session.consecutiveLosses,
+      nextStake: session.nextStake,
+      peakBalance: session.peakBalance,
+      drawdown: session.drawdown,
+      sessionPnL: session.sessionPnL,
+      rounds: session.rounds,
+      state: session.state
+    };
+    storage.setItem(sessionStoreKey(type), JSON.stringify(record));
+    return true;
+  } catch (e) { return false; }
+}
+
+export function loadSessionFrom(storage, type, liveBalance, now = Date.now()) {
+  const none = (reason) => ({ session: null, reason });
+  try {
+    if (!storage) return none('no storage');
+    const raw = storage.getItem(sessionStoreKey(type));
+    if (!raw) return none('none saved');
+    const d = JSON.parse(raw);
+    const nums = ['startingBalance', 'balance', 'baseBet', 'level', 'consecutiveLosses',
+      'nextStake', 'peakBalance', 'drawdown', 'sessionPnL', 'rounds'];
+    for (const k of nums) {
+      if (d[k] === undefined || d[k] === null || !Number.isFinite(Number(d[k]))) return none('corrupt');
+    }
+    if (!d.savedAt || (now - Number(d.savedAt)) > SESSION_STORE_TTL_MS) return none('stale');
+    const live = Number(liveBalance);
+    if (!Number.isFinite(live) || Math.abs(live - Number(d.balance)) > SESSION_STORE_TOLERANCE) {
+      return none('balance changed');
+    }
+    return {
+      session: {
+        startingBalance: Number(d.startingBalance),
+        balance: live, // adopt the live figure (within rounding of saved)
+        mode: d.mode || DEFAULT_STAKING_MODE,
+        baseBet: Number(d.baseBet),
+        ladderLevels: Number(d.ladderLevels) || 0,
+        planState: d.planState || 'OK',
+        planReason: 'Resumed ladder from saved session.',
+        level: Number(d.level),
+        consecutiveLosses: Number(d.consecutiveLosses),
+        nextStake: Number(d.nextStake),
+        peakBalance: Number(d.peakBalance),
+        drawdown: Number(d.drawdown),
+        sessionPnL: Number(d.sessionPnL),
+        rounds: Number(d.rounds),
+        state: d.state || 'CONTINUE'
+      },
+      reason: 'resumed'
+    };
+  } catch (e) { return none('corrupt'); }
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     PAYOUT, MULTIPLIER, BREAKEVEN_WIN_RATE, STAKING_MODES, DEFAULT_STAKING_MODE,
     suggestBaseBet, ladderLevels, ladderTable, ladderCumulativeCost, riskBudget,
     planLadder, createSession, settle, settleBet, BALANCE_SOURCES, balanceSourceLabel,
-    BALANCE_NOT_DETECTED_MESSAGE
+    BALANCE_NOT_DETECTED_MESSAGE,
+    sliceBalance, EXACT_BREAKER_LOSSES, createExactSession, settleExactFlat,
+    SESSION_STORE_TTL_MS, SESSION_STORE_TOLERANCE, sessionStoreKey,
+    saveSessionTo, loadSessionFrom
   };
 }
 

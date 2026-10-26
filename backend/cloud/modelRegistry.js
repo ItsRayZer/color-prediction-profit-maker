@@ -50,6 +50,12 @@ export class RegisteredModel {
 
     // Custom model predict override (if registered dynamically)
     this.customPredictFn = metadata.predictFn || null;
+
+    // Phase 3A: parameterized generation strategy (exact-ball +
+    // quantum gap-fillers carry `gen`; without it the generator
+    // skips the gen block and a NUMBER model falls back to the last
+    // round's number — the cloud engine then disagrees with local).
+    this.gen = metadata.gen || null;
   }
 
   initialize() {
@@ -101,6 +107,7 @@ export class RegisteredModel {
       arch: this.arch,
       desc: this.desc,
       predType: this.predType,
+      gen: this.gen,
       streak: this.streak,
       bestStreak: this.bestStreak,
       dopamine: this.dopamine,
