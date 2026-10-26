@@ -919,11 +919,11 @@
          at the corner (closes the bubble only, never the bot).
          Text is exactly the governed spoken subtitle string,
          written by orb-bridge say(). -->
-    <div id="axoSubtitleBubble" aria-live="polite" style="display:none; position:fixed; z-index:100001; max-width:min(320px, calc(100vw - 100px)); pointer-events:auto;">
-      <div style="background:rgba(28,28,31,0.95); border:1px solid rgba(255,255,255,0.14); border-radius:20px; padding:10px 14px; box-shadow:0 8px 30px rgba(0,0,0,0.5);">
-        <span id="axoSubtitleBubbleText" style="color:#fff; font-size:13px; line-height:1.45;"></span>
+    <div id="axoSubtitleBubble" aria-live="polite" style="display:none; position:fixed; z-index:100001; max-width:min(280px, calc(100vw - 120px)); pointer-events:auto;">
+      <div style="background:rgba(28,28,31,0.95); border:1px solid rgba(255,255,255,0.14); border-radius:16px; padding:8px 12px; box-shadow:0 8px 30px rgba(0,0,0,0.5);">
+        <span id="axoSubtitleBubbleText" style="color:#fff; font-size:12px; line-height:1.35;"></span>
       </div>
-      <button type="button" id="axoSubtitleBubbleClose" aria-label="Close subtitle" title="Close subtitle" onclick="window.__smartBall && window.__smartBall.dismissAxoBubble()" style="position:absolute; top:-9px; right:-9px; width:22px; height:22px; border-radius:9999px; background:rgba(28,28,31,1); border:1px solid rgba(255,255,255,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer;">
+      <button type="button" id="axoSubtitleBubbleClose" aria-label="Close subtitle" title="Close subtitle" onclick="window.__smartBall && window.__smartBall.dismissAxoBubble()" style="position:absolute; top:-9px; right:-9px; width:20px; height:20px; border-radius:9999px; background:rgba(28,28,31,1); border:1px solid rgba(255,255,255,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer;">
         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M1 1L9 9M9 1L1 9" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>
       </button>
     </div>

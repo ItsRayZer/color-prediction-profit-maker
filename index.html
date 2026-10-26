@@ -14881,7 +14881,7 @@ async function fetchLiveAPIResults(tfOverride) {
 
   try {
     const sys = (window.WIN_GO_SYSTEMS && window.WIN_GO_SYSTEMS[tf]) || window.WinGo30sSystem;
-    const targetUrl = sys ? sys.apiEndpoint : `https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json`;
+    const targetUrl = sys ? sys.apiEndpoint : `https://draw.ar-lottery02.com/WinGo/WinGo_30S/GetHistoryIssuePage.json`;
     const proxyPath = sys ? sys.proxyPath : `/api-wingo/WinGo/WinGo_30S/GetHistoryIssuePage.json`;
 
     const origin = (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null')

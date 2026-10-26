@@ -782,10 +782,10 @@ const CF_WORKER_BASE = resolveWorkerBase();
 window.CF_WORKER_BASE = CF_WORKER_BASE;
 
 const DEFAULT_TF_UPSTREAM_URLS = {
-  '30s': 'https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json',
-  '1m':  'https://draw.ar-lottery01.com/WinGo/WinGo_1M/GetHistoryIssuePage.json',
-  '3m':  'https://draw.ar-lottery01.com/WinGo/WinGo_3M/GetHistoryIssuePage.json',
-  '5m':  'https://draw.ar-lottery01.com/WinGo/WinGo_5M/GetHistoryIssuePage.json'
+  '30s': 'https://draw.ar-lottery02.com/WinGo/WinGo_30S/GetHistoryIssuePage.json',
+  '1m':  'https://draw.ar-lottery02.com/WinGo/WinGo_1M/GetHistoryIssuePage.json',
+  '3m':  'https://draw.ar-lottery02.com/WinGo/WinGo_3M/GetHistoryIssuePage.json',
+  '5m':  'https://draw.ar-lottery02.com/WinGo/WinGo_5M/GetHistoryIssuePage.json'
 };
 
 function getApiEndpoint(tf) {
@@ -879,7 +879,7 @@ function notifyCustomApiResult(tf, success, err) {
 }
 
 async function fetchLiveHistoryFromDirectAPI(tf) {
-  // ── Source 1: Direct Upstream Lottery Feed (ar-lottery01.com — active live round data) ──
+  // ── Source 1: Direct Upstream Lottery Feed (ar-lottery02.com — active live round data) ──
   try {
     const upstreamUrl = `${TF_UPSTREAM_URLS[tf] || TF_UPSTREAM_URLS['30s']}?pageNo=1&_=${Date.now()}`;
     const raw = await _fetchWithTimeout(upstreamUrl, 4000);

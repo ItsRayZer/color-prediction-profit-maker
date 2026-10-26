@@ -1243,6 +1243,7 @@ export function splitGovernedPool(pool) {
 // fresh count of 1 — otherwise every later skip would force too.
 export const SKIP_CAP_MAX_CONSECUTIVE = 3;
 export const SKIP_CAP_YIELD_NOTE = 'Skip cap held: safety stop active.';
+export const SKIP_CAP_NO_PICK_NOTE = 'Cap tried: no pick available.';
 
 export function skipCapNext({ count = 0, gateDecision = null, safetyStop = false } = {}) {
   if (safetyStop) {
@@ -3196,6 +3197,10 @@ function initBridge() {
       ladderLevel: state.session ? state.session.level : 0,
       ladderLevels: state.session ? state.session.ladderLevels : 0,
       nextStake: state.session ? state.session.nextStake : 0,
+      // Task R: the speaker must know whether a bankroll session
+      // exists — without it the SIGNAL_BET line falls back to ₹0,
+      // which is not a suggestion at all (see predictBot normCtx).
+      hasSession: !!state.session,
       sessionPnL: state.session ? state.session.sessionPnL || 0 : 0,
       startingBalance: state.session ? state.session.startingBalance : 0,
       inchargeModel: modelObj ? { id: modelObj.id, name: modelObj.name } : null,
@@ -4177,6 +4182,14 @@ function initBridge() {
         if (forcedPick) {
           gate = applySkipCap(gate, { pick: forcedPick });
           state.skipCapForce = true;
+        } else {
+          // Task Q: the cap fired but no pick exists (no locked pick
+          // and no ranked eligible model with a pick). The gate
+          // stays SKIP and the count resets — but the attempt must
+          // be VISIBLE, or every 4th round silently fails the same
+          // way and the owner sees only "always skip". Display
+          // only: no pick is invented, no verdict is changed.
+          gate = { ...gate, reason: `${gate.reason} ${SKIP_CAP_NO_PICK_NOTE}` };
         }
       } else if (cap.yielded && gate.decision === GATE_DECISIONS.SKIP) {
         gate = { ...gate, reason: `${gate.reason} ${SKIP_CAP_YIELD_NOTE}` };
@@ -4205,6 +4218,7 @@ function initBridge() {
       // activation resets the streak, per the cap's rules).
       const forcedPick = capForcedPick();
       if (forcedPick) gate = applySkipCap(gate, { pick: forcedPick });
+      else gate = { ...gate, reason: `${gate.reason} ${SKIP_CAP_NO_PICK_NOTE}` };
     }
     state.gate = gate;
     // Graduated stakes: the session base follows the CURRENT
