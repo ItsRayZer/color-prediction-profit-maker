@@ -2490,6 +2490,13 @@ function showWinLossCelebration(isWin, target, number, size, color, periodStr, s
   if (tf && tf !== activeTf) return;
   if (!isWin && isWin !== false) return;
 
+  // Task P (owner order 2026-10-26): reduced motion shows the
+  // banner statically and skips the money rain (pure motion);
+  // the banner content itself is information and still shows.
+  const reduceMotion = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const bannerDrop = reduceMotion ? '' : 'o101-banner-drop ';
+
   // Fix round #2: celebrations are display feedback, never login-gated.
 
   // CRITICAL REQUIREMENT 2: Single-instance concurrency - strictly never show more than 1 celebration/sound at a time
@@ -2515,21 +2522,21 @@ function showWinLossCelebration(isWin, target, number, size, color, periodStr, s
     if (iconBox) iconBox.className = 'w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 bg-emerald-500/20 text-emerald-400';
     if (icon) icon.className = 'fa-solid fa-trophy';
     if (title) { title.textContent = 'PREDICTION WON!'; title.className = 'text-xs font-black tracking-tight text-emerald-300'; }
-    if (banner) banner.className = 'fixed top-14 left-3 right-3 z-[9998] animate-in slide-in-from-top duration-300 max-w-md mx-auto';
+    if (banner) banner.className = 'fixed top-14 left-3 right-3 z-[100002] ' + bannerDrop + 'max-w-md mx-auto';
     if (pnlBadge) {
       pnlBadge.textContent = currentStreak > 1 ? `🔥 ${currentStreak}W Streak` : `+1W`;
       pnlBadge.className = 'text-xs font-black text-emerald-400';
     }
     const winProfit = (window.MobileBridgeState && MobileBridgeState.currentStake) ? MobileBridgeState.currentStake * 0.96 : 2;
     // Trigger smooth, non-intrusive cinematic Apple money rain overlay (replaces old cheap fullscreen modal)
-    if (typeof triggerAppleMoneyRain === 'function') {
+    if (!reduceMotion && typeof triggerAppleMoneyRain === 'function') {
       triggerAppleMoneyRain(winProfit, currentStreak);
     }
   } else {
     if (iconBox) iconBox.className = 'w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 bg-rose-500/20 text-rose-400';
     if (icon) icon.className = 'fa-solid fa-xmark';
     if (title) { title.textContent = 'PREDICTION MISSED'; title.className = 'text-xs font-black tracking-tight text-rose-400'; }
-    if (banner) banner.className = 'fixed top-14 left-3 right-3 z-[9998] animate-in slide-in-from-top duration-300 max-w-md mx-auto';
+    if (banner) banner.className = 'fixed top-14 left-3 right-3 z-[100002] ' + bannerDrop + 'max-w-md mx-auto';
     if (pnlBadge) {
       pnlBadge.textContent = `0W Streak (Reset)`;
       pnlBadge.className = 'text-xs font-black text-rose-400';
