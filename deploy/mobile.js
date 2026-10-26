@@ -5911,6 +5911,41 @@ function initMobileDhaniWinBridge() {
 
 
 
+// Task O (connection resilience): the auto-bet-shake animation is
+// added on DHANIWIN_BET_PREPARED and removed on confirmation /
+// failure / cancellation / settlement — all bridge-message or cycle
+// driven. When the app is backgrounded those drivers stall, so a
+// shake staged before the gap can stick forever if its clearing
+// message was missed while suspended. On every return to
+// foreground, reconcile: if no bet is currently staged for the LIVE
+// period, the shake is stale and comes off. This never clears a
+// live staged bet (same period still live), and it never invents
+// settlement — it only removes a visual class whose round is over.
+function reconcileAutoShakeState() {
+  try {
+    const prepBtn = $('mobileBridgeToggleBtn');
+    const targetDisplay = $('mobileWebTargetDisplay');
+    if (!prepBtn && !targetDisplay) return;
+    const dispatched = (typeof MobileBridgeState !== 'undefined' && MobileBridgeState.lastPeriodDispatched != null)
+      ? String(MobileBridgeState.lastPeriodDispatched) : '';
+    const live = (typeof MobileState !== 'undefined' && MobileState.activePrediction && MobileState.activePrediction.period != null)
+      ? String(MobileState.activePrediction.period) : '';
+    const stagedLive = dispatched !== '' && live !== '' && dispatched === live;
+    if (!stagedLive) {
+      if (prepBtn) prepBtn.classList.remove('auto-bet-shake');
+      if (targetDisplay) targetDisplay.classList.remove('auto-bet-shake');
+    }
+  } catch (e) { /* reconcile must never break the app */ }
+}
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') reconcileAutoShakeState();
+  });
+}
+if (typeof window !== 'undefined' && window.addEventListener) {
+  window.addEventListener('pageshow', () => { reconcileAutoShakeState(); });
+}
+
 let _syncLogoutCount = 0;
 
 function handleMobileBridgeMessage(msg) {
@@ -5942,6 +5977,10 @@ function handleMobileBridgeMessage(msg) {
     setMobileBridgeStatus(true);
     if (msg.type === 'DHANIWIN_BRIDGE_HANDSHAKE') {
       postMobileBridge({ type: 'UPDATE_BET_SETTINGS', stake: MobileBridgeState.currentStake, maxStake: MobileBridgeState.maxStakeCap, timeframe: MobileState.timeframe });
+      // Task O (connection resilience): a bridge (re)appearance is an
+      // auto-connect moment — ask for a fresh wallet/API probe at
+      // once instead of waiting for the bridge's 15s heartbeat.
+      postMobileBridge({ type: 'DHANIWIN_REQUEST_SYNC', timestamp: Date.now() });
     }
   } else if (msg.type === 'DHANIWIN_TIMEFRAME_CHANGE' && msg.timeframe) {
     if (MobileState.timeframe !== msg.timeframe && ['30s', '1m', '3m', '5m'].includes(msg.timeframe)) {
@@ -6700,6 +6739,27 @@ function clampAssistantSheetToViewport() {
 }
 window.clampAssistantSheetToViewport = clampAssistantSheetToViewport;
 
+// Task N: when the VIEWPORT shrinks (rotation, split screen), an
+// open sheet taller than the viewport cap would strand its bottom
+// rows off-screen — position clamping alone cannot fix that. Cap
+// the height, then compact-fit tiers the content into the cap.
+// This is the ONLY shrink path in the app: fitSheetToContent stays
+// grow-only for user sizes (Task L premise intact), and this runs
+// only on viewport resize/orientation, never mid-gesture (callers
+// guard on __assistantBoxBusy).
+function shrinkOpenSheetToViewport() {
+  const modal = $('dhaniwinAssistantModal');
+  const sheet = $('dhaniwinAssistantSheet');
+  if (!modal || !sheet) return;
+  if (modal.classList.contains('hidden') || !modal.classList.contains('sheet-open')) return;
+  const cap = Math.max(220, window.innerHeight - 24);
+  if ((sheet.offsetHeight || 0) <= cap) return;
+  sheet.style.height = `${cap}px`;
+  sheet.style.maxHeight = `${cap}px`;
+  if (window.__smartBall && typeof window.__smartBall.fitSheetToContent === 'function') window.__smartBall.fitSheetToContent();
+}
+window.shrinkOpenSheetToViewport = shrinkOpenSheetToViewport;
+
 function renderAssistantMiniRoad(list) {
   const container = $('assistantMiniRoad');
   if (!container || !list || list.length === 0) return;
@@ -6949,9 +7009,11 @@ let _assistantBoxSize = null;
 
 // Apple Liquid Glass size presets
 // Task K (owner order 2026-10-25): the compact preset used to be
-// 230×280 — below the panel's 340px content floor, so opening it
-// would clip the no-scroll body. Compact is now 230×340: still the
-// narrowest preset, but tall enough for all four sections.
+// 230×280 — below the panel's then-340px content floor, so opening
+// it would clip the no-scroll body. Compact is now 230×340: still
+// the narrowest preset, tall enough for all four sections at tier
+// 0. Task N keeps the preset heights: user resizes below them now
+// compact instead of hitting a floor (see the resize path).
 const ASSISTANT_SIZE_PRESETS = [
   { name: 'compact', width: 230, height: 340 },
   { name: 'normal',  width: 275, height: 360 },
@@ -6976,10 +7038,13 @@ function cycleAssistantBoxSizePreset(e) {
 
   const maxW = Math.max(200, window.innerWidth - 16);
   const maxH = Math.max(220, window.innerHeight - 60);
-  // Task K: a preset must never shrink the sheet below its
-  // content (same floor as resolveAxoPanelSize); the viewport
-  // cap still wins on short viewports.
-  const contentFloor = Math.max(220, Math.min(340, window.innerHeight - 64));
+  // Task N: a preset floors only at the absolute 220px drag floor —
+  // the old 340px content floor is gone. The compact fit
+  // (fitSheetToContent, called below) tiers and grows to the
+  // measured compacted need, so a preset never clips content and
+  // a compact size stays compact. The viewport cap still wins on
+  // short viewports.
+  const contentFloor = 220;
   const targetW = Math.min(maxW, nextPreset.width);
   const targetH = Math.min(maxH, Math.max(contentFloor, nextPreset.height));
 
@@ -7039,12 +7104,13 @@ function toggleDhaniwinAssistantModal(show) {
       : (function () {
           const maxW = Math.max(200, window.innerWidth - 16);
           const maxH = Math.max(220, window.innerHeight - 60);
-          // Task K: same content floor as resolveAxoPanelSize
-          // (orb-bridge) — 340px at normal viewports, softening
-          // to (vh − 64) on short viewports, never below the
-          // 220 drag floor. Inline fallback only; the module rule
-          // wins whenever it is present.
-          const contentFloor = Math.max(220, Math.min(340, window.innerHeight - 64));
+          // Task N: same absolute floor as resolveAxoPanelSize
+          // (orb-bridge) — the old 340px content floor is gone.
+          // A saved compact size restores exactly; the post-open
+          // compact fit grows to the measured compacted need when
+          // content would otherwise clip. Inline fallback only;
+          // the module rule wins whenever it is present.
+          const contentFloor = 220;
           const num = v => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.floor(Number(v)) : null);
           const w = num(_assistantBoxSize && _assistantBoxSize.width);
           const h = num(_assistantBoxSize && _assistantBoxSize.height);
@@ -7062,9 +7128,9 @@ function toggleDhaniwinAssistantModal(show) {
     // sheet's open class gives the header top clearance for the
     // name + prediction badge. Saved drag positions are ignored
     // on open (dragging after open still works); the size keeps
-    // its saved value, clamped to the Task K content floor
-    // (340px at normal viewports, softening on short viewports,
-    // never below the 200×220 drag floor).
+    // its saved value, clamped to the 200×220 absolute drag floor
+    // (Task N: the old 340px content floor is gone — the post-open
+    // compact fit grows to the measured compacted need instead).
     const orbRect = orb ? orb.getBoundingClientRect() : { left: window.innerWidth - 76, top: window.innerHeight - 150, width: 62, height: 62 };
 
     // Task G (owner order 2026-10-25): reopen starts from the ball's
@@ -7336,12 +7402,24 @@ function initDhaniwinAssistantSheetDrag() {
 
     const maxWidth = window.innerWidth - 16;
     const maxHeight = window.innerHeight - 60;
-    // Task K: the vertical floor is the panel CONTENT floor
-    // (340px at normal viewports, softening to vh − 64 on short
-    // viewports, never below the 220 drag floor) — a resize must
-    // never shrink the sheet below its no-scroll body. Width
-    // keeps the plain 200 drag floor.
-    const minH = Math.max(MIN_HEIGHT, Math.min(340, window.innerHeight - 64));
+    // Task N (owner order 2026-10-26, "resizable to any size"): the
+    // gesture floor is the plain 220px drag floor — the old 340px
+    // content floor is GONE, so a resize may shrink to any size.
+    // Fit is earned by compaction, not by blocking the gesture:
+    // the live band below tightens the layout during the drag
+    // (cheap, no measurement), and the settle pass on resize end
+    // (fitSheetToContent: tier by measurement, then grow to the
+    // measured compacted need) lands the sheet at the smallest
+    // fully-visible size instead of clipping. Width keeps the
+    // plain 200 drag floor; narrow widths tighten control padding
+    // via the narrow flag (never a wrap, never a hidden control).
+    const minH = MIN_HEIGHT;
+
+    // Task N live-drag band mirror — same bands as the module's
+    // AXO_COMPACT_BANDS (orb-bridge cannot be imported here):
+    // ≥340 → 0, ≥300 → 1, ≥265 → 2, else 3. Approximation only;
+    // the settle pass measures and corrects.
+    const axoCompactBandMirror = (h) => (h >= 340 ? 0 : h >= 300 ? 1 : h >= 265 ? 2 : 3);
 
     let newW = resizeStartW;
     let newH = resizeStartH;
@@ -7382,6 +7460,12 @@ function initDhaniwinAssistantSheetDrag() {
     sheet.style.maxHeight = `${Math.round(newH)}px`;
     sheet.style.left = `${Math.round(newL)}px`;
     sheet.style.top = `${Math.round(newT)}px`;
+    // Task N: live compaction during the gesture (band mirror, no
+    // measurement) + narrow flag, so content tightens as the user
+    // shrinks instead of clipping mid-drag. The settle pass on
+    // resize end measures and corrects the tier.
+    sheet.dataset.axoCompact = String(axoCompactBandMirror(newH));
+    sheet.dataset.axoNarrow = newW < 240 ? '1' : '0';
     // Bubble-tracks-Axo: top/left-edge resizes move the avatar.
     queueAxoBubbleReposition();
   };
@@ -7393,11 +7477,16 @@ function initDhaniwinAssistantSheetDrag() {
     sheet.classList.remove('assistant-sheet-resizing');
     sheet.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-radius 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
 
+    // Task L + Task N: settle FIRST (tier by measurement, then grow
+    // to the measured compacted need), then persist the SETTLED
+    // rect — persisting before the settle would save a size the
+    // sheet immediately grows out of, so reopen would restore a
+    // clipping size and grow again on every open.
+    if (window.__smartBall && typeof window.__smartBall.fitSheetToContent === 'function') window.__smartBall.fitSheetToContent();
+
     const rect = sheet.getBoundingClientRect();
     _assistantBoxSize = { width: Math.round(rect.width), height: Math.round(rect.height) };
     _assistantBoxPos = { left: Math.round(rect.left), top: Math.round(rect.top) };
-    // Task L: a user resize must never end below the content — grow back to measured content if needed.
-    if (window.__smartBall && typeof window.__smartBall.fitSheetToContent === 'function') window.__smartBall.fitSheetToContent();
 
     try {
       localStorage.setItem('dhaniwin_assistant_box_size', JSON.stringify(_assistantBoxSize));
@@ -7514,9 +7603,9 @@ function setupFloatingOrb() {
   clampFloatingOrb();
   if (!window.__o101OrbClampListeners) {
     window.__o101OrbClampListeners = true;
-    window.addEventListener('resize', () => { clampFloatingOrb(); clampAssistantSheetToViewport(); if (window.__smartBall && typeof window.__smartBall.syncAxoSubtitleSurfaces === 'function') window.__smartBall.syncAxoSubtitleSurfaces(); });
+    window.addEventListener('resize', () => { clampFloatingOrb(); clampAssistantSheetToViewport(); if (window.__smartBall && typeof window.__smartBall.syncAxoSubtitleSurfaces === 'function') window.__smartBall.syncAxoSubtitleSurfaces(); if (!window.__assistantBoxBusy) shrinkOpenSheetToViewport(); });
     window.addEventListener('orientationchange', () => {
-      setTimeout(() => { clampFloatingOrb(); clampAssistantSheetToViewport(); if (window.__smartBall && typeof window.__smartBall.syncAxoSubtitleSurfaces === 'function') window.__smartBall.syncAxoSubtitleSurfaces(); }, 300);
+      setTimeout(() => { clampFloatingOrb(); clampAssistantSheetToViewport(); if (window.__smartBall && typeof window.__smartBall.syncAxoSubtitleSurfaces === 'function') window.__smartBall.syncAxoSubtitleSurfaces(); if (!window.__assistantBoxBusy) shrinkOpenSheetToViewport(); }, 300);
     });
   }
 

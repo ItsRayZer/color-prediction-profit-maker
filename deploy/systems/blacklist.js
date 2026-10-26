@@ -18,6 +18,23 @@
  * real outcomes. When a blacklisted model's shadow Wilson bound
  * recovers above the floor (and its recent form is no longer
  * collapsed), it is automatically reinstated. No human list-keeping.
+ *
+ * Phase 2A (2026-10-26) — two correctness additions, no threshold
+ * changes:
+ *  1. SHADOW RECENT WINDOW: the shadow record now tracks a rolling
+ *     recent window (last 100 shadow rounds) alongside the totals, so
+ *     reinstatement can require recent-form recovery, not just a
+ *     Wilson bound that the frozen baseline props up. The shadow path
+ *     is still NOT wired to any live decision (zero live callers) and
+ *     is NOT deleted — the owner decides wire-vs-delete later.
+ *  2. POOL FLOOR (owner correction 3): the blacklist must never
+ *     exclude the last eligible model. After every update, if every
+ *     pool model is blacklisted, the highest-Wilson model (ties by
+ *     rank, then samples) is exempted and stays eligible. This is
+ *     PREVENTION inside the blacklist, not a fallback that bypasses
+ *     it: no bar is lowered and no separate best-Wilson fallback
+ *     exists. The exemption is reported on the update result and on
+ *     `manager.floorExemption` for display.
  */
 
 import { wilsonLowerBound, breakEvenWinRate } from './inchargeEngine.js';
@@ -88,8 +105,13 @@ export class BlacklistManager {
   constructor(config = {}) {
     this.config = { ...DEFAULT_BLACKLIST_CONFIG, ...config };
     // id -> { id, name, reasons, sinceSamples, baselineWins, baselineEvaluated,
-    //          shadow: { wins, evaluated }, lastAssessment }
+    //          shadow: { wins, evaluated, recent: [bool] }, lastAssessment }
+    // `shadow.recent` is a rolling window of the last 100 shadow
+    // outcomes (true = win), capped at 100 so state stays bounded.
     this.entries = new Map();
+    // Last pool-floor exemption from the most recent update() (or
+    // null when the floor did not fire). Display only.
+    this.floorExemption = null;
   }
 
   get floor() {
@@ -116,8 +138,11 @@ export class BlacklistManager {
   recordShadowResult(id, won) {
     const entry = this.entries.get(id);
     if (!entry) return false;
+    if (!Array.isArray(entry.shadow.recent)) entry.shadow.recent = [];
     entry.shadow.evaluated += 1;
     if (won) entry.shadow.wins += 1;
+    entry.shadow.recent.push(!!won);
+    if (entry.shadow.recent.length > 100) entry.shadow.recent.splice(0, entry.shadow.recent.length - 100);
     return this._checkShadowReinstatement(entry);
   }
 
@@ -125,10 +150,30 @@ export class BlacklistManager {
     return wilsonLowerBound(entry.baselineWins + entry.shadow.wins, entry.baselineEvaluated + entry.shadow.evaluated);
   }
 
+  /** Rolling recent-form stats of the shadow window (Phase 2A). */
+  shadowRecent(entry) {
+    const recent = Array.isArray(entry.shadow.recent) ? entry.shadow.recent : [];
+    const evaluated = recent.length;
+    const wins = recent.reduce((n, w) => n + (w ? 1 : 0), 0);
+    return { wins, evaluated, rate: evaluated > 0 ? wins / evaluated : 0 };
+  }
+
   _checkShadowReinstatement(entry) {
-    // Reinstate only when the shadow-inclusive Wilson bound recovers
-    // above the floor — proof from background evaluation, not hope.
-    if (this._shadowWilson(entry) > this.floor) {
+    // Reinstate only on BOTH proofs (Phase 2A fix — the old code
+    // checked the Wilson bound alone, and the shadow record carried
+    // no recent window at all, so "recent-form recovery" could never
+    // be tested):
+    //  1. the shadow-inclusive Wilson bound recovers above the floor;
+    //  2. the shadow RECENT window recovered too: at least 20 shadow
+    //     rounds (mirrors the governed 20-round floor) at a rate at or
+    //     above the collapse threshold (recentCollapseRate, 45%).
+    // Known limitation, unchanged: the Wilson bound mixes the frozen
+    // baseline (stats at blacklisting time) with shadow counters and
+    // ignores live rounds since blacklisting.
+    const recent = this.shadowRecent(entry);
+    if (this._shadowWilson(entry) > this.floor
+      && recent.evaluated >= 20
+      && recent.rate >= this.config.recentCollapseRate) {
       this.entries.delete(entry.id);
       return true;
     }
@@ -138,12 +183,21 @@ export class BlacklistManager {
   /**
    * Re-assess a full model pool. Newly failing models are blacklisted;
    * blacklisted models whose (live, shadow-updated) stats recover are
-   * reinstated. Returns { blacklisted: [...], reinstated: [ids], entries: [...] }.
+   * reinstated. `options.rankOrder` (optional, array of model ids in
+   * rank order) breaks pool-floor ties by rank. Returns
+   * { blacklisted: [...], reinstated: [ids], floorExemption: {...}|null,
+   *   entries: [...] }.
    */
-  update(models) {
+  update(models, options = {}) {
     const blacklistedNow = [];
     const reinstated = [];
-    for (const model of models || []) {
+    const pool = Array.isArray(models) ? models : [];
+    const rankIndex = new Map();
+    if (Array.isArray(options.rankOrder)) {
+      options.rankOrder.forEach((id, i) => { if (!rankIndex.has(id)) rankIndex.set(id, i); });
+    }
+    this.floorExemption = null;
+    for (const model of pool) {
       const assessment = assessModel(model, this.config);
       const existing = this.entries.get(model.id);
       if (assessment.status === 'BLACKLISTED') {
@@ -152,8 +206,9 @@ export class BlacklistManager {
           sinceSamples: assessment.samples,
           baselineWins: assessment.wins,
           baselineEvaluated: assessment.samples,
-          shadow: { wins: 0, evaluated: 0 }
+          shadow: { wins: 0, evaluated: 0, recent: [] }
         };
+        if (!Array.isArray(entry.shadow.recent)) entry.shadow.recent = [];
         entry.name = assessment.name;
         entry.reasons = assessment.reasons;
         entry.lastAssessment = assessment;
@@ -174,7 +229,54 @@ export class BlacklistManager {
         reinstated.push(entry.id);
       }
     }
-    return { blacklisted: blacklistedNow, reinstated, entries: this.list() };
+    // POOL FLOOR (Phase 2A, owner correction 3): the blacklist must
+    // never exclude the last eligible model. If every pool model is
+    // blacklisted, exempt the highest-Wilson model (ties: rank order
+    // first, then samples, then pool order) and keep it eligible.
+    // This is prevention inside the blacklist, not a fallback that
+    // bypasses it — no bar is lowered. The exemption is reported, not
+    // counted as an ordinary reinstatement, unless the model already
+    // had a pre-existing entry (then it is a genuine reinstatement).
+    let floorExemption = null;
+    if (pool.length > 0 && pool.every(m => this.entries.has(m.id))) {
+      let best = null;
+      let bestWilson = -1;
+      let bestRank = Number.POSITIVE_INFINITY;
+      let bestSamples = -1;
+      for (const model of pool) {
+        const entry = this.entries.get(model.id);
+        const wilson = entry && entry.lastAssessment ? entry.lastAssessment.wilson : 0;
+        const samples = entry && entry.lastAssessment ? entry.lastAssessment.samples : 0;
+        const rank = rankIndex.has(model.id) ? rankIndex.get(model.id) : Number.POSITIVE_INFINITY;
+        if (wilson > bestWilson
+          || (wilson === bestWilson && rank < bestRank)
+          || (wilson === bestWilson && rank === bestRank && samples > bestSamples)) {
+          best = model;
+          bestWilson = wilson;
+          bestRank = rank;
+          bestSamples = samples;
+        }
+      }
+      if (best) {
+        const wasNewlyBlacklisted = blacklistedNow.some(e => e.id === best.id);
+        this.entries.delete(best.id);
+        if (wasNewlyBlacklisted) {
+          const idx = blacklistedNow.findIndex(e => e.id === best.id);
+          if (idx >= 0) blacklistedNow.splice(idx, 1);
+        } else {
+          reinstated.push(best.id);
+        }
+        floorExemption = {
+          id: best.id,
+          name: best.name || best.id,
+          wilson: bestWilson,
+          samples: bestSamples,
+          reason: 'Pool floor: kept eligible — the pool would otherwise be empty'
+        };
+        this.floorExemption = floorExemption;
+      }
+    }
+    return { blacklisted: blacklistedNow, reinstated, floorExemption, entries: this.list() };
   }
 
   /** Current blacklist for display: reason, samples, win rate, shadow status. */
@@ -189,8 +291,11 @@ export class BlacklistManager {
       wilson: e.lastAssessment ? e.lastAssessment.wilson : 0,
       recentWinRate: e.lastAssessment ? e.lastAssessment.recentWinRate : null,
       shadowStatus: e.shadowStatus || 'Shadow mode: still evaluated in the background',
-      shadow: { ...e.shadow },
-      shadowWilson: this._shadowWilson(e)
+      shadow: { ...e.shadow, recent: [...(Array.isArray(e.shadow.recent) ? e.shadow.recent : [])] },
+      shadowWilson: this._shadowWilson(e),
+      // Phase 2A: the shadow recent window, so reinstatement gating
+      // is visible in display instead of hidden inside the manager.
+      shadowRecent: this.shadowRecent(e)
     }));
   }
 }

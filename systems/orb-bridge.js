@@ -32,7 +32,7 @@
  */
 
 import { InchargeEngine, INCHARGE_MODES, wilsonLowerBound } from './inchargeEngine.js';
-import { CalibrationTracker, plattScale } from './calibration.js';
+import { CalibrationTracker, PerModelCalibrationTracker, calibrationLabel, plattScale } from './calibration.js';
 import { evaluateSignalGate, GATE_DECISIONS, GateCooldown, GovernedStreakGuard, HARD_STOP_REASON, sampleStakeFactor } from './signalGate.js';
 import { BlacklistManager } from './blacklist.js';
 import {
@@ -302,7 +302,12 @@ export function normaliseBridgeState(raw) {
     fetchMode: raw.fetchMode === 'active' || raw.fetchMode === 'intercept' || raw.fetchMode === 'pending' ? raw.fetchMode : null,
     userId: raw.userId !== null && raw.userId !== undefined ? String(raw.userId) : null,
     ts: Number.isFinite(Number(raw.ts)) ? Number(raw.ts) : null,
-    seq: Number.isFinite(Number(raw.seq)) ? Number(raw.seq) : null
+    seq: Number.isFinite(Number(raw.seq)) ? Number(raw.seq) : null,
+    // Task O (connection resilience): the bridge's per-load instance id.
+    // A restart resets seq to 1; the verifier re-baselines on an
+    // instance change instead of stalling. Absent on older bridge
+    // builds (null) — the ts rules below still cover those.
+    instance: typeof raw.instance === 'string' && raw.instance !== '' ? raw.instance : null
   };
 }
 
@@ -324,15 +329,32 @@ export class LoginVerifier {
     // The bridge's published user state (the only path to VERIFIED).
     this.bridgeState = null;      // last normalised state accepted
     this.bridgeStateAt = null;    // app-clock time it was received
+    // Task O: the bridge instance id of the last accepted state.
+    // A new instance re-baselines immediately (see observeBridgeState).
+    this.bridgeInstance = null;
   }
 
   /**
    * Feed one published bridge state (already normalised, or raw — it
    * is normalised here). receivedAt is the APP clock; the bridge's own
    * ts is kept for display but freshness is judged on receivedAt so a
-   * skewed page clock cannot fake or kill freshness. Out-of-order
-   * states (older ts AND older seq than the last accepted) are
-   * ignored, except after a long silence (bridge restart resets seq).
+   * skewed page clock cannot fake or kill freshness.
+   * Task O (connection resilience) acceptance rules — a replayed or
+   * stale state is NEVER accepted, but a bridge restart no longer
+   * stalls for 120s:
+   *  * older ts than the last accepted → rejected (replay/stale),
+   *    except after a long silence (the old backstop, kept);
+   *  * same ts + older seq → rejected as an out-of-order duplicate,
+   *    except from a NEW bridge instance or after a long silence;
+   *  * NEWER ts → accepted even with an older seq: a restart resets
+   *    seq to 1 while its clock keeps moving, so a fresh-ts +
+   *    reset-seq state is a restart, not a replay (the old rule
+   *    rejected on olderSeq alone and stalled every restart);
+   *  * a NEW bridge instance (instance id changed) re-baselines
+   *    immediately, provided its ts is not older than the last
+   *    accepted ts; null-ts states keep the old seq + longSilence
+   *    rule. Freshness for VERIFIED still needs ≤60s age AND
+   *    isLoggedIn AND apiProven from a real authenticated payload.
    */
   observeBridgeState(raw, receivedAt = Date.now()) {
     const st = normaliseBridgeState(raw);
@@ -347,12 +369,20 @@ export class LoginVerifier {
     if (this.bridgeState) {
       const olderTs = st.ts !== null && this.bridgeState.ts !== null && st.ts < this.bridgeState.ts;
       const olderSeq = st.seq !== null && this.bridgeState.seq !== null && st.seq < this.bridgeState.seq;
+      const sameTsOlderSeq = st.ts !== null && this.bridgeState.ts !== null && st.ts === this.bridgeState.ts && olderSeq;
+      // A new bridge instance re-baselines immediately — but only
+      // with a non-older ts, so a replayed old state (old ts, forged
+      // or stale instance) still loses to the ts rule below.
+      const newInstance = st.instance !== null && this.bridgeInstance !== null && st.instance !== this.bridgeInstance;
       const longSilence = t - this.bridgeStateAt > 120000;
-      if ((olderTs || olderSeq) && !longSilence) return this.status(t);
+      if (olderTs && !longSilence) return this.status(t);
+      if (sameTsOlderSeq && !newInstance && !longSilence) return this.status(t);
+      if (st.ts === null && olderSeq && !newInstance && !longSilence) return this.status(t);
     }
     this.everObserved = true;
     this.bridgeState = st;
     this.bridgeStateAt = t;
+    if (st.instance !== null) this.bridgeInstance = st.instance;
     this.lastSyncAt = t;
     // A pending state never records a negative (Fix 5a): its false
     // only means "nothing confirmed yet", not "logged out". A
@@ -1127,6 +1157,14 @@ export function displayGateFor(engineGate, { hardStopped = false } = {}) {
  * refuses STOP/STOP_LOSS/STOP_WIN/LADDER_EXHAUSTED sessions and
  * non-positive stakes, and firing still needs the per-bet tap.
  * The converted verdict is marked forced everywhere it displays.
+ *
+ * DORMANT (Phase 2A, owner correction 2): the owner removed the
+ * NO-SKIP button — the chip, its badge, and the #axoNoSkipPopup are
+ * gone from the panel, the cycle no longer calls applyNoSkip, and
+ * the hero no longer shows no-skip wording. These helpers stay in
+ * code, unreferenced by any live path, so the removal is reversible;
+ * the automatic skip cap (above) is now the skip handling. Do NOT
+ * re-wire these without a fresh owner order.
  */
 export const NO_SKIP_WARNING_TEXT = 'No-skip mode bets rounds the engine would skip for low confidence. Expect more losses — this does not improve the edge, it only bets more often. Bankroll guards (stop-loss, stop-win, ladder limits, Wilson check) still apply, and every bet still needs your tap.';
 
@@ -1148,6 +1186,152 @@ export function applyNoSkip(gate, { enabled = false, pick = null } = {}) {
     reason: `No-skip forced pick: ${pick} — ${gate.reason} (No-skip mode: this bets a round the engine would skip for low confidence.)`,
     sampleNote: `${earlyNote} No-skip forced pick.`.trim()
   };
+}
+
+/**
+ * Phase 2A (2026-10-26) — governed-pool split, skip cap, subtitle
+ * routing, system notifications, closed-orb stake badge, thin-pool
+ * flag. Pure helpers, unit-tested in tests/fix_round_phase2a.test.js.
+ * NO threshold changes: every locked bar (51.02% breakeven, +2%
+ * margin, Wilson bar, floor 20, tiers, streak 5+, ECE 0.08, ±20%
+ * stops, ladder, per-bet tap) is untouched by this round.
+ */
+
+// ── Display-only models: ASI / ASI_APEX_MASTER ──────────────────────
+// A static pick must never be ranked or bet. These two ids are cut
+// out of the GOVERNED pool (the only ranking-behavior change in
+// Phase 2A) and shown in a separate display-only section instead.
+// The full pool is untouched for export and display.
+export const DISPLAY_ONLY_MODEL_IDS = ['ASI', 'ASI_APEX_MASTER'];
+
+export function isDisplayOnlyModel(modelOrId) {
+  const id = typeof modelOrId === 'string' ? modelOrId : (modelOrId && modelOrId.id);
+  return DISPLAY_ONLY_MODEL_IDS.includes(id);
+}
+
+export function splitGovernedPool(pool) {
+  const governed = [];
+  const displayOnly = [];
+  for (const m of pool || []) (isDisplayOnlyModel(m) ? displayOnly : governed).push(m);
+  return { governed, displayOnly };
+}
+
+// ── Skip cap (owner order: no more than 3 consecutive skips) ────────
+// SAFE RECONCILED FORM, ON BY DEFAULT. After 3 consecutive DISPLAYED
+// SKIP verdicts, the next round shows a pick (the best available pick
+// from the ranked eligible pool) instead of a 4th skip. The forced
+// pick still needs the user's per-bet tap — never auto-bet — and
+// graduated stakes, ladder limits, stop-loss/win, and affordability
+// still apply to it. The cap NEVER overrides a safety stop: while
+// HARD_STOP, stop-loss, or stop-win is active, skips continue past 3
+// with no forced pick and the reason line says so plainly. The
+// counter resets on any BET verdict, on any safety-stop activation,
+// and on session start (state init). It counts DISPLAYED verdicts:
+// a forced pick breaks the streak, so the next engine SKIP starts a
+// fresh count of 1 — otherwise every later skip would force too.
+export const SKIP_CAP_MAX_CONSECUTIVE = 3;
+export const SKIP_CAP_YIELD_NOTE = 'Skip cap held: a safety stop is active, so no forced pick.';
+
+export function skipCapNext({ count = 0, gateDecision = null, safetyStop = false } = {}) {
+  if (safetyStop) {
+    // A stop resets the streak. The yield note applies only to a
+    // displayed SKIP — a BET verdict has nothing to yield on.
+    const yielded = gateDecision !== GATE_DECISIONS.BET && count >= SKIP_CAP_MAX_CONSECUTIVE;
+    return { count: 0, force: false, yielded };
+  }
+  if (gateDecision === GATE_DECISIONS.BET) return { count: 0, force: false, yielded: false };
+  if (count >= SKIP_CAP_MAX_CONSECUTIVE) return { count: 0, force: true, yielded: false };
+  return { count: count + 1, force: false, yielded: false };
+}
+
+export function applySkipCap(gate, { pick = null } = {}) {
+  if (!gate || gate.decision !== GATE_DECISIONS.SKIP || !pick) return gate;
+  const factor = gate.sampleFactor ?? 1;
+  const earlyNote = factor < 1
+    ? ` Early-data stake: ${factor}× base (${Math.floor(gate.sampleSize || 0)} evaluated rounds; full stake at 200).`
+    : '';
+  return {
+    ...gate,
+    decision: GATE_DECISIONS.BET,
+    pick,
+    forced: true,
+    skipCapForced: true,
+    reason: `Skip-cap forced pick: ${pick} — ${gate.reason} (3 consecutive skips shown; this bets a round the engine would skip. Still needs your tap.)`,
+    sampleNote: `${earlyNote} Skip-cap forced pick (after 3 consecutive skips).`.trim()
+  };
+}
+
+// ── Subtitle routing (owner correction 5) ───────────────────────────
+// VERDICT lines (BET, SKIP, WIN, LOSS, ladder steps, stops, missed
+// bets, the active HARD_STOP line) keep the EXISTING bubble: sticky,
+// X dismisses only the current line, next say() re-shows. SYSTEM /
+// STATUS lines (the start-up greeting, login/bridge status, balance
+// detection, model changes, Auto-Pilot on/off/refused/fired notes,
+// stop-cleared/re-armed notes) show as a MINIMAL notification above
+// the Axo/ball area that AUTO-CLOSES after SYSTEM_NOTIFICATION_MS.
+// Voice is unchanged: voice still speaks exactly the subtitle string
+// even when the visual is an auto-closing notification — auto-close
+// is visual only. The routing is by event for speakEvent lines and
+// by explicit kind at direct say() sites; the default is 'verdict',
+// so any unmarked line keeps the old bubble behavior.
+export const SYSTEM_NOTIFICATION_MS = 4000;
+export const SYSTEM_SUBTITLE_EVENTS = new Set([
+  BOT_EVENTS.GREETING,
+  BOT_EVENTS.LOGIN_VERIFIED,
+  BOT_EVENTS.BALANCE_DETECTED,
+  BOT_EVENTS.BALANCE_LOW,
+  BOT_EVENTS.BALANCE_NOT_DETECTED,
+  BOT_EVENTS.MODEL_CHANGE // INCHARGE_CHANGE is the same string
+]);
+
+export function subtitleKindForEvent(event) {
+  return SYSTEM_SUBTITLE_EVENTS.has(event) ? 'system' : 'verdict';
+}
+
+export function resolveSubtitleTarget(kind) {
+  return kind === 'system' ? 'notification' : 'bubble';
+}
+
+/**
+ * Notification geometry: above the Axo anchor; if the subtitle bubble
+ * is itself above the anchor, stack the notification above the
+ * bubble instead of overlapping it. Viewport-clamped, 8px margins.
+ */
+export function systemNotificationGeometry({ anchor = null, vw = 0, vh = 0, nw = 0, nh = 0, bubbleRect = null } = {}) {
+  let top;
+  if (anchor) {
+    top = anchor.top - 8 - nh;
+    if (bubbleRect && bubbleRect.bottom <= anchor.top) top = Math.min(top, bubbleRect.top - 8 - nh);
+  } else {
+    top = 8;
+  }
+  if (top < 8) top = 8;
+  if (top + nh > vh - 8) top = Math.max(8, vh - 8 - nh);
+  let left = anchor ? anchor.left + (anchor.width - nw) / 2 : (vw - nw) / 2;
+  if (left < 8) left = 8;
+  if (left + nw > vw - 8) left = Math.max(8, vw - 8 - nw);
+  return { left: Math.round(left), top: Math.round(top) };
+}
+
+// ── Thin pool (display only, NOT a gate) ────────────────────────────
+export const THIN_POOL_MIN = 10;
+
+// ── Closed-orb stake badge (owner correction 4) ─────────────────────
+// The closed orb's pill shows the governed stake alongside the
+// prediction on BET verdicts (including cap-forced picks) and SKIP
+// with NO amount on SKIP verdicts, so the badge never invites betting
+// a skipped round. The stake figure is formatted exactly like the
+// hero's Bet figure ('₹' + en-IN grouping, whole rupees) and comes
+// from the same source (state.session.nextStake) — no new math.
+export function closedOrbPill({ decision = null, pick = null, stake = null } = {}) {
+  if (decision === GATE_DECISIONS.BET && pick) {
+    if (stake !== null && stake !== undefined && Number.isFinite(Number(stake)) && Number(stake) > 0) {
+      return { text: `${pick} · ₹${Number(stake).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`, state: 'bet' };
+    }
+    return { text: pick, state: 'bet' };
+  }
+  if (decision === GATE_DECISIONS.SKIP) return { text: 'SKIP', state: 'skip' };
+  return { text: '—', state: 'none' };
 }
 
 /**
@@ -1218,6 +1402,86 @@ export function fitSheetHeight({ need = 0, current = 0, vh = 0 } = {}) {
   const cap = Math.max(220, (Number(vh) || 0) - 24);
   const target = Math.min(need, cap);
   return target > current ? target : null;
+}
+
+/**
+ * Task N (owner order 2026-10-26, "resizable to any size and all be
+ * visible"): compaction tiers. The Task K fixed 340px content floor
+ * is REMOVED — it blocked shrinking below 340 even though the
+ * content can compact far below it. Instead the sheet compacts in
+ * tiers (CSS rules in mobile.css, keyed on the sheet's
+ * data-axo-compact attribute) and the settle pass measures at the
+ * applied tier, so the settled size is the MEASURED compacted need
+ * — never a guessed floor, never a clip. Tiers only tighten
+ * padding, gaps, and sizes (see the CSS); no tier hides a section,
+ * truncates a reason, or drops a control. Savings below are the
+ * documented per-tier totals, measured from the markup:
+ * - tier 1 (−13): body padding 16→8 (−8) + body gaps 4→3px × 5 (−5).
+ * - tier 2 (−29): + hero padding 16→8 (−8) + road padding 8→4 (−4)
+ *   + control row 27→23 (−4).
+ * - tier 3 (−52): + body gaps 3→2px × 5 (−5) + hero verdict text
+ *   28→24 line (−4) + road beads 20→18 (−2) + pills/chips padding
+ *   8→4 each (−8) + base top padding 2→0 (−2) + reason bottom
+ *   padding 2→0 (−2).
+ * The 64px header face is NEVER shrunk (it is Axo's identity and
+ * the drag handle) and the reason text is NEVER truncated. Runtime
+ * measurement is authoritative: these numbers pick the tier, and
+ * fitSheetToContent measures at the tier and grows if still short.
+ * Live-drag bands (absolute heights, no measurement — the settle
+ * pass corrects them): ≥340 → 0, ≥300 → 1, ≥265 → 2, else 3.
+ * Narrow flag: sheet width < 240px tightens control-row padding
+ * and gaps only (never a font below readable, never a wrap that
+ * would add a row). Smallest fully-visible default content
+ * (tier-0 359px, Task L baseline) is 359 − 52 = 307px; with a staged
+ * confirm slot (+34) it is 341px. Below that, or on a viewport
+ * shorter than need + 24, full visibility is physically
+ * impossible — the sheet keeps the most compact layout there and
+ * the settle rule caps at the viewport instead of clipping by
+ * choice (see axoSettledHeight).
+ */
+export const AXO_COMPACT_SAVINGS = [0, 13, 29, 52];
+export const AXO_COMPACT_BANDS = [340, 300, 265];
+export const AXO_NARROW_WIDTH = 240;
+
+export function axoCompactedHeight({ fullH = 0, level = 0 } = {}) {
+  const lv = Math.min(3, Math.max(0, Math.floor(Number(level)) || 0));
+  return Math.max(0, (Number(fullH) || 0) - AXO_COMPACT_SAVINGS[lv]);
+}
+
+export function axoCompactLevelFor({ sheetH = 0, fullH = 0 } = {}) {
+  const h = Number(sheetH) || 0;
+  const full = Number(fullH) || 0;
+  for (let level = 0; level <= 3; level += 1) {
+    if (axoCompactedHeight({ fullH: full, level }) <= h) return level;
+  }
+  return 3;
+}
+
+export function axoCompactBandFor({ height = 0 } = {}) {
+  const h = Number(height) || 0;
+  if (h >= AXO_COMPACT_BANDS[0]) return 0;
+  if (h >= AXO_COMPACT_BANDS[1]) return 1;
+  if (h >= AXO_COMPACT_BANDS[2]) return 2;
+  return 3;
+}
+
+export function axoNarrowFor({ width = 0 } = {}) {
+  return (Number(width) || 0) < AXO_NARROW_WIDTH;
+}
+
+/**
+ * Task N settle rule (pure): the settled height is the largest of
+ * the wanted height, the measured compacted need, and the 220px
+ * absolute drag floor — capped by the viewport (vh − 24, never
+ * below 220). When the returned height is below needH, the content
+ * physically cannot fit even compacted (viewport too short); the
+ * caller keeps the most compact layout at the cap and must not
+ * pretend otherwise. This never shrinks a user's size by choice:
+ * wantH is always honored unless the measured need exceeds it.
+ */
+export function axoSettledHeight({ wantH = 0, needH = 0, vh = 0 } = {}) {
+  const cap = Math.max(220, (Number(vh) || 0) - 24);
+  return Math.min(cap, Math.max(220, Number(wantH) || 0, Number(needH) || 0));
 }
 
 /**
@@ -1357,26 +1621,25 @@ export function axoBubbleGeometry({ anchor = null, vw = 0, vh = 0, bw = 280, bh 
  * clearance for the straddling avatar + 14px bottom margin). The
  * short-viewport tightening in mobile.css covers the residual gap
  * between the softened floor and the tightened content.
- * Task L (owner screenshot 2026-10-26): the floor is a MINIMUM,
- * not a fit guarantee — the Task K "content ~327" budget was wrong
- * (it counted a 33px header; the real header carries the 64px face,
- * so it is ~77px, and true content with the reserved slot was
- * ~395-400px > the 380px cap, which clipped the chip row).
- * fitSheetToContent() grows the sheet to measured content whenever
- * content exceeds the resolved height, so no functional control can
- * ever be clipped by the cap again; the collapsed empty confirm
- * slot brings default content to ~359px, inside the 380px cap.
+ * Task N (owner order 2026-10-26, "resizable to any size and all be
+ * visible"): the Task K fixed 340px content floor is REMOVED — it
+ * blocked shrinking below 340 even though compaction carries the
+ * same content down to ~307px (default) at tier 3. The resolver
+ * now floors only at the ABSOLUTE drag floor (200×220) so a saved
+ * compact size restores exactly; the post-open compact fit
+ * (fitSheetToContent: tier by measurement, then grow to measured
+ * compacted need) guarantees no section clips, and a size below
+ * the compacted need settles at that need instead of clipping.
+ * The old 340px floor constant and floor function are deleted
+ * with this change (no other importer existed); the 340 number
+ * survives only in the compact preset's height (230×340), which
+ * still resolves exactly.
  * Published for the classic script (mobile.js cannot import this
  * module) with an inline fallback there.
  */
 export const AXO_PANEL_DEFAULT_SIZE = { width: 270, height: 380 };
 export const AXO_PANEL_MIN_SIZE = { width: 200, height: 220 };
 export const AXO_PANEL_SIZE_KEY = 'dhaniwin_assistant_box_size';
-export const AXO_PANEL_CONTENT_MIN_HEIGHT = 340;
-
-export function axoPanelContentFloor(vh) {
-  return Math.max(AXO_PANEL_MIN_SIZE.height, Math.min(AXO_PANEL_CONTENT_MIN_HEIGHT, (Number(vh) || 0) - 64));
-}
 
 export function resolveAxoPanelSize({ saved = null, vw = 0, vh = 0 } = {}) {
   const maxW = Math.max(AXO_PANEL_MIN_SIZE.width, (Number(vw) || 0) - 16);
@@ -1386,7 +1649,10 @@ export function resolveAxoPanelSize({ saved = null, vw = 0, vh = 0 } = {}) {
   const h = num(saved && saved.height);
   return {
     width: Math.min(maxW, Math.max(AXO_PANEL_MIN_SIZE.width, w ?? AXO_PANEL_DEFAULT_SIZE.width)),
-    height: Math.min(maxH, Math.max(axoPanelContentFloor(vh), h ?? AXO_PANEL_DEFAULT_SIZE.height))
+    // Task N: absolute floor only (220). A saved compact size
+    // restores exactly; the post-open compact fit grows to the
+    // measured compacted need when content would otherwise clip.
+    height: Math.min(maxH, Math.max(AXO_PANEL_MIN_SIZE.height, h ?? AXO_PANEL_DEFAULT_SIZE.height))
   };
 }
 
@@ -1705,6 +1971,10 @@ function initBridge() {
   // recent 500 records): a fresh page load used to reset it to zero
   // and the gate skipped every round until 50 fresh settlements.
   const tracker = new CalibrationTracker({ storage: safeStorage() });
+  // Phase 2A: per-model calibration (observability only — never a
+  // verdict input). Records every governed model's RAW stated
+  // confidence at settlement; session-scoped, bounded per model.
+  const modelCalib = new PerModelCalibrationTracker();
   // One blacklist per governance scope: a model benched on 30s evidence
   // must not stay benched on 5m, and vice versa.
   const blacklists = new Map();
@@ -1779,7 +2049,14 @@ function initBridge() {
     patternLive: {},       // tf -> true once the initial chronological feed caught up ('live' source after)
     baseSignature: null,   // chip/AUTO/risk-mode signature driving session replans
     apIntentSeen: null,    // updatedAt of the last settings intent applied
-    lastChipBase: null     // last MobileBridgeState.baseStake seen (manual-override detection)
+    lastChipBase: null,    // last MobileBridgeState.baseStake seen (manual-override detection)
+    // Phase 2A skip cap: consecutive DISPLAYED SKIP verdicts (reset
+    // on any BET verdict, on any safety-stop activation, and on
+    // session start). The lock key the count was last advanced for.
+    skipCapCount: 0,
+    skipCapKey: null,
+    skipCapForce: false,   // this verdict is a cap-forced pick
+    skipCapYielded: false  // the cap yielded to a safety stop this verdict
   };
 
   function safeStorage() {
@@ -1978,6 +2255,66 @@ function initBridge() {
   }
   setInterval(pollRtdbUserState, 5000);
   setTimeout(pollRtdbUserState, 2500);
+
+  // ── Task O (connection resilience): ALWAYS reconnect + auto-connect ──
+  // Backgrounding throttles/suspends every timer above (2s snapshot
+  // poll, 5s RTDB poll, the bridge's own 15s heartbeat + 20s wallet
+  // poll), and a bridge restart resets seq — so after a background
+  // gap the app used to sit UNKNOWN for minutes waiting for the next
+  // tick. The resume path below closes the gap immediately instead
+  // of waiting for any tick. VERIFIED is never weakened by this: a
+  // fresh state still needs isLoggedIn + apiProven from a real
+  // authenticated payload, and a dead session still surfaces as
+  // "login needed", never VERIFIED.
+  let bridgeSyncChannel = null;
+  function postBridgeSyncRequest() {
+    const payload = { type: 'DHANIWIN_REQUEST_SYNC', timestamp: Date.now() };
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        if (!bridgeSyncChannel) bridgeSyncChannel = new BroadcastChannel('dhaniwin_quant_channel');
+        bridgeSyncChannel.postMessage(payload);
+      }
+    } catch (e) { /* channel unavailable: iframe post still tries */ }
+    try {
+      const iframe = document.getElementById('dhaniwinIframe');
+      if (iframe && iframe.contentWindow) iframe.contentWindow.postMessage(payload, '*');
+    } catch (e) { /* no iframe: channel already tried */ }
+  }
+  let lastReverifyAt = 0;
+  function requestBridgeReverify() {
+    // Throttle: launch already calls this once, and pageshow fires
+    // on initial load too — a second call within 1s would only
+    // duplicate the probe. A real resume (>1s after the last run)
+    // always runs.
+    const now = Date.now();
+    if (now - lastReverifyAt < 1000) return;
+    lastReverifyAt = now;
+    try { pollBridgeState(); } catch (e) { /* polling must never break the app */ }
+    try { pollRtdbUserState(); } catch (e) { /* offline / rules: channel still feeds */ }
+    try {
+      // Gap recovery: re-render NOW so a state older than 60s decays
+      // to UNKNOWN/pending at once — a held figure (if any) renders
+      // flagged stale, never as a fresh verified balance — until a
+      // fresh probe lands and re-verifies it.
+      const login = verifier.status(Date.now());
+      state.login = login;
+      renderLogin(login);
+    } catch (e) { /* render must never break the app */ }
+    postBridgeSyncRequest();
+  }
+  // Exposed for mobile.js / console / tests: no tap required.
+  try { window.__o101BridgeReverify = requestBridgeReverify; } catch (e) {}
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') requestBridgeReverify();
+  });
+  // pageshow covers bfcache restores (persisted) and WebView resumes
+  // that do not fire visibilitychange; the 1s throttle above absorbs
+  // the initial-load pageshow, which the launch call already covers.
+  window.addEventListener('pageshow', () => { requestBridgeReverify(); });
+  window.addEventListener('online', () => { requestBridgeReverify(); });
+  // Launch auto-connect: do not wait for the first poll ticks or for
+  // the bridge's own init publish — ask for a probe immediately.
+  requestBridgeReverify();
 
   // Which transport the embedded DhaniWin load used (mobile.js
   // records it on every load; localStorage carries it to the
@@ -2428,7 +2765,11 @@ function initBridge() {
   function repositionAxoBubble() {
     const bubble = $('axoSubtitleBubble');
     if (!bubble || bubble.style.display !== 'block') return false;
-    return positionAxoBubble();
+    const shown = positionAxoBubble();
+    // Phase 2A: a visible system notification tracks Axo too (its
+    // 4s timer is NOT restarted — this is position only).
+    positionSystemNotification();
+    return shown;
   }
 
   function syncAxoSubtitleSurfaces() {
@@ -2453,6 +2794,10 @@ function initBridge() {
   }
 
   // ── No-skip mode (owner order 2026-10-25, UI batch) ─────────────
+  // DORMANT (Phase 2A, owner correction 2): the chip, badge, and
+  // popup are removed from the panel and nothing calls these
+  // functions anymore. They stay, unreferenced, so the removal is
+  // reversible; the automatic skip cap is now the skip handling.
   // Session-scoped by construction: plain closure flags, never
   // localStorage, so every launch starts OFF. Tapping the chip
   // while OFF only OPENS the warning — enabling requires an
@@ -2500,7 +2845,26 @@ function initBridge() {
     renderNoSkipChip();
   }
 
-  function say(text) {
+  /**
+   * Subtitle write (Phase 2A routing — owner correction 5).
+   * kind 'verdict' (default): the EXISTING bubble path — writes the
+   * sheet state, sets state.lastLine, syncs surfaces. A new verdict
+   * line clears a previous bubble dismissal even when the text is
+   * identical to the dismissed line: the X closed THAT utterance,
+   * and a re-say is a NEW utterance (fixes the coverage gap where a
+   * same-text re-say after dismissal never re-showed).
+   * kind 'system': shows the MINIMAL auto-closing notification above
+   * the Axo/ball area instead, and touches NEITHER the bubble NOR
+   * state.lastLine — so a status line can never evict the current
+   * verdict subtitle. Voice is untouched: callers that speak a line
+   * (speakEvent → axoOnEvent → axoSpeak) still speak exactly the
+   * subtitle string; auto-close is visual only.
+   */
+  function say(text, kind = 'verdict') {
+    if (resolveSubtitleTarget(kind) === 'notification') {
+      if (text) showSystemNotification(text);
+      return;
+    }
     const el = $('smartBallLine');
     // The sheet line carries an icon slot beside the text (fix round
     // #3): write the text span only, so a subtitle write never wipes
@@ -2510,10 +2874,55 @@ function initBridge() {
     if (sheetText && text) sheetText.textContent = text;
     else if (el && text) el.textContent = text;
     // A new line clears a previous bubble dismissal: the X closed
-    // THAT line, not subtitles in general.
-    if (text && text !== state.lastLine) state.bubbleDismissedText = '';
+    // THAT line, not subtitles in general. Cleared on EVERY non-empty
+    // say() (Phase 2A coverage fix) — a same-text re-say is a new
+    // utterance and must re-show.
+    if (text) state.bubbleDismissedText = '';
     state.lastLine = text;
     syncAxoSubtitleSurfaces();
+  }
+
+  /** System/status notification (Phase 2A, owner correction 5):
+   * small dark-matte box ABOVE the Axo/ball area, pointer-events
+   * none (never blocks a tap, never a modal), auto-closes after
+   * SYSTEM_NOTIFICATION_MS (4000ms). A new system line replaces the
+   * text and restarts the timer. The verdict bubble is untouched. */
+  let systemNotificationTimer = null;
+
+  function positionSystemNotification() {
+    const note = $('axoSystemNotification');
+    if (!note || note.style.display !== 'block') return false;
+    const anchorEl = axoBubbleAnchorEl();
+    const r = anchorEl ? anchorEl.getBoundingClientRect() : null;
+    const bubble = $('axoSubtitleBubble');
+    let bubbleRect = null;
+    if (bubble && bubble.style.display === 'block') {
+      const br = bubble.getBoundingClientRect();
+      bubbleRect = { top: br.top, bottom: br.bottom, left: br.left, right: br.right };
+    }
+    const pos = systemNotificationGeometry({
+      anchor: r ? { left: r.left, top: r.top, width: r.width, height: r.height } : null,
+      vw: window.innerWidth, vh: window.innerHeight,
+      nw: note.offsetWidth || 280, nh: note.offsetHeight || 32,
+      bubbleRect
+    });
+    note.style.left = pos.left + 'px';
+    note.style.top = pos.top + 'px';
+    return true;
+  }
+
+  function showSystemNotification(text) {
+    const note = $('axoSystemNotification');
+    const textEl = $('axoSystemNotificationText');
+    if (!note || !textEl) return;
+    textEl.textContent = text;
+    note.style.display = 'block';
+    positionSystemNotification();
+    if (systemNotificationTimer) clearTimeout(systemNotificationTimer);
+    systemNotificationTimer = setTimeout(() => {
+      note.style.display = 'none';
+      systemNotificationTimer = null;
+    }, SYSTEM_NOTIFICATION_MS);
   }
 
   /** Write one verdict icon into every icon slot that exists. Icons
@@ -2571,6 +2980,9 @@ function initBridge() {
     }
     // Every BET prediction's subtitle carries the sequence road +
     // the period number, and the voice speaks exactly that string.
+    // Phase 2A: system events (greeting, login, balance, model
+    // change) route to the auto-closing notification; verdict events
+    // keep the bubble. Voice via axoOnEvent is unchanged either way.
     const full = event === BOT_EVENTS.SIGNAL_BET
       ? withRoadSuffix(line, {
           history: settledHistory(state.tf || currentTf()),
@@ -2578,7 +2990,7 @@ function initBridge() {
           count: 8
         })
       : line;
-    say(full);
+    say(full, subtitleKindForEvent(event));
     // Fix round #3: every verdict carries its icon — size arrow,
     // colour dot, or skip mark — beside the subtitle, never spoken.
     // Fix round #4: the opened avatar's badge carries the same
@@ -2601,7 +3013,7 @@ function initBridge() {
     for (const group of groupSpokenEvents(events)) {
       const ctx = contextSnapshot(extra);
       const text = group.map(ev => botLine(ev, ctx).line).join(' ');
-      say(text);
+      say(text, 'verdict'); // settled WIN/LOSS/ladder lines are verdict lines
       const first = axoEventEffects(group[0]);
       if (first.face) {
         axo.lastInteractAt = Date.now();
@@ -2646,7 +3058,7 @@ function initBridge() {
     if (axoBounceForEvent(BOT_EVENTS.LOGIN_VERIFIED)) axoCelebrateBounce();
     if (!verifiedLineApplies(login)) return;
     const { line } = botLine(BOT_EVENTS.LOGIN_VERIFIED, contextSnapshot({ balance: login.balance }));
-    say(line);
+    say(line, 'system'); // login status: notification, not the verdict bubble
     axoSpeak(line);
   }
 
@@ -2744,10 +3156,15 @@ function initBridge() {
     const scope = resolveGovernanceScope(store, tf);
     const patternCtx = activePatternContext(tf);
     const pool = buildPoolFromStore(store, arenaModels(), scope.key, patternCtx);
+    // Phase 2A: the governed pool excludes display-only models
+    // (ASI / ASI_APEX_MASTER — static picks, never ranked or bet).
+    // `pool` stays full for export/display; governance uses
+    // `governedPool` everywhere below (blacklist, ranking, lookup).
+    const { governed: governedPool, displayOnly } = splitGovernedPool(pool);
     const bl = blacklistForScope(scope.key);
     state.scopeKey = scope.key;
     state.scopeLabel = scope.label;
-    return { scope, pool, bl, patternCtx };
+    return { scope, pool, governedPool, displayOnly, bl, patternCtx };
   }
 
   // ── Login status: window line + ball announcements ───────────────
@@ -2771,7 +3188,7 @@ function initBridge() {
     if (state.loginState !== login.state) {
       const prevLoginState = state.loginState;
       state.loginState = login.state;
-      say(loginLine(login));
+      say(loginLine(login), 'system'); // bridge/login status: notification, not the verdict bubble
       if (verifiedEdge(prevLoginState, login.state)) axoOnVerified(login);
     }
   }
@@ -2999,7 +3416,7 @@ function initBridge() {
     if (chip !== null && Number.isFinite(chip)) {
       if (state.lastChipBase !== null && chip !== state.lastChipBase && ap.state.autoBase) {
         ap.setAutoBase(false);
-        say(`AUTO base off — your manual chip ${inr(chip)} wins.`);
+        say(`AUTO base off — your manual chip ${inr(chip)} wins.`, 'system');
       }
       state.lastChipBase = chip;
     }
@@ -3049,14 +3466,14 @@ function initBridge() {
       maxStake: (window.MobileBridgeState && Number(window.MobileBridgeState.maxStakeCap)) || (staged ? staged.stake : undefined)
     });
     if (!res.ok) {
-      say('Auto-Pilot: ' + res.reason);
+      say('Auto-Pilot: ' + res.reason, 'system');
       renderAutoPilot();
       return res;
     }
     transportOrder(res.order);
     const dKey = res.order.timeframe + ':' + res.order.period;
     if (state.dispositions[dKey]) state.dispositions[dKey].fired = true;
-    say(`Fired: ${res.order.target} ${inr(res.order.stake)} for period …${shortPeriod(res.order.period)} — sent to the bridge on the tap you just gave.`);
+    say(`Fired: ${res.order.target} ${inr(res.order.stake)} for period …${shortPeriod(res.order.period)} — sent to the bridge on the tap you just gave.`, 'system');
     renderAutoPilot();
     return res;
   }
@@ -3074,10 +3491,10 @@ function initBridge() {
         balance: login.balance,
         blockedReason: guard.hardStopped ? HARD_STOP_REASON : null
       });
-      if (!res.ok) say('Auto-Pilot refused: ' + res.reason);
+      if (!res.ok) say('Auto-Pilot refused: ' + res.reason, 'system');
       else {
         state.baseSignature = null;
-        say('Auto-Pilot on. I stage every governed BET — you fire it with one tap per bet.');
+        say('Auto-Pilot on. I stage every governed BET — you fire it with one tap per bet.', 'system');
       }
     } else if (intent.desiredEnabled === false && ap.enabled) {
       ap.disarm('Turned off by the owner.');
@@ -3108,7 +3525,7 @@ function initBridge() {
     state.baseSignature = null;
     say(ap.state.autoBase
       ? 'AUTO base on — the base bet now follows your verified balance and risk mode.'
-      : 'AUTO base off — the manual chips rule.');
+      : 'AUTO base off — the manual chips rule.', 'system');
     renderAutoPilot();
   }
 
@@ -3116,7 +3533,7 @@ function initBridge() {
     if (guard.manualRearm(Date.now())) {
       saveGuard();
       ap.noteStopCleared();
-      say('Hard stop re-armed manually. The streak counter is reset — trade carefully.');
+      say('Hard stop re-armed manually. The streak counter is reset — trade carefully.', 'system');
       renderAutoPilot();
     }
   }
@@ -3183,6 +3600,19 @@ function initBridge() {
    * long reason, or a taller road can never clip the base-bet chip
    * row under the sheet cap again. Grow-only and viewport-capped
    * (fitSheetHeight); never shrinks a user's size, never scrolls.
+   * Task N (owner order 2026-10-26): compact-fit FIRST, then grow.
+   * Before measuring, the sheet steps through compaction tiers by
+   * measurement — up while the need exceeds the sheet, back down
+   * while a roomier tier still fits — so a user-shrunk sheet shows
+   * every section compacted instead of clipping, and a roomy sheet
+   * never stays over-compacted. The narrow flag follows the sheet
+   * width. Only after max compaction does the grow step run, so a
+   * size below the compacted need settles AT that need (the honest
+   * smallest fully-visible size) rather than clipping. The
+   * grow-only contract for user sizes is unchanged: this never
+   * shrinks the sheet below the user's height except by applying
+   * a tighter tier, and the viewport cap still wins on short
+   * viewports (physical limit — most compact layout kept there).
    */
   function fitSheetToContent() {
     if (!axoPanelOpen()) return false;
@@ -3191,12 +3621,26 @@ function initBridge() {
     const header = $('assistantSheetHeader');
     const controls = $('axoControlRow');
     if (!sheet || !body || !header || !controls) return false;
-    const need = sheetContentHeight({
+    const measure = () => sheetContentHeight({
       headerH: header.offsetHeight || 0,
       controlsH: controls.offsetHeight || 0,
       bodyScrollH: body.scrollHeight || 0
     });
-    const target = fitSheetHeight({ need, current: sheet.offsetHeight || 0, vh: window.innerHeight || 0 });
+    const applyTier = (level) => { sheet.dataset.axoCompact = String(level); };
+    let level = Number(sheet.dataset.axoCompact || 0) || 0;
+    if (level < 0 || level > 3) level = 0;
+    applyTier(level);
+    let need = measure();
+    const sheetH = () => sheet.offsetHeight || 0;
+    while (need > sheetH() && level < 3) { level += 1; applyTier(level); need = measure(); }
+    while (level > 0) {
+      applyTier(level - 1);
+      const lower = measure();
+      if (lower <= sheetH()) { level -= 1; need = lower; }
+      else { applyTier(level); need = measure(); break; }
+    }
+    sheet.dataset.axoNarrow = axoNarrowFor({ width: sheet.offsetWidth || 0 }) ? '1' : '0';
+    const target = fitSheetHeight({ need, current: sheetH(), vh: window.innerHeight || 0 });
     if (target === null) return false;
     sheet.style.height = target + 'px';
     sheet.style.maxHeight = target + 'px';
@@ -3374,6 +3818,9 @@ function initBridge() {
     if (state.balance !== null && !state.session) {
       const startBase = desiredBaseBet(login);
       state.session = createSession(state.balance, { mode: ap.state.riskMode, baseBet: startBase !== null ? startBase : undefined });
+      // Phase 2A: the skip-cap counter resets on session start.
+      state.skipCapCount = 0;
+      state.skipCapKey = null;
       if (!state.balanceAnnounced) {
         state.balanceAnnounced = true;
         if (state.session.state === 'STOP') speakEvent(BOT_EVENTS.BALANCE_LOW);
@@ -3418,7 +3865,7 @@ function initBridge() {
             saveGuard();
             if (!guard.hardStopped && guard.lastClear && guard.lastClear.source === 'shadow') {
               ap.noteStopCleared();
-              say('Hard stop cleared — the governed pick won twice in a row in shadow. Auto-Pilot can be re-armed when you are ready.');
+              say('Hard stop cleared — the governed pick won twice in a row in shadow. Auto-Pilot can be re-armed when you are ready.', 'system');
             }
             ap.resolveUnfired(tf, latestPeriod, 'skipped');
           } else if (decision === GATE_DECISIONS.BET && ap.enabled && !fired) {
@@ -3459,6 +3906,8 @@ function initBridge() {
               });
               if (guard.hardStopped) {
                 ap.forceStop(AP_STOP_REASONS.HARD_STOP);
+                // Active-stop announcements stay verdict lines (bubble),
+                // unlike stop-CLEARED notes which are system lines.
                 say(AP_STOP_REASONS.HARD_STOP);
               } else if (apRes.stopped) {
                 say(apRes.reason);
@@ -3494,9 +3943,19 @@ function initBridge() {
             const correct = ev(pred.target, latest.number, latest.size, latest.color);
             if (correct !== null && correct !== undefined) {
               entries.push({ modelId, pick: pred.target, patternKey: patternCtx ? patternCtx.key : null, patternName: patternCtx ? patternCtx.name : null, correct: !!correct, source: 'live' });
+              // Phase 2A: per-model calibration (observability only).
+              // Records the model's RAW stated confidence — never a
+              // Platt output — so ECE measures the model, not the
+              // scaler. Display-only models (ASI) never enter here:
+              // they have no live picks to measure.
+              if (!isDisplayOnlyModel(modelId) && typeof pred.conf === 'number') {
+                modelCalib.record(modelId, pred.conf, !!correct, latestPeriod);
+              }
             }
           }
         } else {
+          // Backfill entries carry no stated confidence, so per-model
+          // calibration skips them (live entries only, above).
           entries = walkForwardEntries(arenaModels(), history, history.length - 1, gen, ev, patternCtx, 'backfill');
         }
         store.recordRound(tf, latestPeriod, entries);
@@ -3515,11 +3974,17 @@ function initBridge() {
     consumeDeepHistory(tf);
 
     // 3) Engines on the governance scope for this timeframe (per-tf
-    //    record, or the labelled global fallback while it warms up)
-    const { scope, pool, bl } = governanceFor(tf);
-    bl.update(pool);
+    //    record, or the labelled global fallback while it warms up).
+    //    Phase 2A: governance runs on the GOVERNED pool (display-only
+    //    ASI models excluded); `pool` stays full for export/display.
+    const { scope, pool, governedPool, displayOnly, bl } = governanceFor(tf);
+    // The pool floor needs the rank order to break ties: one extra
+    // sort per cycle over the governed pool with NO blacklist filter
+    // (empty Set), so blacklisted models still have a rank.
+    const floorRank = engine.rankModels(governedPool, 'overall', { blacklist: new Set() });
+    bl.update(governedPool, { rankOrder: floorRank.map(m => m.id) });
     engine.config.blacklist = bl;
-    const verdict = engine.evaluateIncharge(bl.filterEligible(pool), {});
+    const verdict = engine.evaluateIncharge(bl.filterEligible(governedPool), {});
     const incharge = verdict && verdict.model ? verdict.model : null;
 
     if (incharge && incharge.id !== state.inchargeId) {
@@ -3545,18 +4010,21 @@ function initBridge() {
     const locked = locker.get(lockKey, () => {
       if (!incharge) {
         return {
-          gate: { decision: GATE_DECISIONS.SKIP, pick: null, prob: null, reason: 'No eligible Incharge model right now (every model is blacklisted or has no record yet) — nothing to bet on.' },
+          // Phase 2A: with the pool floor, "every model blacklisted"
+          // cannot happen for a non-empty governed pool — no Incharge
+          // means the governed pool has no record yet.
+          gate: { decision: GATE_DECISIONS.SKIP, pick: null, prob: null, reason: 'No eligible Incharge model right now — the governed pool has no record yet (the pool floor keeps one model eligible whenever the pool is non-empty). Nothing to bet on.' },
           pick: null
         };
       }
       const myPick = picks.get(incharge.id) || null;
-      const ranked = engine.rankModels(bl.filterEligible(pool));
+      const ranked = engine.rankModels(bl.filterEligible(governedPool));
       const contenders = ranked.slice(0, 3).map(m => ({ id: m.id, name: m.name, pick: picks.get(m.id) ? picks.get(m.id).target : null }));
       const rawConf = myPick && typeof myPick.conf === 'number' ? Math.min(0.99, Math.max(0.01, myPick.conf)) : null;
       // Displayed confidence: cap hard probabilities, then Platt-scale
       // through the fit learned from recorded outcomes.
       const calibratedProb = rawConf !== null ? displayProbability(rawConf, tracker) : null;
-      const poolEntry = pool.find(m => m.id === incharge.id) || null;
+      const poolEntry = governedPool.find(m => m.id === incharge.id) || null;
       // Strict Wilson check (owner order 2026-10-25): the leader's
       // defended win rate from its real wins/evaluated — the same
       // stats the engine ranking already uses (pool entries carry
@@ -3601,15 +4069,82 @@ function initBridge() {
     // Overlays change what is shown and staged, never the locked
     // verdict itself.
     const engineGate = locked.gate;
-    // No-skip (owner order 2026-10-25, UI batch): an edge SKIP
-    // becomes the leader's pick when the mode is ON — and ONLY an
-    // edge SKIP. The conversion never mutates the locked verdict
-    // (overlays change what is shown/staged, never the lock
-    // itself), and the HARD_STOP overlay below still wins over a
+    // Skip cap (Phase 2A, owner order 2026-10-26): after 3
+    // consecutive DISPLAYED skips, the next round shows the best
+    // available pick instead of a 4th skip. The cap NEVER overrides
+    // a safety stop (HARD_STOP / stop-loss / stop-win): while one is
+    // active, skips continue past 3 and the reason line says so
+    // plainly. The no-skip toggle is GONE (owner correction 2) —
+    // its applyNoSkip helper is dormant and is NOT called here.
+    // Overlays change what is shown and staged, never the locked
+    // verdict itself, and the HARD_STOP overlay still wins over a
     // forced pick. Staging guards (session stop states, ladder
     // affordability, per-bet tap) apply to forced picks unchanged.
-    const noSkipGate = applyNoSkip(engineGate, { enabled: noSkipOn, pick: locked.pick ? locked.pick.target : null });
-    const gate = displayGateFor(noSkipGate, { hardStopped: guard.hardStopped });
+    let gate = displayGateFor(engineGate, { hardStopped: guard.hardStopped });
+    const sessionState = state.session ? state.session.state : null;
+    const safetyStop = guard.hardStopped
+      || sessionState === 'STOP' || sessionState === 'STOP_LOSS' || sessionState === 'STOP_WIN';
+    // Best available pick: the leader's locked pick first (this is
+    // also the all-weak corner's forced pick — the pool floor
+    // guarantees an eligible leader, and the owner's two orders
+    // jointly require showing its pick even below the bar);
+    // otherwise the first ranked eligible model with a pick.
+    const capForcedPick = () => {
+      let forcedPick = locked.pick ? locked.pick.target : null;
+      if (!forcedPick) {
+        const rankedEligible = engine.rankModels(bl.filterEligible(governedPool));
+        for (const m of rankedEligible) {
+          const p = picks.get(m.id);
+          if (p && p.target) { forcedPick = p.target; break; }
+        }
+      }
+      return forcedPick;
+    };
+    if (state.skipCapKey !== lockKey) {
+      // The counter transition runs ONCE per lockKey (tf:latest
+      // period). A timeframe switch starts a new round stream, so
+      // the count does not carry across timeframes.
+      const sameTf = state.skipCapKey && state.skipCapKey.startsWith(tf + ':');
+      const baseCount = sameTf ? state.skipCapCount : 0;
+      const cap = skipCapNext({ count: baseCount, gateDecision: gate.decision, safetyStop });
+      state.skipCapCount = cap.count;
+      state.skipCapKey = lockKey;
+      state.skipCapForce = false;
+      state.skipCapYielded = false;
+      if (cap.force) {
+        const forcedPick = capForcedPick();
+        if (forcedPick) {
+          gate = applySkipCap(gate, { pick: forcedPick });
+          state.skipCapForce = true;
+        }
+      } else if (cap.yielded && gate.decision === GATE_DECISIONS.SKIP) {
+        gate = { ...gate, reason: `${gate.reason} ${SKIP_CAP_YIELD_NOTE}` };
+        state.skipCapYielded = true;
+      }
+    } else if (safetyStop) {
+      // A stop that activated mid-round overrides any forced pick
+      // from this round's first tick; the yield note says so when a
+      // force was active (a force only exists after 3 skips, so the
+      // note fires exactly when the cap is yielding a would-be
+      // forced pick). A stop with no prior force and no prior yield
+      // changes nothing here.
+      if (state.skipCapForce) {
+        state.skipCapForce = false;
+        state.skipCapYielded = true;
+      }
+      if (state.skipCapYielded && gate.decision === GATE_DECISIONS.SKIP) {
+        gate = { ...gate, reason: `${gate.reason} ${SKIP_CAP_YIELD_NOTE}` };
+      }
+    } else if (state.skipCapForce && gate.decision === GATE_DECISIONS.SKIP) {
+      // Same round, later tick: re-apply this round's forced pick
+      // (the transition runs once per lockKey, but the overlay must
+      // hold for the whole round). No yield branch here on purpose:
+      // if the stop cleared mid-round, nothing is yielding anymore —
+      // the note disappears and the count stays reset (a stop
+      // activation resets the streak, per the cap's rules).
+      const forcedPick = capForcedPick();
+      if (forcedPick) gate = applySkipCap(gate, { pick: forcedPick });
+    }
     state.gate = gate;
     // Graduated stakes: the session base follows the CURRENT
     // leader's sample factor. The gate just ran, so take the factor
@@ -3656,6 +4191,14 @@ function initBridge() {
     // The sheet hero follows the SAME locked verdict on every cycle,
     // incharge or not — one verdict surface, owned by the governor.
     renderHeroVerdict(gate);
+    // Phase 2A display flags on the published verdict (backward-
+    // compatible extra fields — the hero publish above replaces the
+    // object every cycle, so these are re-applied every cycle).
+    if (window.__o101Verdict) {
+      window.__o101Verdict.scopeFallback = !scope.perTimeframe;
+      window.__o101Verdict.thinPool = bl.filterEligible(governedPool).length < THIN_POOL_MIN;
+      window.__o101Verdict.floorExemption = bl.floorExemption ? bl.floorExemption.id : null;
+    }
     renderWindowStatus();
     // Axo surfaces follow the same verdict: the road strip, the
     // in-ball prediction, and (throttled) the long-run analysis.
@@ -3678,7 +4221,7 @@ function initBridge() {
     }
     axoSyncHardStop();
 
-    renderRanking(tf, pool, bl, scope);
+    renderRanking(tf, governedPool, bl, scope, displayOnly);
     renderPatternStats();
     renderAutoPilot();
   }
@@ -3728,22 +4271,14 @@ function initBridge() {
     // BET/NONE so a stale reason never outlives its verdict — except
     // the graduated-stake note, which a BET carries so a reduced
     // stake is never presented as a full-confidence bet.
-    // Task L: when NO-SKIP is ON but the verdict is a SKIP no-skip
-    // cannot convert (floor, Wilson, disagreement, calibration,
-    // conflict, noprob, nopick, hard-stop, or an edge skip with no
-    // leader pick), the reason line says so plainly — display only,
-    // the locked verdict and the conversion scope never change, and
-    // the published verdict below keeps the pure reason.
+    // Phase 2A: the no-skip toggle is gone (owner correction 2), so
+    // the Task L no-skip wording block is removed with it. The skip
+    // cap's own wording travels in the verdict itself (forced-pick
+    // marker in the BET sample note, safety-stop yield note in the
+    // SKIP reason) — no toggle wording remains anywhere.
     const why = $('mobileWebVerdictReason');
     if (why) {
-      let text = view.decision === 'BET' ? (view.sampleNote || '') : (view.reasonText || '');
-      if (view.decision === 'SKIP' && noSkipOn && gate) {
-        const nonConvertible = gate.skipKind && gate.skipKind !== 'edge';
-        const edgeNoPick = gate.skipKind === 'edge' && !gate.pick;
-        if (nonConvertible || edgeNoPick) {
-          text = (text ? text + ' ' : '') + noSkipBlockedNote(gate.skipKind, !!gate.pick);
-        }
-      }
+      const text = view.decision === 'BET' ? (view.sampleNote || '') : (view.reasonText || '');
       why.textContent = text;
     }
     // Task L: the sheet grows to its measured content on every
@@ -3849,7 +4384,17 @@ function initBridge() {
       return w === 'BIG' ? 'B' : 'S';
     }).join(' ');
     const view = orbPredictionView({ verdict: v ? v.decision : null, pick: v ? v.pick : null, period: openP });
-    const key = JSON.stringify([view.pickText, view.periodText, road]);
+    // Phase 2A (owner correction 4): the closed orb's badge shows
+    // the governed stake alongside the prediction on BET verdicts
+    // (including cap-forced picks) — the SAME nextStake figure the
+    // hero's Bet figure uses, through the same render path — and
+    // SKIP with NO amount on SKIP verdicts, so the badge never
+    // invites betting a skipped round. The render key includes the
+    // stake text, so the badge updates when the stake changes. The
+    // pill keeps pointer-events-none (drag safe) and the orb's
+    // position/size are untouched (clamp unaffected).
+    const pillView = closedOrbPill({ decision: v ? v.decision : null, pick: v ? v.pick : null, stake: state.session ? state.session.nextStake : null });
+    const key = JSON.stringify([pillView.text, view.periodText, road]);
     if (key === axo.lastOrbKey) return;
     axo.lastOrbKey = key;
     // Fix round #5: minimized state always shows the prediction
@@ -3860,8 +4405,8 @@ function initBridge() {
     // classes are never overwritten here: only text and colour (via
     // style) change, so the pill can never lose its place on the ball.
     if (pill) {
-      pill.textContent = view.pickText;
-      pill.style.color = view.state === 'bet' ? '#fde68a' : (view.state === 'skip' ? '#d4d4d8' : '#71717a');
+      pill.textContent = pillView.text;
+      pill.style.color = pillView.state === 'bet' ? '#fde68a' : (pillView.state === 'skip' ? '#d4d4d8' : '#71717a');
       pill.classList.remove('hidden');
     }
     // Fix round #3: the in-ball display carries the verdict icon
@@ -3913,7 +4458,7 @@ function initBridge() {
   }
 
   // ── Rendering: Ranking + Blacklist (single-column minimal list) ──
-  function rowHtml(rank, m, stats, wilson) {
+  function rowHtml(rank, m, stats, wilson, calibLabel = '') {
     const wr = stats ? (stats.winRate * 100).toFixed(1) + '%' : '—';
     const recent = stats && stats.recentWinRate !== null ? (stats.recentWinRate * 100).toFixed(0) + '%' : '—';
     const pats = store.patternSummaryFor(state.scopeKey || state.tf, m.id);
@@ -3926,29 +4471,68 @@ function initBridge() {
       </div>
       <div class="text-right shrink-0">
         <div class="text-[10px] font-black font-mono text-emerald-300">${wr}</div>
-        <div class="text-[8px] font-mono text-zinc-500">W ${stats ? stats.wins : 0} · L ${stats ? stats.losses : 0} · n ${stats ? stats.evaluated : 0} · Wilson ${(wilson * 100).toFixed(1)} · recent ${recent} · streak ${stats ? stats.streak : 0}</div>
+        <div class="text-[8px] font-mono text-zinc-500">W ${stats ? stats.wins : 0} · L ${stats ? stats.losses : 0} · n ${stats ? stats.evaluated : 0} · Wilson ${(wilson * 100).toFixed(1)} · recent ${recent} · streak ${stats ? stats.streak : 0}${calibLabel ? ` · ${calibLabel}` : ''}</div>
       </div>
     </div>`;
   }
 
-  function renderRanking(tf, pool, bl, scope) {
+  function renderRanking(tf, pool, bl, scope, displayOnly = []) {
     const listEl = $('bridgeRankingList');
     const blEl = $('bridgeBlacklistList');
-    if (!listEl && !blEl) return;
+    const doEl = $('bridgeDisplayOnlyList');
+    if (!listEl && !blEl && !doEl) return;
     const scopeKey = scope ? scope.key : tf;
     const ranked = engine.rankModels(bl.filterEligible(pool));
     if (listEl) {
-      listEl.innerHTML = ranked.map((m, i) => rowHtml(i + 1, m, scopeKey === 'ALL' ? mergedModelStats(store, m.id) : store.modelStats(tf, m.id), typeof engine.scoreModel === 'function' ? engine.scoreModel(m) : wilsonLowerBound(m.wins || 0, m.totalEvaluated || 0))).join('');
+      listEl.innerHTML = ranked.map((m, i) => {
+        const stats = scopeKey === 'ALL' ? mergedModelStats(store, m.id) : store.modelStats(tf, m.id);
+        // Phase 2A: the Wilson column is the TRUE Wilson bound from
+        // the model's own wins/evaluated. The old code passed
+        // scoreModel(m) — a recency/pattern blend (and, in UCB mode,
+        // called without totalEvaluatedAll, so not even a valid UCB
+        // score) — while labelling it "Wilson". Display only.
+        const wilson = wilsonLowerBound(stats ? stats.wins || 0 : 0, stats ? stats.evaluated || 0 : 0);
+        const calib = modelCalib.stats(m.id);
+        return rowHtml(i + 1, m, stats, wilson, `Cal: ${calib.label}`);
+      }).join('');
     }
     const meta = $('bridgeRankingMeta');
-    if (meta) meta.textContent = `${ranked.length} models · ${store.recordedPeriodCount(tf)} rounds recorded · ${tf} · scope: ${scope ? scope.label : tf}`;
+    if (meta) {
+      // Phase 2A flags (display only, never gates): thin pool,
+      // fallback scope, and pooled calibration labelled as pooled
+      // WITH its record count.
+      const flags = [];
+      if (ranked.length < THIN_POOL_MIN) flags.push('thin pool');
+      if (scope && !scope.perTimeframe) flags.push('global fallback scope');
+      const pooled = `pooled ECE ${tracker.expectedCalibrationError().toFixed(3)} (n=${tracker.count}, pooled — not per-model)`;
+      meta.textContent = `${ranked.length} models · ${store.recordedPeriodCount(tf)} rounds recorded · ${tf} · scope: ${scope ? scope.label : tf}${flags.length ? ' · ' + flags.join(' · ') : ''} · ${pooled}`;
+    }
     if (blEl) {
       const entries = bl.list();
-      blEl.innerHTML = entries.length ? entries.map(e => `<div class="px-3 py-2 rounded-xl bg-rose-500/[0.06] border border-rose-500/20">
+      const floorNote = bl.floorExemption
+        ? `<div class="px-3 py-2 rounded-xl bg-amber-500/[0.06] border border-amber-500/20">
+        <div class="text-[10px] font-bold text-amber-200">Pool floor: ${bl.floorExemption.name} kept eligible</div>
+        <div class="text-[8px] font-mono text-zinc-400">${bl.floorExemption.reason} (Wilson ${(bl.floorExemption.wilson * 100).toFixed(1)}%, ${bl.floorExemption.samples} samples).</div>
+      </div>`
+        : '';
+      blEl.innerHTML = floorNote + (entries.length ? entries.map(e => `<div class="px-3 py-2 rounded-xl bg-rose-500/[0.06] border border-rose-500/20">
         <div class="text-[10px] font-bold text-rose-200">${e.name}</div>
         <div class="text-[8px] font-mono text-zinc-400">${e.reason}</div>
         <div class="text-[8px] font-mono text-zinc-500">WR ${(e.winRate * 100).toFixed(1)}% · samples ${e.samples} · ${e.shadowStatus}</div>
-      </div>`).join('') : '<div class="text-[9px] font-mono text-zinc-500 px-1 py-2">No models are blacklisted right now. Models are benched automatically when their proven record falls below breakeven, and return when their shadow record recovers.</div>';
+      </div>`).join('') : '<div class="text-[9px] font-mono text-zinc-500 px-1 py-2">No models are blacklisted right now. Models are benched automatically when their proven record falls below breakeven, and return when their shadow record recovers.</div>');
+    }
+    if (doEl) {
+      // Phase 2A display-only section: ASI / ASI_APEX_MASTER are
+      // never ranked or bet (static picks, not live) — they are
+      // shown here, separately, with their record for transparency.
+      doEl.innerHTML = displayOnly.length ? displayOnly.map(m => {
+        const stats = scopeKey === 'ALL' ? mergedModelStats(store, m.id) : store.modelStats(tf, m.id);
+        const wr = stats ? (stats.winRate * 100).toFixed(1) + '%' : '—';
+        return `<div class="px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+        <div class="text-[10px] font-bold text-zinc-300">${m.name}</div>
+        <div class="text-[8px] font-mono text-zinc-500">Display only — not ranked, never bet · WR ${wr} · n ${stats ? stats.evaluated : 0}</div>
+      </div>`;
+      }).join('') : '';
     }
   }
 
@@ -4019,8 +4603,8 @@ function initBridge() {
       if (ov) ov.classList.remove('hidden');
       const tfNow = state.tf || currentTf();
       const g = governanceFor(tfNow);
-      g.bl.update(g.pool);
-      renderRanking(tfNow, g.pool, g.bl, g.scope);
+      g.bl.update(g.governedPool);
+      renderRanking(tfNow, g.governedPool, g.bl, g.scope, g.displayOnly);
     },
     closeRanking() {
       const ov = $('bridgeRankingOverlay');
@@ -4043,6 +4627,10 @@ function initBridge() {
     refreshAxoVoiceChip: renderAxoVoiceChip,
     toggleAxoSubs: () => setAxoSubs(!axoSubsOn()),
     refreshAxoSubs: applyAxoSubs,
+    // Phase 2A (owner correction 2): no-skip toggle functions stay
+    // exposed but DORMANT — no UI calls them, the cycle never
+    // consults them. Removal is reversible; re-wiring needs a fresh
+    // owner order.
     toggleNoSkip,
     confirmNoSkip,
     cancelNoSkip,
@@ -4112,7 +4700,8 @@ function initBridge() {
   applyAxoSubs();
   renderAxoModeChip();
   renderAxoLangChip();
-  renderNoSkipChip();
+  // Phase 2A: no renderNoSkipChip() — the chip/badge/popup are
+  // removed (owner correction 2); the functions stay dormant.
   setAxoFace('base');
   axoBlinkLoop();
 

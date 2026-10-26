@@ -1628,8 +1628,10 @@
       }
       // Actively re-query the learned wallet endpoint too — the app
       // asked for a sync, so give it the API-proven answer, not just
-      // whatever the page happens to show.
-      activeWalletPoll();
+      // whatever the page happens to show. Forced: an explicit sync
+      // is one user/app-triggered probe, not an automatic retry, so
+      // it runs even inside the auth-failure backoff budget.
+      activeWalletPoll({ force: true });
       scrapeUserSession();
     } else if (msg.type === 'DHANIWIN_REQUEST_AUTH_CHECK') {
       console.log('[Quant AI Bridge] 🔍 Auth check requested by app...');
@@ -1698,10 +1700,16 @@
   let _lastRtdbPutKey = '';
   let _lastRtdbPutAt = 0;
 
+  // Task O (connection resilience): a per-load instance id. A bridge
+  // restart resets seq to 1, and the app used to reject every
+  // restarted state for up to 120s; the app re-baselines immediately
+  // on an instance change (ts-guarded, so replays still lose).
+  const _bridgeInstanceId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+
   function publishUserState(reason) {
     try {
       const st = _userState.buildState(Date.now());
-      const payload = { type: 'DHANIWIN_USER_STATE', ...st, ts: Date.now(), seq: ++_userStateSeq };
+      const payload = { type: 'DHANIWIN_USER_STATE', ...st, ts: Date.now(), seq: ++_userStateSeq, instance: _bridgeInstanceId };
       notifyApp(payload);
       // Cross-document seed (Fix 5b): persist the login flags for
       // the next document in this tab session. Balance is not
@@ -1724,16 +1732,37 @@
       _nativeFetch(`${RTDB_BASE_URL}/user_state.json`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...st, ts, seq })
+        body: JSON.stringify({ ...st, ts, seq, instance: _bridgeInstanceId })
       }).catch(() => {});
     } catch (e) {}
   }
 
+  // Task O (connection resilience): bounded re-query retry after an
+  // auth failure. A single 401/403 used to disable active polling
+  // until a fresh intercepted call re-armed it — one transient
+  // rejection could silence the poll for the whole session, which
+  // reads as "sometimes works". Automatic retries are bounded (6
+  // attempts, backoff 5/10/20/40/60/60s, only on the 20s interval
+  // tick, so attempts are effectively ≥20s apart) and never hammer:
+  // an explicit sync or a resume may force ONE immediate attempt
+  // regardless of budget, and a healthy tick refreshes the budget.
+  let _pollAuthRetryCount = 0;
+  let _pollAuthRetryAt = 0;
+  const POLL_AUTH_RETRY_DELAYS_MS = [5000, 10000, 20000, 40000, 60000, 60000];
   let _activePollInFlight = false;
-  async function activeWalletPoll() {
+  async function activeWalletPoll(opts = {}) {
     const desc = _userState.endpoint;
     if (!desc || !_nativeFetch || _activePollInFlight) return;
-    if (_userState.pollAuthFailed) return; // intercept-only until a fresh intercepted success re-arms
+    if (!_userState.pollAuthFailed) { _pollAuthRetryCount = 0; _pollAuthRetryAt = 0; }
+    if (_userState.pollAuthFailed && opts.force !== true) {
+      // Automatic retry, bounded: only within budget and only once
+      // the backoff delay has elapsed. Past budget → intercept-only
+      // until a fresh intercepted success re-arms (existing rule).
+      const now = Date.now();
+      if (_pollAuthRetryCount >= POLL_AUTH_RETRY_DELAYS_MS.length || now < _pollAuthRetryAt) return;
+      _pollAuthRetryAt = now + POLL_AUTH_RETRY_DELAYS_MS[_pollAuthRetryCount];
+      _pollAuthRetryCount += 1;
+    }
     // Fix 8 (Grok refinement): replay only GET endpoints. Header
     // mode requires a header name (and a live token, checked below);
     // cookie mode MAY replay with credentials included — the cookie
@@ -1807,6 +1836,26 @@
   setInterval(() => publishUserState('heartbeat'), 15000);
   setInterval(() => { activeWalletPoll(); }, 20000);
   setTimeout(() => publishUserState('init'), 1200);
+
+  // Task O (connection resilience): the DhaniWin page backgrounds
+  // with the app, so its timers throttle/suspend too. On return,
+  // publish + probe immediately instead of waiting for the 15s
+  // heartbeat / 20s wallet tick. The forced poll is one explicit
+  // probe per return (in-flight guarded), not a loop.
+  if (typeof document !== 'undefined' && document.addEventListener) {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        publishUserState('resume-visible');
+        activeWalletPoll({ force: true });
+      }
+    });
+  }
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('pageshow', () => {
+      publishUserState('resume-pageshow');
+      activeWalletPoll({ force: true });
+    });
+  }
 
   // ── Bet-slip watcher → parent dock auto-hide (Addition 3) ──────
   // The slip lives in THIS page; the parent app's bottom dock floats

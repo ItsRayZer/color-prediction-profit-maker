@@ -1297,6 +1297,48 @@ a[href*="tradingview.com"] {
 .o101-pull-ring{width:22px;height:22px;border-radius:50%;border:2px solid rgba(255,255,255,.25);border-top-color:#fff;animation:o101-pull-spin .8s linear infinite}
 @keyframes o101-pull-spin { to { transform: rotate(360deg); } }
 
+/* Task N (owner order 2026-10-26, "resizable to any size and all
+ * be visible"): compaction tiers, keyed on the sheet's
+ * data-axo-compact attribute (set by the live-drag bands in
+ * mobile.js and the measure-and-tier settle pass in orb-bridge
+ * fitSheetToContent). The Task K fixed 340px floor is gone — these
+ * tiers are what let a user-shrunk sheet keep every section
+ * visible instead of clipping. Rules tighten ONLY padding, gaps,
+ * and sizes; NO tier hides a section, truncates a reason, drops a
+ * control, or introduces a scroll (the body stays overflow-hidden,
+ * the road keeps its horizontal bead scroll). The 64px header face
+ * is NEVER shrunk (Axo's identity + drag handle) and the reason
+ * text is NEVER truncated. Savings (see orb-bridge
+ * AXO_COMPACT_SAVINGS): tier 1 −13, tier 2 −29, tier 3 −52.
+ * The ≤440px media tier above still applies on short viewports
+ * and composes with these (attribute selectors win on conflict).
+ * Narrow flag (sheet width < 240px) tightens control-row padding
+ * and gaps only — fonts stay readable, rows never wrap into a
+ * second row (that would cost vertical room). Matte, no gloss. */
+#dhaniwinAssistantSheet[data-axo-compact="1"] .assistant-sheet-body { padding: 4px; }
+#dhaniwinAssistantSheet[data-axo-compact="1"] .assistant-sheet-body > * + * { margin-top: 3px; }
+#dhaniwinAssistantSheet[data-axo-compact="2"] .assistant-sheet-body { padding: 4px; }
+#dhaniwinAssistantSheet[data-axo-compact="2"] .assistant-sheet-body > * + * { margin-top: 3px; }
+#dhaniwinAssistantSheet[data-axo-compact="2"] #axoHeroBox { padding: 4px; }
+#dhaniwinAssistantSheet[data-axo-compact="2"] #assistantMiniRoad { padding: 4px; }
+#dhaniwinAssistantSheet[data-axo-compact="2"] #assistantMiniRoad .ball-3d { width: 20px; height: 20px; font-size: 9px; }
+#dhaniwinAssistantSheet[data-axo-compact="2"] #assistantMiniRoad img { width: 20px; height: 20px; }
+#dhaniwinAssistantSheet[data-axo-compact="2"] #axoControlRow { height: 22px; }
+#dhaniwinAssistantSheet[data-axo-compact="3"] .assistant-sheet-body { padding: 4px; }
+#dhaniwinAssistantSheet[data-axo-compact="3"] .assistant-sheet-body > * + * { margin-top: 2px; }
+#dhaniwinAssistantSheet[data-axo-compact="3"] #axoHeroBox { padding: 4px; }
+#dhaniwinAssistantSheet[data-axo-compact="3"] #mobileWebTargetDisplay { font-size: 20px; }
+#dhaniwinAssistantSheet[data-axo-compact="3"] #assistantMiniRoad { padding: 4px; }
+#dhaniwinAssistantSheet[data-axo-compact="3"] #assistantMiniRoad .ball-3d { width: 18px; height: 18px; font-size: 9px; }
+#dhaniwinAssistantSheet[data-axo-compact="3"] #assistantMiniRoad img { width: 18px; height: 18px; }
+#dhaniwinAssistantSheet[data-axo-compact="3"] #axoControlRow { height: 22px; }
+#dhaniwinAssistantSheet[data-axo-compact="3"] #axoGameTimeRow button { padding-top: 2px; padding-bottom: 2px; }
+#dhaniwinAssistantSheet[data-axo-compact="3"] #axoBaseChipGrid button { padding-top: 2px; padding-bottom: 2px; }
+#dhaniwinAssistantSheet[data-axo-compact="3"] #axoBaseBetSection { padding-top: 0; }
+#dhaniwinAssistantSheet[data-axo-compact="3"] #mobileWebVerdictReason { padding-bottom: 0; }
+#dhaniwinAssistantSheet[data-axo-narrow="1"] #axoControlRow > div { gap: 4px; }
+#dhaniwinAssistantSheet[data-axo-narrow="1"] #axoControlRow button { padding-left: 6px; padding-right: 6px; }
+
 /* Fix round #6 — DhaniWin loading overlay: the cross-origin iframe
    paints white for 3-4s while DhaniWin boots, and no app-side code can
    observe the page's inner paint. So the app covers its OWN surface

@@ -1459,6 +1459,17 @@ function calculateModelRating(m) {
 function determineOptimalArenaInChargeModel(models, manualId, isAutoMode = true) {
   if (!Array.isArray(models) || models.length === 0) return null;
 
+  // Phase 2A: ASI / ASI_APEX_MASTER are display-only — their picks
+  // are static (ASI_APEX_MASTER synthesizes the other models; it has
+  // no live pick history of its own), so they must never be ranked,
+  // locked, or crowned here either. The governed path (orb-bridge)
+  // excludes them separately via splitGovernedPool; this keeps the
+  // legacy champion selector consistent. Empty after filtering →
+  // null (call sites guard with ?.model).
+  const governedModels = models.filter(m => m && m.id !== 'ASI' && m.id !== 'ASI_APEX_MASTER');
+  if (governedModels.length === 0) return null;
+  models = governedModels;
+
   // 1. Manual Mode Lock
   if (isAutoMode === false && manualId) {
     const manual = models.find(m => m.id === manualId || m.name === manualId);
@@ -3674,14 +3685,23 @@ const ModelQuarantineEngine = {
       // Check for Completion of 20-Round Shadow Trial Probation:
       if (rec.probationRoundsDone >= rec.probationTotalRounds) {
         if (rec.currentProbationWR >= 0.60 && rec.lockupRoundsRemaining <= 0) {
-          // GRADUATION: Model passed shadow probation (>= 60% win rate over 20 rounds)
+          // GRADUATION (Phase 2A honesty label — NOT a live-performance
+          // recovery): the model passed a 20-round shadow probation
+          // (>= 60% WR) whose predictions were generated with EMPTY
+          // history (see processShadowTrialRound) — a history-free
+          // trial, not evidence against real rounds. This status is
+          // display-roster only: the governed pool NEVER consults
+          // quarantine, so graduation cannot re-admit a model to
+          // governed ranking or betting. Do NOT wire it into
+          // governance without a fresh owner order.
           rec.status = 'GRADUATED';
           rec.graduatedAt = Date.now();
-          // Reset streak to clean slate and re-admit to active roster
+          // Reset streak to clean slate for the DISPLAY roster only
+          // (the governed pool is unaffected — see above).
           model.streak = 1;
           model.dopamine = 0.80;
           model.lossPain = 0.0;
-          console.log(`[Model Quarantine] 🎓 ${model.name} has PASSED 20-round shadow probation (${(rec.currentProbationWR * 100).toFixed(1)}% WR). Re-admitted to active roster!`);
+          console.log(`[Model Quarantine] 🎓 ${model.name} has PASSED 20-round shadow probation (${(rec.currentProbationWR * 100).toFixed(1)}% WR). Graduated on the display roster only — not a governed re-admission.`);
         } else {
           // FAILED PROBATION: Win rate was under 60% or lockup not served
           // Model is sent back for deeper parameter mutation, resets shadow trial for another 20 rounds

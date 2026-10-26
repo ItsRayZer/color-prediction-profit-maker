@@ -15,6 +15,11 @@
  * MODE 4: SESSION_STREAK_OVERRIDE (Session win rate + session streak override)
  * MODE 5: UCB_RANKING (Multi-Armed Bandit / Tournament ranking)
  *
+ * NOTE (Phase 2A): SESSION_WIN_RATE and SESSION_STREAK_OVERRIDE are
+ * config-only today — no caller sets them (the runtime uses
+ * WINNING_STREAK_OVERRIDE, the default). They are documented, never
+ * silently wired; see the flag at evaluateIncharge.
+ *
  * v2 fixes (2026-10-23 review):
  * 1. Base ranking is by Wilson score lower bound, not raw win rate, so a
  *    3/3 model can no longer outrank a proven 580/1000 model. A model
@@ -247,6 +252,11 @@ export class InchargeEngine {
     const manualId = options.manualId || null;
     const isAutoMode = options.isAutoMode !== false;
 
+    // MANUAL_LOCK — DEAD PATH in the governed runtime (Phase 2A flag,
+    // never silently wired): orb-bridge always calls evaluateIncharge
+    // with {} (isAutoMode defaults true, no manualId), and no caller
+    // passes manualId. Kept for API compatibility only; manual model
+    // selection is not part of the governed flow.
     // Manual override lock (an explicit human choice outranks the blacklist)
     if (!isAutoMode && manualId) {
       const manual = models.find(m => m.id === manualId || m.name === manualId);
@@ -263,6 +273,10 @@ export class InchargeEngine {
     }
 
     const mode = this.config.mode || INCHARGE_MODES.WINNING_STREAK_OVERRIDE;
+    // SESSION modes — DEAD CONFIG (Phase 2A flag, never silently
+    // wired): no caller sets mode to SESSION_WIN_RATE or
+    // SESSION_STREAK_OVERRIDE anywhere; the runtime runs
+    // WINNING_STREAK_OVERRIDE. Kept as config only.
     const isSessionMode = mode === INCHARGE_MODES.SESSION_WIN_RATE || mode === INCHARGE_MODES.SESSION_STREAK_OVERRIDE;
     const isStreakEnabled = mode === INCHARGE_MODES.WINNING_STREAK_OVERRIDE || mode === INCHARGE_MODES.SESSION_STREAK_OVERRIDE;
     const metricType = isSessionMode ? 'session' : 'overall';
@@ -299,7 +313,19 @@ export class InchargeEngine {
       ? (fallbackRanked[0] || models[0])
       : (eligibleBase[0] || fallbackRanked[0] || models[0]);
     const baseStats = statsOf(baseModel, metricType);
-    const baseReason = `👑 Base Champion: ${baseModel.name} (${(baseStats.winRate * 100).toFixed(1)}% WR, Wilson ${(this.scoreModel(baseModel, metricType) * 100).toFixed(1)}%)`;
+    // Phase 2A fix: the old label called scoreModel()'s output
+    // "Wilson", which was wrong whenever recency/pattern blending
+    // applied — and doubly wrong in UCB mode, where scoreModel was
+    // called WITHOUT totalEvaluatedAll (so the UCB bonus was garbage).
+    // Wilson bound and blended score are now SEPARATE labels, and the
+    // score is computed exactly as rankModels computes it.
+    const baseTotalEvaluatedAll = fallbackRanked.reduce((sum, m) => sum + statsOf(m, metricType).evaluated, 0);
+    const baseWilson = wilsonLowerBound(baseStats.wins, baseStats.evaluated);
+    const baseScore = this.scoreModel(baseModel, metricType, baseTotalEvaluatedAll);
+    const baseScoreText = mode === INCHARGE_MODES.UCB_RANKING
+      ? `UCB ${baseScore === Infinity ? '∞' : baseScore.toFixed(3)}`
+      : `${(baseScore * 100).toFixed(1)}%`;
+    const baseReason = `👑 Base Champion: ${baseModel.name} (${(baseStats.winRate * 100).toFixed(1)}% WR, Wilson ${(baseWilson * 100).toFixed(1)}%, score ${baseScoreText})`;
 
     // If streak override is disabled, return baseModel
     if (!isStreakEnabled) {
@@ -389,6 +415,11 @@ export class InchargeEngine {
 
   /**
    * Invoked after a round settles to terminate streak override immediately on WRONG prediction
+   *
+   * DEAD PATH (Phase 2A flag, never silently wired): zero callers.
+   * The governed settlement flow terminates streaks through
+   * GovernedStreakGuard (signalGate.js / orb-bridge.js), not through
+   * this method. Kept for API compatibility only.
    */
   handleRoundSettlement(settledRoundResult) {
     if (this.state === 'STREAK_OVERRIDE' && this.activeStreakModelId) {
