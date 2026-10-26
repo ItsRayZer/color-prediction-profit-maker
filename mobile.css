@@ -1287,6 +1287,25 @@ a[href*="tradingview.com"] {
  * the JS open/close morph and a hover rule would fight it. */
 @keyframes o101-axo-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 .o101-axo-bounce { animation: o101-axo-bounce 1s ease-in-out 2; }
+/* Task P (owner order 2026-10-26, "win loss animation from above
+ * — fix it"): the celebration banner's old entrance classes
+ * (animate-in / slide-in-from-top) are tailwindcss-animate
+ * plugin classes, but only core Tailwind CDN is loaded — they
+ * never existed, so the banner popped in with no from-above
+ * motion. This real keyframe drop replaces them (mobile.js
+ * showWinLossCelebration applies it). The LOSS face droop reuses
+ * the existing lossSadShrinkHeadDown keyframes on the face image
+ * only, same rule as the WIN bounce. The closed-orb pill keeps
+ * its -translate-x-1/2 centering, so its settle pulse is
+ * shadow-only — a scale pulse would override the centering
+ * translate for 0.75s and make the pill jump. Matte, no gloss. */
+@keyframes o101-banner-drop { from { transform: translateY(-120%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.o101-banner-drop { animation: o101-banner-drop 0.3s ease-out; }
+.o101-axo-loss { animation: lossSadShrinkHeadDown 0.9s ease-in-out; }
+@keyframes o101-pill-win-pulse { 0% { box-shadow: 0 0 0 rgba(52, 211, 153, 0); } 50% { box-shadow: 0 0 18px rgba(52, 211, 153, 0.85); } 100% { box-shadow: 0 0 0 rgba(52, 211, 153, 0); } }
+@keyframes o101-pill-loss-pulse { 0% { box-shadow: 0 0 0 rgba(244, 63, 94, 0); } 50% { box-shadow: 0 0 16px rgba(244, 63, 94, 0.75); } 100% { box-shadow: 0 0 0 rgba(244, 63, 94, 0); } }
+.o101-pill-win-pulse { animation: o101-pill-win-pulse 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.o101-pill-loss-pulse { animation: o101-pill-loss-pulse 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 #axoTopAvatar{transition:transform .15s ease}
 #axoTopAvatar:hover { transform: translate(-50%, -50%) scale(1.06); }
 /* Pull-to-refresh spinner (owner order 2026-10-25, Task C): a

@@ -900,6 +900,18 @@ export function axoBounceForEvent(event) {
   return AXO_BOUNCE_EVENTS.has(event);
 }
 
+/* Task P (owner order 2026-10-26, "win loss animation from
+ * above — fix it"): the LOSS counterpart the face never had.
+ * WIN hops (o101-axo-bounce); LOSS droops (o101-axo-loss, the
+ * existing lossSadShrinkHeadDown keyframes) on the same visible
+ * face IMAGE only, same reduced-motion rule. STOP_LOSS is a
+ * session summary, not a settled loss — it keeps the static sad
+ * face and never droops. Display-only, like the bounce. */
+export const AXO_DROOP_EVENTS = new Set([BOT_EVENTS.LOSS]);
+export function axoDroopForEvent(event) {
+  return AXO_DROOP_EVENTS.has(event);
+}
+
 /** The Axo voice setting ('o101_axo_voice'), default ON (!== '0'),
  *  wired exactly like quant_sound. Read live at speak time. */
 export function axoVoiceEnabled(storage) {
@@ -1230,7 +1242,8 @@ export function splitGovernedPool(pool) {
 // a forced pick breaks the streak, so the next engine SKIP starts a
 // fresh count of 1 — otherwise every later skip would force too.
 export const SKIP_CAP_MAX_CONSECUTIVE = 3;
-export const SKIP_CAP_YIELD_NOTE = 'Skip cap held: a safety stop is active, so no forced pick.';
+export const SKIP_CAP_YIELD_NOTE = 'Skip cap held: safety stop active.';
+export const SKIP_CAP_NO_PICK_NOTE = 'Cap tried: no pick available.';
 
 export function skipCapNext({ count = 0, gateDecision = null, safetyStop = false } = {}) {
   if (safetyStop) {
@@ -1248,7 +1261,7 @@ export function applySkipCap(gate, { pick = null } = {}) {
   if (!gate || gate.decision !== GATE_DECISIONS.SKIP || !pick) return gate;
   const factor = gate.sampleFactor ?? 1;
   const earlyNote = factor < 1
-    ? ` Early-data stake: ${factor}× base (${Math.floor(gate.sampleSize || 0)} evaluated rounds; full stake at 200).`
+    ? ` Early-data stake: ${factor}× base (${Math.floor(gate.sampleSize || 0)}/200).`
     : '';
   return {
     ...gate,
@@ -1256,8 +1269,8 @@ export function applySkipCap(gate, { pick = null } = {}) {
     pick,
     forced: true,
     skipCapForced: true,
-    reason: `Skip-cap forced pick: ${pick} — ${gate.reason} (3 consecutive skips shown; this bets a round the engine would skip. Still needs your tap.)`,
-    sampleNote: `${earlyNote} Skip-cap forced pick (after 3 consecutive skips).`.trim()
+    reason: `Skip-cap forced pick: ${pick} — ${gate.reason} (3 skips. Still needs your tap.)`,
+    sampleNote: `${earlyNote} Skip-cap forced pick (3 skips).`.trim()
   };
 }
 
@@ -2426,6 +2439,52 @@ function initBridge() {
     axoBounceTimer = setTimeout(() => { img.classList.remove('o101-axo-bounce'); }, 2100);
   }
 
+  /* Task P: the LOSS droop — mirrors axoCelebrateBounce exactly
+   * (face image only, reduced-motion skip, class removed after
+   * the animation so a later loss re-triggers cleanly). */
+  let axoDroopTimer = null;
+  function axoSadDroop() {
+    if (reducedMotion()) return;
+    const img = axoPanelOpen() ? $('axoTopAvatarFace') : $('floatingOrbAxoFace');
+    if (!img) return;
+    img.classList.remove('o101-axo-loss');
+    void img.offsetWidth; // restart the droop on repeat losses
+    img.classList.add('o101-axo-loss');
+    if (axoDroopTimer) clearTimeout(axoDroopTimer);
+    axoDroopTimer = setTimeout(() => { img.classList.remove('o101-axo-loss'); }, 1000);
+  }
+
+  /* Task P: hero/badge settle pulse — WIN glows green, LOSS glows
+   * red, on the hero box (panel open) and the closed-orb pill.
+   * The pill keeps its -translate-x-1/2 centering, so it gets a
+   * shadow-only pulse: the standard scale pulse would override
+   * the centering translate for 0.75s and make the pill jump.
+   * Reduced-motion skips it, like the face animations. The
+   * classes are removed after the pulse so the next settlement
+   * re-triggers cleanly. Never fires on SKIP (this is called
+   * only from the settled WIN/LOSS path). */
+  let axoSettlePulseTimer = null;
+  function axoSettlePulse(won) {
+    if (reducedMotion()) return;
+    const hero = $('axoHeroBox');
+    if (hero) {
+      hero.classList.remove('win-pulse-active', 'loss-pulse-active');
+      void hero.offsetWidth;
+      hero.classList.add(won ? 'win-pulse-active' : 'loss-pulse-active');
+    }
+    const pill = $('floatingOrbTarget');
+    if (pill) {
+      pill.classList.remove('o101-pill-win-pulse', 'o101-pill-loss-pulse');
+      void pill.offsetWidth;
+      pill.classList.add(won ? 'o101-pill-win-pulse' : 'o101-pill-loss-pulse');
+    }
+    if (axoSettlePulseTimer) clearTimeout(axoSettlePulseTimer);
+    axoSettlePulseTimer = setTimeout(() => {
+      if (hero) hero.classList.remove('win-pulse-active', 'loss-pulse-active');
+      if (pill) pill.classList.remove('o101-pill-win-pulse', 'o101-pill-loss-pulse');
+    }, 800);
+  }
+
   // Idle behaviours, copied from the widget: the blink loop
   // (halfblink → blink → base, re-armed 2.8–5.5s, base face only)
   // and sleep after ~90s without interaction while the sheet is
@@ -3028,6 +3087,9 @@ function initBridge() {
       }
       if (first.spoken) axoSpeak(text);
       if (group.some(ev => axoBounceForEvent(ev))) axoCelebrateBounce();
+      if (group.some(ev => axoDroopForEvent(ev))) axoSadDroop();
+      if (group.some(ev => ev === BOT_EVENTS.WIN)) axoSettlePulse(true);
+      else if (group.some(ev => ev === BOT_EVENTS.LOSS)) axoSettlePulse(false);
       if (group.some(ev => ev === BOT_EVENTS.STOP_LOSS || ev === BOT_EVENTS.STOP_WIN || ev === BOT_EVENTS.CIRCUIT_BREAKER)) {
         axoSessionSummary();
       }
@@ -3135,6 +3197,10 @@ function initBridge() {
       ladderLevel: state.session ? state.session.level : 0,
       ladderLevels: state.session ? state.session.ladderLevels : 0,
       nextStake: state.session ? state.session.nextStake : 0,
+      // Task R: the speaker must know whether a bankroll session
+      // exists — without it the SIGNAL_BET line falls back to ₹0,
+      // which is not a suggestion at all (see predictBot normCtx).
+      hasSession: !!state.session,
       sessionPnL: state.session ? state.session.sessionPnL || 0 : 0,
       startingBalance: state.session ? state.session.startingBalance : 0,
       inchargeModel: modelObj ? { id: modelObj.id, name: modelObj.name } : null,
@@ -4116,6 +4182,14 @@ function initBridge() {
         if (forcedPick) {
           gate = applySkipCap(gate, { pick: forcedPick });
           state.skipCapForce = true;
+        } else {
+          // Task Q: the cap fired but no pick exists (no locked pick
+          // and no ranked eligible model with a pick). The gate
+          // stays SKIP and the count resets — but the attempt must
+          // be VISIBLE, or every 4th round silently fails the same
+          // way and the owner sees only "always skip". Display
+          // only: no pick is invented, no verdict is changed.
+          gate = { ...gate, reason: `${gate.reason} ${SKIP_CAP_NO_PICK_NOTE}` };
         }
       } else if (cap.yielded && gate.decision === GATE_DECISIONS.SKIP) {
         gate = { ...gate, reason: `${gate.reason} ${SKIP_CAP_YIELD_NOTE}` };
@@ -4144,6 +4218,7 @@ function initBridge() {
       // activation resets the streak, per the cap's rules).
       const forcedPick = capForcedPick();
       if (forcedPick) gate = applySkipCap(gate, { pick: forcedPick });
+      else gate = { ...gate, reason: `${gate.reason} ${SKIP_CAP_NO_PICK_NOTE}` };
     }
     state.gate = gate;
     // Graduated stakes: the session base follows the CURRENT

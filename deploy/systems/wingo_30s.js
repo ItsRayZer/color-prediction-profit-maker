@@ -12,7 +12,7 @@
     duration: 30, // seconds
     periodCode: '10005',
     totalPeriodsPerDay: 2880,
-    apiEndpoint: 'https://draw.ar-lottery01.com/WinGo/WinGo_30S/GetHistoryIssuePage.json',
+    apiEndpoint: 'https://draw.ar-lottery02.com/WinGo/WinGo_30S/GetHistoryIssuePage.json',
     proxyPath: '/api-wingo/WinGo/WinGo_30S/GetHistoryIssuePage.json',
 
     /**

@@ -72,6 +72,12 @@ function normCtx(ctx = {}) {
     ladderLevel: Number(ctx.ladderLevel) || 0,
     ladderLevels: Number(ctx.ladderLevels) || 0,
     nextStake: Number(ctx.nextStake) || 0,
+    // Task R (owner order 2026-10-26): the caller knows whether a
+    // bankroll session exists. Tri-state on purpose: true = session
+    // (stake is real), false = NO session (stake is unknown, never
+    // ₹0), undefined = legacy callers that do not say — they keep
+    // the old stake rendering so old tests and paths do not flip.
+    hasSession: ctx.hasSession,
     sessionPnL: Number(ctx.sessionPnL) || 0,
     startingBalance: Number(ctx.startingBalance) || 0,
     inchargeName: typeof model === 'string' ? model : (model ? (model.name || model.id || null) : null),
@@ -121,21 +127,32 @@ export function botLine(event, context = {}) {
       break;
     }
     case BOT_EVENTS.SIGNAL_BET: {
-      const conf = pct(c.calibratedConfidence);
-      line = `New signal: ${c.pick || 'the Incharge pick'} from ${c.inchargeName || 'the Incharge model'}${conf ? ` at ${conf} calibrated confidence` : ''}. ${c.inchargeReason ? c.inchargeReason + ' ' : ''}Suggested stake is ${inr(c.nextStake)} at ladder level ${c.ladderLevel + 1}. Small, planned, and inside your risk caps.`;
+      // Task R: short form — pick + stake + level only. The old line
+      // repeated the model name, the confidence, the whole Base
+      // Champion label and a filler sentence (~230 chars). And when
+      // there is NO session the stake is unknown, never ₹0: a
+      // session exists only when a balance is known, so hasSession
+      // false means "no stake planned yet", not "bet nothing".
+      const pick = c.pick || 'the Incharge pick';
+      line = c.hasSession === false
+        ? `New signal: ${pick} · no stake yet — balance unknown.`
+        : `New signal: ${pick} · ${inr(c.nextStake)} · level ${c.ladderLevel + 1}.`;
       break;
     }
     case BOT_EVENTS.SIGNAL_SKIP: {
-      line = `I am skipping this round, and that is a deliberate decision. ${c.gateReason || 'The numbers do not clear the safety bar this round.'} Sitting out costs nothing; a weak bet costs real money. I will keep watching and call the next clean signal.`;
+      // Task R: short form — verdict + gate reason verbatim (the
+      // reason itself is already minimal since Task P). The old
+      // filler sentences about sitting out are cut.
+      line = `Skipping — a deliberate decision. ${c.gateReason || 'The numbers do not clear the safety bar this round.'}`;
       break;
     }
     case BOT_EVENTS.MISSED_BET: {
-      // The engine's locked verdict was BET and the round settled
-      // with no bet fired. The win fact (and only the win fact) may
-      // be named, and only from the settled result in the context.
+      // Task R: short form. The win fact is still named ONLY when
+      // the missed pick would have won (missedWon + missedResult);
+      // a lost pick names no result at all. The tap guidance stays.
       line = c.missedWon && c.missedResult
-        ? `That was our pick, and it came ${c.missedResult}. Why didn't you bet? When a pick is staged, one tap on the confirm button fires it.`
-        : `That was our pick… why didn't you bet? When a pick is staged, one tap on the confirm button fires it.`;
+        ? `That pick won (${c.missedResult}) — missed it. One tap fires a staged pick.`
+        : `That pick settled — missed it. One tap fires a staged pick.`;
       break;
     }
     case BOT_EVENTS.LOGIN_VERIFIED: {
@@ -147,27 +164,35 @@ export function botLine(event, context = {}) {
       break;
     }
     case BOT_EVENTS.WIN: {
-      line = `That one landed — ${c.lastResult ? String(c.lastResult) + ', ' : ''}well played for sticking to the plan. ${pnlPhrase(c)} Stake resets to your base bet of ${inr(c.baseBet)}. We enjoy it for a second, then it is back to the numbers.`;
+      // Task R: short form — verdict + settled result + stake reset.
+      line = `Win${c.lastResult ? ` (${String(c.lastResult)})` : ''} — stake resets to ${inr(c.baseBet)}.`;
       break;
     }
     case BOT_EVENTS.LOSS: {
-      line = `That round went against us${c.lastResult ? ` (${String(c.lastResult)})` : ''}. ${pnlPhrase(c)} No chasing and no doubling beyond the plan — the ladder and the caps exist for exactly this moment. Take a breath; the next decision stays a numbers decision.`;
+      // Task R: short form — verdict + settled result + no chasing.
+      line = `Loss${c.lastResult ? ` (${String(c.lastResult)})` : ''} — No chasing, ladder moves on.`;
       break;
     }
     case BOT_EVENTS.LADDER_UP: {
-      line = `Ladder level ${c.ladderLevel + 1} of ${c.ladderLevels || '?'} now. The next stake is ${inr(c.nextStake)}, which is the double from your ${inr(c.baseBet)} base, exactly as planned before the session started. If this rung also misses, the circuit breaker ends the ladder — there is no rung beyond the plan.`;
+      // Task R: short form — level + next stake + the double. The
+      // circuit-breaker explanation is cut (it belongs to the
+      // breaker line, not every rung).
+      line = `Ladder level ${c.ladderLevel + 1} — next stake ${inr(c.nextStake)}, the double.`;
       break;
     }
     case BOT_EVENTS.CIRCUIT_BREAKER: {
-      line = `Circuit breaker tripped: 3 losses in a row, so the ladder stops here and the session pauses. ${pnlPhrase(c)} This is the protection working, not a failure. Step away from the board, and only start a new session deliberately, never to win this one back.`;
+      // Task R: short form — the trip fact + the stop.
+      line = `Circuit breaker: 3 losses in a row — ladder stops.`;
       break;
     }
     case BOT_EVENTS.STOP_LOSS: {
-      line = `Session stop-loss reached — down 20% of the starting balance, so betting stops for this session. ${pnlPhrase(c)} Protecting what is left matters more than any single round. Please do not start a revenge session; review the History first and decide with a clear head.`;
+      // Task R: short form — the stop fact + the session stop.
+      line = `Session stop-loss hit — down 20%, betting stops.`;
       break;
     }
     case BOT_EVENTS.STOP_WIN: {
-      line = `Stop-win lock reached: this session is up 20%, so the profit is banked and betting stops here. ${pnlPhrase(c)} Walking away while ahead is the discipline that keeps a good session good.`;
+      // Task R: short form — the stop fact + the banked profit.
+      line = `Stop-win hit — up 20%, profit banked, betting stops.`;
       break;
     }
     case BOT_EVENTS.BALANCE_DETECTED: {

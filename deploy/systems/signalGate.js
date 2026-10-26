@@ -285,8 +285,11 @@ export function evaluateSignalGate(input = {}, config = {}) {
   const cooldownExtra = cooldownActive ? Number(cd.extraMargin ?? cfg.cooldownExtraMargin ?? 0) : 0;
   const effectiveMargin = Number(cfg.margin || 0) + cooldownExtra;
   const requiredProb = breakeven + effectiveMargin;
+  // Task P (owner order 2026-10-26, "keep it minimalistic"):
+  // the cooldown note is display-only — margin points + rounds
+  // left survive, the explanatory sentence is cut.
   const cooldownNote = cooldownActive
-    ? ` Anti-tilt cooldown active (governed signal lost ${cd.lossStreak ?? 2} in a row): the bar is raised by ${(cooldownExtra * 100).toFixed(1)} points for ${cd.roundsLeft ?? 1} more round(s).`
+    ? ` Cooldown +${(cooldownExtra * 100).toFixed(1)} pts (${cd.roundsLeft ?? 1} left).`
     : '';
   const pick = pickOf(input) ?? pickOf(input.model) ?? pickOf(input.inchargeModel);
   const model = input.model || input.inchargeModel || null;
@@ -318,8 +321,12 @@ export function evaluateSignalGate(input = {}, config = {}) {
     sampleFactor: sampleStakeFactor(sampleSize)
   });
 
+  // Task P (owner order 2026-10-26): every gate reason below is
+  // DISPLAY-ONLY minimal wording — the skipKind keys, the gate
+  // logic, and the thresholds never change. Each keeps its key
+  // number (rounds n/20, Wilson % vs needed %, chance % vs bar).
   // 1. A pick must exist.
-  if (!pick) return skip('No pick from the Incharge model yet, so there is nothing to bet on.', 'nopick');
+  if (!pick) return skip('No pick from Incharge yet.', 'nopick');
 
   // 2. Sanity floor: below 20 rounds one round swings the Wilson
   // bound by 10+ points, so no ranking is stable enough to bet on.
@@ -327,7 +334,7 @@ export function evaluateSignalGate(input = {}, config = {}) {
   // (step 3) and the calibrated edge below is the second money
   // check — and the stake scales with sample size (graduated stakes).
   if (!Number.isFinite(sampleSize) || sampleSize < cfg.minSamples) {
-    return skip(`Too few rounds to rank: the leading model has only ${Math.max(0, Math.floor(sampleSize) || 0)} evaluated rounds (need ${cfg.minSamples} before any ranking is stable enough to bet on).`, 'floor');
+    return skip(`Too few rounds (${Math.max(0, Math.floor(sampleSize) || 0)}/${cfg.minSamples}).`, 'floor');
   }
 
   // 3. Strict Wilson check (owner order 2026-10-25): ranking by
@@ -335,10 +342,10 @@ export function evaluateSignalGate(input = {}, config = {}) {
   // must clear breakeven + margin. A thin record with high stated
   // confidence bets nothing until its Wilson bound clears.
   if (!Number.isFinite(wilson)) {
-    return skip('Wilson bound is unmeasurable: no win record for the leading model, so its defended win rate cannot be shown.', 'wilson');
+    return skip('Wilson unmeasurable (no win record).', 'wilson');
   }
   if (wilson < requiredProb) {
-    return skip(`Wilson bound ${(wilson * 100).toFixed(1)}% is below the ${(requiredProb * 100).toFixed(1)}% needed (breakeven ${(breakeven * 100).toFixed(2)}% plus safety margin).${cooldownNote}`, 'wilson');
+    return skip(`Wilson ${(wilson * 100).toFixed(1)}% < ${(requiredProb * 100).toFixed(1)}% needed.${cooldownNote}`, 'wilson');
   }
 
   // 4. Top-model agreement: a split vote at the top is not a signal.
@@ -347,7 +354,7 @@ export function evaluateSignalGate(input = {}, config = {}) {
     const picks = contenders.map(pickOf).filter(Boolean);
     const distinct = [...new Set(picks)];
     if (picks.length > 1 && distinct.length > 1) {
-      return skip(`Top models disagree on the pick (${distinct.join(' vs ')}), so there is no clean signal this round.`, 'disagreement');
+      return skip(`Top models disagree (${distinct.join(' vs ')}).`, 'disagreement');
     }
   }
 
@@ -355,17 +362,17 @@ export function evaluateSignalGate(input = {}, config = {}) {
   const cal = calibrationStatus(input.calibration);
   if (cfg.requireCalibrated) {
     if (!cal.present) {
-      return skip('Confidence is uncalibrated: no outcome history has been measured against these probabilities yet.', 'calibration');
+      return skip('Uncalibrated (no history yet).', 'calibration');
     }
     if (!cal.calibrated) {
-      return skip('Confidence is uncalibrated: stated probabilities do not match real outcomes closely enough yet, so the number cannot be trusted for money.', 'calibration');
+      return skip('Uncalibrated (probabilities off).', 'calibration');
     }
   }
 
   // 6. Real edge only: calibrated probability must clear breakeven + margin.
-  if (!Number.isFinite(prob)) return skip('No probability was produced for this pick, so no edge can be shown.', 'noprob');
+  if (!Number.isFinite(prob)) return skip('No probability produced.', 'noprob');
   if (prob < requiredProb) {
-    return skip(`Edge too thin: calibrated chance ${(prob * 100).toFixed(1)}% is below the ${(requiredProb * 100).toFixed(1)}% needed (breakeven ${(breakeven * 100).toFixed(2)}% at ${cfg.payout} payout plus safety margin).${cooldownNote}`, 'edge');
+    return skip(`Edge too thin: ${(prob * 100).toFixed(1)}% < ${(requiredProb * 100).toFixed(1)}% needed.${cooldownNote}`, 'edge');
   }
 
   // Graduated-stake note: a small-sample bet is never presented as
@@ -373,11 +380,11 @@ export function evaluateSignalGate(input = {}, config = {}) {
   // the sampleNote field (the hero carries it under NEXT PREDICTION).
   const sampleFactor = sampleStakeFactor(sampleSize);
   const sampleNote = sampleFactor < 1
-    ? ` Early-data stake: ${sampleFactor}× base (${Math.floor(sampleSize)} evaluated rounds; full stake at 200).`
+    ? ` Early-data stake: ${sampleFactor}× base (${Math.floor(sampleSize)}/200).`
     : '';
   return {
     decision: GATE_DECISIONS.BET,
-    reason: `Calibrated chance ${(prob * 100).toFixed(1)}% clears the ${(requiredProb * 100).toFixed(1)}% bar with sample ${Math.floor(sampleSize)} and top models in agreement.${cooldownNote}${sampleNote}`,
+    reason: `Chance ${(prob * 100).toFixed(1)}% clears ${(requiredProb * 100).toFixed(1)}% bar (sample ${Math.floor(sampleSize)}, top agree).${cooldownNote}${sampleNote}`,
     pick,
     prob,
     wilsonLowerBound: wilson,
