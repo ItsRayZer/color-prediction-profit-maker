@@ -1715,6 +1715,30 @@ const ARENA_CANONICAL_MODELS = [
     "desc": "Quantum-family size gap-filler (2 of 2): brings quantum size to 3 governed models.",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 2, "conf": 0.75, "predType": "SIZE", "predTarget": "SMALL", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"size": {"kind": "freq", "window": 100, "scope": "recent100"}}
+  },
+  {
+    "id": "observer-color",
+    "name": "Observer · Colour",
+    "cat": "observer",
+    "arch": "Background meta-learner: follows the best-measured follow-rule",
+    "desc": "System model (owner order 2026-10-27): observes every live model's walk-forward record every round and follows the best-measured follow-rule. Judged on its own record under the same bar as every model; it does not discover a game mechanism. Its pick is computed by systems/observer.js, never by genFn (genFn returns null for observer ids so backfill can never fabricate its record).",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.5, "predType": "COLOR", "predTarget": "GREEN", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
+  },
+  {
+    "id": "observer-size",
+    "name": "Observer · Size",
+    "cat": "observer",
+    "arch": "Background meta-learner: follows the best-measured follow-rule",
+    "desc": "System model (owner order 2026-10-27): observes every live model's walk-forward record every round and follows the best-measured follow-rule. Judged on its own record under the same bar as every model; it does not discover a game mechanism. Its pick is computed by systems/observer.js, never by genFn (genFn returns null for observer ids so backfill can never fabricate its record).",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.5, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
+  },
+  {
+    "id": "observer-number",
+    "name": "Observer · Number",
+    "cat": "observer",
+    "arch": "Background meta-learner: follows the best-measured follow-rule",
+    "desc": "System model (owner order 2026-10-27): observes every live model's walk-forward record every round and follows the best-measured follow-rule. Judged on its own record under the same bar as every model; it does not discover a game mechanism. Display-only until O4 (exact payout unverified) like every exact model. Its pick is computed by systems/observer.js, never by genFn (genFn returns null for observer ids so backfill can never fabricate its record).",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.5, "predType": "NUMBER", "predTarget": "7", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   }
 ];
 
@@ -1944,6 +1968,17 @@ if (typeof globalThis !== 'undefined') globalThis.denoiseGameHistory = denoiseGa
 function generateModelNextPrediction(model, history, modelStats) {
   const hist = Array.isArray(history) ? history.filter(r => !r.gap) : [];
   const modelId = model.id || '';
+  // Observer (system model, owner orders 2026-10-27): its pick is
+  // computed by systems/observer.js from LIVE STORE evidence, which
+  // genFn cannot see (it receives only history + one model's stats).
+  // Returning null here guarantees backfill/deep-backfill can never
+  // fabricate an Observer record and nextRoundPicks never produces a
+  // stale Observer pick — orb-bridge injects the real pick per cycle
+  // (live branch only, pendingPicks discipline). A null pick pauses
+  // Observer's record for that round, like every model. All other
+  // callers already tolerate a null prediction (shield uses pred?.,
+  // champion paths check p && p.predTarget).
+  if (modelId.indexOf('observer-') === 0) return null;
   const stats = modelStats || { streak: model.streak || 0, dopamine: model.dopamine || 0.5, lossPain: model.lossPain || 0.0 };
 
   const normColor = c => String(c || '').toUpperCase().includes('GREEN') ? 'GREEN' : 'RED';
