@@ -2616,6 +2616,11 @@ function updateIndividualModelSettlement(tf, periodStr, number, size, color, uni
   const historyBefore = history.filter(r => String(r.period) < periodStr);
 
   models.forEach(model => {
+    // Observer (system model): its pick is computed by
+    // systems/observer.js from live store evidence, never by genFn —
+    // scoring its catalog placeholder here would fake its record.
+    // Its governed record lives in the orb-bridge store; skip.
+    if (model && typeof model.id === 'string' && model.id.indexOf('observer-') === 0) return;
     // Each model individually predicts based on history BEFORE this round
     let pred = null;
     if (typeof model.predict === 'function') {

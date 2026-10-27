@@ -37,6 +37,11 @@ import { evaluateSignalGate, GATE_DECISIONS, GateCooldown, sampleStakeFactor, be
 import { BlacklistManager } from './blacklist.js';
 import { BenchManager, benchStatusLabel, benchProgressText, benchRoundsText } from './bench.js';
 import {
+  isObserverId, observerIdForType, observerPickFor, rankFollowCandidates,
+  chooseRule, ruleWilson,
+  ObserverRuleStore, OBSERVER_RULES, OBSERVER_RULE_LABELS
+} from './observer.js';
+import {
   barFor, ledgerWeight, ledgerStake, applyLedgerResult, saveLedger, loadLedger,
   ledgerLevelIndex, ledgerResize, ledgerLineFor, overBalanceInfo
 } from './ledger.js';
@@ -735,6 +740,12 @@ export function heroVerdictView(gate) {
       wilsonText: wilson !== null ? `Wilson ${(wilson * 100).toFixed(1)}%` : '—',
       gapText: gap !== null ? `Gap ${gap >= 0 ? '+' : ''}${gap.toFixed(1)} pts vs ${(barFor(gate.driverType || 'COLOR') * 100).toFixed(2)}% bar` : '—',
       qualityTag: qualityTagFor(gate),
+      // Phase Observer hero line (design §6): one short line naming
+      // the followed model + its last-100 Wilson, so the choice is
+      // checkable. Only present when the bet driver IS Observer.
+      observerLine: gate.observerFollow
+        ? `Observer · following ${gate.observerFollow.followedId} · last-100 Wilson ${Number.isFinite(gate.observerFollow.last100Wilson) ? (gate.observerFollow.last100Wilson * 100).toFixed(1) + '%' : '—'} (n=${gate.observerFollow.last100N || 0})`
+        : '',
       ledgerLine: gate.ledgerView ? ledgerLineFor(gate.ledgerView.tracked, gate.ledgerView.stake) : ''
     };
   }
@@ -813,7 +824,7 @@ export function buildPoolFromStore(store, models, scopeKey, patternCtx = null) {
   return (models || []).map(m => {
     const s = scopeKey === 'ALL' ? mergedModelStats(store, m.id) : store.modelStats(scopeKey, m.id);
     const base = !s
-      ? { id: m.id, name: m.name, wins: 0, totalEvaluated: 0, winRate: 0, streak: 0, recentWinRate: null, recentEvaluated: 0,
+      ? { id: m.id, name: m.name, wins: 0, totalEvaluated: 0, winRate: 0, streak: 0, recentWinRate: null, recentEvaluated: 0, recentWins: 0,
           predType: m.predType || null, cat: m.cat || null,
           last10Wins: 0, last10Evaluated: 0, last10WinRate: null,
           sessionWins: 0, sessionEvaluated: 0, sessionWinRate: null }
@@ -821,7 +832,7 @@ export function buildPoolFromStore(store, models, scopeKey, patternCtx = null) {
           id: m.id, name: m.name,
           wins: s.wins, totalEvaluated: s.evaluated, winRate: s.winRate,
           streak: s.streak,
-          recentWinRate: s.recentWinRate, recentEvaluated: s.recentEvaluated,
+          recentWinRate: s.recentWinRate, recentEvaluated: s.recentEvaluated, recentWins: s.recentWins || 0,
           predType: m.predType || null, cat: m.cat || null,
           last10Wins: s.last10Wins || 0, last10Evaluated: s.last10Evaluated || 0,
           last10WinRate: s.last10WinRate !== undefined ? s.last10WinRate : null,
@@ -2169,6 +2180,10 @@ function initBridge() {
   // the cycle drops bench state for newly blacklisted ids and the
   // live feed skips blacklisted ids.
   const bench = new BenchManager(safeStorage());
+  // Phase Observer: per-rule walk-forward records (persisted,
+  // o101_observer_v1). Observer follows the best-measured rule;
+  // these records are that measurement, updated every live round.
+  const observerRules = new ObserverRuleStore(safeStorage());
 
   // Axo runtime state: current face, the missed-bet ledger, the
   // first-gesture voice unlock and
@@ -2222,6 +2237,14 @@ function initBridge() {
     // membership filter — every round shows a pick and every
     // catalog model is governed, so the Phase 2A/3A hold/cap
     // bookkeeping no longer exists.
+    // Phase Observer: cached Observer picks, keyed by tf:latestPeriod
+    // (the verdict lock key) so a mid-round backfill can never flip
+    // the pick; the per-type follow info for the hero line; and the
+    // per-type rule picks awaiting settlement scoring.
+    observerPickKey: null,   // tf:latestPeriod the cached picks belong to
+    observerPicks: null,     // Map observerId -> { target, conf } for the upcoming round
+    observerFollow: null,    // { COLOR|SIZE|NUMBER: { followedId, followedName, rule, last100Wilson, last100N } }
+    observerRulePicks: null, // { tf, byType: { TYPE: { rule: { target, followedId } } } }
   };
 
   function safeStorage() {
@@ -4207,6 +4230,29 @@ function initBridge() {
             bench.recordLive(tf, e.modelId, !!e.correct, latestPeriod, e.pick || null);
           }
         }
+        // Phase Observer rule scoring (background, forever): score
+        // ALL FIVE candidate follow-rules against this settled
+        // result, using the rule picks stored when the pending picks
+        // were computed (pre-round evidence only — never this
+        // round's result). LIVE BRANCH ONLY (same pendingPicks
+        // guard as shadow/bench): backfill must never score
+        // Observer's rules, or a bulk import would fake its
+        // learning. A null rule pick scores nothing (a rule with no
+        // pick pauses, like a model). The scored records are what
+        // the next round's follow choice is measured by.
+        if (state.observerRulePicks && state.observerRulePicks.tf === tf && state.observerRulePicks.byType) {
+          for (const t of ['COLOR', 'SIZE', 'NUMBER']) {
+            const byRule = state.observerRulePicks.byType[t];
+            if (!byRule) continue;
+            for (const rule of OBSERVER_RULES) {
+              const rp = byRule[rule];
+              if (!rp || rp.target === null || rp.target === undefined) continue;
+              let correct = null;
+              try { correct = ev(rp.target, latest.number, latest.size, latest.color); } catch (e) { correct = null; }
+              if (correct !== null && correct !== undefined) observerRules.record(tf, t, rule, !!correct);
+            }
+          }
+        }
         } // end live-branch-only shadow feeds
       }
       state.pendingPicks = null;
@@ -4277,6 +4323,50 @@ function initBridge() {
     //    never flip mid-round. The lock releases on period roll-over
     //    or timeframe switch (a new key).
     const picks = nextRoundPicks(arenaModels(), history, gen);
+    // Phase Observer: compute (or reuse, keyed by tf:latestPeriod —
+    // the verdict lock key — so a mid-round backfill can never flip
+    // the pick) Observer's picks for the upcoming round from live
+    // store evidence, and inject them into the pending picks.
+    // genFn returns null for observer ids, so without this injection
+    // Observer would never have a pick; with it, Observer's record
+    // accrues exactly like every model's (live branch only — the
+    // settlement above records pendingPicks entries, and backfill
+    // paths never produce observer entries because genFn is null
+    // for them). Candidates are the bench-eligible list (governed −
+    // blacklisted − benched − demoted); observerPickFor additionally
+    // filters to type and excludes observer ids, so Observer can
+    // never follow itself or an excluded model. Rule records were
+    // just updated by the settlement above, so the follow choice
+    // uses the freshest measured evidence.
+    const obsKey = tf + ':' + latestPeriod;
+    if (state.observerPickKey !== obsKey) {
+      const obsByType = {};
+      const obsPicks = new Map();
+      const obsFollow = {};
+      for (const t of ['COLOR', 'SIZE', 'NUMBER']) {
+        const cands = benchEligible.filter(m => String(m.predType || 'COLOR').toUpperCase() === t);
+        const res = observerPickFor({ type: t, candidates: cands, picks, ruleRecords: observerRules.recordsFor(tf, t) });
+        obsByType[t] = res ? res.rulePicks : null;
+        if (res && res.target !== null && res.target !== undefined) {
+          // Observer's pick IS the followed model's pick, so it
+          // carries that pick's stated confidence (never invented;
+          // null when the followed pick states none). This keeps
+          // Observer-led bets' confidence display + per-model
+          // calibration identical in kind to every model's.
+          const followedPick = picks.get(res.followedId);
+          const followedConf = followedPick && typeof followedPick.conf === 'number' ? followedPick.conf : null;
+          obsPicks.set(observerIdForType(t), { target: res.target, conf: followedConf });
+          obsFollow[t] = { followedId: res.followedId, followedName: res.followedName, rule: res.rule, last100Wilson: res.followedLast100Wilson, last100N: res.followedLast100N };
+        }
+      }
+      state.observerPickKey = obsKey;
+      state.observerPicks = obsPicks;
+      state.observerFollow = obsFollow;
+      state.observerRulePicks = { tf, byType: obsByType };
+    }
+    if (state.observerPicks) {
+      for (const [id, pred] of state.observerPicks.entries()) picks.set(id, pred);
+    }
     state.pendingPicks = picks;
 
     const lockKey = tf + ':' + latestPeriod;
@@ -4356,9 +4446,19 @@ function initBridge() {
           pick: null,
           inchargeId: incharge.id,
           inchargeType: incharge.predType || null,
-          exactDisplay, asiTrialNote,
+          exactDisplay, asiTrialNote, observerFollow: null,
           driverWinRate: null, driverType: null, benchFloor: benchFloorId || null
         };
+      }
+      // Phase Observer hero line: when the bet driver IS Observer,
+      // name the model it followed + that model's last-100 Wilson,
+      // so the choice is checkable. Observer's OWN Wilson is the
+      // number the bet is judged by (gate.wilsonLowerBound, from the
+      // driver's pool entry) — never the followed model's.
+      let observerFollow = null;
+      if (isObserverId(betDriver.id)) {
+        const f = state.observerFollow ? state.observerFollow[betDriver.predType || 'COLOR'] : null;
+        if (f) observerFollow = { observerId: betDriver.id, followedId: f.followedId, followedName: f.followedName, rule: f.rule, last100Wilson: f.last100Wilson, last100N: f.last100N };
       }
       const rawConf = betPick && typeof betPick.conf === 'number' ? Math.min(0.99, Math.max(0.01, betPick.conf)) : null;
       // Phase 3A per-type calibration: the gate + Platt fit use the
@@ -4408,7 +4508,7 @@ function initBridge() {
         pick: betPick ? { target: betPick.target, prob: calibratedProb !== null ? calibratedProb : rawConf } : null,
         inchargeId: betDriver.id,
         inchargeType: betDriver.predType || null,
-        exactDisplay, asiTrialNote,
+        exactDisplay, asiTrialNote, observerFollow,
         // Phase 3E display companions: the bet driver's raw win rate
         // (hero Chance, labelled raw), its type (ledger key + gap
         // bar), and the bench-floor flag when the pick came from a
@@ -4436,6 +4536,7 @@ function initBridge() {
     // Chance/gap/ledger key) and the bench-floor flag.
     gate.exactDisplay = locked.exactDisplay || null;
     gate.asiTrialNote = locked.asiTrialNote || null;
+    gate.observerFollow = locked.observerFollow || null;
     gate.driverWinRate = locked.driverWinRate ?? null;
     gate.driverType = locked.driverType || null;
     gate.benchFloor = locked.benchFloor || null;
@@ -4591,7 +4692,7 @@ function initBridge() {
     // companions (exactDisplay, asiTrialNote) for inspection.
     // Phase 3E: + Chance/Wilson/gap/tag/ledger line + bench floor
     // (the closed pill reads wilson + stake from here).
-    window.__o101Verdict = { decision: view.decision, pick: view.pick, confText: view.confText, reason: view.reasonText || '', key: state.verdictKey || null, exactDisplay: gate.exactDisplay || null, asiTrialNote: gate.asiTrialNote || null, chanceText: view.chanceText || '', wilsonText: view.wilsonText || '', gapText: view.gapText || '', qualityTag: view.qualityTag || '', ledgerLine: view.ledgerLine || '', wilson: Number.isFinite(gate.wilsonLowerBound) ? gate.wilsonLowerBound : null, benchFloor: gate.benchFloor || null };
+    window.__o101Verdict = { decision: view.decision, pick: view.pick, confText: view.confText, reason: view.reasonText || '', key: state.verdictKey || null, exactDisplay: gate.exactDisplay || null, asiTrialNote: gate.asiTrialNote || null, chanceText: view.chanceText || '', wilsonText: view.wilsonText || '', gapText: view.gapText || '', qualityTag: view.qualityTag || '', observerLine: view.observerLine || '', ledgerLine: view.ledgerLine || '', wilson: Number.isFinite(gate.wilsonLowerBound) ? gate.wilsonLowerBound : null, benchFloor: gate.benchFloor || null };
     if (state.page !== 'mobile') return;
     const targetEl = $('mobileWebTargetDisplay');
     if (targetEl) {
@@ -4656,7 +4757,7 @@ function initBridge() {
     const detailEl = $('mobileWebVerdictDetail');
     if (detailEl) {
       detailEl.textContent = view.decision === 'BET'
-        ? [view.chanceText, view.wilsonText, view.gapText, view.qualityTag].filter(Boolean).join(' · ')
+        ? [view.chanceText, view.wilsonText, view.gapText, view.qualityTag, view.observerLine].filter(Boolean).join(' · ')
         : '';
     }
     const ledgerEl = $('mobileWebLedgerLine');
@@ -4923,7 +5024,8 @@ function initBridge() {
     const doEl = $('bridgeDisplayOnlyList');
     const benchEl = $('bridgeBenchList');
     const trendEl = $('bridgeTrendList');
-    if (!listEl && !blEl && !doEl && !benchEl && !trendEl) return;
+    const obsEl0 = $('bridgeObserverList');
+    if (!listEl && !blEl && !doEl && !benchEl && !trendEl && !obsEl0) return;
     const scopeKey = scope ? scope.key : tf;
     // Phase 3E: the ranked list excludes demoted/benched models
     // (they cannot lead or drive a bet while penalised); the bench
@@ -5017,6 +5119,88 @@ function initBridge() {
     // TEST data + the owner's word (no TEST data exists yet). S1,
     // bench rotation itself, is the live mechanism above.
     if (trendEl) renderTrendSection(tf, trendEl, scopeKey);
+    // Phase Observer card (Analyse): current follow per type, top-5
+    // followed-model table, Observer's own record + status, rule
+    // records, pattern findings (fired>=20 floor), and the
+    // always-visible confidence-limits box. DISPLAY ONLY — this
+    // renderer never touches selection, bench, or blacklist state.
+    const obsEl = $('bridgeObserverList');
+    if (obsEl) renderObserverSection(tf, obsEl, pool, bl, scopeKey);
+  }
+
+  // Phase Observer card (Analyse). Pure reads over the store, the
+  // bench manager, the blacklist, and the persisted rule records.
+  // Returns nothing; writes the card's innerHTML. Observer's status
+  // here is its EVALUATION state — there is no trial gate and no
+  // flag: Observer leads only when its own record wins the normal
+  // Incharge competition, exactly like every model.
+  function renderObserverSection(tf, obsEl, pool, bl, scopeKey) {
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const pct = w => (w === null || w === undefined || !Number.isFinite(w)) ? '—' : (w * 100).toFixed(1) + '%';
+    const eligible = bench.filterEligible(tf, bl.filterEligible(pool));
+    const benchStates = {};
+    try {
+      for (const s of bench.list(tf)) benchStates[s.id] = s.status;
+    } catch (e) { /* bench list failure must never break the card */ }
+    const sections = [];
+    for (const t of ['COLOR', 'SIZE', 'NUMBER']) {
+      const oid = observerIdForType(t);
+      const model = (pool || []).find(m => m.id === oid);
+      const name = model ? (model.name || oid) : oid;
+      const stats = scopeKey === 'ALL' ? mergedModelStats(store, oid) : store.modelStats(tf, oid);
+      const evaluated = stats ? stats.evaluated : 0;
+      const wins = stats ? stats.wins : 0;
+      const raw = stats ? stats.winRate : null;
+      const wilson = stats ? wilsonLowerBound(wins, evaluated) : null;
+      const streak = stats ? stats.streak : 0;
+      const bStatus = benchStates[oid] || 'normal';
+      const blacklisted = bl.isBlacklisted(oid);
+      const leading = state.inchargeId === oid;
+      let status;
+      if (blacklisted) status = 'Blacklisted (evidence-based, 2-window rule) — cannot lead until reinstated.';
+      else if (bStatus === 'benched') status = 'Benched — returns after 10 rounds with no 4-loss streak.';
+      else if (bStatus === 'demoted') status = 'Demoted — returns after 10 rounds with no 4-loss streak.';
+      else if (leading) status = 'Incharge now — its own record won the normal Incharge competition.';
+      else if (!stats) status = 'Observed, not yet ranked — its record must win the normal Incharge competition first.';
+      else status = 'Observed — not yet Incharge. Its record must win the normal Incharge competition first.';
+      if (t === 'NUMBER') status += ' Display only — exact payout unverified (O4).';
+      const follow = state.observerFollow ? state.observerFollow[t] : null;
+      const followLine = follow
+        ? `Following ${esc(follow.followedId)} via ${esc(OBSERVER_RULE_LABELS[follow.rule] || follow.rule || '—')} · last-100 Wilson ${pct(follow.last100Wilson)} (n=${follow.last100N || 0})`
+        : 'No follow this round — no eligible model has a pick.';
+      const top5 = rankFollowCandidates(eligible, t).slice(0, 5);
+      const top5Html = top5.length ? top5.map((m, i) => `<div class="text-[8px] font-mono text-zinc-400 px-1">${i + 1}. ${esc(m.id)} · last-100 ${pct(m.last100Wilson)} (n=${m.last100N}) · full ${pct(m.fullWilson)} (n=${m.totalEvaluated || 0}) · streak ${m.streak || 0}</div>`).join('')
+        : '<div class="text-[8px] font-mono text-zinc-500 px-1">No eligible models of this type yet.</div>';
+      const recs = observerRules.recordsFor(tf, t);
+      const best = chooseRule(recs);
+      const ruleHtml = OBSERVER_RULES.map(rule => {
+        const r = recs[rule];
+        const w = ruleWilson(r);
+        return `<div class="text-[8px] font-mono text-zinc-400 px-1">${esc(OBSERVER_RULE_LABELS[rule])}: ${r.wins}/${r.evaluated} · Wilson ${w >= 0 ? pct(w) : '—'}${rule === best ? ' · current' : ''}</div>`;
+      }).join('');
+      const pats = store.patternSummaryFor(scopeKey, oid).filter(p => p.fired >= 20).slice(0, 3);
+      const anyPats = store.patternSummaryFor(scopeKey, oid).length > 0;
+      const patHtml = pats.length
+        ? pats.map(p => `<div class="text-[8px] font-mono text-zinc-400 px-1">${esc(p.name)} · fired ${p.fired} · hits ${p.hits} · Wilson ${pct(wilsonLowerBound(p.hits, p.fired))}</div>`).join('')
+        : (anyPats
+          ? '<div class="text-[8px] font-mono text-zinc-500 px-1">Patterns firing, but too few firings to judge (fired &lt; 20).</div>'
+          : '<div class="text-[8px] font-mono text-zinc-500 px-1">No pattern found yet.</div>');
+      sections.push(`<div class="px-3 py-2 rounded-xl bg-white/[0.03] border border-white/10">
+        <div class="text-[10px] font-bold text-white">${esc(name)} (${t})${leading ? ' 👑' : ''}</div>
+        <div class="text-[8px] font-mono text-zinc-400">Record: ${wins}/${evaluated} · raw ${raw !== null ? (raw * 100).toFixed(1) + '%' : '—'} · Wilson ${pct(wilson)} · streak ${streak}</div>
+        <div class="text-[8px] font-mono text-zinc-400">${esc(status)}</div>
+        <div class="text-[8px] font-mono text-zinc-300 pt-1">${followLine}</div>
+        <div class="text-[8px] font-mono font-bold text-zinc-400 pt-1">Top-5 followed models (last-100 Wilson order):</div>
+        ${top5Html}
+        <div class="text-[8px] font-mono font-bold text-zinc-400 pt-1">Follow-rule records (background, every live round):</div>
+        ${ruleHtml}
+        <div class="text-[8px] font-mono font-bold text-zinc-400 pt-1">Pattern findings (fired ≥ 20 only):</div>
+        ${patHtml}
+      </div>`);
+    }
+    obsEl.innerHTML = sections.join('') + `<div class="px-3 py-2 rounded-xl bg-amber-500/[0.06] border border-amber-500/20">
+      <div class="text-[8px] font-mono text-amber-200">Observer follows recent-form evidence. It has not demonstrated an edge above the bar on held-out TEST rounds. It does not know how draws are generated.</div>
+    </div>`;
   }
 
   // Phase 3E trend display (S2–S5). Pure reads + one throttled,
