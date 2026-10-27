@@ -119,14 +119,16 @@ export function recoveryIfWin(L, stake, payout = LEDGER_PAYOUT) {
 }
 
 /** Display ledger line for the hero detail: tracked loss + recovery
- *  portion of this stake (what a win on this stake would recover). */
+ *  portion of this stake (what a win on this stake would recover).
+ *  Owner order 2026-10-27: ONE short line only ("Ledger ₹X ·
+ *  recovers ₹Y") — the old "this stake recovers" wording is gone. */
 export function ledgerLineFor(L, stake) {
   const before = Number.isFinite(L) && L > 0 ? L : 0;
   const s = Number.isFinite(stake) && stake > 0 ? stake : 0;
   const rec = recoveryIfWin(before, s);
   const recText = rec === Math.floor(rec) ? String(rec) : rec.toFixed(2);
   const lText = before === Math.floor(before) ? String(before) : before.toFixed(2);
-  return `Ledger \u20B9${lText} \u00B7 this stake recovers \u20B9${recText}`;
+  return `Ledger \u20B9${lText} \u00B7 recovers \u20B9${recText}`;
 }
 
 /** Derived ladder level index for display continuity: log2(S/base),

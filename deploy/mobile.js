@@ -2963,16 +2963,36 @@ window.getEffectiveModelList = getEffectiveModelList;
 
 let activeAlgoCategory = 'all';
 
+// Analyse pagination (owner order 2026-10-27, corrected 12:56 IST):
+// NO "See all" — two page buttons < > step through the roster 10
+// models at a time, straight down. Page state is module-level so
+// every re-render (cycle, filter, search) shows the current page;
+// renderModelRosterUI clamps into range, so paging can never land
+// on an empty page or past the ends. Filter/search/reset entry
+// points reset to page 1 (the user expects the top of a new list).
+let aiRosterPage = 1;
+const AI_ROSTER_PAGE_SIZE = 10;
+function rosterPrevPage() {
+  if (aiRosterPage > 1) { aiRosterPage--; renderModelRosterUI(); }
+}
+function rosterNextPage() {
+  aiRosterPage++; renderModelRosterUI(); // render clamps at the last page
+}
+window.rosterPrevPage = rosterPrevPage;
+window.rosterNextPage = rosterNextPage;
+
 function setMobileAlgoCategory(cat) {
   activeAlgoCategory = (cat || 'all').toLowerCase();
   document.querySelectorAll('.ai-filter-btn').forEach(btn => {
     btn.classList.toggle('active', btn.id === `algoCat-${activeAlgoCategory}`);
   });
+  aiRosterPage = 1;
   renderModelRosterUI();
 }
 window.setMobileAlgoCategory = setMobileAlgoCategory;
 
 function filterModelRoster() {
+  aiRosterPage = 1;
   renderModelRosterUI();
 }
 window.filterModelRoster = filterModelRoster;
@@ -3204,8 +3224,26 @@ function renderModelRosterUI() {
   const listEl = $('aiRosterList');
   if (!listEl) return;
 
+  // Analyse pagination: clamp into range first (never an empty page,
+  // never past the ends), then slice one page. Ranks stay GLOBAL
+  // (pageOffset + idx + 1) — page 2 shows #11–#20, not #1–#10 again.
+  const totalPages = Math.max(1, Math.ceil(displayList.length / AI_ROSTER_PAGE_SIZE));
+  if (aiRosterPage > totalPages) aiRosterPage = totalPages;
+  if (aiRosterPage < 1) aiRosterPage = 1;
+  const pageOffset = (aiRosterPage - 1) * AI_ROSTER_PAGE_SIZE;
+  const pageList = displayList.slice(pageOffset, pageOffset + AI_ROSTER_PAGE_SIZE);
+  const updateRosterPager = () => {
+    const label = $('aiRosterPageLabel');
+    if (label) label.textContent = `Page ${aiRosterPage} of ${totalPages}`;
+    const prevBtn = $('aiRosterPrevBtn');
+    if (prevBtn) { prevBtn.disabled = aiRosterPage <= 1; prevBtn.classList.toggle('opacity-40', aiRosterPage <= 1); }
+    const nextBtn = $('aiRosterNextBtn');
+    if (nextBtn) { nextBtn.disabled = aiRosterPage >= totalPages; nextBtn.classList.toggle('opacity-40', aiRosterPage >= totalPages); }
+  };
+
   if (displayList.length === 0) {
     listEl.innerHTML = '<div class="text-center text-zinc-500 py-6 text-[9px] font-mono">No algorithms match your query.</div>';
+    updateRosterPager();
     return;
   }
 
@@ -3229,7 +3267,7 @@ function renderModelRosterUI() {
     }
   });
 
-  listEl.innerHTML = displayList.map((a, idx) => {
+  listEl.innerHTML = pageList.map((a, idx) => {
     const isLead = effectiveInCharge === a.name;
     const streakNum = Number(a.streak || 0);
     const isWinStreak = streakNum >= 0;
@@ -3260,7 +3298,7 @@ function renderModelRosterUI() {
 
     return `<div class="${cardClass} flex items-center justify-between font-mono text-[9px]">
       <div class="flex items-center gap-2 relative z-10">
-        <span class="text-[8px] text-zinc-500 w-5 font-bold">#${idx+1}</span>
+        <span class="text-[8px] text-zinc-500 w-5 font-bold">#${pageOffset + idx + 1}</span>
         <div>
           <div class="flex items-center gap-1.5">
             <span class="font-bold text-white max-w-[150px] truncate">${a.name}</span>
@@ -3283,6 +3321,8 @@ function renderModelRosterUI() {
       </div>
     </div>`;
   }).join('');
+
+  updateRosterPager();
 
 }
 window.renderModelRosterUI = renderModelRosterUI;
@@ -4750,6 +4790,13 @@ function switchMobileTab(tab) {
   if (tab === 'web' || tab === 'home') {
     if (orb) orb.style.display = 'block';
     if (typeof updateFloatingOrbUI === 'function') updateFloatingOrbUI();
+    // Ball-below-Axo (owner order 2026-10-27): a tab return restores
+    // the orb WITHOUT clamping today — a viewport shrink while on
+    // another tab (where the resize handler early-returns on the
+    // hidden orb) would show it at a stale, possibly off-screen
+    // spot. Re-clamp on restore, so the face + ball below it are
+    // always fully in view after a tab switch.
+    if (typeof clampFloatingOrb === 'function') clampFloatingOrb();
 
     if (tab === 'web') {
       const iframe = $('dhaniwinIframe');
@@ -6392,11 +6439,12 @@ function renderRoadCellsChunked(container, cellHtmlArray, opts) {
 window.renderRoadCellsChunked = renderRoadCellsChunked;
 
 // ── Fix round 2026-10-24: ball + sheet viewport clamping ──────────
-// The floating ball (68px ring footprint + under-bar = 86px tall)
-// must never sit outside the viewport: clamped on load, on drag
-// end, on resize and on orientation change. The module's
-// window.__o101ClampBall (systems/orb-bridge.js) is the single
-// source of truth when present; the inline math below is identical.
+// The floating ball (68px ring footprint + 32px prediction ball
+// below the face = 106px tall) must never sit outside the viewport:
+// clamped on load, on drag end, on resize and on orientation change.
+// The module's window.__o101ClampBall (systems/orb-bridge.js) is the
+// single source of truth when present; the inline math below is
+// identical.
 function clampBallRectFallback(rect) {
   // Fix round (face down, owner order 2026-10-27 ~12:00 IST): honour
   // the caller's topMargin (160 = below the PREDICTION WON banner zone
@@ -6405,7 +6453,7 @@ function clampBallRectFallback(rect) {
   const topMargin = Number.isFinite(rect.topMargin) ? rect.topMargin : 10;
   return {
     left: Math.min(Math.max(8, rect.left), Math.max(8, window.innerWidth - 68 - 8)),
-    top: Math.min(Math.max(topMargin, rect.top), Math.max(topMargin, window.innerHeight - 86 - 12))
+    top: Math.min(Math.max(topMargin, rect.top), Math.max(topMargin, window.innerHeight - 106 - 12))
   };
 }
 function clampFloatingOrb() {
@@ -6415,10 +6463,12 @@ function clampFloatingOrb() {
   // 160px minimum top keeps the face below the PREDICTION WON banner
   // (fixed top-14) and fully inside the viewport — including a saved
   // top-right position restored from localStorage, which this clamp
-  // pulls down into view on load. Prediction pills are NOT moved.
+  // pulls down into view on load. Ball-below-Axo (owner order
+  // 2026-10-27): the 106px footprint covers the ring AND the 32px
+  // ball below the face, so the ball stays in view too.
   const rect = orb.getBoundingClientRect();
   const clamp = window.__o101ClampBall || clampBallRectFallback;
-  const next = clamp({ left: rect.left, top: rect.top, width: 68, height: 86, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 160, bottomMargin: 12 });
+  const next = clamp({ left: rect.left, top: rect.top, width: 68, height: 106, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 160, bottomMargin: 12 });
   orb.style.left = `${next.left}px`;
   orb.style.top = `${next.top}px`;
   orb.style.right = 'auto';
@@ -6549,6 +6599,17 @@ function initPullRefresh() {
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initPullRefresh);
 else initPullRefresh();
 
+// Ball-below-Axo / auto-resize (owner order 2026-10-27): the opened
+// sheet's top floor must clear the TOP-CENTER AVATAR, not just the
+// sheet body. The avatar straddles the sheet's top edge
+// (translate(-50%,-50%)): face 64px + name ~16px + badge ~16px ≈
+// 99px tall, so ~50px overhangs above the sheet. The old 50px floor
+// left the avatar's top at ~0 — touching (and on taller badge
+// lines, clipped by) the viewport top edge. 64px leaves ≥14px of
+// face clearance on every sheet path (clamp, open, preset, drag,
+// resize) while the panel is open.
+const AXO_SHEET_TOP_MIN = 64;
+
 function clampAssistantSheetToViewport() {
   if (window.__assistantBoxBusy) return;
   const modal = $('dhaniwinAssistantModal');
@@ -6557,7 +6618,7 @@ function clampAssistantSheetToViewport() {
   if (modal.classList.contains('hidden') || !modal.classList.contains('sheet-open')) return;
   const rect = sheet.getBoundingClientRect();
   const left = Math.max(8, Math.min(window.innerWidth - rect.width - 8, rect.left));
-  const top = Math.max(50, Math.min(window.innerHeight - rect.height - 14, rect.top));
+  const top = Math.max(AXO_SHEET_TOP_MIN, Math.min(window.innerHeight - rect.height - 14, rect.top));
   sheet.style.left = `${left}px`;
   sheet.style.top = `${top}px`;
 }
@@ -6884,7 +6945,7 @@ function cycleAssistantBoxSizePreset(e) {
   let left = rect.left;
   let top = rect.top;
   if (left + targetW > window.innerWidth - 8) left = Math.max(8, window.innerWidth - targetW - 8);
-  if (top + targetH > window.innerHeight - 12) top = Math.max(50, window.innerHeight - targetH - 12);
+  if (top + targetH > window.innerHeight - 12) top = Math.max(AXO_SHEET_TOP_MIN, window.innerHeight - targetH - 12);
   sheet.style.left = `${left}px`;
   sheet.style.top = `${top}px`;
 
@@ -6965,7 +7026,7 @@ function toggleDhaniwinAssistantModal(show) {
     const orbCenterX = orbRect.left + (orbRect.width || 62) / 2;
     const orbCenterY = orbRect.top + (orbRect.height || 62) / 2;
     const targetLeft = Math.max(8, Math.min(window.innerWidth - boxWidth - 8, Math.floor(orbCenterX - boxWidth / 2)));
-    const targetTop = Math.max(50, Math.min(window.innerHeight - boxHeight - 14, Math.floor(orbCenterY - boxHeight / 2)));
+    const targetTop = Math.max(AXO_SHEET_TOP_MIN, Math.min(window.innerHeight - boxHeight - 14, Math.floor(orbCenterY - boxHeight / 2)));
 
     // Task E: the window OPENS FROM the ball — it starts at the orb
     // rect (the ball's position and size) and animates rect + scale
@@ -7027,8 +7088,12 @@ function toggleDhaniwinAssistantModal(show) {
     // it settles, so the bubble follows the avatar to its rest spot.
     // Task L: also fit the sheet to its measured content, so the
     // chip row can never be clipped by the resolved height.
+    // Ball-below-Axo (owner order 2026-10-27): the open-settle path
+    // re-clamps the sheet too — a fit that grows the sheet must
+    // never strand the avatar (or the sheet) off-viewport after an
+    // auto-resize / expand-compact transition.
     try {
-      sheet.addEventListener('transitionend', function onSheetOpenSettled() { if (window.__smartBall && typeof window.__smartBall.repositionAxoBubble === 'function') window.__smartBall.repositionAxoBubble(); if (window.__smartBall && typeof window.__smartBall.fitSheetToContent === 'function') window.__smartBall.fitSheetToContent(); }, { once: true });
+      sheet.addEventListener('transitionend', function onSheetOpenSettled() { if (window.__smartBall && typeof window.__smartBall.repositionAxoBubble === 'function') window.__smartBall.repositionAxoBubble(); if (window.__smartBall && typeof window.__smartBall.fitSheetToContent === 'function') window.__smartBall.fitSheetToContent(); if (typeof clampAssistantSheetToViewport === 'function') clampAssistantSheetToViewport(); }, { once: true });
     } catch (e) {}
 
     // Update mini road on open
@@ -7039,7 +7104,7 @@ function toggleDhaniwinAssistantModal(show) {
     _assistantModalClosing = true;
     // Task G (owner order 2026-10-25): the ball takes the window's
     // LAST position — the orb glides to the sheet's last center
-    // (clamped to the viewport, same 68×86 footprint the orb drag
+    // (clamped to the viewport, same 68×106 footprint the orb drag
     // uses) and that spot persists, so reopen starts there. The
     // collapse pivot moves to the new ball center BEFORE the
     // sheet-open class drops, so the window collapses into the
@@ -7047,9 +7112,9 @@ function toggleDhaniwinAssistantModal(show) {
     if (orb) {
       const sheetRect = sheet.getBoundingClientRect();
       const clamp = window.__o101ClampBall || clampBallRectFallback;
-      const ballSpot = clamp({ left: sheetRect.left + sheetRect.width / 2 - 34, top: sheetRect.top + sheetRect.height / 2 - 43, width: 68, height: 86, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 160, bottomMargin: 12 });
+      const ballSpot = clamp({ left: sheetRect.left + sheetRect.width / 2 - 34, top: sheetRect.top + sheetRect.height / 2 - 53, width: 68, height: 106, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 160, bottomMargin: 12 });
       const ballCenterX = ballSpot.left + 34;
-      const ballCenterY = ballSpot.top + 43;
+      const ballCenterY = ballSpot.top + 53;
       sheet.style.transformOrigin = `${ballCenterX - sheetRect.left}px ${ballCenterY - sheetRect.top}px`;
       orb.style.pointerEvents = 'auto';
       orb.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.24s ease, left 0.3s cubic-bezier(0.16, 1, 0.3, 1), top 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
@@ -7139,7 +7204,7 @@ function initDhaniwinAssistantSheetDrag() {
     const boxWidth = sheet.offsetWidth || 270;
     const boxHeight = sheet.offsetHeight || 360;
     const newLeft = Math.max(8, Math.min(window.innerWidth - boxWidth - 8, dragInitialLeft + dx));
-    const newTop = Math.max(50, Math.min(window.innerHeight - boxHeight - 14, dragInitialTop + dy));
+    const newTop = Math.max(AXO_SHEET_TOP_MIN, Math.min(window.innerHeight - boxHeight - 14, dragInitialTop + dy));
 
     sheet.style.left = `${newLeft}px`;
     sheet.style.top = `${newTop}px`;
@@ -7271,7 +7336,7 @@ function initDhaniwinAssistantSheetDrag() {
       const prospectiveH = resizeStartH - dy;
       if (prospectiveH >= minH) {
         newH = prospectiveH;
-        newT = Math.max(50, resizeStartT + dy);
+        newT = Math.max(AXO_SHEET_TOP_MIN, resizeStartT + dy);
       } else {
         newH = minH;
         newT = resizeStartT + (resizeStartH - minH);
@@ -7381,11 +7446,12 @@ function updateFloatingOrbUI() {
     // Fix round (ball-only): even the no-governor fallback shows
     // only the ball, never verdict text — ballImg serves digits and
     // letter keys alike; text remains only if no ball renderer
-    // exists (never a blank).
+    // exists (never a blank). Ball-below-Axo (owner order
+    // 2026-10-27): 32px, matching the governed writer.
     const target = MobileState.activePrediction?.target || 'BIG';
     const targetEl = $('floatingOrbTarget');
     if (targetEl) {
-      const ballHtml = (typeof window.ballImg === 'function') ? window.ballImg(String(target).toUpperCase(), 16, '') : '';
+      const ballHtml = (typeof window.ballImg === 'function') ? window.ballImg(String(target).toUpperCase(), 32, '') : '';
       if (ballHtml) {
         targetEl.innerHTML = ballHtml;
       } else {
@@ -7476,7 +7542,7 @@ function setupFloatingOrb() {
       if (e.cancelable && e.preventDefault) e.preventDefault();
       // Drag stays bounded: the ball can never leave the viewport.
       const clamp = window.__o101ClampBall || clampBallRectFallback;
-      const next = clamp({ left: startLeft + dx, top: startTop + dy, width: 68, height: 86, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 160, bottomMargin: 12 });
+      const next = clamp({ left: startLeft + dx, top: startTop + dy, width: 68, height: 106, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 160, bottomMargin: 12 });
       orb.style.left = `${next.left}px`;
       orb.style.top = `${next.top}px`;
       orb.style.right = 'auto';
@@ -7500,11 +7566,11 @@ function setupFloatingOrb() {
 
     // Magnetic edge snap (left or right), still fully inside: the
     // right snap accounts for the 68px ring + 8px margin, and the
-    // top clamp for the 86px footprint (ball + under-bar) + margin.
+    // top clamp for the 106px footprint (ring + ball below) + margin.
     const rect = orb.getBoundingClientRect();
     const midX = window.innerWidth / 2;
     const clamp = window.__o101ClampBall || clampBallRectFallback;
-    const snapped = clamp({ left: rect.left < midX ? 12 : window.innerWidth - 76, top: rect.top, width: 68, height: 86, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 160, bottomMargin: 12 });
+    const snapped = clamp({ left: rect.left < midX ? 12 : window.innerWidth - 76, top: rect.top, width: 68, height: 106, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 160, bottomMargin: 12 });
     const targetLeft = snapped.left;
     const targetTop = snapped.top;
 
