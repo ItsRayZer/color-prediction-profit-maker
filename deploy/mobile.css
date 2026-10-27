@@ -1288,7 +1288,7 @@ a[href*="tradingview.com"] {
 #dhaniwinAssistantSheet[data-axo-compact="2"] #assistantMiniRoad { padding: 4px; }
 #dhaniwinAssistantSheet[data-axo-compact="2"] #assistantMiniRoad .ball-3d { width: 20px; height: 20px; font-size: 9px; }
 #dhaniwinAssistantSheet[data-axo-compact="2"] #assistantMiniRoad img { width: 20px; height: 20px; }
-#dhaniwinAssistantSheet[data-axo-compact="2"] #axoControlRow { height: 22px; }
+#dhaniwinAssistantSheet[data-axo-compact="2"] #axoControlRow { height: 34px; }
 #dhaniwinAssistantSheet[data-axo-compact="3"] .assistant-sheet-body { padding: 4px; }
 #dhaniwinAssistantSheet[data-axo-compact="3"] .assistant-sheet-body > * + * { margin-top: 2px; }
 #dhaniwinAssistantSheet[data-axo-compact="3"] #axoHeroBox { padding: 4px; }
@@ -1296,13 +1296,21 @@ a[href*="tradingview.com"] {
 #dhaniwinAssistantSheet[data-axo-compact="3"] #assistantMiniRoad { padding: 4px; }
 #dhaniwinAssistantSheet[data-axo-compact="3"] #assistantMiniRoad .ball-3d { width: 18px; height: 18px; font-size: 9px; }
 #dhaniwinAssistantSheet[data-axo-compact="3"] #assistantMiniRoad img { width: 18px; height: 18px; }
-#dhaniwinAssistantSheet[data-axo-compact="3"] #axoControlRow { height: 22px; }
+#dhaniwinAssistantSheet[data-axo-compact="3"] #axoControlRow { height: 34px; }
 #dhaniwinAssistantSheet[data-axo-compact="3"] #axoGameTimeRow button { padding-top: 2px; padding-bottom: 2px; }
 #dhaniwinAssistantSheet[data-axo-compact="3"] #axoBaseChipGrid button { padding-top: 2px; padding-bottom: 2px; }
 #dhaniwinAssistantSheet[data-axo-compact="3"] #axoBaseBetSection { padding-top: 0; }
 #dhaniwinAssistantSheet[data-axo-compact="3"] #mobileWebVerdictReason { padding-bottom: 0; }
 #dhaniwinAssistantSheet[data-axo-narrow="1"] #axoControlRow > div { gap: 4px; }
 #dhaniwinAssistantSheet[data-axo-narrow="1"] #axoControlRow button { padding-left: 6px; padding-right: 6px; }
+
+/* Caption fix (owner order 2026-10-27, "caption off and on is
+   hard"): the control-row chips were ~15px tall (7.5px text +
+   py-0.5) — too small to hit reliably on a phone beside three
+   identical chips. Chips get a 32px phone-usable tap target;
+   the row is 34px at every compaction tier so the chips never
+   clip (the old 22px compact rows are raised, not kept). */
+#axoControlRow button { min-height: 32px; display: inline-flex; align-items: center; padding-top: 6px; padding-bottom: 6px; font-size: 9px; }
 
 /* Fix round #6 — DhaniWin loading overlay: the cross-origin iframe
    paints white for 3-4s while DhaniWin boots, and no app-side code can

@@ -1063,11 +1063,14 @@
              live HERE in the header strip only — compact, one row,
              never a body section — so the body below is exactly the
              four spec sections. Same row markup as Task E (same ids,
-             same 26px height, same onclick wiring); only the side
-             padding aligns to the header and a hairline separates it
-             from the body. It is NOT a drag handle (every chip is a
-             button, which the drag start ignores anyway). -->
-        <div id="axoControlRow" class="flex items-center justify-between px-2 h-[26px] shrink-0 border-b border-white/[0.06]">
+             same onclick wiring); only the side padding aligns to
+             the header and a hairline separates it from the body.
+             Caption fix (owner order 2026-10-27, "caption off and
+             on is hard"): the row is 34px, not 26px, so the chips
+             meet the 32px phone tap target (see mobile.css). It is
+             NOT a drag handle (every chip is a button, which the
+             drag start ignores anyway). -->
+        <div id="axoControlRow" class="flex items-center justify-between px-2 h-[34px] shrink-0 border-b border-white/[0.06]">
             <div class="flex items-center gap-1.5 min-w-0">
               <span class="text-[7px] font-mono text-zinc-500 tracking-wider shrink-0">AXO</span>
               <!-- Tap-for-voice affordance: visible ONLY while a line

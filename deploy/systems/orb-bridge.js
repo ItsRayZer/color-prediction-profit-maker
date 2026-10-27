@@ -1798,23 +1798,31 @@ export function buildHistoryExport({ liveByTf = {}, deepByTf = {}, dispositions 
  * below, then a dock-clear bottom-right slot when no anchor exists.
  * All positions are clamped into the viewport. Pure + tested.
  */
-export function axoBubbleGeometry({ anchor = null, vw = 0, vh = 0, bw = 280, bh = 60, gap = 10, margin = 8 } = {}) {
+export function axoBubbleGeometry({ anchor = null, vw = 0, vh = 0, bw = 280, bh = 60, gap = 10, margin = 8, overhang = 16 } = {}) {
   const w = Math.max(1, Number(bw) || 280);
   const h = Math.max(1, Number(bh) || 60);
-  const maxLeft = Math.max(margin, (Number(vw) || 0) - w - margin);
+  const oh = Number.isFinite(Number(overhang)) && Number(overhang) >= 0 ? Number(overhang) : 16;
+  const maxLeft = Math.max(margin, (Number(vw) || 0) - w - margin - oh);
   const maxTop = Math.max(margin, (Number(vh) || 0) - h - margin);
   const clamp = (v, max) => Math.max(margin, Math.min(max, Math.round(v)));
+  // Top clamp keeps the corner-centred 32px X fully on-screen: the X
+  // extends `overhang` above and right of the bubble box, so a bubble
+  // top at `margin` left the X's top quarter off-screen (owner order
+  // 2026-10-27, "caption off and on is hard": the bubble sits at the
+  // very top of the screen on his phone). The right edge keeps the
+  // same clearance via maxLeft.
+  const clampTop = (v, max) => Math.max(margin + oh, Math.min(max, Math.round(v)));
   if (anchor && Number.isFinite(Number(anchor.left)) && Number.isFinite(Number(anchor.top))) {
     const a = anchor;
     if (a.left - gap - w >= margin) {
-      return { left: clamp(a.left - gap - w, maxLeft), top: clamp(a.top + ((Number(a.height) || 0) - h) / 2, maxTop) };
+      return { left: clamp(a.left - gap - w, maxLeft), top: clampTop(a.top + ((Number(a.height) || 0) - h) / 2, maxTop) };
     }
     if (a.top - gap - h >= margin) {
-      return { left: clamp(a.left + ((Number(a.width) || 0) - w) / 2, maxLeft), top: clamp(a.top - gap - h, maxTop) };
+      return { left: clamp(a.left + ((Number(a.width) || 0) - w) / 2, maxLeft), top: clampTop(a.top - gap - h, maxTop) };
     }
-    return { left: clamp(a.left + ((Number(a.width) || 0) - w) / 2, maxLeft), top: clamp(a.top + (Number(a.height) || 0) + gap, maxTop) };
+    return { left: clamp(a.left + ((Number(a.width) || 0) - w) / 2, maxLeft), top: clampTop(a.top + (Number(a.height) || 0) + gap, maxTop) };
   }
-  return { left: clamp(vw - w - 16, maxLeft), top: clamp(vh - h - 100, maxTop) };
+  return { left: clamp(vw - w - 16, maxLeft), top: clampTop(vh - h - 100, maxTop) };
 }
 
 /**
@@ -1912,6 +1920,21 @@ export function bubbleVisible({ subsOn = true, text = '', dismissedText = '' } =
  *  because that line already cleared the dismissal. */
 export function shouldClearBubbleDismissal({ text = '', dismissedText = '' } = {}) {
   return !!text && text !== dismissedText;
+}
+
+/**
+ * What a subtitles toggle does to a per-line bubble dismissal (pure).
+ * Owner order 2026-10-27 ("caption off and on is hard"): X-dismissing
+ * a line, then toggling CC off and back on, left the bubble hidden —
+ * the dismissal outlived the toggle, so "on" looked dead. CC-on
+ * means "show subtitles again", so it clears the per-line dismissal
+ * and the current line re-shows. CC-off keeps the dismissal (the X's
+ * effect is not a setting; a later different line still clears it
+ * via shouldClearBubbleDismissal). The X itself is untouched: it
+ * still closes only the current line.
+ */
+export function dismissalAfterSubsToggle({ on = true, dismissedText = '' } = {}) {
+  return on ? '' : dismissedText;
 }
 
 /** One page of a list (pure, testable). Analyse pagination (owner
@@ -2957,6 +2980,7 @@ function initBridge() {
 
   function setAxoSubs(on) {
     try { localStorage.setItem(AXO_SUBS_KEY, on ? '1' : '0'); } catch (e) {}
+    state.bubbleDismissedText = dismissalAfterSubsToggle({ on, dismissedText: state.bubbleDismissedText || '' });
     axo.voiceGate.sync({ subsOn: on });
     applyAxoSubs();
     renderAxoVoiceBadge();
