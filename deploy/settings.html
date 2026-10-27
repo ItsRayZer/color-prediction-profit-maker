@@ -1683,6 +1683,46 @@
           </div>
         </div>
 
+        <!-- Phase 3E Recovery Ledger (sole stake authority): per-type
+             tracked loss, with an owner-only reset (confirmation
+             dialog). The ledger resets ONLY on profit covering it or
+             on this explicit reset — never on reload, session end,
+             date change, or app update. Manual DhaniWin-surface bets
+             are NOT tracked (the app cannot see them). Exact ledger
+             stays empty while exact bets are locked (O4). The app
+             page reads these keys live each cycle, so a reset here
+             takes effect without a reload. -->
+        <div class="ios-row" style="flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 16px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div class="ios-row-left">
+              <div class="ios-squircle sq-yellow">
+                <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></svg>
+              </div>
+              <div>
+                <div class="ios-label-primary">Recovery Ledger</div>
+                <div class="ios-label-secondary">Tracked loss per type — sole stake authority</div>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 130px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);">
+              <div class="ios-label-secondary">Colour tracked</div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                <span id="ledgerValCOLOR" class="ios-value-label" style="font-weight: 600; color: #ffffff;">₹0</span>
+                <button onclick="resetLedgerUI('COLOR')" class="ios-seg-btn">Reset</button>
+              </div>
+            </div>
+            <div style="flex: 1; min-width: 130px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);">
+              <div class="ios-label-secondary">Size tracked</div>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                <span id="ledgerValSIZE" class="ios-value-label" style="font-weight: 600; color: #ffffff;">₹0</span>
+                <button onclick="resetLedgerUI('SIZE')" class="ios-seg-btn">Reset</button>
+              </div>
+            </div>
+          </div>
+          <div class="ios-label-secondary">Manual bets placed directly on DhaniWin are not in this ledger. Exact ledger stays empty while exact bets are locked.</div>
+        </div>
+
       </div>
       <div class="ios-group-footer">
         101 models score every round. The In-Charge rule picks the leader.
@@ -2128,6 +2168,9 @@
       // Stake
       updateStakeUI();
 
+      // Phase 3E Recovery Ledger values (read live from localStorage).
+      refreshLedgerUI();
+
       // View mode preference
       try {
         const viewVal = localStorage.getItem('quant_preferred_view') || 'mobile';
@@ -2191,6 +2234,29 @@
           customBtn.textContent = 'Custom';
         }
       }
+    }
+
+    // Phase 3E Recovery Ledger (standalone page: localStorage keys
+    // only — the app page reads o101_ledger_v1_<TYPE> live each
+    // cycle, so a reset here takes effect without a reload).
+    function ledgerKeyFor(type) {
+      return 'o101_ledger_v1_' + String(type || 'COLOR').toUpperCase();
+    }
+    function refreshLedgerUI() {
+      for (const type of ['COLOR', 'SIZE']) {
+        try {
+          const raw = localStorage.getItem(ledgerKeyFor(type));
+          const v = raw === null ? 0 : Number(raw);
+          const el = document.getElementById('ledgerVal' + type);
+          if (el) el.textContent = '₹' + (Number.isFinite(v) && v > 0 ? v : 0);
+        } catch (e) {}
+      }
+    }
+    function resetLedgerUI(type) {
+      const label = type === 'SIZE' ? 'Size' : 'Colour';
+      if (!confirm(`Reset the ${label} Recovery Ledger to ₹0? This clears the tracked loss record — only do this if you mean to forgive the tracked losses. This cannot be undone.`)) return;
+      try { localStorage.removeItem(ledgerKeyFor(type)); } catch (e) {}
+      refreshLedgerUI();
     }
 
     function updateNotifTag() {

@@ -32,9 +32,14 @@
  */
 
 import { InchargeEngine, INCHARGE_MODES, wilsonLowerBound, selectInchargeOwnerRule } from './inchargeEngine.js';
-import { CalibrationTracker, PerModelCalibrationTracker, calibrationLabel, plattScale, CALIBRATION_KEY } from './calibration.js';
+import { CalibrationTracker, PerModelCalibrationTracker, calibrationLabel, plattScale, CALIBRATION_KEY, expectedCalibrationError } from './calibration.js';
 import { evaluateSignalGate, GATE_DECISIONS, GateCooldown, sampleStakeFactor, betTypeOfPick, ASI_TRIAL_IDS, ASI_TRIAL_GATE_REASON } from './signalGate.js';
 import { BlacklistManager } from './blacklist.js';
+import { BenchManager, benchStatusLabel, benchProgressText, benchRoundsText } from './bench.js';
+import {
+  barFor, ledgerWeight, ledgerStake, applyLedgerResult, saveLedger, loadLedger,
+  ledgerLevelIndex, ledgerResize, ledgerLineFor, overBalanceInfo
+} from './ledger.js';
 import {
   createSession, settle, planLadder, suggestBaseBet,
   balanceSourceLabel, BALANCE_SOURCES, DEFAULT_STAKING_MODE,
@@ -177,6 +182,15 @@ export class ModelHistoryStore {
       sessionWins,
       sessionWinRate: sessionEvaluated ? sessionWins / sessionEvaluated : null
     };
+  }
+
+  /** Rolling last-100 outcomes for one model (copy; [] when none).
+   *  Phase 3E S3 leader-health slope reads last-20 vs prior-20 from
+   *  this array — display only, never a selection input. */
+  recentArray(tf, modelId) {
+    const bucket = this.data.tf[tf];
+    const m = bucket && bucket.models[modelId];
+    return m ? m.recent.slice() : [];
   }
 
   /** Per-pattern hit summary for one model ([] when none recorded). */
@@ -674,6 +688,28 @@ export function ballKeyFor(pick) {
   return ['BIG', 'SMALL', 'GREEN', 'RED', 'VIOLET'].includes(p) ? p : null;
 }
 
+/**
+ * Phase 3E display spec (design §9): every round's hero detail carries
+ * the pick's honest quality — Chance (RAW win rate, labelled raw),
+ * Wilson (defended chance), signed gap to the type's bar, and ONE
+ * quality tag. Tags describe, they never block: a below-bar pick
+ * shows with the same layout and a muted/amber tag, still stageable.
+ * Pure, testable. Thin-sample floor: 20 rounds (colour/size gate
+ * floor); Uncalibrated is read off the gate's own quality reason.
+ */
+export function qualityTagFor(gate) {
+  if (!gate || gate.decision !== GATE_DECISIONS.BET) return '';
+  if (Number.isFinite(gate.sampleSize) && gate.sampleSize < 20) return 'Thin sample';
+  if (gate.qualityReason && /uncalibrated/i.test(gate.qualityReason)) return 'Uncalibrated';
+  return gate.belowBar ? 'Below bar' : 'Above bar';
+}
+
+/** Signed gap in points between a Wilson bound and the type's bar. */
+export function gapPtsFor(wilson, type) {
+  if (!Number.isFinite(wilson)) return null;
+  return (wilson - barFor(type || 'COLOR')) * 100;
+}
+
 export function heroVerdictView(gate) {
   if (!gate || !gate.decision) return { decision: 'NONE', targetText: '—', confText: '—', pick: null, reasonText: '' };
   if (gate.decision === GATE_DECISIONS.BET) {
@@ -681,6 +717,11 @@ export function heroVerdictView(gate) {
     // reason (Wilson %, required %, gap) when below bar, the
     // graduated-stake note, and any pattern/trend conflict note —
     // so the hero surface itself says how strong the pick is.
+    // Phase 3E: + Chance (raw) / Wilson / signed gap / quality tag /
+    // ledger line (design §9 display spec) — all descriptive, none
+    // of them gates or blocks the pick.
+    const wilson = Number.isFinite(gate.wilsonLowerBound) ? gate.wilsonLowerBound : null;
+    const gap = gapPtsFor(wilson, gate.driverType);
     return {
       decision: 'BET',
       targetText: gate.pick || '—',
@@ -689,13 +730,18 @@ export function heroVerdictView(gate) {
       reasonText: gate.qualityReason || '',
       ballDigit: ballKeyFor(gate.pick),
       sampleNote: gate.sampleNote || '',
-      conflictNote: gate.conflictNote || ''
+      conflictNote: gate.conflictNote || '',
+      chanceText: Number.isFinite(gate.driverWinRate) ? `Chance ${Math.round(gate.driverWinRate * 100)}% (raw)` : '—',
+      wilsonText: wilson !== null ? `Wilson ${(wilson * 100).toFixed(1)}%` : '—',
+      gapText: gap !== null ? `Gap ${gap >= 0 ? '+' : ''}${gap.toFixed(1)} pts vs ${(barFor(gate.driverType || 'COLOR') * 100).toFixed(2)}% bar` : '—',
+      qualityTag: qualityTagFor(gate),
+      ledgerLine: gate.ledgerView ? ledgerLineFor(gate.ledgerView.tracked, gate.ledgerView.stake) : ''
     };
   }
   // NO_PICK carries the no-pick note verbatim so the hero surface
   // itself says WHY there is no pick this round. Target shows '—'
   // (never an invented pick, never a SKIP label).
-  return { decision: 'NO_PICK', targetText: '—', confText: '—', pick: null, reasonText: gate.reason || '', ballDigit: null };
+  return { decision: 'NO_PICK', targetText: '—', confText: '—', pick: null, reasonText: gate.reason || '', ballDigit: null, chanceText: '', wilsonText: '', gapText: '', qualityTag: '', ledgerLine: '' };
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -1390,13 +1436,21 @@ export const THIN_POOL_MIN = 10;
 // formatted exactly like the
 // hero's Bet figure ('₹' + en-IN grouping, whole rupees) and comes
 // from the same source (state.session.nextStake) — no new math.
-export function closedOrbPill({ decision = null, pick = null, stake = null } = {}) {
+export function closedOrbPill({ decision = null, pick = null, stake = null, wilson = null } = {}) {
   // Phase 3D: no SKIP pill, no HELD pill — a BET shows pick · stake
   // (the governed session's nextStake, never invented); anything
   // else shows '—'.
+  // Phase 3E (design §9): the closed pill is pick · Wilson% · stake —
+  // Wilson, the conservative chance, is the pill number; the raw
+  // Chance lives in the hero detail. Wilson absent -> old pick ·
+  // stake form (backward compatible for callers without a pool entry).
   if (decision === GATE_DECISIONS.BET && pick) {
     if (stake !== null && stake !== undefined && Number.isFinite(Number(stake)) && Number(stake) > 0) {
-      return { text: `${pick} · ₹${Number(stake).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`, state: 'bet', ballDigit: ballKeyFor(pick) };
+      const stakeText = `₹${Number(stake).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+      const text = Number.isFinite(wilson)
+        ? `${pick} · ${(wilson * 100).toFixed(1)}% · ${stakeText}`
+        : `${pick} · ${stakeText}`;
+      return { text, state: 'bet', ballDigit: ballKeyFor(pick) };
     }
     return { text: pick, state: 'bet', ballDigit: ballKeyFor(pick) };
   }
@@ -2106,6 +2160,15 @@ function initBridge() {
   const locker = new VerdictLocker();
   const patternStore = new PatternStore(safeStorage());
   const ap = new AutoPilot(safeStorage());
+  // Phase 3E demotion + bench (owner-approved design §§1–3, §10, as
+  // amended 2026-10-27 ~11:15 IST: uniform 10-clean-round restoration,
+  // no 4-loss streak — replaces next-win demotion-clear and 2-shadow-
+  // win bench re-entry). Keyed per timeframe, persisted o101_bench_v1.
+  // Fed ONLY from the live settlement branch (beside the shadow feed);
+  // backfill never touches it. Blacklist subsumes bench (design §3):
+  // the cycle drops bench state for newly blacklisted ids and the
+  // live feed skips blacklisted ids.
+  const bench = new BenchManager(safeStorage());
 
   // Axo runtime state: current face, the missed-bet ledger, the
   // first-gesture voice unlock and
@@ -3244,7 +3307,13 @@ function initBridge() {
       balanceSource: state.balanceSource,
       balanceSourceLabel: state.balanceSource !== 'none' ? balanceSourceLabel(state.balanceSource) : null,
       baseBet: state.session ? state.session.baseBet : 0,
-      ladderLevel: state.session ? state.session.level : 0,
+      // Phase 3E: the spoken "level" is the derived ledger level
+      // (log2 of stake/base) when known, else the session loss-run
+      // counter — the ladder it used to name is retired.
+      ladderLevel: state.session && Number.isFinite(state.session.ledgerLevelIndex) ? state.session.ledgerLevelIndex : (state.session ? state.session.level : 0),
+      // Phase 3E: post-settlement tracked ledger loss for the WIN
+      // line (null when no ledger info — the old line is kept then).
+      ledgerTracked: state.session && state.session.ledgerView ? state.session.ledgerView.tracked : null,
       ladderLevels: state.session ? state.session.ladderLevels : 0,
       nextStake: state.session ? state.session.nextStake : 0,
       // Task R: the speaker must know whether a bankroll session
@@ -3339,8 +3408,12 @@ function initBridge() {
     if (gate) {
       if (gate.decision === GATE_DECISIONS.BET) {
         const verified = state.login && state.login.state === LOGIN_STATES.VERIFIED;
+        // Phase 3E: ledger level (derived log2 of stake/base), not
+        // the retired ladder's rung — the stake figure is the ledger
+        // figure, never the doubling figure.
+        const li = state.session && Number.isFinite(state.session.ledgerLevelIndex) ? state.session.ledgerLevelIndex : null;
         parts.push('BET ' + (gate.pick || '')
-          + (verified && state.session ? ` · ladder step ${state.session.level + 1}/${state.session.ladderLevels} · next ${inr(state.session.nextStake)}` : ''));
+          + (verified && state.session ? ` · ledger level ${li !== null ? li + 1 : 1} · next ${inr(state.session.nextStake)}` : ''));
       } else {
         parts.push('SKIP — ' + (gate.reason || 'gate declined'));
       }
@@ -3953,7 +4026,11 @@ function initBridge() {
       if (saved.session) {
         state.session = saved.session;
         if (saved.session.state === 'CONTINUE' || saved.session.state === 'RESET') {
-          say(`Ladder resumed — level ${saved.session.level + 1}, next ${inr(saved.session.nextStake)}.`, 'system');
+          // Phase 3E: the resumed figure is the ledger figure (the
+          // resize step re-derives it next cycle); the level is the
+          // derived ledger level, not the loss-run counter.
+          const li = ledgerLevelIndex(saved.session.nextStake, saved.session.baseBet);
+          say(`Session resumed — level ${li + 1}, next ${inr(saved.session.nextStake)}.`, 'system');
         }
       } else {
         state.session = createSession(state.balance, { mode: ap.state.riskMode, baseBet: startBase });
@@ -4018,6 +4095,32 @@ function initBridge() {
               }
             });
             state.session = result.session;
+            // Phase 3E Recovery Ledger: the SAME settlement events as
+            // the ladder (this branch = ap-off every BET + ap-on
+            // fired BETs). The missed-bet branch above moves NO
+            // ledger; NO_PICK moves none. stakeUsed is the ledger
+            // figure from the previous cycle's resize (settle() only
+            // ever sees that figure as nextStake here).
+            const settleType = (state.gate && state.gate.driverType)
+              || (state.lastPick && (state.lastPick.target === 'BIG' || state.lastPick.target === 'SMALL') ? 'SIZE' : 'COLOR');
+            if (result.session && Number.isFinite(result.session.stakeUsed) && result.session.stakeUsed > 0) {
+              const L0 = loadLedger(safeStorage(), settleType);
+              const upd = applyLedgerResult(L0, result.session.stakeUsed, !!won);
+              saveLedger(safeStorage(), settleType, upd.L);
+              // Provisional next stake from the new ledger (the next
+              // cycle's resize re-derives it with the fresh driver
+              // Wilson before any display or staging — the doubling
+              // figure settle() computed is never displayed, staged,
+              // or persisted).
+              const base = state.session.baseBet;
+              const wLast = state.gate && Number.isFinite(state.gate.wilsonLowerBound) ? state.gate.wilsonLowerBound : null;
+              const nextStake = ledgerStake(base, upd.L, wLast, settleType);
+              state.session.nextStake = nextStake;
+              state.session.shortfall = null;
+              state.session.overPlan = false;
+              state.session.ledgerLevelIndex = ledgerLevelIndex(nextStake, base);
+              state.session.ledgerView = { tracked: upd.L, stake: nextStake, weight: ledgerWeight(wLast, settleType), required: nextStake, shortfall: null, capped: null, levelIndex: state.session.ledgerLevelIndex };
+            }
             // Phase 3A: persist the settled ladder immediately.
             try { saveSessionTo(safeStorage(), 'SHARED', state.session); } catch (e) { /* storage must never break settlement */ }
             speakSettledEvents(result.events, { lastResult: `${latest.size} ${latest.number}` });
@@ -4094,6 +4197,16 @@ function initBridge() {
             blForShadow.recordShadowResult(e.modelId, !!e.correct);
           }
         }
+        // Phase 3E bench feed (same live-branch guard as the shadow
+        // feed: pendingPicks is nulled only after this block, so
+        // backfill can never feed bench). Blacklisted ids are skipped
+        // (blacklist subsumes bench, design §3); the governance step
+        // below drops bench state for newly blacklisted ids.
+        for (const e of entries) {
+          if (e && e.modelId && e.correct !== null && e.correct !== undefined && !blForShadow.isBlacklisted(e.modelId)) {
+            bench.recordLive(tf, e.modelId, !!e.correct, latestPeriod, e.pick || null);
+          }
+        }
         } // end live-branch-only shadow feeds
       }
       state.pendingPicks = null;
@@ -4117,14 +4230,33 @@ function initBridge() {
     // sort per cycle over the governed pool with NO blacklist filter
     // (empty Set), so blacklisted models still have a rank.
     const floorRank = engine.rankModels(governedPool, 'overall', { blacklist: new Set() });
-    bl.update(governedPool, { rankOrder: floorRank.map(m => m.id) });
+    const blRes = bl.update(governedPool, { rankOrder: floorRank.map(m => m.id) });
+    // Phase 3E blacklist subsumption (design §3): a model that just
+    // became blacklisted drops its bench state entirely — the
+    // blacklist re-entry rule is the only path back for it.
+    if (blRes && Array.isArray(blRes.blacklisted)) {
+      for (const entry of blRes.blacklisted) bench.dropState(tf, entry && entry.id);
+    }
     engine.config.blacklist = bl;
     // Phase 3A leader: the v2 §1–§2 owner rule (streak surprise +
     // Wilson margins, session rule via margins, 2-pt band) — NOT the
     // legacy streak-override engine (still used for ranking only).
     // Phase 3D: no type is ever excluded from candidacy — stops are
     // deleted, so every eligible model can lead.
-    const ownerVerdict = selectInchargeOwnerRule(bl.filterEligible(governedPool));
+    // Phase 3E: candidates = governed minus blacklisted minus
+    // benched minus demoted, then v2 Steps 1–3 unchanged. Unified
+    // leadership floor: if a whole type is demoted/benched at once,
+    // the highest-Wilson benched/demoted model of the blacklist-
+    // filtered pool leads FLAGGED (never an empty board).
+    const blEligible = bl.filterEligible(governedPool);
+    const benchEligible = bench.filterEligible(tf, blEligible);
+    let incCandidates = benchEligible;
+    let benchFloorId = null;
+    if (!incCandidates.length) {
+      const fm = bench.floorModel(tf, blEligible);
+      if (fm) { incCandidates = [fm]; benchFloorId = fm.id; }
+    }
+    const ownerVerdict = selectInchargeOwnerRule(incCandidates);
     const incharge = ownerVerdict && ownerVerdict.model ? ownerVerdict.model : null;
 
     if (incharge && incharge.id !== state.inchargeId) {
@@ -4158,11 +4290,17 @@ function initBridge() {
           gate: { decision: GATE_DECISIONS.NO_PICK, pick: null, prob: null, reason: 'No eligible Incharge model right now — the governed pool has no record yet (the pool floor keeps one model eligible whenever the pool is non-empty).' },
           pick: null,
           inchargeId: null,
-          inchargeType: null
+          inchargeType: null,
+          driverWinRate: null, driverType: null, benchFloor: null
         };
       }
       const myPick = picks.get(incharge.id) || null;
-      const ranked = engine.rankModels(bl.filterEligible(governedPool));
+      // Phase 3E: contenders + bet-driving rank from the BENCH-
+      // FILTERED list (demoted/benched models never contend or drive
+      // a bet while penalised). The floor fallback below covers the
+      // case where the filtered list yields no colour/size pick but
+      // a bench-excluded model has one (highest Wilson, flagged).
+      const ranked = engine.rankModels(bench.filterEligible(tf, bl.filterEligible(governedPool)));
       const contenders = ranked.slice(0, 3).map(m => ({ id: m.id, name: m.name, pick: picks.get(m.id) ? picks.get(m.id).target : null }));
       // Phase 3D bet-driving selection (no SKIP, no STOP): the
       // Incharge pick is stageable ONLY when it is a colour/size
@@ -4191,13 +4329,35 @@ function initBridge() {
           if (pp) { betDriver = m; betPick = pp; break; }
         }
       }
+      // Phase 3E unified leadership floor, bet-driving side: when the
+      // bench-filtered list yields no colour/size pick, the highest-
+      // Wilson bench-excluded colour/size model with a pick drives
+      // the bet FLAGGED (benchFloor) — never an empty board, never a
+      // SKIP. (The Incharge-side floor above already covers the
+      // whole-type-benched case; this covers a filtered list that
+      // has models but no colour/size pick among them.)
+      let floorDriver = null;
+      if (!betDriver) {
+        let bestW = -Infinity;
+        for (const m of blEligible) {
+          if (ASI_TRIAL_IDS.includes(m.id)) continue;
+          if ((m.predType || 'COLOR') === 'NUMBER') continue;
+          if (!bench.isExcluded(tf, m.id)) continue;
+          const pp = picks.get(m.id);
+          if (!pp) continue;
+          const w = wilsonLowerBound(m.wins || 0, m.totalEvaluated || 0);
+          if (w > bestW) { bestW = w; floorDriver = m; }
+        }
+        if (floorDriver) { betDriver = floorDriver; betPick = picks.get(floorDriver.id); }
+      }
       if (!betDriver) {
         return {
           gate: { decision: GATE_DECISIONS.NO_PICK, pick: null, prob: null, reason: 'No stageable colour/size pick exists right now — no eligible model has a pick for this round.', exactDisplay, asiTrialNote },
           pick: null,
           inchargeId: incharge.id,
           inchargeType: incharge.predType || null,
-          exactDisplay, asiTrialNote
+          exactDisplay, asiTrialNote,
+          driverWinRate: null, driverType: null, benchFloor: benchFloorId || null
         };
       }
       const rawConf = betPick && typeof betPick.conf === 'number' ? Math.min(0.99, Math.max(0.01, betPick.conf)) : null;
@@ -4248,7 +4408,14 @@ function initBridge() {
         pick: betPick ? { target: betPick.target, prob: calibratedProb !== null ? calibratedProb : rawConf } : null,
         inchargeId: betDriver.id,
         inchargeType: betDriver.predType || null,
-        exactDisplay, asiTrialNote
+        exactDisplay, asiTrialNote,
+        // Phase 3E display companions: the bet driver's raw win rate
+        // (hero Chance, labelled raw), its type (ledger key + gap
+        // bar), and the bench-floor flag when the pick came from a
+        // bench-excluded model (Incharge floor or bet-driver floor).
+        driverWinRate: poolEntry ? poolEntry.winRate : null,
+        driverType,
+        benchFloor: benchFloorId || (floorDriver ? floorDriver.id : null)
       };
     });
 
@@ -4265,8 +4432,13 @@ function initBridge() {
     // display (when exact holds Incharge) and the ASI trial note
     // (when a trial-gated model would have led). They are display
     // only — the stageable pick is always gate.pick.
+    // Phase 3E companions: bet driver raw win rate + type (hero
+    // Chance/gap/ledger key) and the bench-floor flag.
     gate.exactDisplay = locked.exactDisplay || null;
     gate.asiTrialNote = locked.asiTrialNote || null;
+    gate.driverWinRate = locked.driverWinRate ?? null;
+    gate.driverType = locked.driverType || null;
+    gate.benchFloor = locked.benchFloor || null;
     state.gate = gate;
     // Graduated stakes: the session base follows the CURRENT
     // bet driver's sample factor. The gate just ran, so take the
@@ -4282,6 +4454,47 @@ function initBridge() {
     // planning is identical to before.
     state.graduatedFactor = gate.sampleFactor ?? sampleStakeFactor(gate.sampleSize ?? 0);
     syncSessionBase(login);
+    // Phase 3E Recovery Ledger resize — SOLE STAKE AUTHORITY. Runs
+    // after syncSessionBase and before every render/staging in this
+    // cycle, so the Bet figure, the closed pill, staging and the
+    // persisted session all carry the ledger figure. The doubling
+    // figure settle()/replanSession() computed is overwritten here
+    // (and at settlement) before any use — the ladder is replaced,
+    // not layered. Base = session baseBet (already graduated-scaled;
+    // the ledger weight applies on top). W = the bet driver's Wilson
+    // bound (null -> 0.25x floor). Balance anchor = the session's
+    // running balance when finite and positive; balance-free chip
+    // sessions get no invented shortfall (null).
+    if (state.session && gate.decision === GATE_DECISIONS.BET) {
+      const driverType = locked.driverType || 'COLOR';
+      const L = loadLedger(safeStorage(), driverType);
+      const W = Number.isFinite(gate.wilsonLowerBound) ? gate.wilsonLowerBound : null;
+      const knownBalance = (state.session && Number.isFinite(state.session.balance) && state.session.balance > 0)
+        ? state.session.balance : null;
+      const rz = ledgerResize(state.session.baseBet, L, W, driverType, knownBalance);
+      state.session.nextStake = rz.stake;
+      state.session.shortfall = rz.over ? rz.over.shortfall : null;
+      state.session.overPlan = false;
+      state.session.ledgerLevelIndex = rz.levelIndex;
+      state.session.ledgerView = {
+        tracked: L, stake: rz.stake, weight: rz.weight,
+        required: rz.stake,
+        shortfall: rz.over ? rz.over.shortfall : null,
+        capped: rz.over ? rz.over.capped : null,
+        levelIndex: rz.levelIndex
+      };
+      gate.ledgerView = state.session.ledgerView;
+      try { saveSessionTo(safeStorage(), 'SHARED', state.session); } catch (e) { /* storage must never break the cycle */ }
+    } else {
+      gate.ledgerView = null;
+      // No stake this round (NO_PICK): clear the session's ledger
+      // view + shortfall so a stale "needs Rs X more" from the last
+      // BET round never lingers on a round with no pick.
+      if (state.session) {
+        state.session.ledgerView = null;
+        state.session.shortfall = null;
+      }
+    }
     // Remember the locked pick so its outcome can settle calibration,
     // the cooldown and (when fired) the bankroll when the round lands.
     state.lastPick = locked.pick;
@@ -4319,6 +4532,9 @@ function initBridge() {
       window.__o101Verdict.thinPool = bl.filterEligible(governedPool).length < THIN_POOL_MIN;
       window.__o101Verdict.floorExemption = bl.floorExemption ? bl.floorExemption.id : null;
       window.__o101Verdict.floorExemptions = (bl.floorExemptions || []).map(e => e.id);
+      // Phase 3E: bench floor + penalised count for inspection.
+      window.__o101Verdict.benchFloor = gate.benchFloor || null;
+      window.__o101Verdict.benchCount = bench.count(tf);
     }
     renderWindowStatus();
     // Axo surfaces follow the same verdict: the road strip, the
@@ -4373,7 +4589,9 @@ function initBridge() {
     // Publish the lock first: native renders mirror it verbatim.
     // Phase 3D decisions are BET / NO_PICK / NONE, plus the display
     // companions (exactDisplay, asiTrialNote) for inspection.
-    window.__o101Verdict = { decision: view.decision, pick: view.pick, confText: view.confText, reason: view.reasonText || '', key: state.verdictKey || null, exactDisplay: gate.exactDisplay || null, asiTrialNote: gate.asiTrialNote || null };
+    // Phase 3E: + Chance/Wilson/gap/tag/ledger line + bench floor
+    // (the closed pill reads wilson + stake from here).
+    window.__o101Verdict = { decision: view.decision, pick: view.pick, confText: view.confText, reason: view.reasonText || '', key: state.verdictKey || null, exactDisplay: gate.exactDisplay || null, asiTrialNote: gate.asiTrialNote || null, chanceText: view.chanceText || '', wilsonText: view.wilsonText || '', gapText: view.gapText || '', qualityTag: view.qualityTag || '', ledgerLine: view.ledgerLine || '', wilson: Number.isFinite(gate.wilsonLowerBound) ? gate.wilsonLowerBound : null, benchFloor: gate.benchFloor || null };
     if (state.page !== 'mobile') return;
     const targetEl = $('mobileWebTargetDisplay');
     if (targetEl) {
@@ -4430,12 +4648,26 @@ function initBridge() {
         why.textContent = view.reasonText || '';
       }
     }
+    // Phase 3E hero detail (mobile.html #mobileWebVerdictDetail +
+    // #mobileWebLedgerLine, under the reason): Chance (raw) · Wilson ·
+    // gap · quality tag, then the ledger line. Descriptive only —
+    // never a verdict, never a block. Cleared on non-BET so a stale
+    // detail never outlives its verdict.
+    const detailEl = $('mobileWebVerdictDetail');
+    if (detailEl) {
+      detailEl.textContent = view.decision === 'BET'
+        ? [view.chanceText, view.wilsonText, view.gapText, view.qualityTag].filter(Boolean).join(' · ')
+        : '';
+    }
+    const ledgerEl = $('mobileWebLedgerLine');
+    if (ledgerEl) {
+      ledgerEl.textContent = view.decision === 'BET' ? (view.ledgerLine || '') : '';
+    }
     // Exact-ball display / ASI trial note (mobile.html
     // #mobileWebExactDisplay, under the reason). Exact shows only
     // when an exact-ball model holds Incharge (display only, never
     // a stageable bet); the trial note shows only when a
-    // trial-gated ASI/APEX model would have led. Both are display
-    // companions — the stageable pick is always the BET pick above.
+    // trial-gated ASI/APEX model would have led.
     const exactEl = $('mobileWebExactDisplay');
     if (exactEl) {
       if (gate.exactDisplay && gate.exactDisplay.digit) {
@@ -4486,18 +4718,29 @@ function initBridge() {
       // with the per-bet tap. Balance-free sessions show the
       // over-plan note only (no balance anchor exists to measure
       // a shortfall against, so none is invented).
+      // Phase 3E: the ledger replaces the ladder — the shortfall
+      // line now reads the ledger's over-balance view (required +
+      // shortfall + capped stake, never a silent reduction, never a
+      // block). The planned-depth line is gone: rung caps are an
+      // affordability ceiling only, not a progression.
       const shortEl = $('mobileWebShortfallDisplay');
       if (shortEl) {
         const parts = [];
-        const sf = state.session ? state.session.shortfall : null;
-        if (sf !== null && sf !== undefined && sf > 0) parts.push(`Needs ₹${sf} more than balance.`);
-        if (state.session && state.session.overPlan) parts.push(`Beyond the planned ${state.session.ladderLevels}-rung ladder — doubling continues until a win.`);
+        const lv = state.session ? state.session.ledgerView : null;
+        if (lv && lv.shortfall !== null && lv.shortfall !== undefined && lv.shortfall > 0) {
+          parts.push(`Needs ₹${lv.shortfall} more than balance (required ₹${lv.required}, fits ₹${lv.capped}).`);
+        } else if (state.session && state.session.shortfall !== null && state.session.shortfall !== undefined && state.session.shortfall > 0) {
+          parts.push(`Needs ₹${state.session.shortfall} more than balance.`);
+        }
         shortEl.textContent = parts.join(' ');
       }
       const levelEl = $('mobileWebLevelBadge');
       if (levelEl) {
-        levelEl.textContent = state.session && state.session.level > 0
-          ? `Level ${state.session.level + 1} (Recovery)`
+        // Phase 3E: derived ledger level (log2 of stake/base), not
+        // the session loss-run counter — the ladder is retired.
+        const li = state.session && Number.isFinite(state.session.ledgerLevelIndex) ? state.session.ledgerLevelIndex : null;
+        levelEl.textContent = state.session && li !== null && li > 0
+          ? `Level ${li + 1} (Recovery)`
           : 'Level 1 (Base)';
       }
     }
@@ -4575,7 +4818,9 @@ function initBridge() {
     // so the badge updates when the stake changes. The pill keeps
     // pointer-events-none (drag safe) and the orb's position/size
     // are untouched (clamp unaffected).
-    const pillView = closedOrbPill({ decision: v ? v.decision : null, pick: v ? v.pick : null, stake: state.session ? state.session.nextStake : null });
+    // Phase 3E: the closed pill is pick · Wilson% · stake (Wilson
+    // from the published verdict; the stake is the ledger figure).
+    const pillView = closedOrbPill({ decision: v ? v.decision : null, pick: v ? v.pick : null, stake: state.session ? state.session.nextStake : null, wilson: v ? v.wilson : null });
     const key = JSON.stringify([pillView.text, pillView.state, pillView.ballDigit, view.periodText, road]);
     if (key === axo.lastOrbKey) return;
     axo.lastOrbKey = key;
@@ -4676,9 +4921,14 @@ function initBridge() {
     const listEl = $('bridgeRankingList');
     const blEl = $('bridgeBlacklistList');
     const doEl = $('bridgeDisplayOnlyList');
-    if (!listEl && !blEl && !doEl) return;
+    const benchEl = $('bridgeBenchList');
+    const trendEl = $('bridgeTrendList');
+    if (!listEl && !blEl && !doEl && !benchEl && !trendEl) return;
     const scopeKey = scope ? scope.key : tf;
-    const ranked = engine.rankModels(bl.filterEligible(pool));
+    // Phase 3E: the ranked list excludes demoted/benched models
+    // (they cannot lead or drive a bet while penalised); the bench
+    // card below names them instead. The blacklist filter stays.
+    const ranked = engine.rankModels(bench.filterEligible(tf, bl.filterEligible(pool)));
     if (listEl) {
       listEl.innerHTML = ranked.map((m, i) => {
         const stats = scopeKey === 'ALL' ? mergedModelStats(store, m.id) : store.modelStats(tf, m.id);
@@ -4725,11 +4975,175 @@ function initBridge() {
         <div class="flex items-center justify-between gap-2"><div class="text-[10px] font-bold text-rose-200">${e.name}</div><button data-unblacklist="${escAttr(e.id)}" class="shrink-0 px-2 py-0.5 rounded-full bg-white/10 text-zinc-200 border border-white/10 text-[9px] font-bold">Restore</button></div>
         <div class="text-[8px] font-mono text-zinc-400">${e.reason}</div>
         <div class="text-[8px] font-mono text-zinc-500">WR ${(e.winRate * 100).toFixed(1)}% · samples ${e.samples} · ${e.shadowStatus}</div>
-      </div>`).join('') : '<div class="text-[9px] font-mono text-zinc-500 px-1 py-2">No models are blacklisted right now. Models are benched automatically when their proven record falls below breakeven, and return when their shadow record recovers.</div>');
+      </div>`).join('') : '<div class="text-[9px] font-mono text-zinc-500 px-1 py-2">No models are blacklisted right now. Blacklist is evidence-based: a model is blacklisted only on a Wilson bound below its type bar across 2 consecutive windows (thin models are never blacklisted). Bench (below) is separate: 3 straight walk-forward wrongs, cleared after 10 rounds with no 4-loss streak.</div>');
       blEl.querySelectorAll('[data-unblacklist]').forEach(btn => {
         btn.onclick = () => { try { window.__o101Unblacklist(btn.getAttribute('data-unblacklist')); } catch (e) {} };
       });
     }
+    // Phase 3E bench card (Analyse): every demoted/benched model
+    // with its flag, the benching rounds, restoration progress x/10
+    // clean rounds, times benched, and a manual unbench button.
+    // Bench is rotation, not punishment: a model returns to NORMAL
+    // after 10 consecutive walk-forward rounds with no 4-loss streak
+    // (a 4-streak inside the window restarts the clock and
+    // re-benches). The manual button restores immediately.
+    if (benchEl) {
+      const rows = bench.list(tf);
+      const escAttr = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      const benchMeta = $('bridgeBenchMeta');
+      if (benchMeta) {
+        benchMeta.textContent = rows.length
+          ? `${rows.length} model${rows.length === 1 ? '' : 's'} penalised on ${tf} (demoted at 2 straight wrongs, benched at 3; restore after 10 rounds with no 4-loss streak).`
+          : `No models penalised on ${tf} right now.`;
+      }
+      benchEl.innerHTML = rows.length ? rows.map(s => {
+        const model = (pool || []).find(m => m.id === s.id);
+        const name = model ? (model.name || s.id) : s.id;
+        const unbenchBtn = s.status === 'benched'
+          ? `<button data-unbench="${escAttr(s.id)}" class="shrink-0 px-2 py-0.5 rounded-full bg-white/10 text-zinc-200 border border-white/10 text-[9px] font-bold">Unbench</button>`
+          : '';
+        return `<div class="px-3 py-2 rounded-xl ${s.status === 'benched' ? 'bg-amber-500/[0.06] border border-amber-500/20' : 'bg-white/[0.03] border border-white/10'}">
+        <div class="flex items-center justify-between gap-2"><div class="text-[10px] font-bold ${s.status === 'benched' ? 'text-amber-200' : 'text-zinc-200'}">${name} · ${benchStatusLabel(s.status)}</div>${unbenchBtn}</div>
+        <div class="text-[8px] font-mono text-zinc-400">Benching rounds: ${benchRoundsText(s)}</div>
+        <div class="text-[8px] font-mono text-zinc-500">${benchProgressText(s)} · benched ${s.timesBenched}× this record · current wrong-run ${s.run}</div>
+      </div>`;
+      }).join('') : '<div class="text-[9px] font-mono text-zinc-500 px-1 py-2">No demoted or benched models on this timeframe.</div>';
+      benchEl.querySelectorAll('[data-unbench]').forEach(btn => {
+        btn.onclick = () => { try { window.__o101Unbench(tf, btn.getAttribute('data-unbench')); } catch (e) {} };
+      });
+    }
+    // Phase 3E trend signals S2–S5 (Analyse): DISPLAY ONLY. None of
+    // these touches leader selection until a harness PASS on real
+    // TEST data + the owner's word (no TEST data exists yet). S1,
+    // bench rotation itself, is the live mechanism above.
+    if (trendEl) renderTrendSection(tf, trendEl, scopeKey);
+  }
+
+  // Phase 3E trend display (S2–S5). Pure reads + one throttled,
+  // visibility-gated consensus computation. Returns nothing; writes
+  // the trend card's innerHTML. Never mutates selection, bench, or
+  // blacklist state. governanceFor for other timeframes is read-only
+  // except state.scopeKey/scopeLabel, which are saved + restored.
+  function renderTrendSection(tf, trendEl, scopeKey) {
+    const leaderId = state.inchargeId;
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const leader = leaderId ? (arenaModels().find(m => m.id === leaderId) || null) : null;
+    const leaderName = leader ? (leader.name || leaderId) : '—';
+    const stats = leaderId ? (scopeKey === 'ALL' ? mergedModelStats(store, leaderId) : store.modelStats(tf, leaderId)) : null;
+    const lines = [];
+    lines.push('<div class="text-[8px] font-mono text-zinc-500 px-1 pb-1">Trend signals — display only, never change leadership (harness PASS on real TEST data + owner word required before any signal touches selection).</div>');
+    // S2: last-100 Wilson recent-form (replaces the raw last-100 rate
+    // that flukes: 52/100 raw looks fine, its Wilson bound does not).
+    if (stats && stats.recentEvaluated) {
+      const w = wilsonLowerBound(stats.recentWins || 0, stats.recentEvaluated);
+      lines.push(`<div class="text-[9px] font-mono text-zinc-300 px-1">S2 recent-form (last 100): leader ${esc(leaderName)} — Wilson ${(w * 100).toFixed(1)}% (raw ${(stats.recentWinRate * 100).toFixed(1)}%, n=${stats.recentEvaluated})</div>`);
+    } else {
+      lines.push(`<div class="text-[9px] font-mono text-zinc-500 px-1">S2 recent-form: no last-100 record for the leader yet.</div>`);
+    }
+    // S3: leader-health slope, last-20 vs prior-20 (tie-break only).
+    if (leaderId) {
+      const rec = store.recentArray(tf, leaderId);
+      if (rec.length >= 40) {
+        const last20 = rec.slice(-20);
+        const prior20 = rec.slice(-40, -20);
+        const a = last20.reduce((x, y) => x + y, 0) / 20;
+        const b = prior20.reduce((x, y) => x + y, 0) / 20;
+        const slope = (a - b) * 100;
+        lines.push(`<div class="text-[9px] font-mono text-zinc-300 px-1">S3 leader-health slope: ${slope >= 0 ? '+' : ''}${slope.toFixed(1)} pts (last-20 ${(a * 100).toFixed(0)}% vs prior-20 ${(b * 100).toFixed(0)}%) — tie-break only</div>`);
+      } else {
+        lines.push(`<div class="text-[9px] font-mono text-zinc-500 px-1">S3 leader-health slope: needs 40 rounds (has ${rec.length}).</div>`);
+      }
+    }
+    // S4: cross-timeframe consensus (same pick direction led on ≥3 of
+    // 4 timeframes, tie-break boost only). Throttled: at most one
+    // computation per 60s, only while the card is visible, and only
+    // when some timeframe's latest settled round moved.
+    const s4 = trendConsensus(tf, trendEl);
+    lines.push(`<div class="text-[9px] font-mono text-zinc-300 px-1">S4 consensus: ${s4}</div>`);
+    // S5: per-leader calibration drift, last-50 ECE vs full ECE
+    // (per-type buckets only; session records only — modelCalib is
+    // session-scoped, so drift resets on reload).
+    if (leaderId) {
+      try {
+        const recs = modelCalib.recordsFor(leaderId) || [];
+        if (recs.length >= 50) {
+          const full = expectedCalibrationError(recs);
+          const last50 = expectedCalibrationError(recs.slice(-50));
+          lines.push(`<div class="text-[9px] font-mono text-zinc-300 px-1">S5 calibration drift (session): leader ECE full ${full.toFixed(3)} vs last-50 ${last50.toFixed(3)} (n=${recs.length}) — display only</div>`);
+        } else {
+          lines.push(`<div class="text-[9px] font-mono text-zinc-500 px-1">S5 calibration drift: too few session records (n=${recs.length}, needs 50).</div>`);
+        }
+      } catch (e) {
+        lines.push(`<div class="text-[9px] font-mono text-zinc-500 px-1">S5 calibration drift: unavailable.</div>`);
+      }
+    }
+    trendEl.innerHTML = lines.join('');
+  }
+
+  // S4 consensus computation (display only). Returns a plain string.
+  // Visibility-gated (hidden card -> stale text kept, no compute)
+  // and throttled (60s + settled-round movement) so the 4-timeframe
+  // governance + pick computation cannot tax every 3s cycle.
+  function trendConsensus(tf, trendEl) {
+    const el = trendEl || $('bridgeTrendList');
+    if (!el || el.offsetParent === null) return state.trendS4Text || 'card hidden — consensus computes when Analyse is open.';
+    const TFS = ['30s', '1m', '3m', '5m'];
+    const keyParts = [];
+    for (const t of TFS) {
+      try {
+        const h = settledHistory(t) || [];
+        keyParts.push(`${t}:${h.length}:${h.length ? (h[h.length - 1].issueNumber || h[h.length - 1].period || '') : ''}`);
+      } catch (e) { keyParts.push(`${t}:?`); }
+    }
+    const key = keyParts.join('|');
+    const now = Date.now();
+    if (state.trendS4Key === key && state.trendS4Text && (now - (state.trendS4At || 0)) < 60000) return state.trendS4Text;
+    let text = 'unavailable';
+    try {
+      const saveKey = state.scopeKey;
+      const saveLabel = state.scopeLabel;
+      const gen = genFn();
+      const counts = {};
+      const who = {};
+      if (gen) {
+        for (const t of TFS) {
+          try {
+            const g = governanceFor(t);
+            let cands = bench.filterEligible(t, g.bl.filterEligible(g.governedPool));
+            if (!cands.length) {
+              const fm = bench.floorModel(t, g.bl.filterEligible(g.governedPool));
+              if (fm) cands = [fm];
+            }
+            const v = selectInchargeOwnerRule(cands);
+            if (v && v.model) {
+              const picks = nextRoundPicks(arenaModels(), settledHistory(t), gen);
+              const pp = picks.get(v.model.id);
+              if (pp && pp.target) {
+                counts[pp.target] = (counts[pp.target] || 0) + 1;
+                (who[pp.target] = who[pp.target] || []).push(t);
+              }
+            }
+          } catch (e) { /* one timeframe failing must not kill S4 */ }
+        }
+      }
+      state.scopeKey = saveKey;
+      state.scopeLabel = saveLabel;
+      const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+      if (!entries.length) {
+        text = 'no leader pick on any timeframe yet.';
+      } else {
+        const [dir, n] = entries[0];
+        text = n >= 3
+          ? `${dir} leads on ${n}/4 timeframes (${who[dir].join(', ')}) — tie-break boost only`
+          : `split (best ${dir} on ${n}/4) — no consensus boost`;
+      }
+    } catch (e) {
+      text = 'unavailable';
+    }
+    state.trendS4Key = key;
+    state.trendS4Text = text;
+    state.trendS4At = now;
+    return text;
   }
 
   // ── Task J: one-tap history export ─────────────────────────────
@@ -4808,7 +5222,11 @@ function initBridge() {
       if (ov) ov.classList.remove('hidden');
       const tfNow = state.tf || currentTf();
       const g = governanceFor(tfNow);
-      g.bl.update(g.governedPool);
+      const upd = g.bl.update(g.governedPool);
+      // Phase 3E: same blacklist-subsumes-bench rule as the cycle.
+      if (upd && Array.isArray(upd.blacklisted)) {
+        for (const entry of upd.blacklisted) bench.dropState(tfNow, entry && entry.id);
+      }
       renderRanking(tfNow, g.governedPool, g.bl, g.scope);
     },
     closeRanking() {
@@ -4882,6 +5300,13 @@ function initBridge() {
     return false;
   };
   window.__o101GovernedDisposition = (tf, period) => state.dispositions[String(tf) + ':' + String(period)] || null;
+  // Phase 3E manual unbench (Analyse bench card): restores the model
+  // to NORMAL immediately (full eligibility, subject to winning
+  // Incharge). The card re-renders on the next cycle. Like manual
+  // unblacklist, it never clears a blacklist entry.
+  window.__o101Unbench = (tf, modelId) => {
+    try { bench.unbench(tf || state.tf || currentTf(), modelId); } catch (e) { /* button must never throw */ }
+  };
 
   // Axo comes up on the base face with the chips synced to the
   // persisted voice / subtitle / mode / language settings; the
