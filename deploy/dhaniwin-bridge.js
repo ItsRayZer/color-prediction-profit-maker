@@ -992,16 +992,79 @@
   }
   setTimeout(autoOpenWinGo, 1500);
 
+  // ── Game→app timeframe sync (owner order 2026-10-27) ──────────
+  // CHECK FIRST result: the app ALREADY handles DHANIWIN_TIME-
+  // FRAME_CHANGE (mobile.js handleMobileBridgeMessage → setMobile-
+  // Timeframe, guarded: only when different + valid), but NOTHING
+  // in the bridge ever sent it — the bridge only ever RECEIVED
+  // timeframes (WINGO_SWITCH_TIMEFRAME / UPDATE_BET_SETTINGS).
+  // So a tap on the game's own WinGo 30sec / 1 Min / 3 Min / 5 Min
+  // tab never reached the app. This closes that gap: every 2s the
+  // bridge detects the game's CURRENT timeframe — first from the
+  // game URL path (/WinGo/WinGo_30S|1M|3M|5M), else from the active
+  // tab label (narrow active-tab selectors only, never the broad
+  // sweep switchTimerTab uses) — and posts DHANIWIN_TIMEFRAME_
+  // CHANGE only when the detected game timeframe CHANGES (dedupe
+  // via _lastPostedGameTf). The FIRST detection only records
+  // (silent init, no post): at load, autoOpenWinGo aligns the game
+  // to the app's timeframe, so an initial post could flap the app;
+  // after init, every genuine game-side change syncs the app live
+  // (panel GAME TIME + predictions + period follow, because the
+  // app runs the same setMobileTimeframe the panel chips call —
+  // per-timeframe state stays isolated via lastPeriodSeenByTf and
+  // the per-timeframe picks maps). Precedence: a game-page change
+  // always syncs the app; a manual panel tap holds until the next
+  // game-page change (the detector posts only on game-side
+  // changes, so a panel tap never echoes back). Loop-safe both
+  // ways: the app ignores an already-current timeframe, and the
+  // bridge ignores an already-posted one; the app's own
+  // WINGO_SWITCH_TIMEFRAME reply lands on an already-active tab
+  // (switchTimerTab no-ops on active tabs). APK-only by nature:
+  // on the website the game frame is cross-origin and no bridge
+  // runs inside it, so the panel selector remains the control
+  // there.
+  let _lastPostedGameTf = null;
+  function detectGameTimeframe() {
+    try {
+      const path = window.location.pathname.toLowerCase();
+      for (const [tf, p] of Object.entries(INTERVAL_URL_MAP)) {
+        if (path.includes(p.toLowerCase())) return tf;
+      }
+      const activeTab = document.querySelector('.van-tab--active, .van-tabs__nav .active, [class*="tab"].active');
+      if (activeTab) {
+        const txt = (activeTab.innerText || activeTab.textContent || '').trim().toLowerCase();
+        for (const [tf, terms] of Object.entries(TIMER_TAB_TERMS)) {
+          if (terms.some(t => txt === t || txt.startsWith(t) || txt === `win go ${t}`)) return tf;
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+  function pollGameTimeframe() {
+    const tf = detectGameTimeframe();
+    if (!tf) return;
+    if (_lastPostedGameTf === null) { _lastPostedGameTf = tf; return; } // silent init
+    if (tf === _lastPostedGameTf) return;
+    _lastPostedGameTf = tf;
+    notifyApp({ type: 'DHANIWIN_TIMEFRAME_CHANGE', timeframe: tf, source: 'game-tab', timestamp: Date.now() });
+  }
+  setInterval(pollGameTimeframe, 2000);
+
+  // WinGo timer-tab labels, shared by the app-driven tab switch
+  // (switchTimerTab) and the game-driven detection below
+  // (detectGameTimeframe): the same text the game shows on its
+  // 30sec / 1 Min / 3 Min / 5 Min tabs.
+  const TIMER_TAB_TERMS = {
+    '30s': ['30s', '30 sec', '30sec', 'win go 30s', 'wingo 30s'],
+    '1m':  ['1min', '1 min', '1m', 'win go 1min', 'wingo 1m'],
+    '3m':  ['3min', '3 min', '3m', 'win go 3min', 'wingo 3m'],
+    '5m':  ['5min', '5 min', '5m', 'win go 5min', 'wingo 5m']
+  };
+
   // Switch WinGo Timer Tab (30s, 1m, 3m, 5m)
   function switchTimerTab(tf) {
     if (tf) activeTimeframe = tf;
-    const matchTerms = {
-      '30s': ['30s', '30 sec', '30sec', 'win go 30s', 'wingo 30s'],
-      '1m':  ['1min', '1 min', '1m', 'win go 1min', 'wingo 1m'],
-      '3m':  ['3min', '3 min', '3m', 'win go 3min', 'wingo 3m'],
-      '5m':  ['5min', '5 min', '5m', 'win go 5min', 'wingo 5m']
-    };
-    const targets = matchTerms[activeTimeframe] || [];
+    const targets = TIMER_TAB_TERMS[activeTimeframe] || [];
 
     // Find tab elements in WinGo header
     const tabElements = Array.from(document.querySelectorAll('.van-tab, [class*="tab"], .time-item, [class*="time"], div, button, span'));

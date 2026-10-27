@@ -755,6 +755,23 @@ export function heroVerdictView(gate) {
   return { decision: 'NO_PICK', targetText: '—', confText: '—', pick: null, reasonText: gate.reason || '', ballDigit: null, chanceText: '', wilsonText: '', gapText: '', qualityTag: '', ledgerLine: '' };
 }
 
+/** Panel text for one hero view (pure, testable). Owner order
+ *  2026-10-27 ("No long text needed inside the window"): the panel
+ *  shows NO long hero-detail block at all — a BET writes neither
+ *  its reason line (below-bar reason + early-data note + conflict
+ *  note) nor its detail line (Chance · Wilson · gap · quality tag ·
+ *  Observer follow line). The view fields still exist (data layer
+ *  + published verdict copies untouched) — only the panel writer
+ *  stops displaying them. What stays in the window: NEXT PREDICTION
+ *  pick + %, Base, Bet, sequence road, base-bet chips, game-time,
+ *  the one short ledger line, and the short exact/trial line. The
+ *  NO_PICK reason is KEPT: it is one short honest line explaining
+ *  why the panel shows '—', not long text. */
+export function heroPanelTextFor(view) {
+  if (!view || view.decision === 'BET') return { reason: '', detail: '' };
+  return { reason: view.reasonText || '', detail: '' };
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // Per-timeframe governance scope (pure, testable)
 // ─────────────────────────────────────────────────────────────────────
@@ -1882,6 +1899,35 @@ export function bubbleVisible({ subsOn = true, text = '', dismissedText = '' } =
   return dismissedText !== t;
 }
 
+/** Whether a say() clears a previous bubble dismissal (pure).
+ *  Subtitle-X fix (owner order 2026-10-27, "the subtitle button is
+ *  not clickable"): the X closes the CURRENT line — and a textually
+ *  identical re-say IS the same line. The signal line repeats every
+ *  round while pick/stake/level hold (the gate key changes per
+ *  period), so clearing on EVERY say() resurrected the bubble ≤30s
+ *  after the user tapped X — the tap looked dead. Only a DIFFERENT
+ *  line clears the dismissal and re-shows. This supersedes the Phase
+ *  2A "same-text re-say must re-show" rule for immediate repeats; a
+ *  same-text line after an intervening DIFFERENT line still re-shows,
+ *  because that line already cleared the dismissal. */
+export function shouldClearBubbleDismissal({ text = '', dismissedText = '' } = {}) {
+  return !!text && text !== dismissedText;
+}
+
+/** One page of a list (pure, testable). Analyse pagination (owner
+ *  order 2026-10-27, corrected 12:56 IST): NO "See all" — < > step
+ *  through pages of 10. Page clamps into range (never an empty page,
+ *  never past the ends); the union of all pages is exactly the input
+ *  list, in order, with no gaps or duplicates. */
+export function paginatePage(items, page, pageSize) {
+  const list = Array.isArray(items) ? items : [];
+  const size = Number.isFinite(pageSize) && pageSize > 0 ? Math.floor(pageSize) : 10;
+  const totalPages = Math.max(1, Math.ceil(list.length / size));
+  const p = Math.min(Math.max(1, Math.floor(page) || 1), totalPages);
+  const offset = (p - 1) * size;
+  return { page: p, totalPages, offset, rows: list.slice(offset, offset + size) };
+}
+
 export function subtitleSurfaces({ subsOn = true, panelOpen = false, text = '', dismissedText = '' } = {}) {
   const vis = bubbleVisible({ subsOn, text, dismissedText });
   return {
@@ -1969,9 +2015,12 @@ export class AxoVoiceGate {
 }
 
 // Floating ball footprint: 62px circle + 3px ring each side (68px)
-// + the fixed under-bar (period + mini road) below it.
+// + 6px gap + the 32px prediction ball below the face (ball bottom
+// = container top + 103) + 3px margin = 106px tall. The under-bar
+// is retired (ball-only) — the footprint is ring + ball, not ring
+// + under-bar.
 export const AXO_ORB_WIDTH = 68;
-export const AXO_ORB_HEIGHT = 86;
+export const AXO_ORB_HEIGHT = 106;
 
 /**
  * Clamp a ball rect inside the viewport with safe margins. Pure.
@@ -3086,8 +3135,9 @@ function initBridge() {
   }
 
   /** The bubble's X: closes the CURRENT subtitle bubble only —
-   *  never the bot, never CC, never voice. The next say() line
-   *  shows the bubble again: dismissal is per-line, not a setting. */
+   *  never the bot, never CC, never voice. The next DIFFERENT say()
+   *  line shows the bubble again: dismissal is per-line (distinct
+   *  text), not a setting — a same-text re-say stays dismissed. */
   function dismissAxoBubble() {
     state.bubbleDismissedText = state.lastLine || '';
     syncAxoSubtitleSurfaces();
@@ -3149,10 +3199,14 @@ function initBridge() {
    * Subtitle write (Phase 2A routing — owner correction 5).
    * kind 'verdict' (default): the EXISTING bubble path — writes the
    * sheet state, sets state.lastLine, syncs surfaces. A new verdict
-   * line clears a previous bubble dismissal even when the text is
-   * identical to the dismissed line: the X closed THAT utterance,
-   * and a re-say is a NEW utterance (fixes the coverage gap where a
-   * same-text re-say after dismissal never re-showed).
+   * line clears a previous bubble dismissal ONLY when its text
+   * differs from the dismissed line (shouldClearBubbleDismissal):
+   * the X closed THAT line, and a textually identical re-say is the
+   * same line, not a new utterance — clearing on every say() used
+   * to resurrect the bubble every round and made the X look dead
+   * (owner order 2026-10-27). A same-text line after an intervening
+   * different line still re-shows, because that line already cleared
+   * the dismissal.
    * kind 'system': shows the MINIMAL auto-closing notification above
    * the Axo/ball area instead, and touches NEITHER the bubble NOR
    * state.lastLine — so a status line can never evict the current
@@ -3173,11 +3227,12 @@ function initBridge() {
     const sheetText = $('axoSheetVerdictText');
     if (sheetText && text) sheetText.textContent = text;
     else if (el && text) el.textContent = text;
-    // A new line clears a previous bubble dismissal: the X closed
-    // THAT line, not subtitles in general. Cleared on EVERY non-empty
-    // say() (Phase 2A coverage fix) — a same-text re-say is a new
-    // utterance and must re-show.
-    if (text) state.bubbleDismissedText = '';
+    // A DIFFERENT line clears a previous bubble dismissal: the X
+    // closed THAT line, not subtitles in general. A same-text
+    // re-say never clears (shouldClearBubbleDismissal) — the signal
+    // line repeats every round while pick/stake/level hold, and
+    // clearing on every say() made the X look unclickable.
+    if (shouldClearBubbleDismissal({ text, dismissedText: state.bubbleDismissedText || '' })) state.bubbleDismissedText = '';
     state.lastLine = text;
     syncAxoSubtitleSurfaces();
   }
@@ -3609,6 +3664,11 @@ function initBridge() {
   }
 
   // ── Analyse: persisted pattern numbers, rendered live ────────────
+// Analyse patterns pagination state (closure — survives the cycle's
+// re-renders, so paging is not reset every 3s).
+let patternPage = 1;
+const PATTERN_PAGE_SIZE = 10;
+
   function renderPatternStats() {
     const list = $('patternStatsList');
     if (!list) return;
@@ -3620,11 +3680,25 @@ function initBridge() {
         ? `${rows.reduce((a, r) => a + r.fired, 0)} firings recorded · updated on every settled round`
         : 'Headless engine running — no firings yet';
     }
+    // Pager state (label + disabled ends) always reflects the FULL
+    // list; the meta totals above stay global too — only the ROWS
+    // are sliced to the current page.
+    const pg = paginatePage(rows, patternPage, PATTERN_PAGE_SIZE);
+    patternPage = pg.page;
+    const updatePatternPager = () => {
+      const label = $('patternStatsPageLabel');
+      if (label) label.textContent = `Page ${pg.page} of ${pg.totalPages}`;
+      const prevBtn = $('patternStatsPrevBtn');
+      if (prevBtn) { prevBtn.disabled = pg.page <= 1; prevBtn.classList.toggle('opacity-40', pg.page <= 1); }
+      const nextBtn = $('patternStatsNextBtn');
+      if (nextBtn) { nextBtn.disabled = pg.page >= pg.totalPages; nextBtn.classList.toggle('opacity-40', pg.page >= pg.totalPages); }
+    };
     if (!rows.length) {
       list.innerHTML = '<div class="text-[9px] font-mono text-zinc-500 px-1 py-2">No pattern firings yet. The engine evaluates the catalog patterns on every settled round and records each firing here — nothing is back-computed or invented.</div>';
+      updatePatternPager();
       return;
     }
-    list.innerHTML = rows.map(r => `<div class="flex items-start justify-between gap-2 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+    list.innerHTML = pg.rows.map(r => `<div class="flex items-start justify-between gap-2 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06]">
       <div class="min-w-0">
         <div class="text-[10px] font-bold text-white truncate">${esc(r.name)} <span class="text-zinc-500 font-mono text-[8px]">${esc(r.patternId)} · ${esc(r.timeframe)}</span></div>
         <div class="text-[8px] font-mono text-zinc-500">last fired · period …${esc(shortPeriod(r.lastPeriod))}</div>
@@ -3634,6 +3708,7 @@ function initBridge() {
         <div class="text-[8px] font-mono text-zinc-500">${r.hits}/${r.fired} hits</div>
       </div>
     </div>`).join('');
+    updatePatternPager();
   }
 
   // ── Auto-Pilot runtime ───────────────────────────────────────────
@@ -4877,29 +4952,23 @@ function initBridge() {
     setAxoPredictionBadge(badgeFromView(view));
     const conf = $('assistantConfBadge');
     if (conf) conf.textContent = view.confText;
-    // Reason on the hero surface itself (mobile.html
-    // #mobileWebVerdictReason, under NEXT PREDICTION). A BET shows
-    // its honest quality (below-bar reason + graduated-stake note +
-    // conflict note, when present); NO_PICK shows the no-pick note.
-    // Cleared on NONE so a stale reason never outlives its verdict.
+    // Panel text (mobile.html #mobileWebVerdictReason +
+    // #mobileWebVerdictDetail, under NEXT PREDICTION). Owner order
+    // 2026-10-27: NO long text inside the window — a BET writes
+    // neither its reason nor its detail line (heroPanelTextFor
+    // returns both empty for BET); NO_PICK still shows its one
+    // short reason line. Cleared + hidden on empty so no stale
+    // text and no blank gap ever outlive their verdict.
+    const panelText = heroPanelTextFor(view);
     const why = $('mobileWebVerdictReason');
     if (why) {
-      if (view.decision === 'BET') {
-        why.textContent = [view.reasonText, view.sampleNote, view.conflictNote].filter(Boolean).join(' · ');
-      } else {
-        why.textContent = view.reasonText || '';
-      }
+      why.textContent = panelText.reason;
+      why.classList.toggle('hidden', !panelText.reason);
     }
-    // Phase 3E hero detail (mobile.html #mobileWebVerdictDetail +
-    // #mobileWebLedgerLine, under the reason): Chance (raw) · Wilson ·
-    // gap · quality tag, then the ledger line. Descriptive only —
-    // never a verdict, never a block. Cleared on non-BET so a stale
-    // detail never outlives its verdict.
     const detailEl = $('mobileWebVerdictDetail');
     if (detailEl) {
-      detailEl.textContent = view.decision === 'BET'
-        ? [view.chanceText, view.wilsonText, view.gapText, view.qualityTag, view.observerLine].filter(Boolean).join(' · ')
-        : '';
+      detailEl.textContent = panelText.detail;
+      detailEl.classList.toggle('hidden', !panelText.detail);
     }
     const ledgerEl = $('mobileWebLedgerLine');
     if (ledgerEl) {
@@ -5066,13 +5135,15 @@ function initBridge() {
     // Fix round (ball-only, owner order 2026-10-27): the Axo widget
     // shows ONLY the prediction ball — no pill text, no road line,
     // no verdict icon. The render key is the ball alone, so a text
-    // or road change can never re-render text back in. Positions
-    // are untouched (this round does not move the prediction).
+    // or road change can never re-render text back in. Ball-below-
+    // Axo (owner order 2026-10-27): the ball sits BELOW the face
+    // (mobile.html #floatingOrbTarget, top below the ring) at 32px
+    // — double the old 16px — so it is big and visible.
     const key = JSON.stringify([pillView.state, pillView.ballDigit]);
     if (key === axo.lastOrbKey) return;
     axo.lastOrbKey = key;
     if (pill) {
-      const ballHtml = pillView.ballDigit && typeof window.ballImg === 'function' ? window.ballImg(pillView.ballDigit, 16, '') : '';
+      const ballHtml = pillView.ballDigit && typeof window.ballImg === 'function' ? window.ballImg(pillView.ballDigit, 32, '') : '';
       if (ballHtml) {
         pill.innerHTML = ballHtml;
         pill.classList.remove('hidden');
@@ -5571,6 +5642,11 @@ function initBridge() {
     cancelNoSkip,
     exportHistory,
     dismissAxoBubble,
+    // Analyse pagination (owner order 2026-10-27): < > step the
+    // patterns list one page at a time; renderPatternStats clamps,
+    // so next past the last page is a safe no-op re-render.
+    patternPrevPage: () => { if (patternPage > 1) { patternPage--; renderPatternStats(); } },
+    patternNextPage: () => { patternPage++; renderPatternStats(); },
     noSkipOn: () => noSkipOn,
     syncAxoSubtitleSurfaces,
     repositionAxoBubble,
