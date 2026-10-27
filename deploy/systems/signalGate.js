@@ -1,28 +1,43 @@
 /**
- * Signal Gate (BET / SKIP)
- * ========================
- * The most valuable decision this app makes is often NO decision.
- * A signal becomes a BET only when every check passes:
+ * Signal Gate (BET / STOP / NO_PICK) — Phase 3D no-skip
+ * =====================================================
+ * Owner order 2026-10-27 ("remove the skip system, no skip
+ * needed"): the gate NEVER withholds a pick for quality reasons.
+ * Every round with a pick shows that pick as a BET verdict carrying
+ * its honest quality (Wilson bound vs the bar, gap, gate reason);
+ * the user decides with the per-bet tap. Quality failures that used
+ * to be SKIP verdicts (floor, Wilson, disagreement, calibration,
+ * edge, noprob) are now BET verdicts with belowBar: true. A
+ * below-bar pick the user taps and loses settles like any staged
+ * loss (ladder doubles, nothing stops).
  *
- *  1. There is a pick from an Incharge model.
+ * The ONLY non-BET verdict left:
+ *  - NO_PICK: no pick exists at all (empty pool / no Incharge pick).
+ *    There are no STOP verdicts: no loss breaker, no hard stop, no
+ *    stop-loss/win, no ladder-exhaustion stop (Phase 3D, owner
+ *    order "no stop no skip"). A losing streak never blocks the
+ *    next pick or the next staged bet.
+ *
+ * A signal becomes a STRONG bet only when every check passes:
+ *
+ *  1. There is a pick from a bet-driving model.
  *  2. The model's sample clears a small sanity floor (below it, one
- *     round swings the Wilson bound by 10+ points, so no ranking is
- *     stable enough to bet on) — and the stake then SCALES with
- *     sample size (graduated stakes), reaching full stake at 200.
+ *     round swings the Wilson bound by 10+ points) — and the stake
+ *     then SCALES with sample size (graduated stakes).
  *  3. The leader's Wilson lower bound ITSELF clears breakeven +
- *     margin (strict check, owner order 2026-10-25): ranking by
- *     Wilson is not enough — the defended number must clear the
- *     bar, otherwise SKIP even when stated confidence clears.
+ *     margin (strict check, owner order 2026-10-25).
  *  4. The top models agree on the pick (no split vote at the top).
  *  5. The confidence is calibrated (measured, not asserted).
  *  6. The calibrated probability clears the breakeven for the payout
  *     PLUS a safety margin. At 0.96 payout the breakeven win rate is
- *     1 / (1 + 0.96) = 51.02%. A 51.5% "edge" is noise, not an edge.
+ *     1 / (1 + 0.96) = 51.02%.
  *
- * A SKIP is a decision with a reason, never silence.
+ * A below-bar BET is a pick with a warning, never silence — and a
+ * below-bar pick the user taps and loses settles like any staged
+ * loss (ladder doubles, nothing stops).
  */
 
-export const GATE_DECISIONS = { BET: 'BET', SKIP: 'SKIP' };
+export const GATE_DECISIONS = { BET: 'BET', NO_PICK: 'NO_PICK' };
 
 /** Breakeven win probability for a stake-returns-profit-of `payout` x stake. */
 export function breakEvenWinRate(payout = 0.96) {
@@ -43,16 +58,19 @@ export const DEFAULT_GATE_CONFIG = {
  * 200-round bet blocker): the base stake scales with the leading
  * model's evaluated rounds and reaches full stake at 200. Tiers,
  * not a curve, so the factor is auditable at a glance:
- *   < 20 → 0 (blocked: below the sanity floor, the gate SKIPs)
+ *   < 20 → 0 (no graduated tier yet — see below)
  *   20–49 → 0.25× · 50–99 → 0.5× · 100–199 → 0.75× · ≥ 200 → 1.0×
  * The factor multiplies the BASE bet; the ladder derives from the
  * scaled base and the affordability check runs on the scaled base.
  * Monotonic in n and capped at 1.0: more data can only raise the
  * stake, never lower it, and full stake still needs 200 rounds
- * exactly as before — only the cliff below 200 is gone. A fluke
- * streak on tiny samples cannot pass at full stake: a 5/5 record
- * clears Wilson (56.6% > 53.02%) but bets at 0× (blocked below 20),
- * and a 20–49 record bets at most 0.25×.
+ * exactly as before.
+ * Phase 3D no-skip: a 0 factor no longer blocks anything — the
+ * stake resolver floors the APPLIED factor at 0.25× (the lowest
+ * graduated tier), so a below-floor pick still stages, never at
+ * full base on a handful of rounds and never at ₹0. The gate
+ * reports both the true factor (sampleFactor) and the applied one
+ * (appliedFactor); the quality line names the thin sample.
  */
 export const MIN_RANK_SAMPLES = 20;
 export function sampleStakeFactor(n) {
@@ -80,7 +98,7 @@ export class GateCooldown {
     this.roundsLeft = 0;
   }
 
-  /** Record the outcome of a governed BET. Skips never reach this. */
+  /** Record the outcome of a governed BET. NO_PICK rounds never reach this. */
   recordSettledBet(won) {
     if (won) {
       this.lossStreak = 0;
@@ -106,9 +124,6 @@ export class GateCooldown {
   }
 }
 
-export const HARD_STOP_LOSSES = 3;
-export const HARD_STOP_REASON = '3-loss streak — stopped';
-
 /**
  * Bet type of a pick target (Phase 3A). Digit strings are exact-ball
  * (NUMBER) picks; GREEN/RED are colour; BIG/SMALL are size. Anything
@@ -124,158 +139,36 @@ export function betTypeOfPick(target) {
 }
 
 /**
- * Phase 3A gates (owner orders 2026-10-26). Both are hard gates that
- * run BEFORE the floor/Wilson checks so their reason always shows:
+ * Phase 3A gates (owner orders 2026-10-26) — now enforced by the
+ * CALLER's bet-driving selection (orb-bridge cycle), NOT by this
+ * gate, since Phase 3D forbids SKIP verdicts:
  *  - EXACT_BALL_GATE_REASON: digit picks never govern a BET while the
- *    live DhaniWin exact payout is unverified. No payout is assumed,
- *    no silent fallback to a colour/size pick.
+ *    live DhaniWin exact payout is unverified. The cycle excludes
+ *    exact-ball models from bet-driving selection; an exact-ball
+ *    model holding Incharge still shows its digit as DISPLAY only.
  *  - ASI_TRIAL_GATE_REASON: ASI / ASI_APEX_MASTER (governed since
  *    Phase 3A) are evaluated and shown, but do not drive a BET until
  *    their ensemble trial passes vs the best single model (harness
- *    PASS). The trial flag is input.asiTrialPassed (default false —
- *    gated); a future harness round flips it, never a toggle.
+ *    PASS). The cycle excludes them from bet-driving selection while
+ *    trial-gated and notes the trial status where one would have led.
+ * The constants stay exported: the cycle attaches them as notes, and
+ * the trial flag is input.asiTrialPassed (default false — gated); a
+ * future harness round flips it, never a toggle.
  */
 export const EXACT_BALL_GATE_REASON = 'Exact-ball gated: live payout unverified.';
 export const ASI_TRIAL_GATE_REASON = 'ASI trial: evaluated, not bet-driving until harness PASS.';
 export const ASI_TRIAL_IDS = ['ASI', 'ASI_APEX_MASTER'];
 
 /**
- * GovernedStreakGuard — the ONE streak counter and ONE stop state for
- * the governed flow (owner's rule, 2026-10-24: never a 4th bet into a
- * losing streak).
- *
- * It reconciles what used to be parallel mechanisms:
- *  - the GateCooldown behaviour (2 settled losses → the gate demands
- *    +0.03 extra edge for the next 3 rounds) is DERIVED from this
- *    guard's single counter via beginRound()/cooldownSnapshot() — the
- *    gate still receives the same {active, roundsLeft, extraMargin,
- *    lossStreak} input shape, but there is no second counter to
- *    disagree with this one. (The standalone GateCooldown class above
- *    remains for its own unit tests; the runtime no longer wires it.)
- *  - the bankroll session's internal 3-loss ladder breaker stays a
- *    money consequence of the same settlements (it ends that
- *    session's ladder); the AUTHORITY that blocks verdicts, staging
- *    and Auto-Pilot is this guard's HARD_STOP, and only this.
- *
- * Counting rules: only SETTLED governed BET picks count (fired bets
- * when Auto-Pilot is on; governed BET verdicts in the advice flow).
- * SKIP rounds never touch the counter. A win resets it to 0.
- *
- * HARD_STOP (at 3 consecutive losses): every governed verdict is SKIP
- * with HARD_STOP_REASON, Auto-Pilot switches OFF, staging is
- * impossible. It clears ONLY when (i) the would-be governed pick wins
- * twice consecutively in shadow — tracked silently via
- * recordShadowPick() while stopped — or (ii) the owner manually
- * re-arms via manualRearm(). Clearing resets the counter to 0 and is
- * recorded in `lastClear` so the UI/report can say how it cleared.
+ * Phase 3D (owner order 2026-10-27, "no stop no skip"): the streak
+ * guard is DELETED — no 3-loss breaker, no HARD_STOP, no re-arm, no
+ * shadow clearing. The ONLY loss-consequence machinery left is the
+ * anti-tilt cooldown (GateCooldown above): after 2 losses the gate
+ * demands +3pts of edge for 3 rounds. It raises the displayed bar,
+ * never blocks a pick or a staged bet. A losing streak never stops
+ * anything anymore; the ladder restarts at base after the top rung
+ * (bankroll.js) instead of stopping.
  */
-export class GovernedStreakGuard {
-  /**
-   * Phase 3A: the hard-stop reason line for THIS guard's threshold.
-   * The default guard (3) reproduces HARD_STOP_REASON exactly; a
-   * per-type guard (e.g. exact-ball 8) names its own breaker so the
-   * displayed reason never says "3-loss" for an 8-loss stop.
-   */
-  get hardStopReason() {
-    return `${this.hardStopLosses}-loss streak — stopped`;
-  }
-
-  constructor({ hardStopLosses = HARD_STOP_LOSSES, cooldownTriggerLosses = 2, cooldownRounds = 3, cooldownExtraMargin = DEFAULT_GATE_CONFIG.cooldownExtraMargin, shadowWinsToClear = 2 } = {}) {
-    this.hardStopLosses = hardStopLosses;
-    this.cooldownTriggerLosses = cooldownTriggerLosses;
-    this.cooldownRounds = cooldownRounds;
-    this.cooldownExtraMargin = cooldownExtraMargin;
-    this.shadowWinsToClear = shadowWinsToClear;
-    this.consecutiveLosses = 0;
-    this.hardStopped = false;
-    this.shadowWins = 0;
-    this.cooldownRoundsLeft = 0;
-    this.stoppedAt = null;
-    this.lastClear = null; // { source: 'shadow' | 'manual', at }
-  }
-
-  /** Gate input for the round being evaluated; consumes one cooldown round. */
-  beginRound() {
-    if (!this.hardStopped && this.cooldownRoundsLeft > 0) {
-      const snap = { active: true, roundsLeft: this.cooldownRoundsLeft, extraMargin: this.cooldownExtraMargin, lossStreak: this.consecutiveLosses };
-      this.cooldownRoundsLeft -= 1;
-      return snap;
-    }
-    return { active: false, roundsLeft: 0, extraMargin: 0, lossStreak: this.consecutiveLosses };
-  }
-
-  /** Record the settlement of one governed BET pick (never a SKIP). */
-  recordSettledBet(won, at = null) {
-    if (this.hardStopped) return this.snapshot();
-    if (won) {
-      this.consecutiveLosses = 0;
-      this.cooldownRoundsLeft = 0;
-      return this.snapshot();
-    }
-    this.consecutiveLosses += 1;
-    if (this.consecutiveLosses >= this.hardStopLosses) {
-      this.hardStopped = true;
-      this.shadowWins = 0;
-      this.cooldownRoundsLeft = 0;
-      this.stoppedAt = at;
-    } else if (this.consecutiveLosses >= this.cooldownTriggerLosses) {
-      this.cooldownRoundsLeft = this.cooldownRounds;
-    }
-    return this.snapshot();
-  }
-
-  /**
-   * While HARD_STOPPED, track the would-be governed pick's outcome
-   * silently. Two consecutive shadow wins clear the stop.
-   */
-  recordShadowPick(won) {
-    if (!this.hardStopped) return this.snapshot();
-    if (won) {
-      this.shadowWins += 1;
-      if (this.shadowWins >= this.shadowWinsToClear) this._clear('shadow');
-    } else {
-      this.shadowWins = 0;
-    }
-    return this.snapshot();
-  }
-
-  /** Owner override from the window. Returns true when a stop was cleared. */
-  manualRearm(at = null) {
-    if (!this.hardStopped) return false;
-    this._clear('manual', at);
-    return true;
-  }
-
-  _clear(source, at = null) {
-    this.hardStopped = false;
-    this.consecutiveLosses = 0;
-    this.shadowWins = 0;
-    this.cooldownRoundsLeft = 0;
-    this.stoppedAt = null;
-    this.lastClear = { source, at };
-  }
-
-  snapshot() {
-    return {
-      consecutiveLosses: this.consecutiveLosses,
-      hardStopped: this.hardStopped,
-      shadowWins: this.shadowWins,
-      cooldownRoundsLeft: this.cooldownRoundsLeft,
-      stoppedAt: this.stoppedAt,
-      lastClear: this.lastClear ? { ...this.lastClear } : null
-    };
-  }
-
-  restore(snap) {
-    if (!snap || typeof snap !== 'object') return;
-    this.consecutiveLosses = Number(snap.consecutiveLosses) || 0;
-    this.hardStopped = snap.hardStopped === true;
-    this.shadowWins = Number(snap.shadowWins) || 0;
-    this.cooldownRoundsLeft = Number(snap.cooldownRoundsLeft) || 0;
-    this.stoppedAt = snap.stoppedAt ?? null;
-    this.lastClear = snap.lastClear || null;
-  }
-}
 
 function pickOf(entry) {
   if (!entry) return null;
@@ -308,13 +201,14 @@ function calibrationStatus(calibration) {
  *  - sampleSize: explicit override for the model's evaluated count
  *  - wilsonLowerBound: the leader's Wilson lower-bound win rate
  *    (0..1), computed from its real wins/evaluated — the strict
- *    check (step 3); missing or below breakeven + margin → SKIP
+ *    check (step 3); missing or below breakeven + margin → a
+ *    below-bar BET verdict carrying the gap, never a SKIP.
  *  - predictedProb: raw probability assigned to the pick (0..1)
  *  - calibratedProb: calibrated probability (preferred when present)
  *  - calibration: CalibrationTracker or { isCalibrated, ece, count }
  *  - contenders: top model objects (each with a pick) for agreement check
  * @param {object} config overrides of DEFAULT_GATE_CONFIG
- * @returns {{decision, reason, prob, breakEven, requiredProb, edge, sampleSize}}
+ * @returns {{decision, reason, belowBar, qualityReason, prob, breakEven, requiredProb, edge, sampleSize, sampleFactor, appliedFactor}}
  */
 export function evaluateSignalGate(input = {}, config = {}) {
   const cfg = { ...DEFAULT_GATE_CONFIG, ...config };
@@ -340,45 +234,72 @@ export function evaluateSignalGate(input = {}, config = {}) {
   const prob = Number(input.calibratedProb ?? input.predictedProb ?? input.confidence ?? NaN);
   const wilson = Number(input.wilsonLowerBound ?? NaN);
 
-  const skip = (reason, kind) => ({
-    decision: GATE_DECISIONS.SKIP,
+  // Phase 3D no-skip: a quality failure is a BET verdict with its
+  // honest quality attached (belowBar + qualityReason), never a
+  // SKIP. The pick stays stageable with the user's per-bet tap;
+  // the hero shows the Wilson gap + gate reason, and the subtitle
+  // marks it "(below bar)". appliedFactor floors a 0 tier at 0.25×
+  // so a below-floor pick stages at the lowest tier, never at full
+  // base on a handful of rounds and never at ₹0.
+  const belowBar = (reason) => {
+    const factor = sampleStakeFactor(sampleSize);
+    const applied = factor === 0 ? 0.25 : factor;
+    return {
+      decision: GATE_DECISIONS.BET,
+      reason,
+      belowBar: true,
+      qualityReason: reason,
+      pick,
+      prob: Number.isFinite(prob) ? prob : null,
+      wilsonLowerBound: Number.isFinite(wilson) ? wilson : null,
+      breakEven: breakeven,
+      requiredProb,
+      effectiveMargin,
+      cooldownActive,
+      edge: Number.isFinite(prob) ? prob - breakeven : null,
+      sampleSize,
+      sampleFactor: factor,
+      appliedFactor: applied,
+      sampleNote: applied < 1
+        ? `Early-data stake: ${applied}× base (${Math.floor(sampleSize)}/200).`
+        : ''
+    };
+  };
+  // No pick exists at all — the one honest non-BET the gate itself
+  // can return. The cycle keeps its no-pick note for this case only.
+  const noPick = (reason) => ({
+    decision: GATE_DECISIONS.NO_PICK,
     reason,
-    // Machine-readable SKIP family (owner UI batch 2026-10-25):
-    // no-skip mode converts ONLY 'edge' SKIPs into a forced pick.
-    // Every other family stays a SKIP no matter the mode — Wilson,
-    // floor, disagreement, calibration, and hard-stop are guards,
-    // not confidence verdicts to override.
-    skipKind: kind || null,
-    pick,
-    prob: Number.isFinite(prob) ? prob : null,
+    belowBar: false,
+    qualityReason: null,
+    pick: null,
+    prob: null,
     wilsonLowerBound: Number.isFinite(wilson) ? wilson : null,
     breakEven: breakeven,
     requiredProb,
     effectiveMargin,
     cooldownActive,
-    edge: Number.isFinite(prob) ? prob - breakeven : null,
+    edge: null,
     sampleSize,
-    sampleFactor: sampleStakeFactor(sampleSize)
+    sampleFactor: sampleStakeFactor(sampleSize),
+    appliedFactor: 1,
+    sampleNote: ''
   });
 
   // Task P (owner order 2026-10-26): every gate reason below is
-  // DISPLAY-ONLY minimal wording — the skipKind keys, the gate
-  // logic, and the thresholds never change. Each keeps its key
-  // number (rounds n/20, Wilson % vs needed %, chance % vs bar).
+  // DISPLAY-ONLY minimal wording — the logic and the thresholds
+  // never change. Each keeps its key number (rounds n/20, Wilson %
+  // vs needed %, chance % vs bar). Under Phase 3D these reasons
+  // ride on below-bar BET verdicts as their quality line, not on
+  // SKIP verdicts (there are none anymore).
   // 1. A pick must exist.
-  if (!pick) return skip('No pick from Incharge yet.', 'nopick');
+  if (!pick) return noPick('No pick from Incharge yet.');
 
-  // 1a. Phase 3A hard gates (before floor/Wilson so the reason shows):
-  // exact-ball picks never govern a BET while the live payout is
-  // unverified, and ASI trial models never drive a BET until their
-  // harness PASS. Neither gate invents a fallback pick — the verdict
-  // stays SKIP with the gate's own reason.
-  if (betTypeOfPick(pick) === 'NUMBER') {
-    return skip(EXACT_BALL_GATE_REASON, 'exactgate');
-  }
-  if (model && ASI_TRIAL_IDS.includes(model.id) && !input.asiTrialPassed) {
-    return skip(ASI_TRIAL_GATE_REASON, 'asitrial');
-  }
+  // 1a. Phase 3A hard gates (exact-ball payout unverified, ASI trial
+  // not passed) are enforced by the CALLER's bet-driving selection
+  // (orb-bridge cycle excludes exact-ball + trial-gated ASI/APEX
+  // picks from bet-driving) — the gate itself never sees them as
+  // verdicts anymore, so no branch here can return a SKIP for them.
 
   // 2. Sanity floor: below 20 rounds one round swings the Wilson
   // bound by 10+ points, so no ranking is stable enough to bet on.
@@ -386,7 +307,7 @@ export function evaluateSignalGate(input = {}, config = {}) {
   // (step 3) and the calibrated edge below is the second money
   // check — and the stake scales with sample size (graduated stakes).
   if (!Number.isFinite(sampleSize) || sampleSize < cfg.minSamples) {
-    return skip(`Too few rounds (${Math.max(0, Math.floor(sampleSize) || 0)}/${cfg.minSamples}).`, 'floor');
+    return belowBar(`Too few rounds (${Math.max(0, Math.floor(sampleSize) || 0)}/${cfg.minSamples}).`);
   }
 
   // 3. Strict Wilson check (owner order 2026-10-25): ranking by
@@ -394,10 +315,10 @@ export function evaluateSignalGate(input = {}, config = {}) {
   // must clear breakeven + margin. A thin record with high stated
   // confidence bets nothing until its Wilson bound clears.
   if (!Number.isFinite(wilson)) {
-    return skip('Wilson unmeasurable (no win record).', 'wilson');
+    return belowBar('Wilson unmeasurable (no win record).');
   }
   if (wilson < requiredProb) {
-    return skip(`Wilson ${(wilson * 100).toFixed(1)}% < ${(requiredProb * 100).toFixed(1)}% needed.${cooldownNote}`, 'wilson');
+    return belowBar(`Wilson ${(wilson * 100).toFixed(1)}% < ${(requiredProb * 100).toFixed(1)}% needed.${cooldownNote}`);
   }
 
   // 4. Top-model agreement: a split vote at the top is not a signal.
@@ -406,7 +327,7 @@ export function evaluateSignalGate(input = {}, config = {}) {
     const picks = contenders.map(pickOf).filter(Boolean);
     const distinct = [...new Set(picks)];
     if (picks.length > 1 && distinct.length > 1) {
-      return skip(`Top models disagree (${distinct.join(' vs ')}).`, 'disagreement');
+      return belowBar(`Top models disagree (${distinct.join(' vs ')}).`);
     }
   }
 
@@ -414,29 +335,32 @@ export function evaluateSignalGate(input = {}, config = {}) {
   const cal = calibrationStatus(input.calibration);
   if (cfg.requireCalibrated) {
     if (!cal.present) {
-      return skip('Uncalibrated (no history yet).', 'calibration');
+      return belowBar('Uncalibrated (no history yet).');
     }
     if (!cal.calibrated) {
-      return skip('Uncalibrated (probabilities off).', 'calibration');
+      return belowBar('Uncalibrated (probabilities off).');
     }
   }
 
   // 6. Real edge only: calibrated probability must clear breakeven + margin.
-  if (!Number.isFinite(prob)) return skip('No probability produced.', 'noprob');
+  if (!Number.isFinite(prob)) return belowBar('No probability produced.');
   if (prob < requiredProb) {
-    return skip(`Edge too thin: ${(prob * 100).toFixed(1)}% < ${(requiredProb * 100).toFixed(1)}% needed.${cooldownNote}`, 'edge');
+    return belowBar(`Edge too thin: ${(prob * 100).toFixed(1)}% < ${(requiredProb * 100).toFixed(1)}% needed.${cooldownNote}`);
   }
 
   // Graduated-stake note: a small-sample bet is never presented as
   // a full-confidence bet. The note rides on the BET reason and on
   // the sampleNote field (the hero carries it under NEXT PREDICTION).
   const sampleFactor = sampleStakeFactor(sampleSize);
-  const sampleNote = sampleFactor < 1
-    ? ` Early-data stake: ${sampleFactor}× base (${Math.floor(sampleSize)}/200).`
+  const appliedFactor = sampleFactor === 0 ? 0.25 : sampleFactor;
+  const sampleNote = appliedFactor < 1
+    ? ` Early-data stake: ${appliedFactor}× base (${Math.floor(sampleSize)}/200).`
     : '';
   return {
     decision: GATE_DECISIONS.BET,
     reason: `Chance ${(prob * 100).toFixed(1)}% clears ${(requiredProb * 100).toFixed(1)}% bar (sample ${Math.floor(sampleSize)}, top agree).${cooldownNote}${sampleNote}`,
+    belowBar: false,
+    qualityReason: null,
     pick,
     prob,
     wilsonLowerBound: wilson,
@@ -447,6 +371,7 @@ export function evaluateSignalGate(input = {}, config = {}) {
     edge: prob - breakeven,
     sampleSize,
     sampleFactor,
+    appliedFactor,
     sampleNote: sampleNote.trim()
   };
 }
@@ -466,7 +391,7 @@ export class SignalGate {
 export const evaluateGate = evaluateSignalGate;
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { GATE_DECISIONS, DEFAULT_GATE_CONFIG, breakEvenWinRate, evaluateSignalGate, evaluateGate, SignalGate, GateCooldown, GovernedStreakGuard, HARD_STOP_LOSSES, HARD_STOP_REASON, MIN_RANK_SAMPLES, sampleStakeFactor, betTypeOfPick, EXACT_BALL_GATE_REASON, ASI_TRIAL_GATE_REASON, ASI_TRIAL_IDS };
+  module.exports = { GATE_DECISIONS, DEFAULT_GATE_CONFIG, breakEvenWinRate, evaluateSignalGate, evaluateGate, SignalGate, GateCooldown, MIN_RANK_SAMPLES, sampleStakeFactor, betTypeOfPick, EXACT_BALL_GATE_REASON, ASI_TRIAL_GATE_REASON, ASI_TRIAL_IDS };
 }
 
 if (typeof self !== "undefined") {

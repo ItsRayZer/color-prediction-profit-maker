@@ -6,16 +6,14 @@
  *
  * Rules (the Axo standard from the Axofy assistant):
  *  - Reply to everything: every event gets a line, every question gets
- *    an answer built from real context. A SKIP is a decision and is
- *    always explained in plain words — never silence.
+ *    an answer built from real context. Phase 3D: no SKIP verdicts
+ *    exist — every round shows a pick with its honest quality.
  *  - Full user context is fed in: balance + source, base bet, ladder
  *    level, next stake, session P&L, Incharge model + reason, gate
- *    decision + reason, calibrated confidence, streak, last result,
- *    circuit breaker state.
+ *    decision + reason, calibrated confidence, streak, last result.
  *  - Tone: human, professional, lightly playful for greetings and wins.
  *    Tone switches fully OFF (serious, supportive, no jokes) for
- *    losses, circuit breaker trips and stop states — the drama-off rule
- *    for money problems.
+ *    losses — the drama-off rule for money problems.
  *  - Honesty: lines use only the numbers in the snapshot. The bot never
  *    invents a confidence, never promises profit, and says plainly when
  *    a balance or a signal is missing.
@@ -40,11 +38,10 @@ export const BOT_EVENTS = {
   INCHARGE_CHANGE: 'MODEL_CHANGE'
 };
 
+// Phase 3D: the stop events are deleted (no stops exist), so the
+// serious set is losses + low balance + missed bets only.
 const SERIOUS_EVENTS = new Set([
   BOT_EVENTS.LOSS,
-  BOT_EVENTS.CIRCUIT_BREAKER,
-  BOT_EVENTS.STOP_LOSS,
-  BOT_EVENTS.STOP_WIN,
   BOT_EVENTS.BALANCE_LOW,
   BOT_EVENTS.MISSED_BET
 ]);
@@ -95,7 +92,7 @@ function normCtx(ctx = {}) {
     isCalibrated: ctx.isCalibrated === true,
     streak: Number(ctx.streak) || 0,
     lastResult: ctx.lastResult || null,
-    circuitBreakerState: ctx.circuitBreakerState || 'ARMED',
+    belowBar: ctx.belowBar === true,
     sessionState: ctx.sessionState || null
   };
 }
@@ -126,15 +123,12 @@ export function botLine(event, context = {}) {
       // balance-decoupled session always exists (user chip, default
       // ₹2), so the old "no stake yet — balance unknown" line is
       // deleted entirely: it is impossible by construction now.
+      // Phase 3D: a below-bar pick says so plainly (same ≤80-char
+      // shape — voice speaks exactly the subtitle string).
       const pick = c.pick || 'the Incharge pick';
-      line = `New signal: ${pick} · ${inr(c.nextStake)} · level ${c.ladderLevel + 1}.`;
-      break;
-    }
-    case BOT_EVENTS.SIGNAL_SKIP: {
-      // Task R: short form — verdict + gate reason verbatim (the
-      // reason itself is already minimal since Task P). The old
-      // filler sentences about sitting out are cut.
-      line = `Skipping — a deliberate decision. ${c.gateReason || 'The numbers do not clear the safety bar this round.'}`;
+      line = c.belowBar
+        ? `Signal: ${pick} · ${inr(c.nextStake)} · level ${c.ladderLevel + 1} (below bar).`
+        : `New signal: ${pick} · ${inr(c.nextStake)} · level ${c.ladderLevel + 1}.`;
       break;
     }
     case BOT_EVENTS.MISSED_BET: {
@@ -165,25 +159,10 @@ export function botLine(event, context = {}) {
       break;
     }
     case BOT_EVENTS.LADDER_UP: {
-      // Task R: short form — level + next stake + the double. The
-      // circuit-breaker explanation is cut (it belongs to the
-      // breaker line, not every rung).
+      // Task R: short form — level + next stake + the double.
+      // Phase 3D: no stop explanation exists anymore (no stops) —
+      // just the rung.
       line = `Ladder level ${c.ladderLevel + 1} — next stake ${inr(c.nextStake)}, the double.`;
-      break;
-    }
-    case BOT_EVENTS.CIRCUIT_BREAKER: {
-      // Task R: short form — the trip fact + the stop.
-      line = `Circuit breaker: 3 losses in a row — ladder stops.`;
-      break;
-    }
-    case BOT_EVENTS.STOP_LOSS: {
-      // Task R: short form — the stop fact + the session stop.
-      line = `Session stop-loss hit — down 20%, betting stops.`;
-      break;
-    }
-    case BOT_EVENTS.STOP_WIN: {
-      // Task R: short form — the stop fact + the banked profit.
-      line = `Stop-win hit — up 20%, profit banked, betting stops.`;
       break;
     }
     default: {
@@ -226,35 +205,37 @@ export function answerQuestion(question, context = {}) {
   let line;
 
   if (q.includes('skip') || q.includes('why not bet') || q.includes('no bet')) {
-    line = c.gate === 'SKIP' || c.gateReason
-      ? `We skipped because: ${c.gateReason || 'the gate did not clear this round.'} A skip keeps your money for rounds where the calibrated chance actually clears the breakeven plus the safety margin.`
-      : `There is no skip active right now — the current call is ${c.gate || 'being evaluated'} for ${c.pick || 'the next round'}. The gate skips when the sample is too small, the top models disagree, confidence is uncalibrated, or the edge sits below breakeven plus margin.`;
+    // Phase 3D: skips are gone — every round shows a pick. A
+    // below-bar pick says so and stakes at a reduced tier.
+    line = c.belowBar
+      ? `No skips anymore — every round shows a pick. This round's pick is ${c.pick || 'being evaluated'}${c.gateReason ? ` (${c.gateReason})` : ''} — below the safety bar, so the stake is scaled down and you decide with the tap.`
+      : `No skips anymore — every round shows a pick. The current call is ${c.gate || 'being evaluated'} for ${c.pick || 'the next round'}${c.gateReason ? ` (${c.gateReason})` : ''}.`;
   } else if (q.includes('how') && (q.includes('prediction') || q.includes('signal') || q.includes('made') || q.includes('decide'))) {
     const conf = pct(c.calibratedConfidence);
-    line = `Here is the chain, in order: 101 models each make a pick from the recent WinGo history. The Incharge engine ranks them by a safety-adjusted score — the Wilson lower bound of their win rate, which punishes small samples — blended with recent form. ${c.inchargeName || 'The leader'} leads${c.inchargeReason ? ` because ${c.inchargeReason}` : ''}. Its stated chance is then corrected against real outcomes by calibration${conf ? `, giving ${conf}` : ''}, and the gate only allows a bet when that clears breakeven plus margin with the top models agreeing.`;
+    line = `Here is the chain, in order: 137 models each make a pick from the recent WinGo history. The Incharge engine ranks them by a safety-adjusted score — the Wilson lower bound of their win rate, which punishes small samples — blended with recent form. ${c.inchargeName || 'The leader'} leads${c.inchargeReason ? ` because ${c.inchargeReason}` : ''}. Its stated chance is then corrected against real outcomes by calibration${conf ? `, giving ${conf}` : ''}, and every round shows the best pick with its honest quality — below-bar picks show their gap and stake at a reduced tier, and you decide with the tap.`;
   } else if (q.includes('why this signal') || q.includes('why bet') || q.includes('this signal')) {
     const conf = pct(c.calibratedConfidence);
-    line = c.gate === 'SKIP'
-      ? `Honestly, this round is a skip: ${c.gateReason || 'the gate did not clear it.'}`
+    line = c.belowBar
+      ? `This signal comes from ${c.inchargeName || 'the Incharge model'} picking ${c.pick || 'its target'}${conf ? ` at ${conf} calibrated confidence` : ''}. It is below the safety bar (${c.gateReason || 'quality below bar'}), so the stake is scaled down. Suggested stake: ${inr(c.nextStake)} at ladder level ${c.ladderLevel + 1}.`
       : `This signal comes from ${c.inchargeName || 'the Incharge model'} picking ${c.pick || 'its target'}${conf ? ` at ${conf} calibrated confidence` : ''}. ${c.inchargeReason || 'It leads the Arena on its safety-adjusted measured record.'} Suggested stake: ${inr(c.nextStake)} at ladder level ${c.ladderLevel + 1}.`;
   } else if (q.includes('base bet') || q.includes('base') || q.includes('stake') || q.includes('ladder') || q.includes('risk') && q.includes('money')) {
-    line = `Your base bet is ${inr(c.baseBet)} — your staking mode's fraction of your ${inr(c.balance)} balance. On a loss the stake doubles per rung; a win pays stake × 0.96 and resets to base. The full ladder is ${c.ladderLevels || 'planned'} levels, its total cost is capped inside 50% of your balance, and 30% of the balance is an untouchable reserve. One honest note: doubling does not create an edge by itself — it only works alongside a real win rate above 51.02%.`;
+    line = `Your base bet is ${inr(c.baseBet)} — your selected chip (or AUTO sizing when opted in). On a loss the stake doubles; a win pays stake × 0.96 and resets to base. The ladder keeps doubling on every loss until a win — no rung cap ends it, no restart at base. If a doubled stake exceeds your balance, the app shows the required stake plus the shortfall plainly and you decide with the tap; it never silently reduces a stake. One honest note: doubling does not create an edge by itself — it only works alongside a real win rate above 51.02%.`;
   } else if (q.includes('leading') || q.includes('leader') || q.includes('incharge') || q.includes('which model') || q.includes('best model')) {
     line = c.inchargeName
       ? `${c.inchargeName} is Incharge. ${c.inchargeReason || 'It ranks first on the Wilson safety-adjusted score: think of it as the win rate we can defend after punishing small samples, blended with its last-100-rounds form.'} Bets scale with evidence: below 200 evaluated rounds the stake is reduced (0.25× under 50, 0.5× under 100, 0.75× under 200) and full stake starts at 200; streak overrides now need a 5-win streak with real recent form behind them.`
       : 'No model is Incharge yet — the Arena is still building samples. Once a model leads, it can bet as soon as its Wilson bound clears breakeven plus margin, at a stake scaled to its evaluated rounds.';
   } else if (q.includes('balance') || q.includes('money status') || q.includes('money') || q.includes('p&l') || q.includes('profit') || q.includes('session')) {
-    line = `${balancePhrase(c)} ${pnlPhrase(c)} Circuit breaker: ${String(c.circuitBreakerState).toLowerCase()}. Next stake if a bet is called: ${inr(c.nextStake)}. Session hard stops are fixed: stop at −20% (stop-loss) or +20% (bank the profit).`;
+    line = `${balancePhrase(c)} ${pnlPhrase(c)} Next stake if a bet is called: ${inr(c.nextStake)}. No stops exist: the ladder keeps doubling until a win, and an over-balance stake shows its shortfall for your tap decision.`;
   } else if (q.includes('rule') || q.includes('stop') || q.includes('breaker')) {
-    line = 'The money rules, plainly: base bet from your staking mode; losses double the stake up the ladder and a win resets it; 3 losses in a row trip the circuit breaker and end the ladder; the session stops at −20% (stop-loss) or +20% (stop-win, profit banked); 30% of the balance is never touched. And the gate skips any round without a measured edge — skipping is part of the system, not a failure of it.';
+    line = 'The money rules, plainly: base bet from your selected chip (or AUTO sizing); losses double the stake and a win resets it; the ladder keeps doubling until a win with no cap and no restart; if a doubled stake exceeds your balance, the app shows the required stake plus the shortfall and you decide with the tap. Every round shows a pick with its honest quality — below-bar picks stake at a reduced tier.';
   } else if (q.includes('confidence') || q.includes('sure') || q.includes('accurate')) {
     const conf = pct(c.calibratedConfidence);
     line = conf
-      ? `The current calibrated confidence is ${conf}${c.isCalibrated ? ', measured against real outcomes' : ' — and it is still marked uncalibrated, which means treat it as a rough estimate, not a promise'}. Calibration constantly compares what the models said with what actually happened; if those drift apart, the gate starts skipping. No number here is ever a certainty.`
+      ? `The current calibrated confidence is ${conf}${c.isCalibrated ? ', measured against real outcomes' : ' — and it is still marked uncalibrated, which means treat it as a rough estimate, not a promise'}. Calibration constantly compares what the models said with what actually happened; if those drift apart, the pick shows below-bar with a reduced stake. No number here is ever a certainty.`
       : 'There is no live confidence number this second because there is no active signal. When a signal forms, its confidence is the calibrated one — measured against real outcomes, not the raw model number.';
   } else {
     // Never silent: fall back to a full, real status answer.
-    line = `${balancePhrase(c)} ${pnlPhrase(c)} ${c.inchargeName ? `Leading model: ${c.inchargeName}. ` : ''}${c.gate === 'SKIP' ? `Current call: skip — ${c.gateReason || 'the gate did not clear this round.'}` : c.gate === 'BET' ? `Current call: bet ${c.pick || ''} with a suggested stake of ${inr(c.nextStake)}.` : 'No bet is being called right now.'} Ask me why this signal, your money status, or which model is leading and I will break it down.`;
+    line = `${balancePhrase(c)} ${pnlPhrase(c)} ${c.inchargeName ? `Leading model: ${c.inchargeName}. ` : ''}${c.gate === 'BET' ? `Current call: bet ${c.pick || ''} with a suggested stake of ${inr(c.nextStake)}${c.belowBar ? ' (below bar — reduced tier)' : ''}.` : 'No pick is available right now (empty pool).'} Ask me why this signal, your money status, or which model is leading and I will break it down.`;
   }
 
   return { line: line.replace(/\s+/g, ' ').trim(), tone: SERIOUS_EVENTS.has(context.lastEvent) ? 'serious' : 'neutral' };

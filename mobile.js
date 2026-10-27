@@ -1350,9 +1350,11 @@ function renderAuthoritativeAIPrediction(list, forceRecompute = false) {
   const isStage3Active = !!(window.MobileBridgeState && window.MobileBridgeState.consecutiveLosses === 2 && effectiveModels.length >= 3);
   if (isStage3Active && typeof window.generateModelNextPrediction === 'function') {
     try {
+      // Phase 3D quarantine retirement (owner order 2026-10-27):
+      // quarantined status no longer filters anything — the shield
+      // pool uses the slump filter only.
       const nonSlump = effectiveModels.filter(m => {
         if (Number(m.streak !== undefined ? m.streak : 0) <= -2) return false;
-        if (typeof ModelQuarantineEngine !== 'undefined' && ModelQuarantineEngine.isModelQuarantined(m)) return false;
         return true;
       });
       const top5Pool = (nonSlump.length >= 3 ? nonSlump : effectiveModels).slice(0, 5);
@@ -1635,12 +1637,12 @@ function _updateAllPredictionUI(target, predType, conf, inChargeName, periodStr,
   // publishes window.__o101Verdict from the per-period LOCKED gate
   // verdict). While that lock exists this native render mirrors it
   // verbatim, so the sheet can never show a native prediction next to
-  // a governed SKIP. Without orb-bridge (no lock), legacy behaviour.
+  // a governed NO_PICK. Without orb-bridge (no lock), legacy behaviour.
   const governedVerdict = window.__o101Verdict || null;
   const webTargetEl = $('mobileWebTargetDisplay');
   if (webTargetEl) {
     if (governedVerdict) {
-      webTargetEl.textContent = governedVerdict.decision === 'BET' ? (governedVerdict.pick || '—') : (governedVerdict.decision === 'SKIP' ? 'SKIP' : '—');
+      webTargetEl.textContent = governedVerdict.decision === 'BET' ? (governedVerdict.pick || '—') : '—';
     } else {
       const displayTarget = target || 'BIG';
       webTargetEl.textContent = displayTarget;
@@ -2647,13 +2649,10 @@ function updateIndividualModelSettlement(tf, periodStr, number, size, color, uni
     model.historyPath.unshift({ period: periodStr, won: won === true, predTarget: model.predTarget });
     if (model.historyPath.length > 20) model.historyPath.pop();
 
-    // Evaluate Blacklist Lockup & Quarantine Engine:
-    // When 4-5 consecutive losses occur (streak <= -4), lockup model for 10-20 rounds and run 20-round shadow trial
-    if (typeof ModelQuarantineEngine !== 'undefined') {
-      try {
-        ModelQuarantineEngine.evaluateQuarantineLockup(model, tf, history);
-      } catch(e) {}
-    }
+    // Phase 3D quarantine retirement (owner order 2026-10-27):
+    // evaluateQuarantineLockup is GONE — no model is ever
+    // quarantined on a loss streak anymore. (Blacklist machinery
+    // lives elsewhere and is untouched: blacklist.js still governs.)
 
     // Predict NEXT round
     if (typeof model.predict === 'function') {
@@ -2667,17 +2666,8 @@ function updateIndividualModelSettlement(tf, periodStr, number, size, color, uni
     }
   });
 
-  // Process shadow trial probation rounds for all quarantined models
-  if (typeof ModelQuarantineEngine !== 'undefined') {
-    try {
-      ModelQuarantineEngine.processShadowTrialRound(tf, {
-        period: periodStr,
-        number,
-        size,
-        color
-      });
-    } catch(e) {}
-  }
+  // Phase 3D quarantine retirement: processShadowTrialRound is GONE
+  // — no probation rounds run anymore (no quarantines exist).
 
   const isUserReset = !!localStorage.getItem(`quant_user_ai_reset_${tf}`);
   if (isUserReset) {
@@ -3194,14 +3184,10 @@ function renderModelRosterUI() {
         : '<span class="w-1.5 h-1.5 rounded-full bg-rose-400 inline-block shadow-[0_0_4px_rgba(244,63,94,0.5)]"></span>';
     }).join('');
 
-    const isQuarantined = typeof ModelQuarantineEngine !== 'undefined' && ModelQuarantineEngine.isModelQuarantined(a, tf);
-    const quarantineRec = isQuarantined ? (ModelQuarantineEngine.getQuarantineStore(tf)?.[a.name] || null) : null;
-
-    const cardClass = isQuarantined
-      ? 'p-2.5 rounded-2xl bg-rose-950/20 border border-rose-500/40 shadow-[0_0_12px_rgba(244,63,94,0.15)] relative overflow-hidden'
-      : (isLead
-        ? 'p-2.5 rounded-2xl bg-black/60 border border-emerald-500/40 shadow-[0_0_16px_rgba(52,211,153,0.12)]'
-        : 'p-2.5 rounded-2xl bg-black/40 border border-white/[0.06] hover:border-white/[0.12] transition');
+    // Phase 3D quarantine retirement: no lock state on cards anymore.
+    const cardClass = isLead
+      ? 'p-2.5 rounded-2xl bg-black/60 border border-emerald-500/40 shadow-[0_0_16px_rgba(52,211,153,0.12)]'
+      : 'p-2.5 rounded-2xl bg-black/40 border border-white/[0.06] hover:border-white/[0.12] transition';
 
     const wr = a.winRatePct || `${(getWinRate(a) * 100).toFixed(1)}%`;
     const tColor = a.predTarget === 'BIG' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
@@ -3210,134 +3196,35 @@ function renderModelRosterUI() {
       : 'bg-rose-500/20 text-rose-300 border-rose-500/30';
 
     return `<div class="${cardClass} flex items-center justify-between font-mono text-[9px]">
-      ${isQuarantined ? '<div class="absolute -right-8 -top-8 w-16 h-16 bg-rose-500/10 rounded-full blur-xl pointer-events-none"></div>' : ''}
       <div class="flex items-center gap-2 relative z-10">
         <span class="text-[8px] text-zinc-500 w-5 font-bold">#${idx+1}</span>
         <div>
           <div class="flex items-center gap-1.5">
-            <span class="font-bold ${isQuarantined ? 'text-rose-200' : 'text-white'} max-w-[150px] truncate">${a.name}</span>
+            <span class="font-bold text-white max-w-[150px] truncate">${a.name}</span>
             ${isLead ? '<span class="px-1.5 py-0.2 rounded bg-amber-400 text-black text-[7px] font-black font-mono">IN CHARGE</span>' : ''}
-            ${isQuarantined ? '<span class="px-1.5 py-0.2 rounded bg-rose-500/25 text-rose-300 border border-rose-400/50 text-[7px] font-black flex items-center gap-1 animate-pulse"><i class="fa-solid fa-lock text-[6px]"></i> QUARANTINED</span>' : ''}
             <span class="px-1.5 py-0.2 rounded ${tColor} border text-[7px] font-black">${a.predTarget || 'BIG'}</span>
           </div>
           <div class="flex items-center gap-1.5 mt-0.5 text-[8px] text-zinc-400">
-            <span class="px-1 py-0.2 rounded ${isQuarantined ? 'bg-rose-500/10 text-rose-300 border-rose-500/20' : 'bg-white/5 border-white/10'} border uppercase">${a.cat || 'AI'}</span>
-            <span>WR: <b class="${isQuarantined ? 'text-rose-400' : 'text-emerald-400'}">${wr}</b> (${a.wins||0}W/${a.losses||0}L)</span>
+            <span class="px-1 py-0.2 rounded bg-white/5 border-white/10 border uppercase">${a.cat || 'AI'}</span>
+            <span>WR: <b class="text-emerald-400">${wr}</b> (${a.wins||0}W/${a.losses||0}L)</span>
             <div class="flex gap-0.5">${dotsHtml}</div>
-            ${isQuarantined && quarantineRec ? `<span class="text-rose-400/90 text-[7px] font-bold">🧪 Trial: ${quarantineRec.probationRoundsDone || 0}/20</span>` : ''}
           </div>
         </div>
       </div>
       <div class="flex items-center gap-1.5 relative z-10">
         <span class="px-1.5 py-0.5 rounded text-[8px] font-black ${streakClass}">${isWinStreak ? '🔥 ' : '❄️ '}${streakStr}</span>
-        ${isQuarantined
-          ? `<button disabled title="Model is locked in quarantine"
-              class="px-2 py-1 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400/70 text-[8px] font-black cursor-not-allowed opacity-80 flex items-center gap-1">
-              <i class="fa-solid fa-ban text-[7px]"></i> Locked
-            </button>`
-          : `<button onclick="setInChargeModel('${a.name.replace(/'/g, "\\'")}')"
-              class="px-2 py-1 rounded-xl ${isLead ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30'} text-[8px] font-black active:scale-95 transition">
-              ${isLead ? 'Selected' : 'Select'}
-            </button>`
-        }
+        <button onclick="setInChargeModel('${a.name.replace(/'/g, "\\'")}')"
+          class="px-2 py-1 rounded-xl ${isLead ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30'} text-[8px] font-black active:scale-95 transition">
+          ${isLead ? 'Selected' : 'Select'}
+        </button>
       </div>
     </div>`;
   }).join('');
 
-  // Render Quarantine Chamber & Forensics UI
-  renderQuarantineChamberUI(tf);
 }
 window.renderModelRosterUI = renderModelRosterUI;
 
-function renderQuarantineChamberUI(tf) {
-  tf = tf || MobileState.timeframe;
-  const listEl = $('quarantineChamberList');
-  const badgeEl = $('quarantinedCountBadge');
-  if (!listEl) return;
 
-  if (typeof ModelQuarantineEngine === 'undefined') return;
-
-  const records = ModelQuarantineEngine.getQuarantinedModelsList(tf);
-  const activeQuarantined = records.filter(r => r.status === 'QUARANTINED');
-
-  if (badgeEl) {
-    badgeEl.textContent = `${activeQuarantined.length} Quarantined`;
-    badgeEl.className = activeQuarantined.length > 0
-      ? 'text-[8px] font-mono px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse font-bold'
-      : 'text-[8px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
-  }
-
-  if (activeQuarantined.length === 0) {
-    listEl.innerHTML = `
-      <div class="p-3 rounded-xl bg-black/40 border border-white/[0.06] text-center font-mono text-[8.5px] text-zinc-400">
-        <i class="fa-solid fa-circle-check text-emerald-400 text-sm mb-1 block"></i>
-        All 137 models operating normally. Zero models locked in quarantine.
-      </div>
-    `;
-    return;
-  }
-
-  listEl.innerHTML = activeQuarantined.map(rec => {
-    const probationPct = Math.round(((rec.probationRoundsDone || 0) / (rec.probationTotalRounds || 20)) * 100);
-    const wr = Math.round((rec.currentProbationWR || 0) * 100);
-    const forensics = rec.forensics || {};
-    const rehab = rec.synapticRehab || {};
-
-    return `
-      <div class="p-3 rounded-2xl bg-black/60 border border-rose-500/30 space-y-2.5 font-mono text-[8.5px]">
-        <!-- Header: Model Info + Lockup Status -->
-        <div class="flex items-center justify-between pb-1.5 border-b border-white/[0.08]">
-          <div class="flex items-center gap-1.5">
-            <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping"></span>
-            <span class="font-bold text-white text-[9.5px]">${rec.modelName}</span>
-            <span class="px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[7px] font-black">
-              LOCKUP (-${rec.triggerLossStreak}L)
-            </span>
-          </div>
-          <span class="text-[7.5px] text-zinc-400 font-bold">
-            ${rec.lockupRoundsRemaining > 0 ? `🔒 ${rec.lockupRoundsRemaining} rds lock left` : '🧪 In Shadow Trial'}
-          </span>
-        </div>
-
-        <!-- Forensic Investigation Box -->
-        <div class="p-2 rounded-xl bg-rose-950/20 border border-rose-500/20 space-y-1">
-          <div class="flex items-center justify-between text-[7px] uppercase font-bold text-rose-300">
-            <span><i class="fa-solid fa-microscope text-rose-400 mr-1"></i> Forensic Diagnosis</span>
-            <span>Analyzed ${forensics.analyzedRounds || 20} Rds</span>
-          </div>
-          <p class="text-[8px] text-rose-200/90 leading-tight">
-            ${forensics.rootCause || 'Statistical Pattern Entropy Inversion'}
-          </p>
-          <div class="text-[7.5px] text-zinc-400 pt-0.5 border-t border-white/[0.04]">
-            <b class="text-amber-300">Action:</b> ${forensics.remedy || 'Synaptic baseline recalibration'}
-          </div>
-        </div>
-
-        <!-- 20-Round Isolated Shadow Trial Progress -->
-        <div class="space-y-1">
-          <div class="flex items-center justify-between text-[7.5px] text-zinc-400">
-            <span>20-Round Shadow Trial Probation</span>
-            <span class="text-white font-bold">${rec.probationRoundsDone || 0}/20 Rds (${wr}% WR)</span>
-          </div>
-          <div class="w-full bg-black/60 h-2 rounded-full overflow-hidden p-0.5 border border-white/[0.08]">
-            <div class="h-full rounded-full ${wr >= 60 ? 'bg-emerald-400' : 'bg-amber-400'} transition-all duration-300" style="width: ${probationPct}%;"></div>
-          </div>
-          <div class="flex items-center justify-between text-[7px] text-zinc-500 pt-0.5">
-            <span>Pass Threshold: ≥60% (12/20 Wins)</span>
-            <span class="text-zinc-400">${rec.probationWins || 0}W / ${rec.probationLosses || 0}L</span>
-          </div>
-        </div>
-
-        <!-- Synaptic Neuro-Plasticity Adjustments -->
-        <div class="flex items-center justify-between pt-1 border-t border-white/[0.06] text-[7.5px]">
-          <span class="text-zinc-500">Neuro-Plasticity:</span>
-          <span class="text-purple-300 font-bold">Dopamine ${rehab.dopamineBoost || '+35%'} · Loss Pain ${rehab.painReduction || '-95%'}</span>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-window.renderQuarantineChamberUI = renderQuarantineChamberUI;
 
 function setInChargeModel(name) {
   MobileState.inChargeModel = name;
@@ -7536,6 +7423,17 @@ function initMobileApp() {
   _mobileInitCalled = true;
 
   console.log('[Mobile] 01:01 initializing...');
+
+  // Phase 3D quarantine release (owner order 2026-10-27): clear any
+  // legacy quant_model_quarantine_<tf> stores so previously
+  // quarantined models return to eligibility immediately. The
+  // engine also clears on script load; this is the belt-and-braces
+  // call at app boot (and the testable path).
+  try {
+    if (typeof ModelQuarantineEngine !== 'undefined' && typeof ModelQuarantineEngine.clearLegacyStores === 'function') {
+      ModelQuarantineEngine.clearLegacyStores();
+    }
+  } catch (e) {}
 
   // Initialize Web Worker Compute Engine
   try { initModelWorker(); } catch(e) { console.warn('[Mobile] Worker init error:', e); }

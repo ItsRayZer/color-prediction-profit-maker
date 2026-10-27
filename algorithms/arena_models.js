@@ -1804,15 +1804,11 @@ function determineOptimalArenaInChargeModel(models, manualId, isAutoMode = true)
   const getEvaluated = m => Number(m.totalEvaluated !== undefined ? m.totalEvaluated : (m.evaluated || 0));
   const getWinRate = m => Number(m.winRate !== undefined ? m.winRate : (getEvaluated(m) > 0 ? (Number(m.wins || 0) / getEvaluated(m)) : 0));
 
-  // 2. Slump & Blacklist Quarantine Exclusion:
-  // Models in Quarantine lockup are strictly prohibited from In-Charge leadership
-  const unquarantinedModels = models.filter(m => {
-    if (typeof ModelQuarantineEngine !== 'undefined' && ModelQuarantineEngine.isModelQuarantined(m)) {
-      return false;
-    }
-    return true;
-  });
-  const activeModels = unquarantinedModels.length > 0 ? unquarantinedModels : models;
+  // Phase 3D quarantine retirement (owner order 2026-10-27):
+  // quarantined status no longer excludes anything — the old
+  // "Slump & Blacklist Quarantine Exclusion" is deleted. All
+  // models stay eligible for In-Charge leadership here.
+  const activeModels = models;
 
   // If a model is currently in a severe slump (streak <= -2, having lost 2+ consecutive rounds),
   // it is disqualified from in-charge leadership to ensure no 3rd loss cascade reaches the user,
@@ -3876,279 +3872,55 @@ function generateModelNextPrediction(model, history, modelStats) {
 // ── E. MODEL QUARANTINE, FORENSICS INVESTIGATION & SHADOW TRIAL PROBATION ENGINE ──
 // ════════════════════════════════════════════════════════════════════════════════
 
+// ── ModelQuarantineEngine — RETIRED (owner order 2026-10-27) ───────
+// The mass-quarantine problem (~70 models locked): the old engine
+// quarantined EVERY model on a -4 streak, locked it 10–20 random
+// rounds + 20 probation rounds, and released almost nobody (probation
+// ran on empty history, and a failed trial re-locked for 30 more
+// rounds). Retirement, by owner order:
+//   - NO new quarantines are ever created (evaluateQuarantineLockup
+//     returns null and records nothing).
+//   - NO exclusion: isModelQuarantined is always false, the store
+//     is always empty, the list is always [].
+//   - NO live-model mutation: the forensics + synaptic-rehab path
+//     (dopamine/lossPain writes) is deleted with the old engine.
+//   - RELEASE: clearLegacyStores() removes every legacy
+//     quant_model_quarantine_<tf> localStorage key, and it runs
+//     automatically on script load (browser) so previously
+//     quarantined models return to eligibility immediately. The
+//     bench system (later build) replaces this display; nothing is
+//     migrated into any other exclusion.
+// The stub keeps the engine NAME + call shape so any leftover caller
+// (guards, tests, native paths) keeps working — fail-open to
+// eligible, never to locked.
 const ModelQuarantineEngine = {
-  // Map of timeframe -> Map(modelName -> quarantineRecord)
   _quarantineByTf: {},
-
-  getQuarantineStore(tf = '30s') {
-    if (!this._quarantineByTf[tf]) {
-      this._quarantineByTf[tf] = {};
-      try {
-        if (typeof localStorage !== 'undefined') {
-          const raw = localStorage.getItem(`quant_model_quarantine_${tf}`);
-          if (raw) this._quarantineByTf[tf] = JSON.parse(raw);
-        }
-      } catch(e) {}
-    }
-    return this._quarantineByTf[tf];
-  },
-
-  saveQuarantineStore(tf = '30s') {
+  getQuarantineStore() { return {}; },
+  saveQuarantineStore() { /* retired: nothing is ever stored */ },
+  isModelQuarantined() { return false; },
+  getQuarantinedModelsList() { return []; },
+  evaluateQuarantineLockup() { return null; },
+  processShadowTrialRound() { /* retired: no probation runs */ },
+  clearLegacyStores() {
     try {
-      if (typeof localStorage !== 'undefined' && this._quarantineByTf[tf]) {
-        localStorage.setItem(`quant_model_quarantine_${tf}`, JSON.stringify(this._quarantineByTf[tf]));
+      if (typeof localStorage === 'undefined') return 0;
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf('quant_model_quarantine_') === 0) keys.push(k);
       }
-    } catch(e) {}
-  },
-
-  isModelQuarantined(modelOrName, tf = '30s') {
-    const name = typeof modelOrName === 'string' ? modelOrName : (modelOrName?.name || modelOrName?.id);
-    if (!name) return false;
-    const store = this.getQuarantineStore(tf);
-    const rec = store[name];
-    return !!(rec && rec.status === 'QUARANTINED');
-  },
-
-  getQuarantinedModelsList(tf = '30s') {
-    const store = this.getQuarantineStore(tf);
-    return Object.values(store);
-  },
-
-  /**
-   * Evaluates if a model should enter Quarantine Lockup upon 4-5 consecutive losses.
-   * Lockup period: 10 to 20 rounds of quarantine + 20 rounds of shadow trial probation.
-   */
-  evaluateQuarantineLockup(model, tf, history) {
-    if (!model || !model.name) return null;
-    const store = this.getQuarantineStore(tf);
-    const curStreak = Number(model.streak !== undefined ? model.streak : 0);
-
-    // If already in quarantine, update probation trial
-    if (store[model.name] && store[model.name].status === 'QUARANTINED') {
-      return store[model.name];
-    }
-
-    // Trigger Lockup on 4 or more consecutive losses (streak <= -4)
-    if (curStreak <= -4) {
-      const lockupRounds = Math.floor(Math.random() * 11) + 10; // 10 to 20 rounds lockup
-      const forensics = this.conductForensicInvestigation(model, history);
-      const mutatedNeuron = this.synthesizeSynapticRehabilitation(model, forensics);
-
-      const record = {
-        modelName: model.name,
-        modelId: model.id || model.name,
-        cat: model.cat || 'AI',
-        triggerLossStreak: Math.abs(curStreak),
-        status: 'QUARANTINED',
-        lockupRoundsTotal: lockupRounds,
-        lockupRoundsRemaining: lockupRounds,
-        probationTotalRounds: 20, // Strict 20-round isolated trial
-        probationRoundsDone: 0,
-        probationWins: 0,
-        probationLosses: 0,
-        probationHistory: [],
-        forensics,
-        synapticRehab: mutatedNeuron,
-        quarantinedAt: Date.now(),
-        updatedAt: Date.now()
-      };
-
-      store[model.name] = record;
-      this.saveQuarantineStore(tf);
-      return record;
-    }
-    return null;
-  },
-
-  /**
-   * Diagnostic Forensics: Dissects why the model suffered consecutive losses.
-   */
-  conductForensicInvestigation(model, history) {
-    const hist = Array.isArray(history) ? history.slice(-20) : [];
-    const recentSizes = hist.map(r => String(r.size || '').toUpperCase().includes('BIG') ? 'BIG' : 'SMALL');
-    const recentColors = hist.map(r => String(r.color || '').toUpperCase().includes('GREEN') ? 'GREEN' : 'RED');
-
-    // 1. Regime Analysis (Dragon streak vs Choppy alternation)
-    let maxDragon = 1, curDragon = 1;
-    let alternations = 0;
-    for (let i = 1; i < recentSizes.length; i++) {
-      if (recentSizes[i] === recentSizes[i - 1]) {
-        curDragon++;
-        if (curDragon > maxDragon) maxDragon = curDragon;
-      } else {
-        curDragon = 1;
-        alternations++;
-      }
-    }
-    const isDragonRegime = maxDragon >= 4;
-    const isChopRegime = alternations >= 6;
-
-    // 2. Decision Hysteresis / Switch Failure
-    const path = (model.historyPath || []).slice(0, 5);
-    const failedTargets = path.map(p => p.predTarget);
-    const targetSet = new Set(failedTargets);
-    const isStubbornHysteresis = targetSet.size === 1 && failedTargets.length >= 4;
-
-    // 3. Neuromodulatory Overload Check
-    const lossPain = Number(model.lossPain || 0.0);
-    const dopamine = Number(model.dopamine || 0.5);
-    const neuroExhaustion = lossPain > 0.6 || dopamine < 0.25;
-
-    let rootCause = 'Unknown Stochastic Variance';
-    let remedy = 'Standard weight calibration';
-
-    if (isStubbornHysteresis) {
-      rootCause = 'Decision Hysteresis (Refractory Switch Failure - stuck on single side)';
-      remedy = 'Invert lateral horn polarity & decay persistence threshold';
-    } else if (isDragonRegime && (model.cat === 'chaos' || model.cat === 'oscillator')) {
-      rootCause = `Regime Mismatch: Long Directional Dragon (${maxDragon} streak) overwhelmed counter-trend oscillator`;
-      remedy = 'Temporarily bypass oscillator filters during high-trend momentum';
-    } else if (isChopRegime && (model.cat === 'trend' || model.cat === 'momentum')) {
-      rootCause = `Regime Mismatch: High-frequency Chop (${alternations} switches) broke trend-following inertia`;
-      remedy = 'Increase damping coefficient and shorten lookback window to 3 periods';
-    } else if (neuroExhaustion) {
-      rootCause = `Neuro-Synaptic Exhaustion (Loss pain: ${lossPain.toFixed(2)}, Dopamine: ${dopamine.toFixed(2)})`;
-      remedy = 'Full Dopamine baseline infusion (0.75) and Synaptic Pain dampening';
-    } else {
-      rootCause = 'Statistical Pattern Entropy Inversion (Feature weights desynchronized from recent draws)';
-      remedy = 'Recalibrate associative weights using 50-round denoised centroid';
-    }
-
-    return {
-      rootCause,
-      remedy,
-      maxDragonStreak: maxDragon,
-      alternationCount: alternations,
-      isStubbornHysteresis,
-      dopamineAtFailure: dopamine,
-      lossPainAtFailure: lossPain,
-      analyzedRounds: hist.length,
-      timestamp: new Date().toISOString()
-    };
-  },
-
-  /**
-   * Synaptic Rehabilitation & Parameter Mutation
-   */
-  synthesizeSynapticRehabilitation(model, forensics) {
-    const originalDopamine = model.dopamine || 0.5;
-    const originalPain = model.lossPain || 0.0;
-
-    // Reset neuro-chemical baseline
-    const rehabilitatedDopamine = 0.85; // Dopamine infused
-    const dampenedLossPain = 0.05;      // Pain cleared
-
-    // Mutate internal weights
-    model.dopamine = rehabilitatedDopamine;
-    model.lossPain = dampenedLossPain;
-
-    return {
-      dopamineBoost: `+${((rehabilitatedDopamine - originalDopamine) * 100).toFixed(0)}%`,
-      painReduction: `-${(Math.max(0, originalPain - dampenedLossPain) * 100).toFixed(0)}%`,
-      plasticityMutation: forensics.remedy,
-      status: 'REHABILITATED_IN_SHADOW_PROBATION'
-    };
-  },
-
-  /**
-   * Processes a newly settled round for quarantined models during their 20-round shadow trial.
-   * Quarantined models predict strictly in shadow mode—never exposed to user or In-Charge.
-   */
-  processShadowTrialRound(tf, roundOutcome) {
-    const store = this.getQuarantineStore(tf);
-    const quarantinedNames = Object.keys(store);
-    if (quarantinedNames.length === 0) return;
-
-    const { number, size, color } = roundOutcome;
-    const allModels = (typeof ARENA_CANONICAL_MODELS !== 'undefined') ? ARENA_CANONICAL_MODELS : [];
-
-    quarantinedNames.forEach(name => {
-      const rec = store[name];
-      if (!rec || rec.status !== 'QUARANTINED') return;
-
-      const model = allModels.find(m => m.name === name || m.id === name);
-      if (!model) return;
-
-      // Decrement general lockup streak remaining if still waiting
-      if (rec.lockupRoundsRemaining > 0) {
-        rec.lockupRoundsRemaining--;
-      }
-
-      // Generate isolated shadow prediction
-      let shadowPred = null;
-      try {
-        if (typeof generateModelNextPrediction === 'function') {
-          shadowPred = generateModelNextPrediction(model, [], {
-            streak: 0,
-            dopamine: model.dopamine || 0.85,
-            lossPain: model.lossPain || 0.05
-          });
-        }
-      } catch(e) {}
-
-      const target = shadowPred?.predTarget || model.predTarget || 'BIG';
-      const won = evaluatePredictionCorrectness(target, number, size, color);
-
-      rec.probationRoundsDone = (rec.probationRoundsDone || 0) + 1;
-      if (won === true) {
-        rec.probationWins = (rec.probationWins || 0) + 1;
-      } else {
-        rec.probationLosses = (rec.probationLosses || 0) + 1;
-      }
-
-      rec.probationHistory.unshift({
-        target,
-        won: won === true,
-        period: roundOutcome.period || '?',
-        time: Date.now()
-      });
-      if (rec.probationHistory.length > 20) rec.probationHistory.pop();
-
-      const currentProbationWR = rec.probationRoundsDone > 0
-        ? (rec.probationWins / rec.probationRoundsDone)
-        : 0;
-      rec.currentProbationWR = Number(currentProbationWR.toFixed(3));
-      rec.updatedAt = Date.now();
-
-      // Check for Completion of 20-Round Shadow Trial Probation:
-      if (rec.probationRoundsDone >= rec.probationTotalRounds) {
-        if (rec.currentProbationWR >= 0.60 && rec.lockupRoundsRemaining <= 0) {
-          // GRADUATION (Phase 2A honesty label — NOT a live-performance
-          // recovery): the model passed a 20-round shadow probation
-          // (>= 60% WR) whose predictions were generated with EMPTY
-          // history (see processShadowTrialRound) — a history-free
-          // trial, not evidence against real rounds. This status is
-          // display-roster only: the governed pool NEVER consults
-          // quarantine, so graduation cannot re-admit a model to
-          // governed ranking or betting. Do NOT wire it into
-          // governance without a fresh owner order.
-          rec.status = 'GRADUATED';
-          rec.graduatedAt = Date.now();
-          // Reset streak to clean slate for the DISPLAY roster only
-          // (the governed pool is unaffected — see above).
-          model.streak = 1;
-          model.dopamine = 0.80;
-          model.lossPain = 0.0;
-          console.log(`[Model Quarantine] 🎓 ${model.name} has PASSED 20-round shadow probation (${(rec.currentProbationWR * 100).toFixed(1)}% WR). Graduated on the display roster only — not a governed re-admission.`);
-        } else {
-          // FAILED PROBATION: Win rate was under 60% or lockup not served
-          // Model is sent back for deeper parameter mutation, resets shadow trial for another 20 rounds
-          rec.probationRoundsDone = 0;
-          rec.probationWins = 0;
-          rec.probationLosses = 0;
-          rec.probationHistory = [];
-          rec.lockupRoundsRemaining = 10;
-          // Deeper synaptic re-tune
-          model.dopamine = Math.min(0.95, (model.dopamine || 0.8) + 0.05);
-          model.lossPain = 0.02;
-          console.warn(`[Model Quarantine] ❌ ${model.name} FAILED shadow probation (${(rec.currentProbationWR * 100).toFixed(1)}% WR). Re-tuning synapses and re-locking for 20 more rounds.`);
-        }
-      }
-    });
-
-    this.saveQuarantineStore(tf);
+      keys.forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+      this._quarantineByTf = {};
+      return keys.length;
+    } catch (e) { return 0; }
   }
 };
+// Release on load: previously quarantined models return to
+// eligibility immediately (owner order 2026-10-27). Browser only;
+// node/test imports skip this (no localStorage).
+try {
+  if (typeof localStorage !== 'undefined') ModelQuarantineEngine.clearLegacyStores();
+} catch (e) {}
 
 if (typeof window !== "undefined") {
   window.ModelQuarantineEngine = ModelQuarantineEngine;
