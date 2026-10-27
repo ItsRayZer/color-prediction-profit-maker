@@ -36,13 +36,9 @@ export const AUTOPILOT_SETTINGS_KEY = 'o101_autopilot_settings_v1';
 /** A staged bet dies when the round's countdown reaches this (the bridge's own lock). */
 export const ROUND_CLOSE_MS = 5000;
 
-export const STOP_REASONS = {
-  STOP_LOSS: 'Stop-loss: session down 20% of the starting balance — Auto-Pilot off.',
-  STOP_WIN: 'Stop-win: session up 20% on the starting balance — Auto-Pilot off.',
-  LADDER_EXHAUSTED: 'Ladder exhausted: the full recovery ladder was used — Auto-Pilot off.',
-  HARD_STOP: '3-loss streak — stopped. Auto-Pilot off.'
-};
-
+// Phase 3D (owner order "no stop no skip"): STOP_REASONS is DELETED —
+// no session stop, no hard stop, no re-arm exists anymore. Auto-Pilot
+// turns off only by the user's own toggle (disarm), never by a loss.
 const LOG_CAP = 300;
 const FIRED_CAP = 200;
 
@@ -64,7 +60,7 @@ export class AutoPilot {
       resolved: {},       // 'tf:period' -> true (accounting done for that round)
       paused: false,
       pauseReason: null,
-      stopReason: null,   // visible until the owner manually re-arms
+      stopReason: null,   // legacy field, never set since Phase 3D (no stops exist)
       log: []             // [{ ts, kind, period, timeframe, detail }]
     };
     this.load();
@@ -129,20 +125,7 @@ export class AutoPilot {
     return { ok: true };
   }
 
-  /** Protective OFF: the reason stays visible until a manual re-arm. */
-  forceStop(reason) {
-    this.state.enabled = false;
-    this.state.staged = null;
-    this.state.paused = false;
-    this.state.pauseReason = null;
-    this.state.stopReason = reason;
-    this._log('stopped', { detail: reason });
-    this.save();
-    return { ok: true };
-  }
-
   get enabled() { return this.state.enabled === true; }
-  get stopped() { return !this.state.enabled && !!this.state.stopReason; }
 
   setRiskMode(mode) {
     if (!STAKING_MODES[mode]) return { ok: false, reason: `Unknown risk mode: ${mode}` };
@@ -179,8 +162,8 @@ export class AutoPilot {
    * Returns 'staged' | 'already' | 'blocked'.
    */
   stage({ period, timeframe, target, session, periodDurationMs = null } = {}) {
-    if (!this.state.enabled || this.state.paused || this.state.stopReason) return 'blocked';
-    if (!session || ['STOP', 'STOP_LOSS', 'STOP_WIN', 'LADDER_EXHAUSTED'].includes(session.state) || !(session.nextStake > 0)) return 'blocked';
+    if (!this.state.enabled || this.state.paused) return 'blocked';
+    if (!session || !(session.nextStake > 0)) return 'blocked';
     if (!period || !target) return 'blocked';
     const cur = this.state.staged;
     if (cur && cur.period === String(period) && cur.timeframe === timeframe) {
@@ -225,17 +208,9 @@ export class AutoPilot {
   noteSession(session) {
     const cur = this.state.staged;
     if (!cur || !session) return;
-    if (['STOP', 'STOP_LOSS', 'STOP_WIN', 'LADDER_EXHAUSTED'].includes(session.state) || !(session.nextStake > 0) || cur.stake !== session.nextStake || cur.baseBet !== session.baseBet) {
+    if (!(session.nextStake > 0) || cur.stake !== session.nextStake || cur.baseBet !== session.baseBet) {
       this.invalidate('ladder stake changed');
     }
-  }
-
-  /** The stop that force-stopped Auto-Pilot was cleared externally (e.g. HARD_STOP re-arm). */
-  noteStopCleared() {
-    if (!this.state.stopReason) return;
-    this._log('stop-cleared', { detail: this.state.stopReason });
-    this.state.stopReason = null;
-    this.save();
   }
 
   /** Time-based invalidation, called by the runtime tick. */
@@ -265,7 +240,6 @@ export class AutoPilot {
     const fail = reason => ({ ok: false, reason });
     const cur = this.state.staged;
     if (!this.state.enabled) return fail('Auto-Pilot is off.');
-    if (this.state.stopReason) return fail(this.state.stopReason);
     if (this.state.paused) return fail(this.state.pauseReason || 'Paused: bridge channel lost.');
     if (!cur) {
       const key = validation.timeframe && validation.period ? this._roundKey(validation.timeframe, validation.period) : null;
@@ -281,7 +255,6 @@ export class AutoPilot {
     // bet must never "fire" to a tab the app cannot reach.
     if (validation.orderChannel === false) return fail('No order channel to the DhaniWin tab — open DhaniWin from the app, then tap the 01.01 bridge bookmarklet there, and the staged bet can fire.');
     if (validation.gateDecision !== undefined && validation.gateDecision !== 'BET') return fail('The gate no longer calls this a BET.');
-    if (validation.hardStopped === true) return fail(STOP_REASONS.HARD_STOP);
     if (validation.sessionStake !== undefined && validation.sessionStake !== cur.stake) return fail('The ladder stake changed — that bet is gone.');
     if (validation.countdownMsLeft !== undefined && validation.countdownMsLeft !== null && validation.countdownMsLeft <= ROUND_CLOSE_MS) {
       return fail('Too late: the round is closing (≤5s left).');
@@ -331,10 +304,10 @@ export class AutoPilot {
   }
 
   /**
-   * Settle a FIRED bet. `sessionState` is the governed bankroll
-   * session's state AFTER bankroll.settle() ran on the shared
-   * session; its STOP states stop Auto-Pilot here. Returns
-   * { stopped, reason }.
+   * Settle a FIRED bet. `sessionState` is accepted for call
+   * compatibility but IGNORED: since Phase 3D no session state
+   * stops Auto-Pilot (no stops exist). Returns { stopped, reason }
+   * with stopped always false.
    */
   settleFired({ timeframe, period, won, stakeUsed = 0, sessionState = null } = {}) {
     const key = this._roundKey(timeframe, period);
@@ -348,18 +321,12 @@ export class AutoPilot {
     }
     this._countRound(timeframe, period);
     this._log('settled', { period: String(period), timeframe, detail: `${won ? 'WIN' : 'LOSS'} ${delta >= 0 ? '+' : ''}₹${delta}` });
-    if (sessionState && STOP_REASONS[sessionState]) {
-      const reason = STOP_REASONS[sessionState];
-      this.forceStop(reason);
-      return { stopped: true, reason };
-    }
     this.save();
     return { stopped: false, reason: null };
   }
 
   sessionLine() {
     const s = this.state.session;
-    if (this.state.stopReason) return this.state.stopReason;
     if (!this.state.enabled) return 'Auto-Pilot off.';
     if (this.state.paused) return this.state.pauseReason || 'Paused: bridge channel lost.';
     if (!s) return 'Auto-Pilot on.';
@@ -378,7 +345,7 @@ export function autoBaseBet(balance, mode = DEFAULT_STAKING_MODE) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { AutoPilot, AUTOPILOT_KEY, AUTOPILOT_SETTINGS_KEY, ROUND_CLOSE_MS, STOP_REASONS, autoBaseBet };
+  module.exports = { AutoPilot, AUTOPILOT_KEY, AUTOPILOT_SETTINGS_KEY, ROUND_CLOSE_MS, autoBaseBet };
 }
 
 if (typeof self !== 'undefined') {

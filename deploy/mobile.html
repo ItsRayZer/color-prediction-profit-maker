@@ -204,6 +204,11 @@
     </div>
   </header>
 
+  <!-- Top-edge pull handle (Phase 3C): body-level, NOT inside #tab-web, so the
+       manual top-bar reopen works on EVERY view. Fixed at the viewport top edge,
+       visible only while the top bar is hidden (see mobile.css); tap to show it. -->
+  <button id="homeHeaderPullHandle" type="button" aria-label="Show top bar"></button>
+
   <!-- ════════════════════════════════════════════════════════════
        MAIN VIEWPORT CONTAINER (Padded for Header & Floating Dock)
   ════════════════════════════════════════════════════════════ -->
@@ -689,44 +694,6 @@
         <div id="aiRosterList" class="space-y-1.5 max-h-80 overflow-y-auto pr-1"></div>
       </div>
 
-      <!-- Phase 2A display-only section: ASI / ASI_APEX_MASTER are
-           excluded from the governed pool (static picks, never ranked
-           or bet) and shown here separately by renderRanking. -->
-      <div class="liquid-glass-card p-3 space-y-2">
-        <div class="flex items-center justify-between pb-1 border-b border-white/[0.08]">
-          <span class="text-[10px] font-black uppercase tracking-wider text-white">Display only — not ranked, never bet</span>
-          <span class="text-[8px] font-mono text-zinc-400">ASI models</span>
-        </div>
-        <div id="bridgeDisplayOnlyList" class="space-y-1.5"></div>
-      </div>
-
-      <!-- 7. MODEL QUARANTINE, FORENSICS INVESTIGATION & SHADOW TRIAL PROBATION CHAMBER (Bottom of Page) -->
-      <div id="quarantineChamberCard" class="liquid-glass-card p-3.5 space-y-3 border border-rose-500/20">
-        <div class="flex items-center justify-between pb-1.5 border-b border-white/[0.08]">
-          <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-rose-400 animate-pulse"></span>
-            <div class="flex flex-col">
-              <span class="text-[10px] font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-                <i class="fa-solid fa-shield-virus text-rose-400"></i>
-                Quarantine & Forensic Chamber
-              </span>
-              <span class="text-[7.5px] font-mono text-zinc-400">4-5 Loss Lockup · Synaptic Rehab · 20-Round Shadow Trial</span>
-            </div>
-          </div>
-          <span id="quarantinedCountBadge" class="text-[8px] font-mono px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30">
-            0 Quarantined
-          </span>
-        </div>
-
-        <!-- Quarantined Models Container -->
-        <div id="quarantineChamberList" class="space-y-2">
-          <div class="p-3 rounded-xl bg-black/40 border border-white/[0.06] text-center font-mono text-[8.5px] text-zinc-400">
-            <i class="fa-solid fa-circle-check text-emerald-400 text-sm mb-1 block"></i>
-            All 101 models operating above drawdown threshold. No models quarantined.
-          </div>
-        </div>
-      </div>
-
 
       <!-- 8. PATTERNS (orb-bridge headless engine): live numbers from the
            persisted pattern store (o101_pattern_history_v1) — every
@@ -858,9 +825,6 @@
 
       <!-- High-fidelity Invisible Touch & Gesture Shield to capture touches and swipes directly over iframe -->
       <div id="dhaniwinTouchShield" style="position: absolute; inset: 0; z-index: 50;"></div>
-
-      <!-- Pull handle: visible when our top bar is hidden; tap / swipe down to show it -->
-      <button id="homeHeaderPullHandle" type="button" aria-label="Show top bar"></button>
 
       <!-- Quick Win/Loss Sound Mute / Unmute Floating Button (Homepage / Dhani Embedded View) -->
       <button id="floatingSoundMuteBtn"
@@ -1114,35 +1078,45 @@
                 <span class="text-zinc-400">Base: <b id="assistantBaseStakeDisplay" class="text-zinc-200 font-bold">₹2</b></span>
                 <span class="text-zinc-400">Bet: <b id="mobileWebStakeDisplay" class="text-emerald-400 font-bold">₹2</b></span>
               </div>
+              <!-- Phase 3D corrected ladder: when the doubled stake
+                   exceeds a known balance, this line shows the
+                   shortfall plainly (required stake is the Bet
+                   figure above); past the planned ladder depth it
+                   says so. Written by renderSignal; staging is
+                   never blocked — the user decides with the tap. -->
+              <div id="mobileWebShortfallDisplay" class="text-[7px] font-mono leading-tight text-amber-300 text-right px-0.5"></div>
             </div>
           </div>
 
 
-          <!-- 2c. Skip reason (orb-bridge): when the hero shows SKIP,
-               this line says WHY — which gate fired, with its numbers
-               (sample count, required probability, streak state).
-               Written by renderHeroVerdict on every cycle; cleared on
-               BET/NONE so a stale reason never outlives its verdict. -->
+          <!-- 2c. Verdict reason (orb-bridge): a BET shows its honest
+               quality (below-bar reason + graduated-stake note +
+               conflict note, when present); NO_PICK shows the
+               no-pick note. Written by renderHeroVerdict on every
+               cycle; cleared on NONE so a stale reason never
+               outlives its verdict. -->
           <div id="mobileWebVerdictReason" class="text-[8px] font-mono leading-snug text-zinc-400 px-0.5 pb-0.5"></div>
+          <!-- 2c2. Exact-ball display / ASI trial note (orb-bridge):
+               exact shows only when an exact-ball model holds
+               Incharge (display only, never a stageable bet); the
+               trial note shows only when a trial-gated ASI/APEX
+               model would have led. Written by renderHeroVerdict. -->
+          <div id="mobileWebExactDisplay" class="text-[8px] font-mono leading-snug text-zinc-400 px-0.5 pb-0.5"></div>
 
           <!-- 2b. Auto-Pilot confirm (orb-bridge): visible only while a
                bet is staged. This tap is the ONLY way a staged bet fires.
                Task L (owner screenshot 2026-10-26): the slot NO LONGER
                reserves 34px when empty — that reserved height was the
-               blank gap between the skip reason and the road. The slot
+               blank gap between the verdict reason and the road. The slot
                starts collapsed (0px, overflow hidden) and expands to
                34px only while a button shows (syncConfirmSlotHeight,
                called from renderAutoPilot); fitSheetToContent grows
                the sheet when the staged slot pushes content past the
                sheet height, so staging never clips the chip row.
-               Task E: the HARD_STOP re-arm button lives here now
-               (shown only while hard-stopped — staging is blocked
-               then, so it never competes with the confirm button),
-               and the hidden countdown keeper preserves the autopilot
+               The hidden countdown keeper preserves the autopilot
                ≤5s invalidation (countdownMsLeft reads its text). -->
           <div id="autoPilotConfirmSlot" class="h-0 overflow-hidden shrink-0">
             <button type="button" id="autoPilotConfirmBtn" onclick="window.__smartBall && window.__smartBall.confirmAutoPilotBet()" class="hidden w-full py-2 rounded-xl font-mono text-[10px] font-black bg-emerald-500/25 text-emerald-200 border border-emerald-500/40 active:scale-[0.98] transition">BET — tap to confirm</button>
-            <button type="button" id="hardStopRearmBtn" onclick="window.__smartBall && window.__smartBall.rearmHardStop()" class="hidden text-[7px] font-mono font-bold text-amber-300 underline underline-offset-2 transition active:scale-95">Re-arm manually (override the 3-loss stop)</button>
             <span id="assistantCountdown" class="hidden" aria-hidden="true"></span>
           </div>
           <!-- 3. Recent Sequence Road (Last Draws) -->
