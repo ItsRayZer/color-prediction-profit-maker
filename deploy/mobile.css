@@ -1042,64 +1042,6 @@ a[href*="tradingview.com"] {
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   APPLE COFFEE SUPPORT POPUP & RAZORPAY STYLING
-   ═══════════════════════════════════════════════════════════════ */
-.razorpay-payment-button {
-  background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%) !important;
-  color: #000000 !important;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif !important;
-  font-weight: 800 !important;
-  font-size: 13px !important;
-  letter-spacing: -0.2px !important;
-  border: 1px solid rgba(255, 255, 255, 0.25) !important;
-  border-radius: 14px !important;
-  padding: 10px 22px !important;
-  min-height: 42px !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 8px !important;
-  box-shadow: 0 4px 18px rgba(245, 158, 11, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
-  cursor: pointer !important;
-  transition: transform 0.16s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.16s ease !important;
-  user-select: none !important;
-  margin: 0 auto !important;
-}
-
-.razorpay-payment-button:hover {
-  filter: brightness(1.08) !important;
-  box-shadow: 0 6px 24px rgba(245, 158, 11, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.5) !important;
-}
-
-.razorpay-payment-button:active {
-  transform: scale(0.96) !important;
-}
-
-@keyframes scaleUpSpring {
-  0% {
-    opacity: 0;
-    transform: scale(0.88) translateY(12px);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-.animate-scale-up {
-  animation: scaleUpSpring 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-@keyframes subtleFloat {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
-}
-
-.animate-bounce-subtle {
-  animation: subtleFloat 3s ease-in-out infinite;
-}
-
 /* ── DhaniWin Floating Ball Assistant Modal (Luxury Apple AMOLED Square Widget) ── */
 #dhaniwinAssistantModal {
   opacity: 1;

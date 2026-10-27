@@ -1215,40 +1215,6 @@
 
   </main>
 
-  <!-- ════════════════════════════════════════════════════════════
-       BUY ME A COFFEE / SUPPORT POPUP MODAL (Compact & Daily)
-  ════════════════════════════════════════════════════════════ -->
-  <div id="coffeeSupportModal" class="fixed inset-0 z-[100000] bg-black/80 backdrop-blur-xl flex items-center justify-center p-4 transition-all duration-300 opacity-0 pointer-events-none" onclick="if(event.target===this) dismissCoffeeSupportModalToday()">
-    <div class="w-full max-w-[290px] bg-[#0c0c0e] border border-white/[0.18] rounded-[24px] overflow-hidden shadow-2xl relative flex flex-col items-center animate-scale-up select-none cursor-pointer group" onclick="openRazorpayCheckout(); closeCoffeeSupportModal(true);">
-      <!-- Close Button (Top-Right) -->
-      <button onclick="event.stopPropagation(); dismissCoffeeSupportModalToday();" class="absolute top-2.5 right-2.5 z-30 w-7 h-7 rounded-full bg-black/70 hover:bg-black/90 text-white/80 hover:text-white border border-white/25 flex items-center justify-center text-xs transition active:scale-95 shadow-md" title="Close">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-
-      <!-- Compact 01:01 Coffee Card Image (Touching anywhere opens Razorpay checkout) -->
-      <div class="relative w-full flex items-center justify-center bg-black/90 overflow-hidden">
-        <img src="coffee_card.jpg" alt="01:01 Buy Me a Coffee" class="w-full max-h-[290px] object-contain block transition duration-300 group-hover:scale-[1.01]" onerror="this.onerror=null; this.src='logo_0101.jpg'">
-      </div>
-
-      <!-- Modal Bottom Actions -->
-      <div class="w-full p-3 bg-[#0a0a0c] border-t border-white/[0.08] flex flex-col items-center gap-1.5" onclick="event.stopPropagation();">
-        <button onclick="openRazorpayCheckout(); closeCoffeeSupportModal(true);" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#e7b878] via-[#f7d69e] to-[#d69f5c] hover:brightness-110 text-black font-black text-xs tracking-tight shadow-md shadow-amber-500/20 active:scale-[0.98] transition flex items-center justify-center gap-1.5">
-          <span>☕ Buy Me a Coffee</span>
-          <i class="fa-solid fa-arrow-up-right-from-square text-[9px] opacity-75"></i>
-        </button>
-        <p class="text-[8.5px] font-mono text-amber-300/85 text-center tracking-tight pt-0.5">
-          ✨ After buying a coffee, this won't come again for a while
-        </p>
-        <div class="w-full flex items-center justify-between text-[9.5px] text-zinc-400 px-1 pt-0.5 font-mono">
-          <button onclick="event.stopPropagation(); dismissCoffeeSupportModalToday();" class="hover:text-white transition">Maybe Later</button>
-          <button onclick="event.stopPropagation(); confirmCoffeePaidPrompt();" class="text-amber-400 font-bold hover:text-amber-300 transition flex items-center gap-1 cursor-pointer">
-            <i class="fa-solid fa-check text-[9px]"></i>
-            <span>I Have Paid</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <!-- ════════════════════════════════════════════════════════════
        iOS PWA INSTALLATION GUIDE MODAL (Safari Instructions)
@@ -1499,6 +1465,7 @@
   <script src="./systems/wingo_5m.js"></script>
   <script src="./systems/timeframe_manager.js"></script>
   <script src="./systems/balls.js"></script>
+  <script src="./systems/letter-balls.js"></script>
   <script src="./systems/axo-faces.js"></script>
   <script src="./systems/dhani-transport.js"></script>
 

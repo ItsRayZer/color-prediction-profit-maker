@@ -661,6 +661,19 @@ export function ballDigitFor(pick) {
   return /^[0-9]$/.test(p) ? p : null;
 }
 
+// Phase 3B ball key (pure): every governed pick carries a ball image
+// key — exact digits 0–9 (balls.js PNGs) plus the letter balls
+// (systems/letter-balls.js, game-style glossy spheres): BIG, SMALL,
+// GREEN, RED, VIOLET. The view field keeps the name `ballDigit` to
+// avoid ripples; its values are now ball KEYS (digit or letter).
+// A pure SKIP never gets a key (callers pass null for SKIP).
+export function ballKeyFor(pick) {
+  const d = ballDigitFor(pick);
+  if (d) return d;
+  const p = String(pick === null || pick === undefined ? '' : pick).toUpperCase();
+  return ['BIG', 'SMALL', 'GREEN', 'RED', 'VIOLET'].includes(p) ? p : null;
+}
+
 export function heroVerdictView(gate) {
   if (!gate || !gate.decision) return { decision: 'NONE', targetText: '—', confText: '—', pick: null, reasonText: '' };
   if (gate.decision === GATE_DECISIONS.BET) {
@@ -670,7 +683,7 @@ export function heroVerdictView(gate) {
       confText: gate.prob !== null && gate.prob !== undefined ? Math.round(gate.prob * 100) + '%' : '—',
       pick: gate.pick || null,
       reasonText: '',
-      ballDigit: ballDigitFor(gate.pick),
+      ballDigit: ballKeyFor(gate.pick),
       // Graduated-stake note (rendered under NEXT PREDICTION by
       // renderHeroVerdict): a BET never carries a reason line, but
       // it MUST carry the early-data note so a reduced stake is
@@ -693,7 +706,7 @@ export function heroVerdictView(gate) {
       confText: `Wilson ${(h.wilson * 100).toFixed(1)}% · needs ${(h.required * 100).toFixed(2)}% (${Math.max(0, h.gapPts).toFixed(1)} short)`,
       pick: h.pick,
       reasonText: h.reason || '',
-      ballDigit: ballDigitFor(h.pick),
+      ballDigit: ballKeyFor(h.pick),
       heldCandidate: h,
       sampleNote: ''
     };
@@ -814,6 +827,31 @@ export function displayProbability(rawProb, tracker) {
   if (!tracker || typeof tracker.fitPlatt !== 'function') return capped;
   const { a, b } = tracker.fitPlatt();
   return plattScale(capped, a, b);
+}
+
+/**
+ * Phase 3B transitional calibration migration (owner order 2026-10-27,
+ * users complaining about the skip): which tracker gates a round.
+ * The Phase 3A per-type split stranded the pooled calibration history
+ * (o101_calibration_v1) existing users had already accrued — per-type
+ * trackers start at n=0, so every round that passed Wilson then
+ * skipped on calibration until 50 fresh per-type settlements accrued
+ * (~30–60 min of active 30s play). That wall is a migration artifact,
+ * not a bar: the pooled records ARE real recorded (prob, won) evidence
+ * from this same app and gate, just without a type label. So until a
+ * type's own tracker matures to its bar, the gate uses the pooled
+ * tracker; once mature, the per-type tracker takes over permanently.
+ * The transition is self-expiring (the per-type tracker keeps
+ * recording every settlement) and no bar moves: minSamples 50 and
+ * ECE ≤ 0.08 apply to whichever tracker is active. A brand-new user
+ * with neither history still honestly skips on calibration until 50
+ * real settlements accrue.
+ */
+export function selectGateTracker({ typeTracker = null, pooledTracker = null } = {}) {
+  if (typeTracker && typeof typeTracker.count === 'number'
+    && typeof typeTracker.minSamplesForCalibration === 'number'
+    && typeTracker.count >= typeTracker.minSamplesForCalibration) return typeTracker;
+  return pooledTracker || typeTracker || null;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -1192,8 +1230,10 @@ export function axoNextLang(code) {
 //    rendered text shortens, through this one helper.
 // 2. NO LOGIN GATE. The display gate is the governed engine gate plus
 //    the HARD_STOP overlay only — login state is not an input at all,
-//    so it can never flip a BET to SKIP again. The base bet resolves
-//    from the verified balance when fresh, else the manual chip base.
+//    so it can never flip a BET to SKIP again. Phase 3B: the base bet
+//    resolves from the user-selected chip (default ₹2), never from a
+//    synced balance; a verified balance only ever sizes an explicit
+//    AUTO opt-in and is never a precondition.
 // 3. SUBTITLE SURFACES. Owner order 2026-10-25 (UI batch, reverses
 //    fix round #5's deletion): the subtitle is an OUTSIDE FLOATING
 //    bubble next to the avatar whenever a subtitle exists —
@@ -1213,14 +1253,20 @@ export function shortPeriod(period) {
 }
 
 /**
- * The base bet the governed ladder should run. AUTO uses the fresh
- * verified balance when one exists and falls back to the manual chip
- * base when it does not — login state never stalls staging.
- * null = no base knowable at all (no chip value either).
+ * The base bet the governed ladder should run. Phase 3B balance
+ * decoupling (owner order 2026-10-27: "remove the balance sync, just
+ * give stake from user selected base"): the default base is the
+ * USER-SELECTED chip, and when no chip value is known it defaults to
+ * ₹2 (the chip shown selected in the owner's screenshot) — never
+ * null, never balance-derived. AUTO is an explicit opt-in that sizes
+ * from a verified balance when one exists and falls back to the chip
+ * otherwise; it is never a precondition for a session or a stake.
+ * The old "null = no base knowable" outcome no longer exists.
  */
+export const DEFAULT_CHIP_BASE = 2;
 export function resolveBaseBet({ autoBase = false, verifiedBalance = null, riskMode = 'balanced', chipBase = null } = {}) {
   const chip = Number(chipBase);
-  const chipOk = Number.isFinite(chip) && chip > 0 ? Math.floor(chip) : null;
+  const chipOk = Number.isFinite(chip) && chip > 0 ? Math.floor(chip) : DEFAULT_CHIP_BASE;
   if (autoBase) {
     if (verifiedBalance !== null && verifiedBalance !== undefined) return autoBaseBet(verifiedBalance, riskMode);
     return chipOk;
@@ -1421,23 +1467,20 @@ export function applySkipCap(gate, { pick = null } = {}) {
 // VERDICT lines (BET, SKIP, WIN, LOSS, ladder steps, stops, missed
 // bets, the active HARD_STOP line) keep the EXISTING bubble: sticky,
 // X dismisses only the current line, next say() re-shows. SYSTEM /
-// STATUS lines (the start-up greeting, login/bridge status, balance
-// detection, model changes, Auto-Pilot on/off/refused/fired notes,
-// stop-cleared/re-armed notes) show as a MINIMAL notification above
-// the Axo/ball area that AUTO-CLOSES after SYSTEM_NOTIFICATION_MS.
-// Voice is unchanged: voice still speaks exactly the subtitle string
-// even when the visual is an auto-closing notification — auto-close
-// is visual only. The routing is by event for speakEvent lines and
-// by explicit kind at direct say() sites; the default is 'verdict',
-// so any unmarked line keeps the old bubble behavior.
+// STATUS lines (login/bridge status, Auto-Pilot on/off/refused/fired
+// notes, stop-cleared/re-armed notes) show as a MINIMAL notification
+// above the Axo/ball area that AUTO-CLOSES after
+// SYSTEM_NOTIFICATION_MS. Voice is unchanged: voice still speaks
+// exactly the subtitle string even when the visual is an auto-closing
+// notification — auto-close is visual only. The routing is by event
+// for speakEvent lines and by explicit kind at direct say() sites;
+// the default is 'verdict', so any unmarked line keeps the old bubble
+// behavior. Phase 3B: greeting, balance and model-change events no
+// longer route here at all — those announcements are deleted, not
+// re-routed (LOGIN_VERIFIED stays: short, login-only, functional).
 export const SYSTEM_NOTIFICATION_MS = 4000;
 export const SYSTEM_SUBTITLE_EVENTS = new Set([
-  BOT_EVENTS.GREETING,
-  BOT_EVENTS.LOGIN_VERIFIED,
-  BOT_EVENTS.BALANCE_DETECTED,
-  BOT_EVENTS.BALANCE_LOW,
-  BOT_EVENTS.BALANCE_NOT_DETECTED,
-  BOT_EVENTS.MODEL_CHANGE // INCHARGE_CHANGE is the same string
+  BOT_EVENTS.LOGIN_VERIFIED
 ]);
 
 export function subtitleKindForEvent(event) {
@@ -1482,15 +1525,20 @@ export const THIN_POOL_MIN = 10;
 export function closedOrbPill({ decision = null, pick = null, stake = null, heldCandidate = null } = {}) {
   if (decision === GATE_DECISIONS.BET && pick) {
     if (stake !== null && stake !== undefined && Number.isFinite(Number(stake)) && Number(stake) > 0) {
-      return { text: `${pick} · ₹${Number(stake).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`, state: 'bet', ballDigit: ballDigitFor(pick) };
+      return { text: `${pick} · ₹${Number(stake).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`, state: 'bet', ballDigit: ballKeyFor(pick) };
     }
-    return { text: pick, state: 'bet', ballDigit: ballDigitFor(pick) };
+    return { text: pick, state: 'bet', ballDigit: ballKeyFor(pick) };
   }
-  // Phase 3A HELD: the held pick shows on the closed orb with NO
-  // stake (it is not a bet). The ball image rides ballDigit for
-  // digit picks (future — filtered while the exact gate is closed).
+  // Phase 3B HELD: the held pick shows on the closed orb WITH the
+  // stake figure (tapping it stages it at that stake — the stake is
+  // the governed session's nextStake, never invented). It is still
+  // a SKIP for settlement (no ladder, no sound). The ball image
+  // rides ballDigit for digit AND letter picks.
   if (heldCandidate && heldCandidate.pick) {
-    return { text: heldCandidate.pick, state: 'held', ballDigit: ballDigitFor(heldCandidate.pick) };
+    if (stake !== null && stake !== undefined && Number.isFinite(Number(stake)) && Number(stake) > 0) {
+      return { text: `${heldCandidate.pick} · ₹${Number(stake).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`, state: 'held', ballDigit: ballKeyFor(heldCandidate.pick) };
+    }
+    return { text: heldCandidate.pick, state: 'held', ballDigit: ballKeyFor(heldCandidate.pick) };
   }
   if (decision === GATE_DECISIONS.SKIP) return { text: 'SKIP', state: 'skip', ballDigit: null };
   return { text: '—', state: 'none', ballDigit: null };
@@ -2157,12 +2205,14 @@ function initBridge() {
   const tracker = new CalibrationTracker({ storage: safeStorage() });
   // Phase 3A per-type calibration (v2 §8): one tracker per bet type,
   // persisted under distinct keys. The gate + Platt fit use the
-  // LEADER's type tracker; the pooled tracker above keeps recording
-  // for legacy display but no longer gates or scales anything.
-  // Transition cost (report it): per-type trackers start empty, so
-  // after this ships colour/size are calibration-gated until 50 fresh
-  // per-type settlements each (exact starts empty too, moot while its
-  // bets stay gated off).
+  // LEADER's type tracker once it matures; until then the pooled
+  // tracker carries the gate (Phase 3B transitional migration — see
+  // selectGateTracker). The pooled tracker keeps recording alongside.
+  // Transition cost (report it): a brand-new user with no pooled
+  // history is still calibration-gated until 50 fresh per-type
+  // settlements each (exact starts empty too, moot while its bets
+  // stay gated off) — but an existing user keeps their pooled
+  // evidence instead of restarting at zero.
   const trackersByType = {
     COLOR: new CalibrationTracker({ storage: safeStorage(), key: `${CALIBRATION_KEY}_COLOR` }),
     SIZE: new CalibrationTracker({ storage: safeStorage(), key: `${CALIBRATION_KEY}_SIZE` }),
@@ -2253,8 +2303,6 @@ function initBridge() {
     session: null,         // bankroll session
     balance: null,
     balanceSource: 'none',
-    balanceAnnounced: false,
-    greeted: false,
     backfilledKey: null,
     loginState: null,      // last LoginVerifier state string spoken/rendered
     login: null,           // last LoginVerifier status object
@@ -3249,18 +3297,13 @@ function initBridge() {
       axoOnEvent(event, full);
       return full;
     }
-    // Every BET prediction's subtitle carries the sequence road +
-    // the period number, and the voice speaks exactly that string.
-    // Phase 2A: system events (greeting, login, balance, model
-    // change) route to the auto-closing notification; verdict events
-    // keep the bubble. Voice via axoOnEvent is unchanged either way.
-    const full = event === BOT_EVENTS.SIGNAL_BET
-      ? withRoadSuffix(line, {
-          history: settledHistory(state.tf || currentTf()),
-          period: openPeriodFor(state.tf || currentTf()),
-          count: 8
-        })
-      : line;
+    // Phase 3B: the prediction subtitle is pick + stake + level
+    // ONLY (owner order 2026-10-27). The sequence road used to ride
+    // along on every BET subtitle (and the voice spoke it too) —
+    // deleted from the subtitle; the road stays in the panel's
+    // Sequence Road section only. withRoadSuffix/roadSuffix stay
+    // exported but unwired (Phase 2A dormant-helper precedent).
+    const full = line;
     say(full, subtitleKindForEvent(event));
     // Fix round #3: every verdict carries its icon — size arrow,
     // colour dot, or skip mark — beside the subtitle, never spoken.
@@ -3703,7 +3746,7 @@ function initBridge() {
     const sig = JSON.stringify([desired, ap.state.riskMode, ap.state.autoBase]);
     if (sig === state.baseSignature) return;
     state.baseSignature = sig;
-    if (desired === null) return; // No base knowable at all (no chip value): keep the session as-is.
+    if (desired === null) return; // Defensive only: resolveBaseBet never returns null since Phase 3B (chip default ₹2).
     if (desired === state.session.baseBet && ap.state.riskMode === state.session.mode) return;
     const balForPlan = freshVerifiedBalance(login) ? login.balance : state.session.balance;
     state.session = replanSession(state.session, balForPlan, { mode: ap.state.riskMode, baseBet: desired });
@@ -4165,36 +4208,46 @@ function initBridge() {
     // reads pattern stats below.
     feedPatternEngine();
 
-    // Balance + bankroll session
+    // Balance + bankroll session (Phase 3B balance decoupling, owner
+    // order 2026-10-27: "remove the balance sync, just give stake
+    // from user selected base"). The session starts on the FIRST
+    // cycle with no balance at all — the stake is the user-selected
+    // chip (default ₹2) × the ladder, and a synced balance is never
+    // a precondition again. The bridge verifier still updates
+    // state.balance for DISPLAY only (verified-balance block); it
+    // can no longer gate a session or a stake. The old
+    // BALANCE_DETECTED / BALANCE_LOW / BALANCE_NOT_DETECTED
+    // announcements are deleted with this block (a session state
+    // change is announced by the short STOP_LOSS / STOP_WIN /
+    // CIRCUIT_BREAKER verdict lines, not by a balance notice).
     const det = detectBalance();
     if (det.balance !== null) { state.balance = det.balance; state.balanceSource = det.source; }
-    if (state.balance !== null && !state.session) {
+    if (!state.session) {
       const startBase = desiredBaseBet(login);
       // Phase 3A (owner add-on A): resume the persisted ladder first
-      // — a reload resumes level/loss-count/PnL/base when the saved
-      // record is fresh (24h) and the balance matches to the paisa;
-      // otherwise a fresh session (manual bets while closed mean the
-      // saved ladder no longer describes reality).
-      const resumed = loadSessionFrom(safeStorage(), 'SHARED', state.balance);
-      if (resumed) {
-        state.session = resumed;
-        say(`Ladder resumed — level ${resumed.level + 1}, next ${inr(resumed.nextStake)}.`, 'system');
+      // — a reload resumes level/loss-count/base when the saved
+      // record is fresh (24h); with no live balance known the resume
+      // is balance-free (balance-derived fields zeroed, see
+      // loadSessionFrom). Otherwise a fresh session.
+      // Phase 3B fix: loadSessionFrom returns a { session, reason }
+      // wrapper — the Phase 3A caller assigned the WRAPPER as the
+      // session and tested `if (resumed)` (always truthy), so a saved
+      // ladder never actually resumed and every first cycle announced
+      // a bogus "Ladder resumed — level NaN". Destructure properly:
+      // only a real saved session resumes; anything else is fresh.
+      const saved = loadSessionFrom(safeStorage(), 'SHARED', state.balance);
+      if (saved.session) {
+        state.session = saved.session;
+        if (saved.session.state === 'CONTINUE' || saved.session.state === 'RESET') {
+          say(`Ladder resumed — level ${saved.session.level + 1}, next ${inr(saved.session.nextStake)}.`, 'system');
+        }
       } else {
-        state.session = createSession(state.balance, { mode: ap.state.riskMode, baseBet: startBase !== null ? startBase : undefined });
+        state.session = createSession(state.balance, { mode: ap.state.riskMode, baseBet: startBase });
       }
       try { saveSessionTo(safeStorage(), 'SHARED', state.session); } catch (e) { /* storage must never break the cycle */ }
       // Phase 3A: hold state is per-timeframe, NOT reset on session
       // start — the new rule's resets are a real BET, a fired bet,
       // or a dismissal (see the hold block in the cycle).
-      if (!state.balanceAnnounced) {
-        state.balanceAnnounced = true;
-        if (state.session.state === 'STOP') speakEvent(BOT_EVENTS.BALANCE_LOW);
-        else speakEvent(BOT_EVENTS.BALANCE_DETECTED);
-      }
-    }
-    if (state.balance === null && !state.balanceAnnounced) {
-      state.balanceAnnounced = true;
-      speakEvent(BOT_EVENTS.BALANCE_NOT_DETECTED);
     }
     // One session, one truth: chips / AUTO / risk mode replan it here.
     syncSessionBase(login);
@@ -4428,10 +4481,12 @@ function initBridge() {
     const incharge = ownerVerdict && ownerVerdict.model ? ownerVerdict.model : null;
 
     if (incharge && incharge.id !== state.inchargeId) {
-      const changed = state.inchargeId !== null;
+      // Phase 3B: a routine lead change is NOT announced anymore
+      // (owner order 2026-10-27 — leadership is already visible in
+      // the panel; the long MODEL_CHANGE line is deleted entirely,
+      // with no replacement announcement).
       state.inchargeId = incharge.id;
       state.inchargeReason = ownerVerdict.reason || null;
-      if (changed) speakEvent(BOT_EVENTS.MODEL_CHANGE);
     } else if (incharge) {
       state.inchargeReason = ownerVerdict.reason || state.inchargeReason;
     }
@@ -4464,10 +4519,12 @@ function initBridge() {
       const contenders = ranked.slice(0, 3).map(m => ({ id: m.id, name: m.name, pick: picks.get(m.id) ? picks.get(m.id).target : null }));
       const rawConf = myPick && typeof myPick.conf === 'number' ? Math.min(0.99, Math.max(0.01, myPick.conf)) : null;
       // Phase 3A per-type calibration: the gate + Platt fit use the
-      // LEADER's type tracker, never the pooled tracker (which keeps
-      // recording for legacy display only).
+      // LEADER's type tracker once it matures; until then the pooled
+      // tracker carries the gate (Phase 3B transitional migration —
+      // see selectGateTracker: pooled history is real evidence, and
+      // the per-type tracker takes over permanently at 50 records).
       const leaderType = incharge.predType || 'COLOR';
-      const gateTracker = trackersByType[leaderType] || tracker;
+      const gateTracker = selectGateTracker({ typeTracker: trackersByType[leaderType] || null, pooledTracker: tracker });
       // Displayed confidence: cap hard probabilities, then Platt-scale
       // through the fit learned from recorded outcomes.
       const calibratedProb = rawConf !== null ? displayProbability(rawConf, gateTracker) : null;
@@ -4718,7 +4775,8 @@ function initBridge() {
     const gateKey = latestPeriod + ':' + gate.decision + ':' + (gate.pick || '');
     if (state.gatePeriodKey !== gateKey) {
       state.gatePeriodKey = gateKey;
-      if (!state.greeted) { state.greeted = true; speakEvent(BOT_EVENTS.GREETING); }
+      // Phase 3B: no start-up greeting announcement anymore (owner
+      // order 2026-10-27 — the first verdict speaks for itself).
       if (!(ap.enabled && gate.decision === GATE_DECISIONS.BET)) {
         speakEvent(gate.decision === GATE_DECISIONS.BET ? BOT_EVENTS.SIGNAL_BET : BOT_EVENTS.SIGNAL_SKIP);
       }
@@ -4764,7 +4822,9 @@ function initBridge() {
     if (targetEl) {
       // Phase 3A ball image (governed picks only, never SKIP): a
       // digit pick shows its systems/balls.js PNG at 24px beside the
-      // text. The axo.lastHeroBall key guard avoids re-parsing the
+      // text, and Phase 3B letter picks (BIG/SMALL/GREEN/RED/VIOLET)
+      // show their systems/letter-balls.js glossy sphere at the same
+      // size. The axo.lastHeroBall key guard avoids re-parsing the
       // ~20KB data URI on every 3s cycle; a missing ballImg (or an
       // empty string) falls back to plain text, never a blank.
       const ballKey = (view.decision === 'BET' || view.decision === 'HELD') && view.ballDigit ? `${view.ballDigit}:${view.decision}` : null;
@@ -4845,7 +4905,11 @@ function initBridge() {
   }
 
   function renderSignal(gate, incharge, login) {
-    const bet = gate.decision === GATE_DECISIONS.BET;
+    // Phase 3B: a HELD candidate is a displayed pick, so the Bet
+    // figure shows for it too (the governed session's nextStake —
+    // tapping the held candidate stages it at that stake). A pure
+    // SKIP still shows '—': no bet on a skip, unchanged.
+    const bet = gate.decision === GATE_DECISIONS.BET || !!(gate.heldCandidate && gate.heldCandidate.pick);
     // Fix round #2: the stake suggestion is never login-gated. The
     // figures shown are always the governed session's own (or '—'
     // when no session exists) — never invented, never blocked.

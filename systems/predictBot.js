@@ -121,22 +121,13 @@ export function botLine(event, context = {}) {
   let line;
 
   switch (event) {
-    case BOT_EVENTS.GREETING: {
-      const hello = c.userName ? `Hi ${c.userName}` : 'Hi there';
-      line = `${hello}, I am watching the board for you. ${balancePhrase(c)} ${pnlPhrase(c)} ${c.inchargeName ? `The leading model right now is ${c.inchargeName}.` : 'No model has taken charge yet — I will speak up the moment a real signal forms.'}`;
-      break;
-    }
     case BOT_EVENTS.SIGNAL_BET: {
-      // Task R: short form — pick + stake + level only. The old line
-      // repeated the model name, the confidence, the whole Base
-      // Champion label and a filler sentence (~230 chars). And when
-      // there is NO session the stake is unknown, never ₹0: a
-      // session exists only when a balance is known, so hasSession
-      // false means "no stake planned yet", not "bet nothing".
+      // Phase 3B: short form — pick + stake + level only. The
+      // balance-decoupled session always exists (user chip, default
+      // ₹2), so the old "no stake yet — balance unknown" line is
+      // deleted entirely: it is impossible by construction now.
       const pick = c.pick || 'the Incharge pick';
-      line = c.hasSession === false
-        ? `New signal: ${pick} · no stake yet — balance unknown.`
-        : `New signal: ${pick} · ${inr(c.nextStake)} · level ${c.ladderLevel + 1}.`;
+      line = `New signal: ${pick} · ${inr(c.nextStake)} · level ${c.ladderLevel + 1}.`;
       break;
     }
     case BOT_EVENTS.SIGNAL_SKIP: {
@@ -195,24 +186,20 @@ export function botLine(event, context = {}) {
       line = `Stop-win hit — up 20%, profit banked, betting stops.`;
       break;
     }
-    case BOT_EVENTS.BALANCE_DETECTED: {
-      line = `Balance detected: ${inr(c.balance)}${c.balanceSourceLabel ? ` (${c.balanceSourceLabel})` : ''}. Your suggested base bet is ${inr(c.baseBet)} per your staking mode, and the ladder is planned inside the risk budget with the reserve protected.`;
-      break;
-    }
-    case BOT_EVENTS.BALANCE_LOW: {
-      line = `Your balance of ${inr(c.balance)} is too low for a safe ladder — even a ₹1 base cannot fit 3 levels with the reserve protected. I will not suggest stakes on a balance that cannot survive the ladder. Add funds only if you had already planned to, never because a bot asked.`;
-      break;
-    }
-    case BOT_EVENTS.BALANCE_NOT_DETECTED: {
-      line = 'Balance not detected — open the DhaniWin tab or enter it manually (tap the ball, then the gear for settings). Until I see a real balance I will show signals only, with no stake suggestions.';
-      break;
-    }
-    case BOT_EVENTS.MODEL_CHANGE: {
-      line = `The lead changed: ${c.inchargeName || 'a new model'} is now Incharge. ${c.inchargeReason || 'It earned the lead on its measured record — sample size first, then its safety-adjusted score, not on one lucky streak.'} I follow the new lead from the next round.`;
-      break;
-    }
     default: {
-      line = `${balancePhrase(c)} ${pnlPhrase(c)} ${c.gate === 'SKIP' ? `Current call: skip. ${c.gateReason || ''}` : c.inchargeName ? `Current lead: ${c.inchargeName}, next stake ${inr(c.nextStake)}.` : 'I am watching for the next clean signal.'}`;
+      // Phase 3B: the ONLY fallback line, kept short by contract
+      // (botLine must return a non-empty line for any event). The
+      // GREETING, BALANCE_DETECTED / BALANCE_LOW /
+      // BALANCE_NOT_DETECTED and MODEL_CHANGE cases were DELETED
+      // outright by owner order 2026-10-27 ("remove the long text"):
+      // a routine lead change needs no announcement (leadership is
+      // visible in the panel), and balance notices are obsolete
+      // under balance decoupling. Any legacy call with those event
+      // names lands here on this one short line — never on a long
+      // announcement again. The BOT_EVENTS constants themselves stay
+      // as harmless routing metadata (orb-bridge's system-routing set
+      // references them); nothing speaks them anymore.
+      line = 'Watching for the next signal.';
       break;
     }
   }

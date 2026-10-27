@@ -53,9 +53,7 @@ self.addEventListener('fetch', (event) => {
   if (url.hostname.includes('firebasedatabase.app') || 
       url.hostname.includes('lottery') || 
       url.hostname.includes('googleapis.com') ||
-      url.hostname.includes('dhaniwin') ||
-      url.hostname.includes('razorpay') ||
-      url.hostname.includes('rzp.io')) {
+      url.hostname.includes('dhaniwin')) {
     return;
   }
 
