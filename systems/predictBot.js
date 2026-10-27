@@ -69,6 +69,9 @@ function normCtx(ctx = {}) {
     ladderLevel: Number(ctx.ladderLevel) || 0,
     ladderLevels: Number(ctx.ladderLevels) || 0,
     nextStake: Number(ctx.nextStake) || 0,
+    // Phase 3E: post-settlement tracked ledger loss (null when no
+    // ledger info — legacy callers keep the old WIN line).
+    ledgerTracked: ctx.ledgerTracked !== undefined && ctx.ledgerTracked !== null ? Number(ctx.ledgerTracked) : null,
     // Task R (owner order 2026-10-26): the caller knows whether a
     // bankroll session exists. Tri-state on purpose: true = session
     // (stake is real), false = NO session (stake is unknown, never
@@ -150,19 +153,31 @@ export function botLine(event, context = {}) {
     }
     case BOT_EVENTS.WIN: {
       // Task R: short form — verdict + settled result + stake reset.
-      line = `Win${c.lastResult ? ` (${String(c.lastResult)})` : ''} — stake resets to ${inr(c.baseBet)}.`;
+      // Phase 3E: ledger-aware — a win reduces the ledger but only
+      // "resets" the stake when the ledger clears. Without ledger
+      // info (unit contexts, no session) keep the old short line.
+      if (c.ledgerTracked !== null && c.ledgerTracked > 0) {
+        line = `Win${c.lastResult ? ` (${String(c.lastResult)})` : ''} — ledger ${inr(c.ledgerTracked)} left, next ${inr(c.nextStake)}.`;
+      } else if (c.ledgerTracked !== null) {
+        line = `Win${c.lastResult ? ` (${String(c.lastResult)})` : ''} — ledger cleared, next ${inr(c.nextStake)}.`;
+      } else {
+        line = `Win${c.lastResult ? ` (${String(c.lastResult)})` : ''} — stake resets to ${inr(c.baseBet)}.`;
+      }
       break;
     }
     case BOT_EVENTS.LOSS: {
       // Task R: short form — verdict + settled result + no chasing.
-      line = `Loss${c.lastResult ? ` (${String(c.lastResult)})` : ''} — No chasing, ladder moves on.`;
+      // Phase 3E: the ledger replaces the ladder (wording follows).
+      line = `Loss${c.lastResult ? ` (${String(c.lastResult)})` : ''} — No chasing, ledger moves on.`;
       break;
     }
     case BOT_EVENTS.LADDER_UP: {
-      // Task R: short form — level + next stake + the double.
+      // Task R: short form — level + next stake.
       // Phase 3D: no stop explanation exists anymore (no stops) —
-      // just the rung.
-      line = `Ladder level ${c.ladderLevel + 1} — next stake ${inr(c.nextStake)}, the double.`;
+      // just the rung. Phase 3E: the level is the derived ledger
+      // level and the stake is the ledger figure — "the double" is
+      // retired with the ladder it described.
+      line = `Ledger level ${c.ladderLevel + 1} — next stake ${inr(c.nextStake)}.`;
       break;
     }
     default: {
@@ -216,18 +231,18 @@ export function answerQuestion(question, context = {}) {
   } else if (q.includes('why this signal') || q.includes('why bet') || q.includes('this signal')) {
     const conf = pct(c.calibratedConfidence);
     line = c.belowBar
-      ? `This signal comes from ${c.inchargeName || 'the Incharge model'} picking ${c.pick || 'its target'}${conf ? ` at ${conf} calibrated confidence` : ''}. It is below the safety bar (${c.gateReason || 'quality below bar'}), so the stake is scaled down. Suggested stake: ${inr(c.nextStake)} at ladder level ${c.ladderLevel + 1}.`
-      : `This signal comes from ${c.inchargeName || 'the Incharge model'} picking ${c.pick || 'its target'}${conf ? ` at ${conf} calibrated confidence` : ''}. ${c.inchargeReason || 'It leads the Arena on its safety-adjusted measured record.'} Suggested stake: ${inr(c.nextStake)} at ladder level ${c.ladderLevel + 1}.`;
+      ? `This signal comes from ${c.inchargeName || 'the Incharge model'} picking ${c.pick || 'its target'}${conf ? ` at ${conf} calibrated confidence` : ''}. It is below the safety bar (${c.gateReason || 'quality below bar'}), so the stake is scaled down. Suggested stake: ${inr(c.nextStake)} at ledger level ${c.ladderLevel + 1}.`
+      : `This signal comes from ${c.inchargeName || 'the Incharge model'} picking ${c.pick || 'its target'}${conf ? ` at ${conf} calibrated confidence` : ''}. ${c.inchargeReason || 'It leads the Arena on its safety-adjusted measured record.'} Suggested stake: ${inr(c.nextStake)} at ledger level ${c.ladderLevel + 1}.`;
   } else if (q.includes('base bet') || q.includes('base') || q.includes('stake') || q.includes('ladder') || q.includes('risk') && q.includes('money')) {
-    line = `Your base bet is ${inr(c.baseBet)} — your selected chip (or AUTO sizing when opted in). On a loss the stake doubles; a win pays stake × 0.96 and resets to base. The ladder keeps doubling on every loss until a win — no rung cap ends it, no restart at base. If a doubled stake exceeds your balance, the app shows the required stake plus the shortfall plainly and you decide with the tap; it never silently reduces a stake. One honest note: doubling does not create an edge by itself — it only works alongside a real win rate above 51.02%.`;
+    line = `Your base bet is ${inr(c.baseBet)} — your selected chip (or AUTO sizing when opted in). Losses are tracked in the Recovery Ledger: a loss adds its exact stake, a win subtracts its exact profit (stake × 0.96), and the next stake is confidence-weighted — higher Wilson, higher weight (0.25× at the bar up to 1.00× at 75%+). If a required stake exceeds your balance, the app shows the required stake plus the shortfall plainly and you decide with the tap; it never silently reduces a stake. One honest note: recovery sizing does not create an edge by itself — it only works alongside a real win rate above 51.02%.`;
   } else if (q.includes('leading') || q.includes('leader') || q.includes('incharge') || q.includes('which model') || q.includes('best model')) {
     line = c.inchargeName
       ? `${c.inchargeName} is Incharge. ${c.inchargeReason || 'It ranks first on the Wilson safety-adjusted score: think of it as the win rate we can defend after punishing small samples, blended with its last-100-rounds form.'} Bets scale with evidence: below 200 evaluated rounds the stake is reduced (0.25× under 50, 0.5× under 100, 0.75× under 200) and full stake starts at 200; streak overrides now need a 5-win streak with real recent form behind them.`
       : 'No model is Incharge yet — the Arena is still building samples. Once a model leads, it can bet as soon as its Wilson bound clears breakeven plus margin, at a stake scaled to its evaluated rounds.';
   } else if (q.includes('balance') || q.includes('money status') || q.includes('money') || q.includes('p&l') || q.includes('profit') || q.includes('session')) {
-    line = `${balancePhrase(c)} ${pnlPhrase(c)} Next stake if a bet is called: ${inr(c.nextStake)}. No stops exist: the ladder keeps doubling until a win, and an over-balance stake shows its shortfall for your tap decision.`;
+    line = `${balancePhrase(c)} ${pnlPhrase(c)} Next stake if a bet is called: ${inr(c.nextStake)}. No stops exist: losses are tracked in the Recovery Ledger and the next stake is confidence-weighted; an over-balance stake shows its shortfall for your tap decision.`;
   } else if (q.includes('rule') || q.includes('stop') || q.includes('breaker')) {
-    line = 'The money rules, plainly: base bet from your selected chip (or AUTO sizing); losses double the stake and a win resets it; the ladder keeps doubling until a win with no cap and no restart; if a doubled stake exceeds your balance, the app shows the required stake plus the shortfall and you decide with the tap. Every round shows a pick with its honest quality — below-bar picks stake at a reduced tier.';
+    line = 'The money rules, plainly: base bet from your selected chip (or AUTO sizing); losses are tracked in the Recovery Ledger (a loss adds its stake, a win subtracts stake × 0.96 profit); the next stake is confidence-weighted from the ledger (0.25× at the bar to 1.00× at 75%+ Wilson); if a required stake exceeds your balance, the app shows the required stake plus the shortfall and you decide with the tap. Every round shows a pick with its honest quality — below-bar picks stake at a reduced tier.';
   } else if (q.includes('confidence') || q.includes('sure') || q.includes('accurate')) {
     const conf = pct(c.calibratedConfidence);
     line = conf
