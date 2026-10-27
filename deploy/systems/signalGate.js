@@ -110,6 +110,36 @@ export const HARD_STOP_LOSSES = 3;
 export const HARD_STOP_REASON = '3-loss streak — stopped';
 
 /**
+ * Bet type of a pick target (Phase 3A). Digit strings are exact-ball
+ * (NUMBER) picks; GREEN/RED are colour; BIG/SMALL are size. Anything
+ * else (null, VIOLET, unknown tokens) maps to null — never guessed.
+ */
+export function betTypeOfPick(target) {
+  if (target === null || target === undefined) return null;
+  const t = String(target).trim().toUpperCase();
+  if (/^[0-9]$/.test(t)) return 'NUMBER';
+  if (t === 'GREEN' || t === 'RED') return 'COLOR';
+  if (t === 'BIG' || t === 'SMALL') return 'SIZE';
+  return null;
+}
+
+/**
+ * Phase 3A gates (owner orders 2026-10-26). Both are hard gates that
+ * run BEFORE the floor/Wilson checks so their reason always shows:
+ *  - EXACT_BALL_GATE_REASON: digit picks never govern a BET while the
+ *    live DhaniWin exact payout is unverified. No payout is assumed,
+ *    no silent fallback to a colour/size pick.
+ *  - ASI_TRIAL_GATE_REASON: ASI / ASI_APEX_MASTER (governed since
+ *    Phase 3A) are evaluated and shown, but do not drive a BET until
+ *    their ensemble trial passes vs the best single model (harness
+ *    PASS). The trial flag is input.asiTrialPassed (default false —
+ *    gated); a future harness round flips it, never a toggle.
+ */
+export const EXACT_BALL_GATE_REASON = 'Exact-ball gated: live payout unverified.';
+export const ASI_TRIAL_GATE_REASON = 'ASI trial: evaluated, not bet-driving until harness PASS.';
+export const ASI_TRIAL_IDS = ['ASI', 'ASI_APEX_MASTER'];
+
+/**
  * GovernedStreakGuard — the ONE streak counter and ONE stop state for
  * the governed flow (owner's rule, 2026-10-24: never a 4th bet into a
  * losing streak).
@@ -140,6 +170,16 @@ export const HARD_STOP_REASON = '3-loss streak — stopped';
  * recorded in `lastClear` so the UI/report can say how it cleared.
  */
 export class GovernedStreakGuard {
+  /**
+   * Phase 3A: the hard-stop reason line for THIS guard's threshold.
+   * The default guard (3) reproduces HARD_STOP_REASON exactly; a
+   * per-type guard (e.g. exact-ball 8) names its own breaker so the
+   * displayed reason never says "3-loss" for an 8-loss stop.
+   */
+  get hardStopReason() {
+    return `${this.hardStopLosses}-loss streak — stopped`;
+  }
+
   constructor({ hardStopLosses = HARD_STOP_LOSSES, cooldownTriggerLosses = 2, cooldownRounds = 3, cooldownExtraMargin = DEFAULT_GATE_CONFIG.cooldownExtraMargin, shadowWinsToClear = 2 } = {}) {
     this.hardStopLosses = hardStopLosses;
     this.cooldownTriggerLosses = cooldownTriggerLosses;
@@ -328,6 +368,18 @@ export function evaluateSignalGate(input = {}, config = {}) {
   // 1. A pick must exist.
   if (!pick) return skip('No pick from Incharge yet.', 'nopick');
 
+  // 1a. Phase 3A hard gates (before floor/Wilson so the reason shows):
+  // exact-ball picks never govern a BET while the live payout is
+  // unverified, and ASI trial models never drive a BET until their
+  // harness PASS. Neither gate invents a fallback pick — the verdict
+  // stays SKIP with the gate's own reason.
+  if (betTypeOfPick(pick) === 'NUMBER') {
+    return skip(EXACT_BALL_GATE_REASON, 'exactgate');
+  }
+  if (model && ASI_TRIAL_IDS.includes(model.id) && !input.asiTrialPassed) {
+    return skip(ASI_TRIAL_GATE_REASON, 'asitrial');
+  }
+
   // 2. Sanity floor: below 20 rounds one round swings the Wilson
   // bound by 10+ points, so no ranking is stable enough to bet on.
   // Above the floor, the Wilson bound itself must clear the bar
@@ -414,7 +466,7 @@ export class SignalGate {
 export const evaluateGate = evaluateSignalGate;
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { GATE_DECISIONS, DEFAULT_GATE_CONFIG, breakEvenWinRate, evaluateSignalGate, evaluateGate, SignalGate, GateCooldown, GovernedStreakGuard, HARD_STOP_LOSSES, HARD_STOP_REASON, MIN_RANK_SAMPLES, sampleStakeFactor };
+  module.exports = { GATE_DECISIONS, DEFAULT_GATE_CONFIG, breakEvenWinRate, evaluateSignalGate, evaluateGate, SignalGate, GateCooldown, GovernedStreakGuard, HARD_STOP_LOSSES, HARD_STOP_REASON, MIN_RANK_SAMPLES, sampleStakeFactor, betTypeOfPick, EXACT_BALL_GATE_REASON, ASI_TRIAL_GATE_REASON, ASI_TRIAL_IDS };
 }
 
 if (typeof self !== "undefined") {

@@ -31,13 +31,14 @@
  * waits quietly. It never throws into the page.
  */
 
-import { InchargeEngine, INCHARGE_MODES, wilsonLowerBound } from './inchargeEngine.js';
-import { CalibrationTracker, PerModelCalibrationTracker, calibrationLabel, plattScale } from './calibration.js';
-import { evaluateSignalGate, GATE_DECISIONS, GateCooldown, GovernedStreakGuard, HARD_STOP_REASON, sampleStakeFactor } from './signalGate.js';
+import { InchargeEngine, INCHARGE_MODES, wilsonLowerBound, selectInchargeOwnerRule } from './inchargeEngine.js';
+import { CalibrationTracker, PerModelCalibrationTracker, calibrationLabel, plattScale, CALIBRATION_KEY } from './calibration.js';
+import { evaluateSignalGate, GATE_DECISIONS, GateCooldown, GovernedStreakGuard, HARD_STOP_REASON, sampleStakeFactor, betTypeOfPick, ASI_TRIAL_IDS } from './signalGate.js';
 import { BlacklistManager } from './blacklist.js';
 import {
   createSession, settle, planLadder, suggestBaseBet,
-  balanceSourceLabel, BALANCE_SOURCES, DEFAULT_STAKING_MODE
+  balanceSourceLabel, BALANCE_SOURCES, DEFAULT_STAKING_MODE,
+  createExactSession, settleExactFlat, sessionStoreKey, saveSessionTo, loadSessionFrom
 } from './bankroll.js';
 import { botLine, BOT_EVENTS, answerQuestion } from './predictBot.js';
 import { AxoAiClient, buildAxoPayload, localRegimeLabel, localSessionSummary, AXO_AI_ENDPOINT } from './axo-ai.js';
@@ -59,6 +60,18 @@ export class ModelHistoryStore {
     this.data = { v: 1, tf: {} };
     this._dirty = false;
     this.load();
+    // Session baselines (Phase 3A, v2 §1.1): per (tf, modelId) the
+    // evaluated/wins counters at page load, so "session" = rounds
+    // since this page load (reload = new session). Models created
+    // after load default to a zero baseline (their whole history
+    // counts as session — correct for a model first seen mid-page).
+    this.sessionBaselines = {};
+    for (const tf of Object.keys(this.data.tf)) {
+      const bucket = this.data.tf[tf];
+      for (const [id, m] of Object.entries(bucket.models || {})) {
+        this.sessionBaselines[`${tf}::${id}`] = { evaluated: m.evaluated || 0, wins: m.wins || 0 };
+      }
+    }
   }
 
   load() {
@@ -137,6 +150,16 @@ export class ModelHistoryStore {
     if (!m || !m.evaluated) return null;
     const recentEvaluated = m.recent.length;
     const recentWins = m.recent.reduce((a, b) => a + b, 0);
+    // Last-10 window (v2 §1.1): the last 10 settled rounds, from the
+    // capped recent array (RECENT_CAP = 100, so slice(-10) is exact).
+    const last10 = m.recent.slice(-10);
+    const last10Wins = last10.reduce((a, b) => a + b, 0);
+    // Session window (v2 §1.1): rounds since page load, via the
+    // constructor baselines (clamped ≥0 — a stored counter can never
+    // run below its load-time baseline in normal operation).
+    const base = (this.sessionBaselines && this.sessionBaselines[`${tf}::${modelId}`]) || { evaluated: 0, wins: 0 };
+    const sessionEvaluated = Math.max(0, m.evaluated - (base.evaluated || 0));
+    const sessionWins = Math.max(0, m.wins - (base.wins || 0));
     return {
       evaluated: m.evaluated,
       wins: m.wins,
@@ -146,7 +169,13 @@ export class ModelHistoryStore {
       streak: m.streak,
       recentEvaluated,
       recentWins,
-      recentWinRate: recentEvaluated ? recentWins / recentEvaluated : null
+      recentWinRate: recentEvaluated ? recentWins / recentEvaluated : null,
+      last10Evaluated: last10.length,
+      last10Wins,
+      last10WinRate: last10.length ? last10Wins / last10.length : null,
+      sessionEvaluated,
+      sessionWins,
+      sessionWinRate: sessionEvaluated ? sessionWins / sessionEvaluated : null
     };
   }
 
@@ -625,6 +654,13 @@ export function bridgeDiagnostic(login, transport, proxyFailed) {
  * target and no confidence, so a prediction and a SKIP can never be
  * visible in the sheet at the same time.
  */
+// Digit test for ball images (pure): a governed pick that is exactly
+// one digit 0–9 carries a ball image; colour/size picks do not.
+export function ballDigitFor(pick) {
+  const p = String(pick === null || pick === undefined ? '' : pick);
+  return /^[0-9]$/.test(p) ? p : null;
+}
+
 export function heroVerdictView(gate) {
   if (!gate || !gate.decision) return { decision: 'NONE', targetText: '—', confText: '—', pick: null, reasonText: '' };
   if (gate.decision === GATE_DECISIONS.BET) {
@@ -634,6 +670,7 @@ export function heroVerdictView(gate) {
       confText: gate.prob !== null && gate.prob !== undefined ? Math.round(gate.prob * 100) + '%' : '—',
       pick: gate.pick || null,
       reasonText: '',
+      ballDigit: ballDigitFor(gate.pick),
       // Graduated-stake note (rendered under NEXT PREDICTION by
       // renderHeroVerdict): a BET never carries a reason line, but
       // it MUST carry the early-data note so a reduced stake is
@@ -641,11 +678,31 @@ export function heroVerdictView(gate) {
       sampleNote: gate.sampleNote || ''
     };
   }
+  // Phase 3A HELD: a held-candidate round is NOT a skip for display —
+  // it shows the held pick with its TRUE below-bar status (gap in
+  // points + gate reason). Settlement still treats it as SKIP (no
+  // ladder, no sound, just logging + calibration). A held digit pick
+  // is allowed in principle (a displayed pick, not a SKIP) but cannot
+  // occur while the exact gate is closed (digit picks are filtered
+  // from held selection).
+  if (gate.heldCandidate && gate.heldCandidate.pick) {
+    const h = gate.heldCandidate;
+    return {
+      decision: 'HELD',
+      targetText: h.pick,
+      confText: `Wilson ${(h.wilson * 100).toFixed(1)}% · needs ${(h.required * 100).toFixed(2)}% (${Math.max(0, h.gapPts).toFixed(1)} short)`,
+      pick: h.pick,
+      reasonText: h.reason || '',
+      ballDigit: ballDigitFor(h.pick),
+      heldCandidate: h,
+      sampleNote: ''
+    };
+  }
   // SKIP carries the firing gate's reason verbatim (numbers included:
   // sample count, required probability, streak state) so the hero
   // surface itself says WHY — the reason must survive subtitle
   // overwrites by later Auto-Pilot/ball announcements.
-  return { decision: 'SKIP', targetText: 'SKIP', confText: '—', pick: null, reasonText: gate.reason || '' };
+  return { decision: 'SKIP', targetText: 'SKIP', confText: '—', pick: null, reasonText: gate.reason || '', ballDigit: null };
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -670,6 +727,7 @@ export function resolveGovernanceScope(store, tf, minRounds = GOVERNANCE_MIN_TF_
 /** One model's stats merged across every timeframe (global scope). */
 export function mergedModelStats(store, modelId) {
   let evaluated = 0, wins = 0, losses = 0, recentWins = 0, recentEvaluated = 0;
+  let last10Wins = 0, last10Evaluated = 0, sessionWins = 0, sessionEvaluated = 0;
   let streak = 0, bestEvaluated = -1;
   for (const tf of Object.keys(store.data.tf)) {
     const s = store.modelStats(tf, modelId);
@@ -679,6 +737,14 @@ export function mergedModelStats(store, modelId) {
     losses += s.losses;
     recentWins += s.recentWins;
     recentEvaluated += s.recentEvaluated;
+    // Merged last10/session are SUMS across timeframes — an
+    // approximation in the same class as the merged recent/streak
+    // handling (a true merged last-10 would need chronological
+    // interleaving, which the per-tf buckets do not store).
+    last10Wins += s.last10Wins || 0;
+    last10Evaluated += s.last10Evaluated || 0;
+    sessionWins += s.sessionWins || 0;
+    sessionEvaluated += s.sessionEvaluated || 0;
     // Streaks do not merge chronologically across timeframes; report the
     // streak of the timeframe with the deepest record (labelled global).
     if (s.evaluated > bestEvaluated) { bestEvaluated = s.evaluated; streak = s.streak; }
@@ -690,7 +756,11 @@ export function mergedModelStats(store, modelId) {
     wilson: wilsonLowerBound(wins, evaluated),
     streak,
     recentEvaluated, recentWins,
-    recentWinRate: recentEvaluated ? recentWins / recentEvaluated : null
+    recentWinRate: recentEvaluated ? recentWins / recentEvaluated : null,
+    last10Evaluated, last10Wins,
+    last10WinRate: last10Evaluated ? last10Wins / last10Evaluated : null,
+    sessionEvaluated, sessionWins,
+    sessionWinRate: sessionEvaluated ? sessionWins / sessionEvaluated : null
   };
 }
 
@@ -704,12 +774,20 @@ export function buildPoolFromStore(store, models, scopeKey, patternCtx = null) {
   return (models || []).map(m => {
     const s = scopeKey === 'ALL' ? mergedModelStats(store, m.id) : store.modelStats(scopeKey, m.id);
     const base = !s
-      ? { id: m.id, name: m.name, wins: 0, totalEvaluated: 0, winRate: 0, streak: 0, recentWinRate: null, recentEvaluated: 0 }
+      ? { id: m.id, name: m.name, wins: 0, totalEvaluated: 0, winRate: 0, streak: 0, recentWinRate: null, recentEvaluated: 0,
+          predType: m.predType || null, cat: m.cat || null,
+          last10Wins: 0, last10Evaluated: 0, last10WinRate: null,
+          sessionWins: 0, sessionEvaluated: 0, sessionWinRate: null }
       : {
           id: m.id, name: m.name,
           wins: s.wins, totalEvaluated: s.evaluated, winRate: s.winRate,
           streak: s.streak,
-          recentWinRate: s.recentWinRate, recentEvaluated: s.recentEvaluated
+          recentWinRate: s.recentWinRate, recentEvaluated: s.recentEvaluated,
+          predType: m.predType || null, cat: m.cat || null,
+          last10Wins: s.last10Wins || 0, last10Evaluated: s.last10Evaluated || 0,
+          last10WinRate: s.last10WinRate !== undefined ? s.last10WinRate : null,
+          sessionWins: s.sessionWins || 0, sessionEvaluated: s.sessionEvaluated || 0,
+          sessionWinRate: s.sessionWinRate !== undefined ? s.sessionWinRate : null
         };
     if (patternCtx && patternCtx.key) {
       const hit = store.patternSummaryFor(scopeKey, m.id).find(p => p.key === patternCtx.key);
@@ -876,6 +954,7 @@ export function badgeFromView(view) {
   if (!view) return '';
   if (view.decision === 'SKIP') return 'Skip';
   if (view.decision === 'BET') return predictionBadgeText(view.pick, 'BET');
+  if (view.decision === 'HELD') return predictionBadgeText(view.pick, 'BET');
   return '';
 }
 
@@ -1154,8 +1233,12 @@ export function resolveBaseBet({ autoBase = false, verifiedBalance = null, riskM
  * a SKIP, nothing else does. Login state is deliberately NOT a
  * parameter — it cannot change what is shown or staged.
  */
-export function displayGateFor(engineGate, { hardStopped = false } = {}) {
-  if (hardStopped) return { ...engineGate, decision: GATE_DECISIONS.SKIP, prob: null, reason: HARD_STOP_REASON, skipKind: 'hardstop' };
+export function displayGateFor(engineGate, { hardStopped = false, hardStopReason = HARD_STOP_REASON } = {}) {
+  // Phase 3A: the reason is the STOPPING guard's own line — the global
+  // guard says '3-loss streak — stopped', a per-type exact guard says
+  // '8-loss streak — stopped'. The caller passes the type reason when
+  // only that type is stopped, the global reason when global stopped.
+  if (hardStopped) return { ...engineGate, decision: GATE_DECISIONS.SKIP, prob: null, reason: hardStopReason, skipKind: 'hardstop' };
   return engineGate;
 }
 
@@ -1209,22 +1292,67 @@ export function applyNoSkip(gate, { enabled = false, pick = null } = {}) {
  * stops, ladder, per-bet tap) is untouched by this round.
  */
 
-// ── Display-only models: ASI / ASI_APEX_MASTER ──────────────────────
-// A static pick must never be ranked or bet. These two ids are cut
-// out of the GOVERNED pool (the only ranking-behavior change in
-// Phase 2A) and shown in a separate display-only section instead.
-// The full pool is untouched for export and display.
+// ── Governed pool: the 99 (Phase 3A, owner order 2026-10-26) ────────
+// 33 colour + 33 size + 33 exact-ball, equal by construction. Per
+// (family, type) cap 3 in catalog order; the first 3 families in
+// catalog first-appearance order (fly, neural, classical) get a 4th
+// slot per type: 4×3 + 3×7 = 33 per type. ASI + ASI_APEX_MASTER take
+// slot 1 within their (family, type) — without priority,
+// ASI_APEX_MASTER (4th meta SIZE in catalog order) would be cut, and
+// meta COLOR would need its gap filled. Cut models are DISPLAY-ONLY
+// spares (reversible, never deleted): 38 = 13 colour + 25 size +
+// 0 exact-ball (all 33 exact-ball models are governed).
+// One function serves both catalog-level counts and pool splits:
+// pool entries carry id/cat/predType in catalog order via
+// buildPoolFromStore, so the same logic applies to both.
+// LEGACY: DISPLAY_ONLY_MODEL_IDS / isDisplayOnlyModel stay exported
+// for old tests but NO live path gates on them anymore — ASI is
+// governed in Phase 3A (trial-gated for bets, see signalGate.js).
 export const DISPLAY_ONLY_MODEL_IDS = ['ASI', 'ASI_APEX_MASTER'];
+export const GOVERNED_ASI_IDS = ['ASI', 'ASI_APEX_MASTER'];
 
 export function isDisplayOnlyModel(modelOrId) {
   const id = typeof modelOrId === 'string' ? modelOrId : (modelOrId && modelOrId.id);
   return DISPLAY_ONLY_MODEL_IDS.includes(id);
 }
 
+export function selectGoverned(entries) {
+  const list = entries || [];
+  const families = [];
+  const seenFamilies = new Set();
+  for (const m of list) {
+    const fam = m.cat || 'unknown';
+    if (!seenFamilies.has(fam)) { seenFamilies.add(fam); families.push(fam); }
+  }
+  const first3 = new Set(families.slice(0, 3));
+  const byId = new Map(list.map(m => [m.id, m]));
+  const slots = new Map();
+  const chosen = new Set();
+  const take = (m) => {
+    chosen.add(m.id);
+    const key = (m.cat || 'unknown') + '::' + (m.predType || 'COLOR');
+    slots.set(key, (slots.get(key) || 0) + 1);
+  };
+  // ASI priority: the ensemble tier takes slot 1 of its (family, type).
+  for (const id of GOVERNED_ASI_IDS) {
+    const m = byId.get(id);
+    if (m) take(m);
+  }
+  for (const m of list) {
+    if (chosen.has(m.id)) continue;
+    const key = (m.cat || 'unknown') + '::' + (m.predType || 'COLOR');
+    const cap = first3.has(m.cat) ? 4 : 3;
+    if ((slots.get(key) || 0) < cap) take(m);
+  }
+  // Return in original (catalog) order — ASI sits at its natural
+  // catalog position, not prepended.
+  return list.filter(m => chosen.has(m.id));
+}
+
 export function splitGovernedPool(pool) {
-  const governed = [];
-  const displayOnly = [];
-  for (const m of pool || []) (isDisplayOnlyModel(m) ? displayOnly : governed).push(m);
+  const governed = selectGoverned(pool);
+  const govIds = new Set(governed.map(m => m.id));
+  const displayOnly = (pool || []).filter(m => !govIds.has(m.id));
   return { governed, displayOnly };
 }
 
@@ -1244,19 +1372,34 @@ export function splitGovernedPool(pool) {
 export const SKIP_CAP_MAX_CONSECUTIVE = 3;
 export const SKIP_CAP_YIELD_NOTE = 'Skip cap held: safety stop active.';
 export const SKIP_CAP_NO_PICK_NOTE = 'Cap tried: no pick available.';
+export const SKIP_CAP_SUPPRESSED_NOTE = 'Held candidate dismissed — suppressed until its Wilson moves >1pt.';
 
 export function skipCapNext({ count = 0, gateDecision = null, safetyStop = false } = {}) {
+  // HOLD semantics (Phase 3A, owner add-on B — replaces the Phase 2A
+  // mechanical cap). The counter resets ONLY on a real BET verdict
+  // (or a fired bet, handled by the caller) — NEVER on a forced pick
+  // display, because forced picks no longer exist. At 3 the count
+  // STAYS at 3 and `hold: true` tells the cycle to show the best
+  // available candidate HELD (not a BET, not a skip, no new count)
+  // until he taps it or a real gate-passing pick arrives. A safety
+  // stop FREEZES the count (Phase 2A reset it, which let a stop
+  // launder the streak); no hold activates under a stop.
   if (safetyStop) {
-    // A stop resets the streak. The yield note applies only to a
-    // displayed SKIP — a BET verdict has nothing to yield on.
     const yielded = gateDecision !== GATE_DECISIONS.BET && count >= SKIP_CAP_MAX_CONSECUTIVE;
-    return { count: 0, force: false, yielded };
+    return { count, hold: false, yielded };
   }
-  if (gateDecision === GATE_DECISIONS.BET) return { count: 0, force: false, yielded: false };
-  if (count >= SKIP_CAP_MAX_CONSECUTIVE) return { count: 0, force: true, yielded: false };
-  return { count: count + 1, force: false, yielded: false };
+  if (gateDecision === GATE_DECISIONS.BET) return { count: 0, hold: false, yielded: false };
+  if (count >= SKIP_CAP_MAX_CONSECUTIVE) return { count, hold: true, yielded: false };
+  return { count: count + 1, hold: false, yielded: false };
 }
 
+/**
+ * LEGACY (Phase 2A mechanical cap): kept + tested, but NO live caller
+ * in Phase 3A — the cycle uses the hold rule instead. A forced-pick
+ * display is not a gate-passing pick, so converting a SKIP into a BET
+ * here re-created the skip×3→pick loop the owner flagged. Reversible:
+ * re-wiring it restores the old behavior. Do NOT call from the cycle.
+ */
 export function applySkipCap(gate, { pick = null } = {}) {
   if (!gate || gate.decision !== GATE_DECISIONS.SKIP || !pick) return gate;
   const factor = gate.sampleFactor ?? 1;
@@ -1336,15 +1479,21 @@ export const THIN_POOL_MIN = 10;
 // a skipped round. The stake figure is formatted exactly like the
 // hero's Bet figure ('₹' + en-IN grouping, whole rupees) and comes
 // from the same source (state.session.nextStake) — no new math.
-export function closedOrbPill({ decision = null, pick = null, stake = null } = {}) {
+export function closedOrbPill({ decision = null, pick = null, stake = null, heldCandidate = null } = {}) {
   if (decision === GATE_DECISIONS.BET && pick) {
     if (stake !== null && stake !== undefined && Number.isFinite(Number(stake)) && Number(stake) > 0) {
-      return { text: `${pick} · ₹${Number(stake).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`, state: 'bet' };
+      return { text: `${pick} · ₹${Number(stake).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`, state: 'bet', ballDigit: ballDigitFor(pick) };
     }
-    return { text: pick, state: 'bet' };
+    return { text: pick, state: 'bet', ballDigit: ballDigitFor(pick) };
   }
-  if (decision === GATE_DECISIONS.SKIP) return { text: 'SKIP', state: 'skip' };
-  return { text: '—', state: 'none' };
+  // Phase 3A HELD: the held pick shows on the closed orb with NO
+  // stake (it is not a bet). The ball image rides ballDigit for
+  // digit picks (future — filtered while the exact gate is closed).
+  if (heldCandidate && heldCandidate.pick) {
+    return { text: heldCandidate.pick, state: 'held', ballDigit: ballDigitFor(heldCandidate.pick) };
+  }
+  if (decision === GATE_DECISIONS.SKIP) return { text: 'SKIP', state: 'skip', ballDigit: null };
+  return { text: '—', state: 'none', ballDigit: null };
 }
 
 /**
@@ -1875,6 +2024,10 @@ export function roadCells({ history = [], dispositions = {}, tf = '', openPeriod
  */
 export function orbPredictionView({ verdict = null, pick = null, period = null } = {}) {
   if (verdict === 'BET' && pick) return { pickText: pick, periodText: period ? `#${shortPeriod(period)}` : '', state: 'bet' };
+  // Phase 3A: a held candidate is a displayed pick on the closed orb
+  // (text only here — the pill below carries the ball image for
+  // digits); it is NOT a skip and NOT a bet (no stake shown).
+  if (verdict === 'HELD' && pick) return { pickText: pick, periodText: period ? `#${shortPeriod(period)}` : '', state: 'held' };
   if (verdict === 'SKIP') return { pickText: 'SKIP', periodText: period ? `#${shortPeriod(period)}` : '', state: 'skip' };
   return { pickText: '—', periodText: period ? `#${shortPeriod(period)}` : '', state: 'none' };
 }
@@ -1958,8 +2111,26 @@ export function balanceBlockView(login) {
 export function replanSession(prev, balance, { mode = DEFAULT_STAKING_MODE, baseBet } = {}) {
   const fresh = createSession(balance, { mode, baseBet });
   if (!prev) return fresh;
+  // Phase 3A fix (owner add-on A): a mid-ladder replan (chip change,
+  // AUTO recompute, risk-mode change) used to reset the ladder rung
+  // — the spread carried consecutiveLosses/sessionPnL/rounds but NOT
+  // level, so nextStake fell back to the fresh base and a loss's
+  // doubling was silently forgotten. Carry the level when the
+  // previous session was still active (CONTINUE/RESET) and recompute
+  // nextStake = newBase × 2^level; a stopped session keeps fresh
+  // level 0 (existing stop-revival semantics, unchanged). The carried
+  // level is capped at the fresh plan's top rung so the scaled stake
+  // can never exceed the ladder the new base affords.
+  const wasActive = prev.state === 'CONTINUE' || prev.state === 'RESET';
+  const maxLevel = Math.max(0, (fresh.ladderLevels || 1) - 1);
+  const level = wasActive ? Math.min(prev.level || 0, maxLevel) : 0;
+  const nextStake = (wasActive && fresh.state === 'CONTINUE' && fresh.baseBet > 0)
+    ? fresh.baseBet * Math.pow(2, level)
+    : fresh.nextStake;
   return {
     ...fresh,
+    level,
+    nextStake,
     startingBalance: prev.startingBalance || fresh.startingBalance,
     sessionPnL: prev.sessionPnL || 0,
     rounds: prev.rounds || 0,
@@ -1984,6 +2155,28 @@ function initBridge() {
   // recent 500 records): a fresh page load used to reset it to zero
   // and the gate skipped every round until 50 fresh settlements.
   const tracker = new CalibrationTracker({ storage: safeStorage() });
+  // Phase 3A per-type calibration (v2 §8): one tracker per bet type,
+  // persisted under distinct keys. The gate + Platt fit use the
+  // LEADER's type tracker; the pooled tracker above keeps recording
+  // for legacy display but no longer gates or scales anything.
+  // Transition cost (report it): per-type trackers start empty, so
+  // after this ships colour/size are calibration-gated until 50 fresh
+  // per-type settlements each (exact starts empty too, moot while its
+  // bets stay gated off).
+  const trackersByType = {
+    COLOR: new CalibrationTracker({ storage: safeStorage(), key: `${CALIBRATION_KEY}_COLOR` }),
+    SIZE: new CalibrationTracker({ storage: safeStorage(), key: `${CALIBRATION_KEY}_SIZE` }),
+    NUMBER: new CalibrationTracker({ storage: safeStorage(), key: `${CALIBRATION_KEY}_NUMBER` })
+  };
+  // Record the displayed pick's outcome into its TYPE's tracker
+  // (mirrors every pooled tracker.record call below). Null pick or
+  // non-numeric prob → nothing (the pooled call guards the same).
+  const recordTypeCalibration = (target, prob, won) => {
+    const type = betTypeOfPick(target);
+    if (type && trackersByType[type] && typeof prob === 'number') {
+      try { trackersByType[type].record(prob, !!won); } catch (e) { /* calibration must never break settlement */ }
+    }
+  };
   // Phase 2A: per-model calibration (observability only — never a
   // verdict input). Records every governed model's RAW stated
   // confidence at settlement; session-scoped, bounded per model.
@@ -2003,6 +2196,18 @@ function initBridge() {
   // cannot launder a stop. (The standalone GateCooldown is no longer
   // wired here — the guard replaces it in the runtime path.)
   const guard = new GovernedStreakGuard();
+  // Phase 3A per-type guards (alongside the unchanged GLOBAL guard):
+  // colour/size keep the 3-loss breaker; exact-ball gets the 8-loss
+  // breaker (its ~90% loss rate would trip a 3-breaker in ~73% of
+  // sessions within 3 bets). In-memory only (the global guard stays
+  // the persisted one) — a reload resets per-type stops, the global
+  // stop still covers colour/size. Settlement routes by the settled
+  // pick's type; the global guard counts colour+size only, as today.
+  const guardsByType = {
+    COLOR: new GovernedStreakGuard(),
+    SIZE: new GovernedStreakGuard(),
+    NUMBER: new GovernedStreakGuard({ hardStopLosses: 8 })
+  };
   try {
     const rawGuard = localStorage.getItem('o101_streak_guard_v1');
     if (rawGuard) guard.restore(JSON.parse(rawGuard));
@@ -2063,13 +2268,20 @@ function initBridge() {
     baseSignature: null,   // chip/AUTO/risk-mode signature driving session replans
     apIntentSeen: null,    // updatedAt of the last settings intent applied
     lastChipBase: null,    // last MobileBridgeState.baseStake seen (manual-override detection)
-    // Phase 2A skip cap: consecutive DISPLAYED SKIP verdicts (reset
-    // on any BET verdict, on any safety-stop activation, and on
-    // session start). The lock key the count was last advanced for.
-    skipCapCount: 0,
-    skipCapKey: null,
-    skipCapForce: false,   // this verdict is a cap-forced pick
-    skipCapYielded: false  // the cap yielded to a safety stop this verdict
+    // Phase 3A hold-the-candidate skip rule (replaces the Phase 2A
+    // mechanical cap): counters reset ONLY on a real BET verdict or
+    // a fired bet. holdByTf[tf] = { count, byType: {TYPE: {count}},
+    // candidate, dismissed } — the held candidate + the dismissed
+    // candidate (suppressed until its Wilson moves >1pt or leadership
+    // changes). heldStaged = the held pick he tapped (period+target),
+    // protected from staging invalidation for the current period.
+    holdByTf: {},
+    holdKey: null,   // lockKey (tf:latestPeriod) the hold transition last ran for
+    heldStaged: null,
+    // Governed membership for this cycle (ids of the 99), used by the
+    // per-model calibration gate: spares are never recorded. Null on
+    // the first cycle before any governance ran → record all (once).
+    lastGovernedIds: null
   };
 
   function safeStorage() {
@@ -3222,10 +3434,11 @@ function initBridge() {
     const scope = resolveGovernanceScope(store, tf);
     const patternCtx = activePatternContext(tf);
     const pool = buildPoolFromStore(store, arenaModels(), scope.key, patternCtx);
-    // Phase 2A: the governed pool excludes display-only models
-    // (ASI / ASI_APEX_MASTER — static picks, never ranked or bet).
-    // `pool` stays full for export/display; governance uses
-    // `governedPool` everywhere below (blacklist, ranking, lookup).
+    // Phase 3A: the governed pool is the 99 (33/33/33, ASI inside
+    // as the ensemble tier); the other 38 catalog models are
+    // display-only spares. `pool` stays full for export/display;
+    // governance uses `governedPool` everywhere below (blacklist,
+    // ranking, lookup).
     const { governed: governedPool, displayOnly } = splitGovernedPool(pool);
     const bl = blacklistForScope(scope.key);
     state.scopeKey = scope.key;
@@ -3494,6 +3707,9 @@ function initBridge() {
     if (desired === state.session.baseBet && ap.state.riskMode === state.session.mode) return;
     const balForPlan = freshVerifiedBalance(login) ? login.balance : state.session.balance;
     state.session = replanSession(state.session, balForPlan, { mode: ap.state.riskMode, baseBet: desired });
+    // Phase 3A: persist the replanned ladder (level carried, see
+    // replanSession) so a reload keeps the doubling position.
+    try { saveSessionTo(safeStorage(), 'SHARED', state.session); } catch (e) { /* storage must never break the cycle */ }
     ap.noteSession(state.session);
   }
 
@@ -3595,8 +3811,70 @@ function initBridge() {
     renderAutoPilot();
   }
 
+  // ── Held-candidate controls (Phase 3A, owner add-on B) ──────────
+  // Tap-to-stage: the held pick is staged as HIS explicit choice
+  // (ap.stage itself does not check gate decision — the tap IS the
+  // choice); on 'staged' the hold clears, counters reset, and the
+  // staged bet is protected from SKIP invalidation for this period
+  // (see the apStageCycle carve-out). Dismissal suppresses this
+  // candidate until its Wilson moves >1pt or leadership changes,
+  // resets the counters (his action breaks the streak), and reveals
+  // the underlying SKIP for the rest of the round. Unblacklist
+  // re-derives the current timeframe's manager, unblacklists, and
+  // re-renders Analyse.
+  window.__o101StageHeld = (tfArg) => {
+    const tf = tfArg || state.tf || currentTf();
+    const hold = state.holdByTf[tf];
+    const cand = hold && hold.candidate ? hold.candidate : null;
+    if (!cand) return;
+    const openP = openPeriodFor(tf);
+    if (!openP || !state.session) { say('Nothing to stage — no open period or session.', 'system'); return; }
+    const res = ap.stage({ period: openP, timeframe: tf, target: cand.pick, session: state.session, periodDurationMs: TF_DURATION_MS[tf] || 60000 });
+    if (res === 'staged') {
+      hold.candidate = null; hold.count = 0; hold.byType = {}; hold.dismissed = null;
+      state.heldStaged = { period: openP, target: cand.pick };
+      if (state.gate) {
+        state.gate = { ...state.gate, heldCandidate: undefined };
+        renderHeroVerdict(state.gate);
+        renderAxoOrb();
+      }
+      say(`Held pick staged: ${cand.pick}.`, 'system');
+      renderAutoPilot();
+    } else if (res === 'already') {
+      say('That held pick is already staged.', 'system');
+    } else {
+      say('Cannot stage the held pick — Auto-Pilot is off or the session is stopped.', 'system');
+    }
+  };
+  window.__o101DismissHeld = (tfArg) => {
+    const tf = tfArg || state.tf || currentTf();
+    const hold = state.holdByTf[tf];
+    if (!hold || !hold.candidate) return;
+    hold.dismissed = { leaderId: hold.candidate.leaderId, wilson: hold.candidate.wilson };
+    hold.candidate = null;
+    hold.count = 0; hold.byType = {};
+    if (state.gate) {
+      state.gate = { ...state.gate, heldCandidate: undefined };
+      renderHeroVerdict(state.gate);
+      renderAxoOrb();
+    }
+  };
+  window.__o101Unblacklist = (id) => {
+    if (!id) return;
+    const tf = state.tf || currentTf();
+    const g = governanceFor(tf);
+    if (g.bl.unblacklist(id)) {
+      say(`Model ${id} restored.`, 'system');
+      renderRanking(tf, g.governedPool, g.bl, g.scope, g.displayOnly);
+    }
+  };
+
   function rearmHardStop() {
-    if (guard.manualRearm(Date.now())) {
+    // One tap clears ALL stops (Phase 3A): the global guard plus
+    // every per-type guard — no new buttons for this.
+    let cleared = guard.manualRearm(Date.now());
+    for (const g of Object.values(guardsByType)) if (g.manualRearm(Date.now())) cleared = true;
+    if (cleared) {
       saveGuard();
       ap.noteStopCleared();
       say('Hard stop re-armed manually. The streak counter is reset — trade carefully.', 'system');
@@ -3614,7 +3892,16 @@ function initBridge() {
     ap.notePaused(false);
     if (guard.hardStopped) { ap.forceStop(AP_STOP_REASONS.HARD_STOP); renderAutoPilot(); return; }
     if (gate.decision !== GATE_DECISIONS.BET) {
-      if (ap.stagedBet()) ap.invalidate('gate flipped to SKIP');
+      // Phase 3A held carve-out: a staged bet matching the held pick
+      // he tapped (period+target) is HIS explicit choice for this
+      // period — the SKIP verdict must not invalidate it. Normal
+      // invalidation resumes on period rollover (heldStaged clears
+      // when its period settles, see the cycle's hold block).
+      const staged = ap.stagedBet();
+      const isHeldStaged = staged && state.heldStaged
+        && staged.period === String(state.heldStaged.period)
+        && staged.target === state.heldStaged.target;
+      if (staged && !isHeldStaged) ap.invalidate('gate flipped to SKIP');
       renderAutoPilot();
       return;
     }
@@ -3883,10 +4170,22 @@ function initBridge() {
     if (det.balance !== null) { state.balance = det.balance; state.balanceSource = det.source; }
     if (state.balance !== null && !state.session) {
       const startBase = desiredBaseBet(login);
-      state.session = createSession(state.balance, { mode: ap.state.riskMode, baseBet: startBase !== null ? startBase : undefined });
-      // Phase 2A: the skip-cap counter resets on session start.
-      state.skipCapCount = 0;
-      state.skipCapKey = null;
+      // Phase 3A (owner add-on A): resume the persisted ladder first
+      // — a reload resumes level/loss-count/PnL/base when the saved
+      // record is fresh (24h) and the balance matches to the paisa;
+      // otherwise a fresh session (manual bets while closed mean the
+      // saved ladder no longer describes reality).
+      const resumed = loadSessionFrom(safeStorage(), 'SHARED', state.balance);
+      if (resumed) {
+        state.session = resumed;
+        say(`Ladder resumed — level ${resumed.level + 1}, next ${inr(resumed.nextStake)}.`, 'system');
+      } else {
+        state.session = createSession(state.balance, { mode: ap.state.riskMode, baseBet: startBase !== null ? startBase : undefined });
+      }
+      try { saveSessionTo(safeStorage(), 'SHARED', state.session); } catch (e) { /* storage must never break the cycle */ }
+      // Phase 3A: hold state is per-timeframe, NOT reset on session
+      // start — the new rule's resets are a real BET, a fired bet,
+      // or a dismissal (see the hold block in the cycle).
       if (!state.balanceAnnounced) {
         state.balanceAnnounced = true;
         if (state.session.state === 'STOP') speakEvent(BOT_EVENTS.BALANCE_LOW);
@@ -3908,6 +4207,12 @@ function initBridge() {
       const isFirst = prevLatest === null;
       state.lastPeriodSeen = latestPeriod;
 
+      // Phase 3A: per-type stops as they stood BEFORE this round's
+      //    settlement (a guard tripped by this round must not be
+      //    shadow-fed for the same round — shadow tracking starts
+      //    next round). Used by the step-2 proxy feed below.
+      const stoppedTypesAtSettle = new Set();
+      for (const [type, g] of Object.entries(guardsByType)) if (g.hardStopped) stoppedTypesAtSettle.add(type);
       // 1) Settle the bridge's displayed pick for the round that just
       //    closed, if we had issued one. The verdict that governs the
       //    settlement is the LOCKED engine verdict for that round.
@@ -3941,6 +4246,7 @@ function initBridge() {
             // ladder movement, no P&L change. An engine SKIP never
             // reaches this branch, so a skip can never count as missed.
             tracker.record(state.lastPick.prob, !!won);
+            recordTypeCalibration(state.lastPick.target, state.lastPick.prob, !!won);
             ap.resolveUnfired(tf, latestPeriod, 'skipped');
             if (axo.missed.shouldFire(tf + ':' + latestPeriod, { gateDecision: decision, fired })) {
               speakEvent(BOT_EVENTS.MISSED_BET, {
@@ -3952,6 +4258,7 @@ function initBridge() {
             }
           } else if (decision === GATE_DECISIONS.BET) {
             tracker.record(state.lastPick.prob, !!won);
+            recordTypeCalibration(state.lastPick.target, state.lastPick.prob, !!won);
             const result = settleGovernedPick({
               won: !!won,
               session: state.session,
@@ -3961,8 +4268,16 @@ function initBridge() {
               }
             });
             state.session = result.session;
+            // Phase 3A: persist the settled ladder immediately.
+            try { saveSessionTo(safeStorage(), 'SHARED', state.session); } catch (e) { /* storage must never break settlement */ }
             speakSettledEvents(result.events, { lastResult: `${latest.size} ${latest.number}` });
-            guard.recordSettledBet(!!won);
+            // Phase 3A: the GLOBAL guard counts colour+size mixed
+            // losses exactly as today; the per-type guard counts ONLY
+            // its own type's settled bets (exact goes to NUMBER only,
+            // never to the global guard).
+            const settledType = betTypeOfPick(state.lastPick.target);
+            if (settledType && guardsByType[settledType]) guardsByType[settledType].recordSettledBet(!!won);
+            if (!settledType || settledType === 'COLOR' || settledType === 'SIZE') guard.recordSettledBet(!!won);
             saveGuard();
             if (fired) {
               const apRes = ap.settleFired({
@@ -3987,6 +4302,7 @@ function initBridge() {
             // announcements — the skip was already announced at
             // verdict time (fix round #3: every round announced).
             tracker.record(state.lastPick.prob, !!won);
+            recordTypeCalibration(state.lastPick.target, state.lastPick.prob, !!won);
             ap.resolveUnfired(tf, latestPeriod, 'skipped');
           }
         }
@@ -4009,12 +4325,15 @@ function initBridge() {
             const correct = ev(pred.target, latest.number, latest.size, latest.color);
             if (correct !== null && correct !== undefined) {
               entries.push({ modelId, pick: pred.target, patternKey: patternCtx ? patternCtx.key : null, patternName: patternCtx ? patternCtx.name : null, correct: !!correct, source: 'live' });
-              // Phase 2A: per-model calibration (observability only).
+              // Phase 3A: per-model calibration (observability only).
               // Records the model's RAW stated confidence — never a
               // Platt output — so ECE measures the model, not the
-              // scaler. Display-only models (ASI) never enter here:
-              // they have no live picks to measure.
-              if (!isDisplayOnlyModel(modelId) && typeof pred.conf === 'number') {
+              // scaler. GOVERNED models only (incl. ASI + exact);
+              // spares are NOT recorded. lastGovernedIds is set in
+              // cycle step 3; on the first cycle before any
+              // governance (null), record all once rather than none.
+              const governedIds = state.lastGovernedIds;
+              if ((!governedIds || governedIds.has(modelId)) && typeof pred.conf === 'number') {
                 modelCalib.record(modelId, pred.conf, !!correct, latestPeriod);
               }
             }
@@ -4026,6 +4345,51 @@ function initBridge() {
         }
         store.recordRound(tf, latestPeriod, entries);
         store.save();
+        // Phase 3A shadow feed (previously unwired — recordShadowResult
+        // had zero live callers): every live entry feeds the scope
+        // manager's shadow record for blacklisted models, so shadow
+        // reinstatement can actually fire. LIVE BRANCH ONLY: the
+        // pendingPicks guard below excludes backfill (state.pendingPicks
+        // is nulled only after this block) — backfill must never feed
+        // shadow, or a bulk import would fake a recovery.
+        if (state.pendingPicks) {
+        const blForShadow = blacklistForScope(resolveGovernanceScope(store, tf).key);
+        for (const e of entries) {
+          if (e && e.modelId && e.correct !== null && e.correct !== undefined) {
+            blForShadow.recordShadowResult(e.modelId, !!e.correct);
+          }
+        }
+        // Phase 3A per-type shadow auto-clear (proxy feed): for each
+        // type stopped BEFORE this round, the type's would-be leader
+        // = its highest full-history Wilson governed model (via store
+        // stats + catalog types); that model's recorded correctness
+        // for this round feeds the type guard's shadow tracker (2
+        // shadow wins clear it). Cheap: only stopped types, one
+        // lookup each. This is a PROXY definition (not a full
+        // would-be-leader selection, which would need pool entries at
+        // settlement) — changeable on the owner's word.
+        for (const type of stoppedTypesAtSettle) {
+          const g = guardsByType[type];
+          if (!g || !g.hardStopped) continue;
+          let proxyId = null, proxyWilson = -1;
+          const govIds = state.lastGovernedIds;
+          for (const m of arenaModels()) {
+            if (m.predType !== type) continue;
+            if (govIds && !govIds.has(m.id)) continue;
+            const s = store.modelStats(tf, m.id);
+            if (!s) continue;
+            if (s.wilson > proxyWilson) { proxyWilson = s.wilson; proxyId = m.id; }
+          }
+          if (!proxyId) continue;
+          const entry = entries.find(e => e.modelId === proxyId);
+          if (!entry || entry.correct === null || entry.correct === undefined) continue;
+          const wasStopped = g.hardStopped;
+          g.recordShadowPick(!!entry.correct);
+          if (wasStopped && !g.hardStopped) {
+            say(`${type} stop cleared — shadow wins re-armed it.`, 'system');
+          }
+        }
+        } // end live-branch-only shadow feeds
       }
       state.pendingPicks = null;
 
@@ -4041,25 +4405,35 @@ function initBridge() {
 
     // 3) Engines on the governance scope for this timeframe (per-tf
     //    record, or the labelled global fallback while it warms up).
-    //    Phase 2A: governance runs on the GOVERNED pool (display-only
-    //    ASI models excluded); `pool` stays full for export/display.
+    //    Phase 3A: governance runs on the GOVERNED 99 (33/33/33);
+    //    `pool` stays full for export/display.
     const { scope, pool, governedPool, displayOnly, bl } = governanceFor(tf);
+    // Governed membership for per-model calibration (spares excluded).
+    state.lastGovernedIds = new Set(governedPool.map(m => m.id));
     // The pool floor needs the rank order to break ties: one extra
     // sort per cycle over the governed pool with NO blacklist filter
     // (empty Set), so blacklisted models still have a rank.
     const floorRank = engine.rankModels(governedPool, 'overall', { blacklist: new Set() });
     bl.update(governedPool, { rankOrder: floorRank.map(m => m.id) });
     engine.config.blacklist = bl;
-    const verdict = engine.evaluateIncharge(bl.filterEligible(governedPool), {});
-    const incharge = verdict && verdict.model ? verdict.model : null;
+    // Phase 3A leader: the v2 §1–§2 owner rule (streak surprise +
+    // Wilson margins, session rule via margins, 2-pt band) — NOT the
+    // legacy streak-override engine (still used for ranking only).
+    // Stopped types are excluded from candidacy; the GLOBAL guard's
+    // stop does NOT exclude leadership (it overlays every verdict
+    // with the HARD_STOP reason, as before).
+    const stoppedTypes = new Set();
+    for (const [type, g] of Object.entries(guardsByType)) if (g.hardStopped) stoppedTypes.add(type);
+    const ownerVerdict = selectInchargeOwnerRule(bl.filterEligible(governedPool), { stoppedTypes });
+    const incharge = ownerVerdict && ownerVerdict.model ? ownerVerdict.model : null;
 
     if (incharge && incharge.id !== state.inchargeId) {
       const changed = state.inchargeId !== null;
       state.inchargeId = incharge.id;
-      state.inchargeReason = verdict.reason || null;
+      state.inchargeReason = ownerVerdict.reason || null;
       if (changed) speakEvent(BOT_EVENTS.MODEL_CHANGE);
     } else if (incharge) {
-      state.inchargeReason = verdict.reason || state.inchargeReason;
+      state.inchargeReason = ownerVerdict.reason || state.inchargeReason;
     }
 
     // 4) Picks for the upcoming round + gate. The governed verdict
@@ -4080,16 +4454,23 @@ function initBridge() {
           // cannot happen for a non-empty governed pool — no Incharge
           // means the governed pool has no record yet.
           gate: { decision: GATE_DECISIONS.SKIP, pick: null, prob: null, reason: 'No eligible Incharge model right now — the governed pool has no record yet (the pool floor keeps one model eligible whenever the pool is non-empty). Nothing to bet on.' },
-          pick: null
+          pick: null,
+          inchargeId: null,
+          inchargeType: null
         };
       }
       const myPick = picks.get(incharge.id) || null;
       const ranked = engine.rankModels(bl.filterEligible(governedPool));
       const contenders = ranked.slice(0, 3).map(m => ({ id: m.id, name: m.name, pick: picks.get(m.id) ? picks.get(m.id).target : null }));
       const rawConf = myPick && typeof myPick.conf === 'number' ? Math.min(0.99, Math.max(0.01, myPick.conf)) : null;
+      // Phase 3A per-type calibration: the gate + Platt fit use the
+      // LEADER's type tracker, never the pooled tracker (which keeps
+      // recording for legacy display only).
+      const leaderType = incharge.predType || 'COLOR';
+      const gateTracker = trackersByType[leaderType] || tracker;
       // Displayed confidence: cap hard probabilities, then Platt-scale
       // through the fit learned from recorded outcomes.
-      const calibratedProb = rawConf !== null ? displayProbability(rawConf, tracker) : null;
+      const calibratedProb = rawConf !== null ? displayProbability(rawConf, gateTracker) : null;
       const poolEntry = governedPool.find(m => m.id === incharge.id) || null;
       // Strict Wilson check (owner order 2026-10-25): the leader's
       // defended win rate from its real wins/evaluated — the same
@@ -4102,7 +4483,7 @@ function initBridge() {
         sampleSize: poolEntry ? poolEntry.totalEvaluated : 0,
         wilsonLowerBound: wilsonLower,
         calibratedProb,
-        calibration: tracker,
+        calibration: gateTracker,
         contenders,
         cooldown: state.cooldownRound
       });
@@ -4123,102 +4504,152 @@ function initBridge() {
       }
       return {
         gate,
-        pick: myPick ? { target: myPick.target, prob: calibratedProb !== null ? calibratedProb : rawConf } : null
+        pick: myPick ? { target: myPick.target, prob: calibratedProb !== null ? calibratedProb : rawConf } : null,
+        inchargeId: incharge.id,
+        inchargeType: incharge.predType || null
       };
     });
 
-    // Display overlay on the LOCKED engine verdict: HARD_STOP only.
-    // Login is NOT a display gate (fix round #2, owner's order): the
-    // governed signal and stake show regardless of bridge login
-    // state; only a real order through the DhaniWin page needs its
-    // own login, and a failed order reports its real failure.
-    // Overlays change what is shown and staged, never the locked
-    // verdict itself.
+    // Display overlay on the LOCKED engine verdict: HARD_STOP only
+    // (global, or the acting type's own stop — the type reason names
+    // its own breaker). Login is NOT a display gate (fix round #2,
+    // owner's order): the governed signal and stake show regardless
+    // of bridge login state; only a real order through the DhaniWin
+    // page needs its own login, and a failed order reports its real
+    // failure. Overlays change what is shown and staged, never the
+    // locked verdict itself. The no-skip toggle is GONE (owner
+    // correction 2) — its applyNoSkip helper is dormant and is NOT
+    // called here.
     const engineGate = locked.gate;
-    // Skip cap (Phase 2A, owner order 2026-10-26): after 3
-    // consecutive DISPLAYED skips, the next round shows the best
-    // available pick instead of a 4th skip. The cap NEVER overrides
-    // a safety stop (HARD_STOP / stop-loss / stop-win): while one is
-    // active, skips continue past 3 and the reason line says so
-    // plainly. The no-skip toggle is GONE (owner correction 2) —
-    // its applyNoSkip helper is dormant and is NOT called here.
-    // Overlays change what is shown and staged, never the locked
-    // verdict itself, and the HARD_STOP overlay still wins over a
-    // forced pick. Staging guards (session stop states, ladder
-    // affordability, per-bet tap) apply to forced picks unchanged.
-    let gate = displayGateFor(engineGate, { hardStopped: guard.hardStopped });
+    const actingType = locked.inchargeType || null;
+    const typeGuard = actingType && guardsByType[actingType] ? guardsByType[actingType] : null;
+    const typeStopped = !!(typeGuard && typeGuard.hardStopped);
+    const hardStopped = guard.hardStopped || typeStopped;
+    const hardStopReason = guard.hardStopped ? HARD_STOP_REASON : (typeGuard ? typeGuard.hardStopReason : HARD_STOP_REASON);
+    let gate = displayGateFor(engineGate, { hardStopped, hardStopReason });
     const sessionState = state.session ? state.session.state : null;
-    const safetyStop = guard.hardStopped
+    const safetyStop = hardStopped
       || sessionState === 'STOP' || sessionState === 'STOP_LOSS' || sessionState === 'STOP_WIN';
-    // Best available pick: the leader's locked pick first (this is
-    // also the all-weak corner's forced pick — the pool floor
-    // guarantees an eligible leader, and the owner's two orders
-    // jointly require showing its pick even below the bar);
-    // otherwise the first ranked eligible model with a pick.
-    const capForcedPick = () => {
-      let forcedPick = locked.pick ? locked.pick.target : null;
-      if (!forcedPick) {
-        const rankedEligible = engine.rankModels(bl.filterEligible(governedPool));
-        for (const m of rankedEligible) {
-          const p = picks.get(m.id);
-          if (p && p.target) { forcedPick = p.target; break; }
-        }
+    // ── Hold-the-candidate skip rule (Phase 3A, owner add-on B) ──
+    // Per-timeframe hold state: global + per-type counters, the held
+    // candidate, the dismissed candidate. The transition runs ONCE
+    // per lockKey (tf:latestPeriod); a timeframe switch starts a new
+    // round stream, so counts do not carry across timeframes.
+    if (!state.holdByTf[tf]) state.holdByTf[tf] = { count: 0, byType: {}, candidate: null, dismissed: null };
+    const hold = state.holdByTf[tf];
+    const typeCount = actingType ? (hold.byType[actingType] ? hold.byType[actingType].count : 0) : 0;
+    // Best available candidate for holding, in order: (1) the
+    // leader's locked pick when its DIMENSION matches the acting type
+    // (pick-dimension, not model type — they coincide except for
+    // +0.14 override picks, where the displayed pick is the truth);
+    // (2) ranked eligible models' picks of the acting type's
+    // dimension. Digit picks are filtered while the exact gate is
+    // closed; ASI picks while trial-gated. (3) The suppression filter:
+    // a dismissed candidate returns only when its Wilson moved >1pt
+    // or leadership changed (a different leader = a different
+    // candidate, never suppressed).
+    const heldCandidateFor = () => {
+      const isSuppressed = (cand) => {
+        const d = hold.dismissed;
+        if (!d) return false;
+        return cand.leaderId === d.leaderId && Math.abs(cand.wilson - d.wilson) <= 0.01;
+      };
+      const build = (modelId, modelName, pickTarget) => {
+        const entry = governedPool.find(m => m.id === modelId) || null;
+        const wilson = entry ? wilsonLowerBound(entry.wins || 0, entry.totalEvaluated || 0) : 0;
+        const dim = betTypeOfPick(pickTarget);
+        const required = gate.requiredProb !== undefined && gate.requiredProb !== null
+          ? gate.requiredProb
+          : (dim === 'NUMBER' ? 0.1134 : 0.5102) + 0.02;
+        return {
+          pick: pickTarget, leaderId: modelId, leaderName: modelName || modelId,
+          wilson, required, gapPts: (required - wilson) * 100,
+          reason: engineGate.reason || gate.reason, type: dim
+        };
+      };
+      const dimOk = (pickTarget) => {
+        if (!pickTarget) return false;
+        if (betTypeOfPick(pickTarget) === 'NUMBER') return false; // exact gate closed
+        if (actingType && betTypeOfPick(pickTarget) !== actingType) return false;
+        return true;
+      };
+      // Returns { candidate, hadStageable }: hadStageable tells the
+      // caller whether ANY candidate passed the dimension/gate
+      // filters (even if suppressed) — so the caller can tell
+      // "all suppressed" (suppression note) from "truly empty"
+      // (no-pick note). A suppressed leader falls through to the
+      // ranked loop (suppression is per-candidate, not per-round).
+      let hadStageable = false;
+      if (incharge && locked.pick && locked.pick.target && dimOk(locked.pick.target)) {
+        const cand = build(incharge.id, incharge.name, locked.pick.target);
+        hadStageable = true;
+        if (!isSuppressed(cand)) return { candidate: cand, hadStageable };
       }
-      return forcedPick;
+      const rankedEligible = engine.rankModels(bl.filterEligible(governedPool));
+      for (const m of rankedEligible) {
+        if (ASI_TRIAL_IDS.includes(m.id)) continue; // ASI trial-gated
+        const p = picks.get(m.id);
+        if (!p || !p.target || !dimOk(p.target)) continue;
+        const cand = build(m.id, m.name, p.target);
+        hadStageable = true;
+        if (!isSuppressed(cand)) return { candidate: cand, hadStageable };
+      }
+      return { candidate: null, hadStageable };
     };
-    if (state.skipCapKey !== lockKey) {
-      // The counter transition runs ONCE per lockKey (tf:latest
-      // period). A timeframe switch starts a new round stream, so
-      // the count does not carry across timeframes.
-      const sameTf = state.skipCapKey && state.skipCapKey.startsWith(tf + ':');
-      const baseCount = sameTf ? state.skipCapCount : 0;
-      const cap = skipCapNext({ count: baseCount, gateDecision: gate.decision, safetyStop });
-      state.skipCapCount = cap.count;
-      state.skipCapKey = lockKey;
-      state.skipCapForce = false;
-      state.skipCapYielded = false;
-      if (cap.force) {
-        const forcedPick = capForcedPick();
-        if (forcedPick) {
-          gate = applySkipCap(gate, { pick: forcedPick });
-          state.skipCapForce = true;
-        } else {
-          // Task Q: the cap fired but no pick exists (no locked pick
-          // and no ranked eligible model with a pick). The gate
-          // stays SKIP and the count resets — but the attempt must
-          // be VISIBLE, or every 4th round silently fails the same
-          // way and the owner sees only "always skip". Display
-          // only: no pick is invented, no verdict is changed.
-          gate = { ...gate, reason: `${gate.reason} ${SKIP_CAP_NO_PICK_NOTE}` };
+    // A held pick he tapped for a round that has since settled is
+    // stale — normal invalidation resumes (the carve-out in
+    // apStageCycle keys on period, so clearing here is belt-and-
+    // braces for the same round's later ticks).
+    if (state.heldStaged && String(state.heldStaged.period) === String(latestPeriod)) state.heldStaged = null;
+    if (state.holdKey !== lockKey) {
+      state.holdKey = lockKey;
+      if (gate.decision === GATE_DECISIONS.BET) {
+        // A real gate-passing pick clears the hold + all counters and
+        // the dismissal (a BET verdict is a fresh start, not a
+        // suppression to remember).
+        hold.count = 0; hold.byType = {}; hold.candidate = null; hold.dismissed = null;
+      } else if (safetyStop) {
+        // Frozen: counts unchanged, no hold activates; skips continue
+        // + yield note (exactly as the old cap yielded to stops).
+        if (gate.decision === GATE_DECISIONS.SKIP) gate = { ...gate, reason: `${gate.reason} ${SKIP_CAP_YIELD_NOTE}` };
+      } else if (hold.candidate) {
+        // Already held: it STAYS held across rounds — no new skip
+        // counted, no re-selection. The loop cannot repeat.
+        gate = { ...gate, heldCandidate: hold.candidate };
+      } else {
+        // Advance both counters for this displayed SKIP; the hold
+        // triggers when EITHER the global or the acting-type counter
+        // hits 3 (the 4th failing round).
+        const next = skipCapNext({ count: hold.count, gateDecision: gate.decision, safetyStop: false });
+        const nextType = actingType ? skipCapNext({ count: typeCount, gateDecision: gate.decision, safetyStop: false }) : null;
+        hold.count = next.count;
+        if (actingType && nextType) hold.byType[actingType] = { count: nextType.count };
+        if (next.hold || (nextType && nextType.hold)) {
+          const found = heldCandidateFor();
+          if (found.candidate) {
+            hold.candidate = found.candidate;
+            gate = { ...gate, heldCandidate: found.candidate };
+          } else if (found.hadStageable) {
+            // Candidates exist but ALL are suppressed: SKIP + the
+            // suppression note, counter FROZEN at 3 (stable display
+            // until a material stat change or a real BET).
+            gate = { ...gate, reason: `${gate.reason} ${SKIP_CAP_SUPPRESSED_NOTE}` };
+          } else {
+            // Truly empty: no stageable pick at all. SKIP + the Task Q
+            // no-pick note — never an invented pick.
+            gate = { ...gate, reason: `${gate.reason} ${SKIP_CAP_NO_PICK_NOTE}` };
+          }
         }
-      } else if (cap.yielded && gate.decision === GATE_DECISIONS.SKIP) {
-        gate = { ...gate, reason: `${gate.reason} ${SKIP_CAP_YIELD_NOTE}` };
-        state.skipCapYielded = true;
       }
-    } else if (safetyStop) {
-      // A stop that activated mid-round overrides any forced pick
-      // from this round's first tick; the yield note says so when a
-      // force was active (a force only exists after 3 skips, so the
-      // note fires exactly when the cap is yielding a would-be
-      // forced pick). A stop with no prior force and no prior yield
-      // changes nothing here.
-      if (state.skipCapForce) {
-        state.skipCapForce = false;
-        state.skipCapYielded = true;
-      }
-      if (state.skipCapYielded && gate.decision === GATE_DECISIONS.SKIP) {
-        gate = { ...gate, reason: `${gate.reason} ${SKIP_CAP_YIELD_NOTE}` };
-      }
-    } else if (state.skipCapForce && gate.decision === GATE_DECISIONS.SKIP) {
-      // Same round, later tick: re-apply this round's forced pick
+    } else if (hold.candidate && !safetyStop) {
+      // Same round, later tick: re-attach this round's held candidate
       // (the transition runs once per lockKey, but the overlay must
-      // hold for the whole round). No yield branch here on purpose:
-      // if the stop cleared mid-round, nothing is yielding anymore —
-      // the note disappears and the count stays reset (a stop
-      // activation resets the streak, per the cap's rules).
-      const forcedPick = capForcedPick();
-      if (forcedPick) gate = applySkipCap(gate, { pick: forcedPick });
-      else gate = { ...gate, reason: `${gate.reason} ${SKIP_CAP_NO_PICK_NOTE}` };
+      // hold for the whole round).
+      gate = { ...gate, heldCandidate: hold.candidate };
+    } else if (safetyStop && state.holdKey === lockKey && gate.decision === GATE_DECISIONS.SKIP) {
+      // A stop that activated mid-round: the yield note says so when
+      // the count had already reached 3 (a would-be hold yielding).
+      if (hold.count >= SKIP_CAP_MAX_CONSECUTIVE) gate = { ...gate, reason: `${gate.reason} ${SKIP_CAP_YIELD_NOTE}` };
     }
     state.gate = gate;
     // Graduated stakes: the session base follows the CURRENT
@@ -4273,6 +4704,7 @@ function initBridge() {
       window.__o101Verdict.scopeFallback = !scope.perTimeframe;
       window.__o101Verdict.thinPool = bl.filterEligible(governedPool).length < THIN_POOL_MIN;
       window.__o101Verdict.floorExemption = bl.floorExemption ? bl.floorExemption.id : null;
+      window.__o101Verdict.floorExemptions = (bl.floorExemptions || []).map(e => e.id);
     }
     renderWindowStatus();
     // Axo surfaces follow the same verdict: the road strip, the
@@ -4323,21 +4755,48 @@ function initBridge() {
   function renderHeroVerdict(gate) {
     const view = heroVerdictView(gate);
     // Publish the lock first: native renders mirror it verbatim.
-    window.__o101Verdict = { decision: view.decision, pick: view.pick, confText: view.confText, reason: view.reasonText || '', key: state.verdictKey || null };
+    // HELD is a NEW published decision (parent to verify the native
+    // held display): a held round publishes decision 'HELD' + the
+    // held pick + the held candidate object for the closed orb.
+    window.__o101Verdict = { decision: view.decision, pick: view.pick, confText: view.confText, reason: view.reasonText || '', key: state.verdictKey || null, heldCandidate: view.heldCandidate || null };
     if (state.page !== 'mobile') return;
     const targetEl = $('mobileWebTargetDisplay');
     if (targetEl) {
-      targetEl.textContent = view.targetText;
+      // Phase 3A ball image (governed picks only, never SKIP): a
+      // digit pick shows its systems/balls.js PNG at 24px beside the
+      // text. The axo.lastHeroBall key guard avoids re-parsing the
+      // ~20KB data URI on every 3s cycle; a missing ballImg (or an
+      // empty string) falls back to plain text, never a blank.
+      const ballKey = (view.decision === 'BET' || view.decision === 'HELD') && view.ballDigit ? `${view.ballDigit}:${view.decision}` : null;
+      if (ballKey && typeof window.ballImg === 'function') {
+        if (axo.lastHeroBall !== ballKey) {
+          axo.lastHeroBall = ballKey;
+          const img = window.ballImg(view.ballDigit, 24, '');
+          if (img) {
+            targetEl.innerHTML = '';
+            targetEl.insertAdjacentHTML('beforeend', img);
+            const t = document.createElement('span');
+            t.textContent = view.targetText;
+            targetEl.appendChild(t);
+          } else {
+            axo.lastHeroBall = null;
+            targetEl.textContent = view.targetText;
+          }
+        }
+      } else {
+        axo.lastHeroBall = null;
+        targetEl.textContent = view.targetText;
+      }
       // Canonical class on every render: the target's size can never
       // jump because another writer left a different size class on it.
-      targetEl.className = HERO_TARGET_CLASSES[view.decision === 'BET' ? (view.pick || 'NONE') : view.decision] || HERO_TARGET_CLASSES.NONE;
+      targetEl.className = HERO_TARGET_CLASSES[(view.decision === 'BET' || view.decision === 'HELD') ? (view.pick || 'NONE') : view.decision] || HERO_TARGET_CLASSES.NONE;
     }
     // Fix round #3: the hero verdict carries its icon too — size
     // arrow, colour dot, or skip mark — re-asserted on every cycle
     // so the hero never shows a stale verdict's icon.
     // Fix round #4: the opened avatar's badge follows the same
     // cycle, and clears whenever there is no live verdict.
-    setVerdictIcon(view.decision === 'BET' ? verdictIconFor(view.pick, 'BET').kind : (view.decision === 'SKIP' ? 'skip' : null));
+    setVerdictIcon((view.decision === 'BET' || view.decision === 'HELD') ? verdictIconFor(view.pick, 'BET').kind : (view.decision === 'SKIP' ? 'skip' : null));
     setAxoPredictionBadge(badgeFromView(view));
     const conf = $('assistantConfBadge');
     if (conf) conf.textContent = view.confText;
@@ -4353,8 +4812,32 @@ function initBridge() {
     // SKIP reason) — no toggle wording remains anywhere.
     const why = $('mobileWebVerdictReason');
     if (why) {
-      const text = view.decision === 'BET' ? (view.sampleNote || '') : (view.reasonText || '');
-      why.textContent = text;
+      if (view.decision === 'HELD' && view.heldCandidate) {
+        // Held card (tight, ≤80 chars of text + two controls): the
+        // held line names the pick, the below-bar gap and the gate
+        // reason; Tap stages it as his choice, ✕ dismisses it until
+        // its stats change materially. Buttons use PROPERTY handlers
+        // re-assigned per render (never inline onclick attributes).
+        const h = view.heldCandidate;
+        const line = `HELD · ${h.pick} — Wilson ${(h.wilson * 100).toFixed(1)}%, needs ${(h.required * 100).toFixed(2)}% (${Math.max(0, h.gapPts).toFixed(1)} short).`;
+        why.textContent = '';
+        const span = document.createElement('span');
+        span.textContent = line + ' ';
+        why.appendChild(span);
+        const stageBtn = document.createElement('button');
+        stageBtn.textContent = 'Tap to stage';
+        stageBtn.className = 'px-2 py-0.5 rounded-full bg-amber-500/25 text-amber-200 border border-amber-500/40 text-[10px] font-bold';
+        stageBtn.onclick = () => { try { window.__o101StageHeld(state.tf); } catch (e) {} };
+        why.appendChild(stageBtn);
+        const dismissBtn = document.createElement('button');
+        dismissBtn.textContent = '✕';
+        dismissBtn.className = 'px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 border border-white/10 text-[10px] font-bold ml-1';
+        dismissBtn.onclick = () => { try { window.__o101DismissHeld(state.tf); } catch (e) {} };
+        why.appendChild(dismissBtn);
+      } else {
+        const text = view.decision === 'BET' ? (view.sampleNote || '') : (view.reasonText || '');
+        why.textContent = text;
+      }
     }
     // Task L: the sheet grows to its measured content on every
     // verdict render, so no verdict can clip the chip row.
@@ -4468,8 +4951,8 @@ function initBridge() {
     // stake text, so the badge updates when the stake changes. The
     // pill keeps pointer-events-none (drag safe) and the orb's
     // position/size are untouched (clamp unaffected).
-    const pillView = closedOrbPill({ decision: v ? v.decision : null, pick: v ? v.pick : null, stake: state.session ? state.session.nextStake : null });
-    const key = JSON.stringify([pillView.text, view.periodText, road]);
+    const pillView = closedOrbPill({ decision: v ? v.decision : null, pick: v ? v.pick : null, stake: state.session ? state.session.nextStake : null, heldCandidate: v ? v.heldCandidate : null });
+    const key = JSON.stringify([pillView.text, pillView.state, pillView.ballDigit, view.periodText, road]);
     if (key === axo.lastOrbKey) return;
     axo.lastOrbKey = key;
     // Fix round #5: minimized state always shows the prediction
@@ -4480,15 +4963,30 @@ function initBridge() {
     // classes are never overwritten here: only text and colour (via
     // style) change, so the pill can never lose its place on the ball.
     if (pill) {
-      pill.textContent = pillView.text;
-      pill.style.color = pillView.state === 'bet' ? '#fde68a' : (pillView.state === 'skip' ? '#d4d4d8' : '#71717a');
+      // Phase 3A ball image on the closed pill (16px, governed picks
+      // only): a digit pick shows its PNG beside the text; missing
+      // ballImg (or '') falls back to plain text, never a blank.
+      const ballHtml = pillView.ballDigit && typeof window.ballImg === 'function' ? window.ballImg(pillView.ballDigit, 16, '') : '';
+      if (ballHtml) {
+        pill.innerHTML = '';
+        pill.insertAdjacentHTML('beforeend', ballHtml);
+        const t = document.createElement('span');
+        t.textContent = pillView.text;
+        pill.appendChild(t);
+      } else {
+        pill.textContent = pillView.text;
+      }
+      // Held shows in the bet colour (it IS a displayed pick); the
+      // missing ₹stake is what marks it as not-a-bet.
+      pill.style.color = (pillView.state === 'bet' || pillView.state === 'held') ? '#fde68a' : (pillView.state === 'skip' ? '#d4d4d8' : '#71717a');
       pill.classList.remove('hidden');
     }
     // Fix round #3: the in-ball display carries the verdict icon
-    // beside the pill (skip mark for a skipped round).
+    // beside the pill (skip mark for a skipped round; the held
+    // pick's icon for a held round).
     const orbIcon = $('orbVerdictIcon');
     if (orbIcon) {
-      orbIcon.innerHTML = view.state === 'bet' ? (verdictIconFor(v ? v.pick : null, 'BET').svg || '') : (view.state === 'skip' ? VERDICT_ICONS.skip : '');
+      orbIcon.innerHTML = (view.state === 'bet' || view.state === 'held') ? (verdictIconFor(v ? v.pick : null, 'BET').svg || '') : (view.state === 'skip' ? VERDICT_ICONS.skip : '');
       orbIcon.classList.remove('hidden');
     }
     if (bar) {
@@ -4573,33 +5071,47 @@ function initBridge() {
     }
     const meta = $('bridgeRankingMeta');
     if (meta) {
-      // Phase 2A flags (display only, never gates): thin pool,
-      // fallback scope, and pooled calibration labelled as pooled
-      // WITH its record count.
+      // Phase 3A: per-type ECE figures (type named) replace the pooled
+      // line — calibration is per-type now, so a pooled figure would
+      // hide which type is miscalibrated. The pooled tracker still
+      // records (legacy display) but no longer gates anything.
       const flags = [];
       if (ranked.length < THIN_POOL_MIN) flags.push('thin pool');
       if (scope && !scope.perTimeframe) flags.push('global fallback scope');
-      const pooled = `pooled ECE ${tracker.expectedCalibrationError().toFixed(3)} (n=${tracker.count}, pooled — not per-model)`;
-      meta.textContent = `${ranked.length} models · ${store.recordedPeriodCount(tf)} rounds recorded · ${tf} · scope: ${scope ? scope.label : tf}${flags.length ? ' · ' + flags.join(' · ') : ''} · ${pooled}`;
+      const ecePart = ['COLOR', 'SIZE', 'NUMBER'].map(t => {
+        const tr = trackersByType[t];
+        const n = tr ? tr.count : 0;
+        return `${t} ECE ${n > 0 ? tr.expectedCalibrationError().toFixed(3) : '—'} (n=${n})`;
+      }).join(' · ');
+      meta.textContent = `${ranked.length} models · ${store.recordedPeriodCount(tf)} rounds recorded · ${tf} · scope: ${scope ? scope.label : tf}${flags.length ? ' · ' + flags.join(' · ') : ''} · ${ecePart}`;
     }
     if (blEl) {
       const entries = bl.list();
-      const floorNote = bl.floorExemption
-        ? `<div class="px-3 py-2 rounded-xl bg-amber-500/[0.06] border border-amber-500/20">
-        <div class="text-[10px] font-bold text-amber-200">Pool floor: ${bl.floorExemption.name} kept eligible</div>
-        <div class="text-[8px] font-mono text-zinc-400">${bl.floorExemption.reason} (Wilson ${(bl.floorExemption.wilson * 100).toFixed(1)}%, ${bl.floorExemption.samples} samples).</div>
-      </div>`
-        : '';
+      // Phase 3A: render ALL per-type floor exemptions (not just the
+      // singular compat field) + a Restore button per blacklisted
+      // row (manual unblacklist — property handlers, never inline
+      // onclick attributes). Reasons name metric + window + samples
+      // (the manager builds them); nothing is silently blacklisted.
+      const exemptions = (bl.floorExemptions && bl.floorExemptions.length ? bl.floorExemptions : (bl.floorExemption ? [bl.floorExemption] : []));
+      const floorNote = exemptions.map(fx => `<div class="px-3 py-2 rounded-xl bg-amber-500/[0.06] border border-amber-500/20">
+        <div class="text-[10px] font-bold text-amber-200">Pool floor${fx.type ? ` (${fx.type})` : ''}: ${fx.name} kept eligible</div>
+        <div class="text-[8px] font-mono text-zinc-400">${fx.reason} (Wilson ${(fx.wilson * 100).toFixed(1)}%, ${fx.samples} samples).</div>
+      </div>`).join('');
+      const escAttr = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       blEl.innerHTML = floorNote + (entries.length ? entries.map(e => `<div class="px-3 py-2 rounded-xl bg-rose-500/[0.06] border border-rose-500/20">
-        <div class="text-[10px] font-bold text-rose-200">${e.name}</div>
+        <div class="flex items-center justify-between gap-2"><div class="text-[10px] font-bold text-rose-200">${e.name}</div><button data-unblacklist="${escAttr(e.id)}" class="shrink-0 px-2 py-0.5 rounded-full bg-white/10 text-zinc-200 border border-white/10 text-[9px] font-bold">Restore</button></div>
         <div class="text-[8px] font-mono text-zinc-400">${e.reason}</div>
         <div class="text-[8px] font-mono text-zinc-500">WR ${(e.winRate * 100).toFixed(1)}% · samples ${e.samples} · ${e.shadowStatus}</div>
       </div>`).join('') : '<div class="text-[9px] font-mono text-zinc-500 px-1 py-2">No models are blacklisted right now. Models are benched automatically when their proven record falls below breakeven, and return when their shadow record recovers.</div>');
+      blEl.querySelectorAll('[data-unblacklist]').forEach(btn => {
+        btn.onclick = () => { try { window.__o101Unblacklist(btn.getAttribute('data-unblacklist')); } catch (e) {} };
+      });
     }
     if (doEl) {
-      // Phase 2A display-only section: ASI / ASI_APEX_MASTER are
-      // never ranked or bet (static picks, not live) — they are
-      // shown here, separately, with their record for transparency.
+      // Phase 3A display-only section: the 38 spares cut from the
+      // governed 99 (ASI is governed now, NOT here) — shown
+      // separately, with their record for transparency. Reversible:
+      // the selection function decides membership, never deletion.
       doEl.innerHTML = displayOnly.length ? displayOnly.map(m => {
         const stats = scopeKey === 'ALL' ? mergedModelStats(store, m.id) : store.modelStats(tf, m.id);
         const wr = stats ? (stats.winRate * 100).toFixed(1) + '%' : '—';
@@ -4633,8 +5145,17 @@ function initBridge() {
     for (const tf of tfSet) {
       try { modelsByTf[tf] = governanceFor(tf).pool; } catch (e) { modelsByTf[tf] = []; }
     }
+    // Phase 3A FORMAT CHANGE (report it): the export calibration
+    // payload is now a per-type map, not pooled {count, ece} — any
+    // consumer reading .count/.ece must read per type instead.
     let calib = null;
-    try { calib = { count: tracker.count, ece: tracker.expectedCalibrationError() }; } catch (e) { calib = null; }
+    try {
+      calib = {};
+      for (const t of ['COLOR', 'SIZE', 'NUMBER']) {
+        const tr = trackersByType[t];
+        calib[t] = tr ? { count: tr.count, ece: tr.expectedCalibrationError() } : { count: 0, ece: null };
+      }
+    } catch (e) { calib = null; }
     const payload = buildHistoryExport({
       liveByTf,
       deepByTf,

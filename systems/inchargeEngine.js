@@ -436,6 +436,157 @@ export class InchargeEngine {
 
 export const globalInchargeEngine = new InchargeEngine();
 
+// ── Phase 3A: the owner's Incharge rule, v2 §1–§2 ───────────────────
+// Owner structure (2026-10-26, unchanged): streak first, last-10 rate
+// check, session rule. v2 comparisons (owner-approved 2026-10-26
+// ~22:01, superseding the raw-rate version): streaks compare by
+// STREAK SURPRISE (not raw counts — a 3-win exact streak is ~16x less
+// likely under chance than a 6-win colour streak), rates compare by
+// WILSON MARGIN over the type's own bar (not raw rates — a 60% colour
+// model and an 18.5% exact model can both be ~2pts above their bars).
+// The governed gate still applies AFTER selection for any BET, and
+// Incharge leadership alone never forces a bet.
+//
+// Base rates: colour/size win on 5 of 10 numbers (0.5); exact-ball on
+// 1 of 10 digits (0.10). Breakevens: colour/size 51.02% at the
+// code-pinned 0.96 payout; exact 11.34% at the PROPOSAL 7.82 profit
+// multiple (standard table, NOT live-verified). The exact breakeven
+// is used ONLY for leadership ranking here — exact BETs stay gated
+// off (signalGate exact-gate) and no stake math uses 7.82.
+//
+// Windows (exact): streak = current consecutive settled wins of the
+// model's own walk-forward picks; last-10 = last 10 settled rounds;
+// session = rounds since the current page load (reload = new
+// session); full history = all recorded rounds. All windows are RAW
+// counts on the pool entries the caller passes (streak,
+// last10Wins/last10Evaluated, sessionWins/sessionEvaluated,
+// wins/totalEvaluated) — this function never reads the store.
+//
+// Ties: surprise tie → higher full-history Wilson margin → more
+// evaluated samples → pool order (first wins, stable). Step-2 flip
+// needs challenger M10 > leader M10 + 0.02 (2-pt hysteresis band);
+// inside the band the streak leader stays. Step 3 runs on every
+// selection: no session leader (session n = 0 for all) → full-history
+// leader; session leader's margin < full leader's margin →
+// full-history leader; else the Steps 1–2 leader stays.
+// Stopped types (per-type HARD_STOP guards) are excluded from
+// candidacy by the caller via options.stoppedTypes — exactly like
+// blacklisted models (the caller pre-filters those too).
+export const INCHARGE_BASE_RATE = { COLOR: 0.5, SIZE: 0.5, NUMBER: 0.10 };
+export const INCHARGE_BREAKEVEN = {
+  COLOR: breakEvenWinRate(0.96),
+  SIZE: breakEvenWinRate(0.96),
+  NUMBER: 1 / (1 + 7.82) // 11.34% PROPOSAL — leadership ranking only
+};
+export const INCHARGE_LAST10_BAND = 0.02;
+
+export function streakSurprise(streak, type) {
+  const base = INCHARGE_BASE_RATE[type] ?? 0.5;
+  return (Number(streak) || 0) * Math.log10(1 / base);
+}
+
+export function wilsonMargin(wins, n, type) {
+  const bar = INCHARGE_BREAKEVEN[type] ?? INCHARGE_BREAKEVEN.COLOR;
+  return wilsonLowerBound(wins, n) - bar;
+}
+
+function inchargeStats(m) {
+  const type = (m && m.predType) ? String(m.predType).toUpperCase() : 'COLOR';
+  const t = INCHARGE_BASE_RATE[type] ? type : 'COLOR';
+  const streak = Number(m.streak) || 0;
+  const last10Wins = Number(m.last10Wins) || 0;
+  const last10N = Number(m.last10Evaluated) || 0;
+  const sessionWins = Number(m.sessionWins) || 0;
+  const sessionN = Number(m.sessionEvaluated) || 0;
+  const wins = Number(m.wins) || 0;
+  const total = Number(m.totalEvaluated ?? m.evaluated) || 0;
+  return {
+    type: t,
+    streak,
+    surprise: streakSurprise(streak, t),
+    last10Margin: wilsonMargin(last10Wins, last10N, t),
+    sessionMargin: wilsonMargin(sessionWins, sessionN, t),
+    fullMargin: wilsonMargin(wins, total, t),
+    last10N, sessionN, total
+  };
+}
+
+export function selectInchargeOwnerRule(models, options = {}) {
+  const list = Array.isArray(models) ? models : [];
+  const stopped = new Set(
+    (options.stoppedTypes instanceof Set ? [...options.stoppedTypes] : (options.stoppedTypes || []))
+      .map(t => String(t).toUpperCase())
+  );
+  const candidates = list
+    .map(m => ({ model: m, s: inchargeStats(m) }))
+    .filter(({ s }) => !stopped.has(s.type));
+  if (candidates.length === 0) return null;
+
+  // Best-by with the v2 tie order: key desc, then full margin desc,
+  // then samples desc, then name (alphabetically first, matching the
+  // engine's existing tie-breaker), then pool order (stable first).
+  const bestBy = (keyFn) => {
+    let best = null;
+    for (const c of candidates) {
+      if (!best) { best = c; continue; }
+      const a = keyFn(c); const b = keyFn(best);
+      if (a > b) { best = c; continue; }
+      if (a === b) {
+        if (c.s.fullMargin > best.s.fullMargin) { best = c; continue; }
+        if (c.s.fullMargin === best.s.fullMargin) {
+          if (c.s.total > best.s.total) { best = c; continue; }
+          if (c.s.total === best.s.total) {
+            const an = c.model.name || c.model.id || '';
+            const bn = best.model.name || best.model.id || '';
+            if (an.localeCompare(bn) < 0) best = c;
+          }
+        }
+      }
+    }
+    return best;
+  };
+
+  // Step 1 — STREAK FIRST (by surprise).
+  const streakLeader = bestBy(c => c.s.surprise);
+  let leader = streakLeader;
+  let path = 'streak';
+  let reason = `Incharge: ${leader.model.name || leader.model.id} — streak surprise ${leader.s.surprise.toFixed(2)}`;
+
+  // Step 2 — RATE CHECK (last-10 Wilson margin, 2-pt band).
+  const last10Leader = bestBy(c => c.s.last10Margin);
+  if (last10Leader.s.last10Margin > streakLeader.s.last10Margin + INCHARGE_LAST10_BAND) {
+    leader = last10Leader;
+    path = 'last10';
+    reason = `Incharge: ${leader.model.name || leader.model.id} — last-10 margin ${(leader.s.last10Margin * 100).toFixed(1)}pts`;
+  }
+
+  // Step 3 — SESSION RULE (runs on every selection).
+  const sessionLeader = bestBy(c => c.s.sessionMargin);
+  const fullLeader = bestBy(c => c.s.fullMargin);
+  const noSessionLeader = candidates.every(c => c.s.sessionN === 0);
+  if (noSessionLeader) {
+    leader = fullLeader;
+    path = 'full';
+    reason = `Incharge: ${leader.model.name || leader.model.id} — full-history margin ${(leader.s.fullMargin * 100).toFixed(1)}pts`;
+  } else if (sessionLeader.s.sessionMargin < fullLeader.s.fullMargin) {
+    leader = fullLeader;
+    path = 'full';
+    reason = `Incharge: ${leader.model.name || leader.model.id} — full-history margin ${(leader.s.fullMargin * 100).toFixed(1)}pts`;
+  }
+
+  return {
+    model: leader.model,
+    reason,
+    detail: {
+      path,
+      streakLeaderId: streakLeader.model.id,
+      last10LeaderId: last10Leader.model.id,
+      sessionLeaderId: sessionLeader.model.id,
+      fullLeaderId: fullLeader.model.id
+    }
+  };
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     INCHARGE_MODES,
@@ -444,7 +595,13 @@ if (typeof module !== "undefined" && module.exports) {
     globalInchargeEngine,
     wilsonLowerBound,
     ucb1Score,
-    breakEvenWinRate
+    breakEvenWinRate,
+    INCHARGE_BASE_RATE,
+    INCHARGE_BREAKEVEN,
+    INCHARGE_LAST10_BAND,
+    streakSurprise,
+    wilsonMargin,
+    selectInchargeOwnerRule
   };
 }
 

@@ -3271,7 +3271,7 @@ function renderQuarantineChamberUI(tf) {
     listEl.innerHTML = `
       <div class="p-3 rounded-xl bg-black/40 border border-white/[0.06] text-center font-mono text-[8.5px] text-zinc-400">
         <i class="fa-solid fa-circle-check text-emerald-400 text-sm mb-1 block"></i>
-        All 101 models operating normally. Zero models locked in quarantine.
+        All 137 models operating normally. Zero models locked in quarantine.
       </div>
     `;
     return;
