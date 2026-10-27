@@ -947,6 +947,69 @@ export class VerdictLocker {
   clear() { this.lock = null; }
 }
 
+/**
+ * Fix round (RC2) settlement guard (pure, testable): a governed
+ * settlement may run only when the settled round has an issued
+ * governed record for EXACTLY that period. First sight, no issued
+ * pick, or no record for the period → not allowed, and the decision
+ * is null (callers must settle nothing, and must not catch up).
+ */
+export function governedSettlementAllowed({ isFirst = false, lastPick = null, picksByPeriod = null, tf = '', period = '' } = {}) {
+  if (isFirst || !lastPick) return { allowed: false, decision: null };
+  const rec = picksByPeriod ? picksByPeriod[String(tf) + ':' + String(period)] : null;
+  if (!rec) return { allowed: false, decision: null };
+  return { allowed: true, decision: rec.decision || null };
+}
+
+/**
+ * Fix round (no-pick window, owner orders 2026-10-27 ~11:56–11:58 IST):
+ * the panel must never sit in NO_PICK for multiple consecutive rounds
+ * while models and history exist. When a freshly computed verdict is
+ * NO_PICK but the previous verdict for the timeframe was a BET with a
+ * pick, HOLD the previous verdict as this round's displayed/staged
+ * verdict (marked heldFrom) instead of flashing NO_PICK. The hold is
+ * NOT a new pick: it re-shows the last real governed pick, which is
+ * what the owner ordered ("predict every round") and what the hero
+ * already showed. It applies ONLY while the governed pool and the
+ * history are non-empty — a genuinely empty pool still shows NO_PICK
+ * honestly. Pure, testable; the cycle wires it (see state.gate below).
+ */
+export function holdVerdictOnNoPick({ gate = null, prevGate = null, poolSize = 0, historyLen = 0 } = {}) {
+  if (!gate || gate.decision !== GATE_DECISIONS.NO_PICK) return { held: false, gate };
+  if (!prevGate || prevGate.decision !== GATE_DECISIONS.BET || !prevGate.pick) return { held: false, gate };
+  if (!(poolSize > 0) || !(historyLen > 0)) return { held: false, gate };
+  return { held: true, gate: { ...prevGate, heldFrom: true } };
+}
+
+/**
+ * Fix round (settlement-record gap): the period a verdict's pick is
+ * FOR, when the native open period is unknown (ball minimized,
+ * Analyse tab, game frame not reporting). WinGo issue numbers run
+ * sequentially, so the round after the latest settled period is
+ * latestPeriod + 1 numerically. Used ONLY as the record key when
+ * openPeriodFor() returns null — never to invent a pick, and the
+ * settlement guard still requires an exact period match. Null when
+ * the period is not numeric.
+ */
+export function expectedOpenPeriod(latestPeriod) {
+  // String arithmetic, NOT Number: real issue numbers (e.g.
+  // 20261027100050774) exceed 2^53, so Number() rounds the last digit
+  // and +1 lands on the wrong period. Only pure digit strings qualify.
+  const s = String(latestPeriod);
+  if (!/^\d+$/.test(s)) return null;
+  const digits = s.split('');
+  let i = digits.length - 1;
+  let carry = 1;
+  while (i >= 0 && carry) {
+    const d = Number(digits[i]) + carry;
+    digits[i] = String(d % 10);
+    carry = d >= 10 ? 1 : 0;
+    i -= 1;
+  }
+  if (carry) digits.unshift('1');
+  return digits.join('');
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // Axo layer — face + voice decisions (pure, testable)
 // ─────────────────────────────────────────────────────────────────────
@@ -2209,7 +2272,10 @@ function initBridge() {
   const state = {
     page: null,            // 'mobile' | 'index'
     tf: null,
-    lastPeriodSeen: null,  // latest settled period processed
+    lastPeriodSeen: null,  // latest settled period processed (global, kept for compat)
+    lastPeriodSeenByTf: {}, // Fix round (RC2): per-timeframe latest settled period
+    picksByPeriod: {},   // Fix round (RC2): 'tf:period' -> { target, prob, decision } for the issued governed pick, cap ~5
+    lastCycleTf: null,   // Fix round (RC2): timeframe of the previous cycle (tf-change reset detection)
     pendingPicks: null,    // Map for the upcoming round (computed pre-round)
     pendingForPeriod: null,
     inchargeId: null,
@@ -3166,7 +3232,11 @@ function initBridge() {
    *  display. */
   function setVerdictIcon(kind) {
     const svg = (kind && VERDICT_ICONS[kind]) || '';
-    for (const id of ['axoSheetVerdictIcon', 'axoHeroVerdictIcon', 'orbVerdictIcon']) {
+    for (const id of ['axoSheetVerdictIcon', 'axoHeroVerdictIcon']) {
+      // Fix round (ball-only): orbVerdictIcon is the floating
+      // widget's icon — renderAxoOrb keeps it cleared, and this
+      // writer must never re-paint it. Sheet/hero icons are panel
+      // surfaces, not the widget, and stay.
       const slot = $(id);
       if (slot) slot.innerHTML = svg;
     }
@@ -3735,6 +3805,45 @@ function initBridge() {
     applyAutoPilotIntent(intent);
   }
 
+  // Fix round (real-time base bet, owner order 2026-10-27 ~12:01 IST):
+  // the Recovery Ledger resize as ONE named step — the cycle calls it
+  // after syncSessionBase, and the synchronous chip/AUTO hook calls
+  // the same function. A gate's driverType is always set by the cycle
+  // companions (held gates carry their own previous driver), so no
+  // locker fallback is needed here.
+  function applyLedgerResize(g) {
+    if (state.session && g.decision === GATE_DECISIONS.BET) {
+      const driverType = g.driverType || 'COLOR';
+      const L = loadLedger(safeStorage(), driverType);
+      const W = Number.isFinite(g.wilsonLowerBound) ? g.wilsonLowerBound : null;
+      const knownBalance = (state.session && Number.isFinite(state.session.balance) && state.session.balance > 0)
+        ? state.session.balance : null;
+      const rz = ledgerResize(state.session.baseBet, L, W, driverType, knownBalance);
+      state.session.nextStake = rz.stake;
+      state.session.shortfall = rz.over ? rz.over.shortfall : null;
+      state.session.overPlan = false;
+      state.session.ledgerLevelIndex = rz.levelIndex;
+      state.session.ledgerView = {
+        tracked: L, stake: rz.stake, weight: rz.weight,
+        required: rz.stake,
+        shortfall: rz.over ? rz.over.shortfall : null,
+        capped: rz.over ? rz.over.capped : null,
+        levelIndex: rz.levelIndex
+      };
+      g.ledgerView = state.session.ledgerView;
+      try { saveSessionTo(safeStorage(), 'SHARED', state.session); } catch (e) { /* storage must never break the cycle */ }
+    } else {
+      g.ledgerView = null;
+      // No stake this round (NO_PICK): clear the session's ledger
+      // view + shortfall so a stale "needs Rs X more" from the last
+      // BET round never lingers on a round with no pick.
+      if (state.session) {
+        state.session.ledgerView = null;
+        state.session.shortfall = null;
+      }
+    }
+  }
+
   function toggleAutoBase() {
     ap.setAutoBase(!ap.state.autoBase);
     state.baseSignature = null;
@@ -3742,6 +3851,11 @@ function initBridge() {
       ? 'AUTO base on — the base bet now follows your verified balance and risk mode.'
       : 'AUTO base off — the manual chips rule.', 'system');
     renderAutoPilot();
+    // Fix round (real-time base bet): AUTO toggle updates Base/Bet/
+    // pill/level synchronously via the same sync path as the cycle.
+    if (typeof window !== 'undefined' && typeof window.__o101SyncBaseNow === 'function') {
+      try { window.__o101SyncBaseNow(); } catch (e) { /* a toggle must never break on sync */ }
+    }
   }
 
 
@@ -4009,6 +4123,14 @@ function initBridge() {
     const tf = currentTf();
     const history = settledHistory(tf);
     if (!history.length) return;
+    // Fix round (RC2): a timeframe switch resets the governed
+    // settlement state — a pick issued for the old timeframe must
+    // never settle a round of the new one.
+    if (state.lastCycleTf !== null && state.lastCycleTf !== tf) {
+      state.lastPick = null;
+      state.picksByPeriod = {};
+    }
+    state.lastCycleTf = tf;
     state.tf = tf;
     const latest = history[history.length - 1];
     const latestPeriod = String(latest.period);
@@ -4069,10 +4191,11 @@ function initBridge() {
     // New settled round? (Pending picks and the displayed pick were
     // computed from the history ending at the PREVIOUS latest period,
     // so they were issued FOR this newly settled round.)
-    const prevLatest = state.lastPeriodSeen;
+    const prevLatest = state.lastPeriodSeenByTf ? state.lastPeriodSeenByTf[tf] : null;
     if (prevLatest !== latestPeriod) {
       const isFirst = prevLatest === null;
       state.lastPeriodSeen = latestPeriod;
+      if (state.lastPeriodSeenByTf) state.lastPeriodSeenByTf[tf] = latestPeriod;
 
       // 1) Settle the bridge's displayed pick for the round that just
       //    closed, if we had issued one. The verdict that governs the
@@ -4082,12 +4205,19 @@ function initBridge() {
       //    sound, NO bot line, NO ladder movement and NO P&L change;
       //    it is only logged as skipped. Win/loss treatment is
       //    reserved for rounds with an actually settled governed BET.
-      if (!isFirst && state.lastPick) {
+      // Fix round (RC2): period-stamped settlement, fail closed.
+      // The settled round must have an issued governed record for
+      // EXACTLY this period — a jumped round (feed gap, background
+      // sleep) or a switched timeframe has no record and settles
+      // NOTHING here (no sound, no events, no ladder/ledger/
+      // calibration movement). The decision is read from the stored
+      // record, not the single-slot locker peek (which the next
+      // verdict can overwrite). Skipped rounds are NOT caught up.
+      const settleCheck = governedSettlementAllowed({ isFirst, lastPick: state.lastPick, picksByPeriod: state.picksByPeriod, tf, period: latestPeriod });
+      if (settleCheck.allowed) {
         const won = ev(state.lastPick.target, latest.number, latest.size, latest.color);
         if (won !== null && won !== undefined) {
-          const lockVal = locker.peek(state.verdictKey);
-          const decision = lockVal && lockVal.gate ? lockVal.gate.decision
-            : (state.gate ? state.gate.decision : null);
+          const decision = settleCheck.decision;
           const fired = ap.hasFired(tf, latestPeriod);
           if (decision === GATE_DECISIONS.BET && ap.enabled && !fired) {
             // Auto-Pilot was on but the owner never fired this round:
@@ -4527,7 +4657,7 @@ function initBridge() {
     // #2, owner's order). The no-skip toggle is GONE (owner
     // correction 2) — its applyNoSkip helper is dormant and is NOT
     // called here.
-    const gate = locked.gate;
+    let gate = locked.gate;
     // Display companions ride the gate for renderers: the exact-ball
     // display (when exact holds Incharge) and the ASI trial note
     // (when a trial-gated model would have led). They are display
@@ -4540,6 +4670,16 @@ function initBridge() {
     gate.driverWinRate = locked.driverWinRate ?? null;
     gate.driverType = locked.driverType || null;
     gate.benchFloor = locked.benchFloor || null;
+    // Fix round (no-pick hold): a fresh NO_PICK while models and
+    // history exist must not replace the previous BET display — hold
+    // the previous verdict (see holdVerdictOnNoPick). The held gate
+    // flows through resize, render, staging and settlement exactly
+    // like a fresh BET gate; the locker keeps the NO_PICK compute
+    // for this key, so the next fresh BET still replaces the hold.
+    const prevGate = state.gate;
+    let heldGate = false;
+    const hold = holdVerdictOnNoPick({ gate, prevGate, poolSize: governedPool.length, historyLen: history.length });
+    if (hold.held) { gate = hold.gate; heldGate = true; }
     state.gate = gate;
     // Graduated stakes: the session base follows the CURRENT
     // bet driver's sample factor. The gate just ran, so take the
@@ -4566,55 +4706,53 @@ function initBridge() {
     // bound (null -> 0.25x floor). Balance anchor = the session's
     // running balance when finite and positive; balance-free chip
     // sessions get no invented shortfall (null).
-    if (state.session && gate.decision === GATE_DECISIONS.BET) {
-      const driverType = locked.driverType || 'COLOR';
-      const L = loadLedger(safeStorage(), driverType);
-      const W = Number.isFinite(gate.wilsonLowerBound) ? gate.wilsonLowerBound : null;
-      const knownBalance = (state.session && Number.isFinite(state.session.balance) && state.session.balance > 0)
-        ? state.session.balance : null;
-      const rz = ledgerResize(state.session.baseBet, L, W, driverType, knownBalance);
-      state.session.nextStake = rz.stake;
-      state.session.shortfall = rz.over ? rz.over.shortfall : null;
-      state.session.overPlan = false;
-      state.session.ledgerLevelIndex = rz.levelIndex;
-      state.session.ledgerView = {
-        tracked: L, stake: rz.stake, weight: rz.weight,
-        required: rz.stake,
-        shortfall: rz.over ? rz.over.shortfall : null,
-        capped: rz.over ? rz.over.capped : null,
-        levelIndex: rz.levelIndex
-      };
-      gate.ledgerView = state.session.ledgerView;
-      try { saveSessionTo(safeStorage(), 'SHARED', state.session); } catch (e) { /* storage must never break the cycle */ }
-    } else {
-      gate.ledgerView = null;
-      // No stake this round (NO_PICK): clear the session's ledger
-      // view + shortfall so a stale "needs Rs X more" from the last
-      // BET round never lingers on a round with no pick.
-      if (state.session) {
-        state.session.ledgerView = null;
-        state.session.shortfall = null;
-      }
-    }
+    // Fix round (real-time base bet): the resize step lives at
+    // closure scope (applyLedgerResize, near syncSessionBase) so the
+    // synchronous chip/AUTO hook runs the SAME resize the cycle runs
+    // — never a divergent formula. A held gate resizes on its own
+    // (previous) driver type + Wilson.
+    applyLedgerResize(gate);
     // Remember the locked pick so its outcome can settle calibration,
     // the cooldown and (when fired) the bankroll when the round lands.
-    state.lastPick = locked.pick;
+    // A held round settles its HELD pick (the displayed pick), so the
+    // settlement guard's record for this period matches the display.
+    state.lastPick = heldGate ? (gate.pick ? { target: gate.pick, prob: gate.prob ?? null } : null) : locked.pick;
 
     // Governor disposition for the live app's own win/loss path: the
     // round's governed verdict + whether a bet was actually fired.
     const openP = openPeriodFor(tf);
-    if (openP) {
-      const dKey = tf + ':' + openP;
+    // Fix round (settlement-record gap): when the native open period
+    // is unknown (ball minimized, Analyse tab, game frame silent),
+    // key the record by the expected open period (latest settled + 1)
+    // instead of writing NO record — a missing record used to make
+    // the next settlement silently skip (ledger frozen, sound lost)
+    // for that round. The guard still requires an exact period match.
+    // A held round records its HELD pick (the displayed pick).
+    const recordP = openP || expectedOpenPeriod(latestPeriod);
+    if (recordP) {
+      const dKey = tf + ':' + recordP;
       if (!state.dispositions[dKey]) {
         // The governed pick rides along so the road strip can pair
         // each settled result with the pick the governor made for it.
         // A NO_PICK carries NO pick: no stageable pick exists that
         // round, and the strip must never invent one for it. A BET
         // disposition carries the pick shown (the bet-driving pick,
-        // never a trial-gated or exact display).
-        state.dispositions[dKey] = { decision: gate.decision, pick: gate.decision === GATE_DECISIONS.BET ? (gate.pick || null) : null, fired: ap.hasFired(tf, openP), apOn: ap.enabled };
+        // never a trial-gated or exact display). NOTE: this pick is
+        // the gate's pick STRING — roadCells + the history pairing
+        // read it as a string; mobile.js RC1 accepts string or object.
+        state.dispositions[dKey] = { decision: gate.decision, pick: gate.decision === GATE_DECISIONS.BET ? (gate.pick || null) : null, fired: ap.hasFired(tf, recordP), apOn: ap.enabled };
         const keys = Object.keys(state.dispositions);
         if (keys.length > 60) delete state.dispositions[keys[0]];
+      }
+      // Fix round (RC2): the same round's issued governed pick,
+      // stamped for settlement verification (fail closed: settlement
+      // for a period with no record here settles nothing).
+      if (!state.picksByPeriod) state.picksByPeriod = {};
+      if (!state.picksByPeriod[dKey]) {
+        const recPick = heldGate ? (gate.pick ? { target: gate.pick, prob: gate.prob ?? null } : null) : locked.pick;
+        state.picksByPeriod[dKey] = { target: recPick ? recPick.target : null, prob: recPick ? recPick.prob : null, decision: gate.decision };
+        const pKeys = Object.keys(state.picksByPeriod);
+        if (pKeys.length > 5) delete state.picksByPeriod[pKeys[0]];
       }
     }
 
@@ -4636,6 +4774,9 @@ function initBridge() {
       // Phase 3E: bench floor + penalised count for inspection.
       window.__o101Verdict.benchFloor = gate.benchFloor || null;
       window.__o101Verdict.benchCount = bench.count(tf);
+      // Fix round (no-pick hold): flag a held display verdict so any
+      // surface can tell it re-shows the last real BET pick.
+      window.__o101Verdict.held = heldGate;
     }
     renderWindowStatus();
     // Axo surfaces follow the same verdict: the road strip, the
@@ -4922,45 +5063,34 @@ function initBridge() {
     // Phase 3E: the closed pill is pick · Wilson% · stake (Wilson
     // from the published verdict; the stake is the ledger figure).
     const pillView = closedOrbPill({ decision: v ? v.decision : null, pick: v ? v.pick : null, stake: state.session ? state.session.nextStake : null, wilson: v ? v.wilson : null });
-    const key = JSON.stringify([pillView.text, pillView.state, pillView.ballDigit, view.periodText, road]);
+    // Fix round (ball-only, owner order 2026-10-27): the Axo widget
+    // shows ONLY the prediction ball — no pill text, no road line,
+    // no verdict icon. The render key is the ball alone, so a text
+    // or road change can never re-render text back in. Positions
+    // are untouched (this round does not move the prediction).
+    const key = JSON.stringify([pillView.state, pillView.ballDigit]);
     if (key === axo.lastOrbKey) return;
     axo.lastOrbKey = key;
-    // Fix round #5: minimized state always shows the prediction
-    // inside the Axo ball itself — the floating subtitle element is
-    // deleted, so the pill, icon, and under-bar are never hidden by
-    // the subtitle switch. (The ball fades out when the panel opens,
-    // so this display is only ever seen minimized.) Positioning
-    // classes are never overwritten here: only text and colour (via
-    // style) change, so the pill can never lose its place on the ball.
     if (pill) {
-      // Phase 3A ball image on the closed pill (16px, governed picks
-      // only): a digit pick shows its PNG beside the text; missing
-      // ballImg (or '') falls back to plain text, never a blank.
       const ballHtml = pillView.ballDigit && typeof window.ballImg === 'function' ? window.ballImg(pillView.ballDigit, 16, '') : '';
       if (ballHtml) {
-        pill.innerHTML = '';
-        pill.insertAdjacentHTML('beforeend', ballHtml);
-        const t = document.createElement('span');
-        t.textContent = pillView.text;
-        pill.appendChild(t);
+        pill.innerHTML = ballHtml;
+        pill.classList.remove('hidden');
       } else {
-        pill.textContent = pillView.text;
+        // No ball to show (no BET pick): hide the pill entirely —
+        // never a text fallback, never a blank.
+        pill.innerHTML = '';
+        pill.classList.add('hidden');
       }
-      // Held shows in the bet colour (it IS a displayed pick); the
-      // missing ₹stake is what marks it as not-a-bet.
-      pill.style.color = pillView.state === 'bet' ? '#fde68a' : '#71717a';
-      pill.classList.remove('hidden');
     }
-    // Phase 3D: the in-ball display carries the verdict icon
-    // beside the pill (the BET pick's icon; nothing otherwise).
     const orbIcon = $('orbVerdictIcon');
     if (orbIcon) {
-      orbIcon.innerHTML = view.state === 'bet' ? (verdictIconFor(v ? v.pick : null, 'BET').svg || '') : '';
-      orbIcon.classList.remove('hidden');
+      orbIcon.innerHTML = '';
+      orbIcon.classList.add('hidden');
     }
     if (bar) {
-      bar.textContent = [view.periodText, road].filter(Boolean).join(' · ') || '—';
-      bar.classList.remove('hidden');
+      bar.textContent = '';
+      bar.classList.add('hidden');
     }
   }
 
@@ -5484,6 +5614,29 @@ function initBridge() {
     return false;
   };
   window.__o101GovernedDisposition = (tf, period) => state.dispositions[String(tf) + ':' + String(period)] || null;
+  // Fix round (real-time base bet, owner order 2026-10-27 ~12:01 IST):
+  // synchronous base-bet sync for chip taps (mobile.js
+  // setAssistantBaseStake) and the AUTO toggle (toggleAutoBase above).
+  // Runs the SAME path the cycle runs, in the same order —
+  // syncSessionBase (manual-tap-turns-AUTO-off lives there) +
+  // applyLedgerResize + the governed renders — with no cycle tick
+  // or round boundary needed and no divergent formula. The
+  // Settings-page AUTO toggle is a separate document and cannot call
+  // this hook synchronously; that path still updates on the next
+  // cycle tick (pollApIntent) — a document limitation, not a second
+  // formula. A tap must never break on sync: errors are swallowed.
+  window.__o101SyncBaseNow = () => {
+    try {
+      const login = verifier.status(Date.now());
+      syncSessionBase(login);
+      if (state.gate) {
+        applyLedgerResize(state.gate);
+        renderSignal(state.gate, null, login);
+        renderHeroVerdict(state.gate);
+        renderAxoOrb();
+      }
+    } catch (e) { /* sync must never break a tap */ }
+  };
   // Phase 3E manual unbench (Analyse bench card): restores the model
   // to NORMAL immediately (full eligibility, subject to winning
   // Incharge). The card re-renders on the next cycle. Like manual

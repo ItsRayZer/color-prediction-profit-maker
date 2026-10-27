@@ -545,16 +545,16 @@ function playSynthFallback(type) {
   } catch(e) {}
 }
 
-let _pendingBgSound = null;
+let _pendingBgSound = null; // { type, period, tf } — period-stamped (RC4) so foreground return drops stale rounds
 
-function playSoundEffect(type, force = false) {
+function playSoundEffect(type, force = false, meta = null) {
   // CRITICAL REQUIREMENT 1: Only 'win' and 'loss' have associated sounds. Ignore 'click' or any other type completely!
   if (type !== 'win' && type !== 'loss') return;
   if (!MobileState.soundEnabled && !force) return;
 
   // Background audio throttling: suppress continuous chimes when backgrounded; queue at most a single chime
   if (!force && typeof document !== 'undefined' && document.hidden) {
-    _pendingBgSound = type;
+    _pendingBgSound = { type, period: meta && meta.period ? String(meta.period) : null, tf: meta && meta.tf ? meta.tf : null };
     return;
   }
 
@@ -604,7 +604,7 @@ function evaluatePredictionCorrectness(target, number, size, color) {
 
   if (t === 'BIG') return sz === 'BIG';
   if (t === 'SMALL') return sz === 'SMALL';
-  if (t === 'GREEN') return col.includes('GREEN') || [1,3,7,9].includes(num);
+  if (t === 'GREEN') return col.includes('GREEN') || [1,3,5,7,9].includes(num);
   if (t === 'RED') return col.includes('RED') || [0,2,4,6,8].includes(num);
   if (t === 'VIOLET') return col.includes('VIOLET') || num === 0 || num === 5;
   // Numeric digit target
@@ -2168,14 +2168,55 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
   if (MobileState.lastCelebratedPeriodByTf[tf] === periodStr) return;
   MobileState.lastCelebratedPeriodByTf[tf] = periodStr;
 
+  // Fix round (RC5): normalize colour at entry exactly as the history
+  // sync does — the cloud path can supply no colour, and the
+  // evaluator must never misjudge GREEN-on-5 for want of it.
+  if (!color) {
+    const _n = Number(number);
+    if (_n === 0) color = 'RED,VIOLET';
+    else if (_n === 5) color = 'GREEN,VIOLET';
+    else if (Number.isFinite(_n)) color = [1,3,7,9].includes(_n) ? 'GREEN' : 'RED';
+  }
+  // Fix round (RC4): the latest settled period per timeframe, so a
+  // backgrounded pending sound can be dropped on foreground return
+  // when it is no longer the latest settled round.
+  if (!MobileState.lastSettledPeriodByTf) MobileState.lastSettledPeriodByTf = {};
+  MobileState.lastSettledPeriodByTf[tf] = periodStr;
+
   let isWin = null;
   let target = null;
   let predType = 'SIZE';
+  let targetSource = null;
 
   const isLocalSource = (MobileState.inchargeConfig?.predictionSource || 'LOCAL') === 'LOCAL';
 
+  // Fix round (RC1) Priority 0: the GOVERNED pick wins. The governed
+  // disposition (orb-bridge, keyed by this exact round) carries the
+  // pick the ball actually showed; the arena scheduled pick below
+  // comes from a different engine and routinely differs, so it must
+  // never override the governed pick for the celebration. A
+  // disposition with no pick (NO_PICK) leaves target unset here —
+  // the governor-suppression check below already silences those
+  // rounds, and nothing here may invent a pick for them.
+  if (typeof window.__o101GovernedDisposition === 'function') {
+    try {
+      const _disp = window.__o101GovernedDisposition(tf, periodStr);
+      // Fix round correction: the disposition pick is the gate's pick
+      // STRING ('BIG'/'SMALL'/colour), not a {target} object — the
+      // first RC1 cut read _disp.pick.target and never fired. Accept
+      // both shapes so Priority 0 actually wins over the arena pick.
+      const _dp = _disp ? _disp.pick : null;
+      const _dt = typeof _dp === 'string' ? _dp : (_dp && _dp.target);
+      if (_disp && _disp.decision === 'BET' && _dt) {
+        target = String(_dt);
+        predType = ['RED','GREEN','VIOLET'].includes(target) ? 'COLOR' : 'SIZE';
+        targetSource = 'governed';
+      }
+    } catch(e) {}
+  }
+
   // Priority 1 (for LOCAL mode): The local prediction that was generated, locked, and displayed to the user
-  if (isLocalSource) {
+  if (!target && isLocalSource) {
     const scheduled = (MobileState.scheduledPredictionsByPeriod?.[tf] || {})[periodStr];
     if (scheduled && scheduled.target) {
       target = scheduled.target;
@@ -2255,6 +2296,7 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
 
   // Priority 6: In-charge model replay
   if (isWin === null || !target) {
+    const _hadTargetBeforeReplay = !!target;
     const models = (typeof getEffectiveModelList === 'function') ? getEffectiveModelList(tf) : [];
     const inCharge = models.find(m => m.name === MobileState.inChargeModel) || models[0];
     if (inCharge) {
@@ -2276,6 +2318,11 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
   }
 
   // Evaluate correctness
+  // Fix round (RC3): a target that came ONLY from the in-charge
+  // replay above (or its models[0] fallback) was never displayed to
+  // the user — it may still stamp the history row below, but it must
+  // never drive a celebration banner or sound.
+  if (!_hadTargetBeforeReplay && target) targetSource = 'replay';
   if (target && isWin === null) {
     isWin = !!evaluatePredictionCorrectness(target, number, size, color);
   }
@@ -2458,7 +2505,9 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
   }
 
   // Win/loss celebration: ONLY show popup and sound if settled timeframe is the active timeframe and there was an authentic prediction
-  if (tf === MobileState.timeframe && hasAuthenticPrediction && !governorSuppressed) {
+  // Fix round (RC3): replay-only rounds never celebrate, even though
+  // the history row above still records them.
+  if (tf === MobileState.timeframe && hasAuthenticPrediction && !governorSuppressed && targetSource !== 'replay') {
     showWinLossCelebration(isWin, target, number, size, color, periodStr, simProfit, tf);
   }
 
@@ -2552,8 +2601,17 @@ function showWinLossCelebration(isWin, target, number, size, color, periodStr, s
     periodBadge.textContent = `#${shortPeriodStr(periodStr)}`;
   }
 
-  // Sound & haptic (Only plays for active timeframe, strictly single-instance)
-  playSoundEffect(isWin ? 'win' : 'loss');
+  // Sound & haptic (Only plays for active timeframe, strictly single-instance).
+  // Fix round (RC4): ONE sound authority. When a governed disposition
+  // exists for this period, System A (orb-bridge settleGovernedPick)
+  // already owns the sound for governed BET rounds — the banner stays
+  // silent here so the two systems can never double-play or kill each
+  // other's sound. Only non-governed fallback rounds (no disposition)
+  // sound from the banner, stamped with their period so a
+  // backgrounded pending chime can be dropped as stale.
+  let _hasGovernedDisposition = false;
+  try { _hasGovernedDisposition = typeof window.__o101GovernedDisposition === 'function' && !!window.__o101GovernedDisposition(tf, periodStr); } catch(e) {}
+  if (!_hasGovernedDisposition) playSoundEffect(isWin ? 'win' : 'loss', false, { period: periodStr, tf: tf || MobileState.timeframe });
   hapticFeedback(isWin ? [40, 20, 60] : [80]);
 
   // Auto-dismiss standard banner after 3.8s
@@ -4167,7 +4225,9 @@ window.setHomeHeaderHidden = setHomeHeaderHidden;
 // 'reopen': old Task D behavior — scroll up restores the top bar.
 // Read live on every scroll/gesture/bridge event so a settings change
 // applies without a reload. The menu (dock) is NOT governed by this key:
-// it always hides fully on scroll down and reopens smoothly on scroll up.
+// fix round (owner order 2026-10-27 ~12:03 IST, SUPERSEDES Phase 3C):
+// scroll up NEVER brings the menu back — it returns ONLY on tapping
+// the dock's bottom restore handle (the menu line).
 const TOPBAR_SCROLL_KEY = 'o101_topbar_scroll';
 function topBarStayHidden() {
   try { return localStorage.getItem(TOPBAR_SCROLL_KEY) !== 'reopen'; }
@@ -4253,9 +4313,11 @@ function initDockAutoCompact() {
 
   // ── Phase 3C — decoupled scroll chrome (replaces Task D's Home-only rule) ──
   // Scroll DOWN fully hides the top bar + dock on EVERY view (not compact);
-  // scroll UP reopens the dock smoothly everywhere, but the top bar reopens
-  // on scroll up ONLY in 'reopen' mode — by default ('stay') it stays hidden
-  // until the user taps the top-edge pull handle. Reuses home-header-hidden
+  // scroll UP reopens NOTHING of the menu (owner order 2026-10-27 ~12:03
+  // IST: the menu returns ONLY on tapping the dock's bottom restore
+  // handle); the top bar reopens on scroll up ONLY in 'reopen' mode —
+  // by default ('stay') it stays hidden until the user taps the
+  // top-edge pull handle. Reuses home-header-hidden
   // (header translateY(-110%), 0.35s transition) and dock-hidden (off-screen +
   // opacity 0 + pointer-events none), so both transitions stay CSS-smoothed
   // and hidden chrome never intercepts touches. Governed content (predictions,
@@ -4275,10 +4337,12 @@ function initDockAutoCompact() {
     expand();
     document.body.classList.remove('home-header-hidden');
   };
-  // Scroll-up restore: dock always reopens smoothly; the top bar reopens
-  // only in 'reopen' mode. In 'stay' mode (default) it stays hidden until tap.
+  // Scroll-up restore (fix round, owner order 2026-10-27 ~12:03 IST):
+  // TOP-BAR ONLY — the dock/menu is deliberately NOT reopened here.
+  // The top bar reopens only in 'reopen' mode; in 'stay' mode (default)
+  // it stays hidden until the pull-handle tap. The menu returns ONLY
+  // via the dock restore handle's own handlers (expand) below.
   const restoreOnScrollUp = () => {
-    expand();
     if (!topBarStayHidden()) document.body.classList.remove('home-header-hidden');
   };
   window.__o101ShowHomeChrome = showHomeChrome;
@@ -4296,14 +4360,16 @@ function initDockAutoCompact() {
   window._dockSyncShield = syncShield;
 
   // ── 1. Window scroll: scrolling down = chrome fully hidden, scrolling up =
-  // dock smoothly back, top bar only in 'reopen' mode ──
+  // menu stays hidden (tap the menu line to bring it back), top bar only
+  // in 'reopen' mode ──
   // Phase 3C: the old elsewhere-compact behavior is replaced — scroll down
   // fully hides the dock on EVERY view, and scroll up never auto-reopens
-  // the top bar by default (tap the top-edge handle instead).
+  // the top bar by default (tap the top-edge handle instead). Fix round
+  // (owner order 2026-10-27 ~12:03 IST): scroll up never returns the menu.
   window.addEventListener('scroll', () => {
     const y = window.scrollY || 0;
 
-    // At top of screen: dock reopens smoothly; top bar only in 'reopen' mode.
+    // At top of screen: top bar only in 'reopen' mode; menu stays hidden.
     if (y <= 15) {
       restoreOnScrollUp();
       lastScrollY = y;
@@ -4315,7 +4381,7 @@ function initDockAutoCompact() {
       // User scrolled DOWN → fully hide top bar + dock, every view.
       hideChrome();
     } else if (delta < -SCROLL_THRESHOLD) {
-      // User scrolled UP → dock back smoothly; top bar per mode.
+      // User scrolled UP → menu stays hidden; top bar per mode.
       restoreOnScrollUp();
     }
 
@@ -4323,9 +4389,9 @@ function initDockAutoCompact() {
   }, { passive: true });
 
   // ── 2. Global Viewport Touch & Swipe Gesture Engine ──
-  // Swipe Down = fully hide chrome (Phase 3C), Swipe Up = dock back smoothly
-  // (top bar only in 'reopen' mode), Tap outside = compact dock (unchanged:
-  // a tap is not a scroll).
+  // Swipe Down = fully hide chrome (Phase 3C), Swipe Up = top bar only in
+  // 'reopen' mode (fix round: menu NEVER returns on scroll/swipe up),
+  // Tap outside = compact dock (unchanged: a tap is not a scroll).
   let touchStartY = null;
   let touchStartX = null;
   let touchStartTime = 0;
@@ -4370,8 +4436,8 @@ function initDockAutoCompact() {
       hideChrome();
       touchStartY = clientY;
     } else if (dy < -12) {
-      // Swiping UP (finger moves up towards top) -> dock back smoothly;
-      // top bar only in 'reopen' mode (same as scroll up).
+      // Swiping UP (finger moves up towards top) -> top bar only in
+      // 'reopen' mode; the menu stays hidden (fix round 2026-10-27).
       restoreOnScrollUp();
       touchStartY = clientY;
     }
@@ -4410,20 +4476,32 @@ function initDockAutoCompact() {
 
   // ── 3. High-Fidelity Touch Shield for DhaniWin Embedded View ──
   // Captures touches and swipes anywhere over the embedded iframe when the dock is expanded.
+  // Fix round (scroll-home, owner order 2026-10-27 ~11:55 IST): the old
+  // shield compacted + released ON POINTERDOWN, so the same gesture's
+  // pointermove was retargeted away and the shield's swipe handling
+  // was dead code on touch devices — the first game-area swipe only
+  // compacted, never hid chrome like Analyse. Now pointerdown records
+  // the start ONLY; the gesture resolves on move/up: a vertical swipe
+  // DOWN hides chrome fully (hideChrome, same as Analyse scroll down),
+  // a swipe UP restores the top bar only in 'reopen' mode (the menu
+  // NEVER returns on swipe up — owner order 2026-10-27 ~12:03 IST),
+  // and a clean tap (no significant move) keeps the old tap path
+  // (compact + release) so gameplay taps still reach the game.
+  // Honest limit: on the website the cross-origin iframe swallows
+  // every gesture after the shield releases, so only the FIRST swipe
+  // after each dock-expand drives chrome here; full every-swipe
+  // parity needs the APK bridge (DHANIWIN_SCROLL) or a new edge zone.
   const shield = document.getElementById('dhaniwinTouchShield');
   if (shield) {
     let sStartY = null;
     let sStartX = null;
+    let sMoved = false;
+    let sLastMoved = false;
 
     const onShieldDown = (clientY, clientX) => {
       sStartY = clientY;
       sStartX = clientX;
-      // Touching/tapping anywhere inside DhaniWin embedded view when dock is expanded immediately compacts it!
-      if (!dock.classList.contains('dock-compact')) {
-        compact();
-        // Immediately release shield so touches pass straight to iframe
-        shield.style.pointerEvents = 'none';
-      }
+      sMoved = false;
     };
 
     const onShieldMove = (clientY, clientX) => {
@@ -4431,19 +4509,28 @@ function initDockAutoCompact() {
       const dy = clientY - sStartY;
       const dx = clientX - (sStartX || clientX);
       if (Math.abs(dy) < 8 || Math.abs(dy) < Math.abs(dx)) return;
+      sMoved = true;
       if (dy > 10) {
-        // Dragging DOWN -> compact
-        compact();
+        // Dragging DOWN -> fully hide chrome (same as scroll down).
+        hideChrome();
         shield.style.pointerEvents = 'none';
       } else if (dy < -10) {
-        // Dragging UP -> expand
-        expand();
+        // Dragging UP -> top bar only in 'reopen' mode; menu stays hidden.
+        restoreOnScrollUp();
       }
     };
 
     const onShieldUp = () => {
+      // Clean tap (no significant move) -> the old tap path: compact
+      // + release so the next game tap reaches the iframe.
+      if (sStartY !== null && !sMoved && !dock.classList.contains('dock-compact')) {
+        compact();
+        shield.style.pointerEvents = 'none';
+      }
+      sLastMoved = sMoved;
       sStartY = null;
       sStartX = null;
+      sMoved = false;
     };
 
     shield.addEventListener('pointerdown', (e) => onShieldDown(e.clientY, e.clientX), { passive: true });
@@ -4458,7 +4545,15 @@ function initDockAutoCompact() {
       if (e.touches && e.touches[0]) onShieldMove(e.touches[0].clientY, e.touches[0].clientX);
     }, { passive: true });
     shield.addEventListener('touchend', onShieldUp, { passive: true });
-    shield.addEventListener('click', (e) => onShieldDown(e.clientY, e.clientX), { passive: true });
+    shield.addEventListener('click', (e) => {
+      // A click with no preceding move is a tap: same tap path as
+      // pointerup. A click AFTER a swipe must not compact (the swipe
+      // already resolved the gesture) — sLastMoved guards that.
+      if (!sLastMoved && !dock.classList.contains('dock-compact')) {
+        compact();
+        shield.style.pointerEvents = 'none';
+      }
+    }, { passive: true });
 
     shield.addEventListener('wheel', (e) => {
       if (e.deltaY > 6) {
@@ -4466,7 +4561,7 @@ function initDockAutoCompact() {
         hideChrome();
         shield.style.pointerEvents = 'none';
       } else if (e.deltaY < -6) {
-        // Wheel scroll up: dock back smoothly; top bar per mode.
+        // Wheel scroll up: top bar per mode; menu stays hidden.
         restoreOnScrollUp();
       }
     }, { passive: true });
@@ -4498,6 +4593,9 @@ function initDockAutoCompact() {
   }, 250);
 
   // ── 4. Bottom Swipe-up / Tap Restore Handle ──
+  // Fix round (owner order 2026-10-27 ~12:03 IST): this handle IS the
+  // menu line — tapping it is the ONLY way the hidden menu returns.
+  // Scroll/swipe up deliberately never calls expand() anymore.
   const restoreHandle = document.getElementById('dockRestoreHandle');
   if (restoreHandle) {
     restoreHandle.addEventListener('click', expand);
@@ -5006,9 +5104,14 @@ if (typeof document !== 'undefined') {
       }
       // Background audio throttling: play at most a single pending chime on refocus
       if (_pendingBgSound) {
-        const soundToPlay = _pendingBgSound;
+        const pending = _pendingBgSound;
         _pendingBgSound = null;
-        playSoundEffect(soundToPlay, true);
+        // RC4: drop a pending chime that is no longer the latest
+        // settled round for its timeframe (backgrounded/stale round).
+        const _latestForTf = pending.tf && MobileState.lastSettledPeriodByTf ? MobileState.lastSettledPeriodByTf[pending.tf] : null;
+        if (!pending.period || !pending.tf || !_latestForTf || String(_latestForTf) === String(pending.period)) {
+          playSoundEffect(pending.type, true);
+        }
       }
     }
   });
@@ -5746,20 +5849,17 @@ function handleMobileBridgeMessage(msg) {
     // msg.direction='up' = finger swiped up = content scrolled DOWN
     //   → Phase 3C: header hides, dock fully hides (no compact)
     // msg.direction='down' = finger swiped down = content scrolled UP
-    //   → dock reopens smoothly; header reopens only in 'reopen' mode
-    //     (by default it stays hidden until the top-edge tap)
+    //   → fix round (owner order 2026-10-27 ~12:03 IST): the menu
+    //     stays hidden — it returns ONLY on the restore-handle tap.
+    //     Header reopens only in 'reopen' mode (by default it stays
+    //     hidden until the top-edge tap).
     const userScrolledDown = msg.direction === 'up';
     if (userScrolledDown) {
       setHomeHeaderHidden(true);
       if (typeof window._dockSetHidden === 'function') window._dockSetHidden(true);
     } else {
-      // User scrolled UP: dock back smoothly (CSS transition on the dock).
-      if (typeof window._dockExpand === 'function') {
-        window._dockExpand();
-      } else {
-        if (typeof window._dockSetHidden === 'function') window._dockSetHidden(false);
-        if (typeof window._dockSetCompact === 'function') window._dockSetCompact(false);
-      }
+      // User scrolled UP: menu stays hidden (no _dockExpand here);
+      // top bar per mode only.
       if (!topBarStayHidden()) setHomeHeaderHidden(false);
     }
   } else if (msg.type === 'DHANIWIN_TOUCH' || msg.type === 'DHANIWIN_PAGE_TAP') {
@@ -5961,9 +6061,19 @@ function calculateAndRenderMobileStake() {
   MobileBridgeState.currentStake = calculatedStake;
   try { localStorage.setItem('dhaniwin_active_stake', String(MobileBridgeState.currentStake)); } catch(e) {}
 
-  const stakeEl = $('mobileWebStakeDisplay');
-  const lvlEl = $('mobileWebLevelBadge');
-  const baseEl = $('assistantBaseStakeDisplay');
+  // Fix round (stake ownership): when the governor is active it
+  // OWNS Base/Bet/Level (orb-bridge renderSignal, governed session
+  // figures) — the legacy ladder must never overwrite them, or the
+  // shown stake flips between the legacy figure and the governed
+  // figure on every chip tap / settlement. Internal currentStake,
+  // the localStorage write and the bridge broadcast below are
+  // untouched (order paths unchanged); only the DOM writes yield.
+  // Without a published governed verdict (governor absent), the
+  // legacy figures remain the fallback display.
+  const governedOwnsDisplays = typeof window !== 'undefined' && !!window.__o101Verdict;
+  const stakeEl = governedOwnsDisplays ? null : $('mobileWebStakeDisplay');
+  const lvlEl = governedOwnsDisplays ? null : $('mobileWebLevelBadge');
+  const baseEl = governedOwnsDisplays ? null : $('assistantBaseStakeDisplay');
   if (stakeEl) stakeEl.textContent = '₹' + MobileBridgeState.currentStake;
   if (baseEl) baseEl.textContent = '₹' + MobileBridgeState.baseStake;
   if (lvlEl) {
@@ -6214,6 +6324,15 @@ function setAssistantBaseStake(amt) {
   calculateAndRenderMobileStake();
   if (typeof updateFloatingOrbUI === 'function') updateFloatingOrbUI();
   if (typeof playSoundEffect === 'function') playSoundEffect('click');
+  // Fix round (real-time base bet, owner order 2026-10-27 ~12:01 IST):
+  // synchronously re-run the governed sync path (same functions the
+  // cycle calls) so Base/Bet/pill/level update on the tap, not on the
+  // next cycle tick. The legacy recompute above runs first and its
+  // DOM writes already yield to a published governed verdict, so the
+  // hook's governed figures are final. No-op when the module is absent.
+  if (typeof window.__o101SyncBaseNow === 'function') {
+    try { window.__o101SyncBaseNow(); } catch (e) { /* a tap must never break on sync */ }
+  }
 }
 window.setAssistantBaseStake = setAssistantBaseStake;
 
@@ -6279,17 +6398,27 @@ window.renderRoadCellsChunked = renderRoadCellsChunked;
 // window.__o101ClampBall (systems/orb-bridge.js) is the single
 // source of truth when present; the inline math below is identical.
 function clampBallRectFallback(rect) {
+  // Fix round (face down, owner order 2026-10-27 ~12:00 IST): honour
+  // the caller's topMargin (160 = below the PREDICTION WON banner zone
+  // at top-14 + banner height, so the face is never covered by it);
+  // the module clamp is the same math with the same parameter.
+  const topMargin = Number.isFinite(rect.topMargin) ? rect.topMargin : 10;
   return {
     left: Math.min(Math.max(8, rect.left), Math.max(8, window.innerWidth - 68 - 8)),
-    top: Math.min(Math.max(10, rect.top), Math.max(10, window.innerHeight - 86 - 12))
+    top: Math.min(Math.max(topMargin, rect.top), Math.max(topMargin, window.innerHeight - 86 - 12))
   };
 }
 function clampFloatingOrb() {
   const orb = $('dhaniwinFloatingOrb');
   if (!orb || orb.style.display === 'none') return;
+  // Fix round (face down, owner order 2026-10-27 ~12:00 IST): the
+  // 160px minimum top keeps the face below the PREDICTION WON banner
+  // (fixed top-14) and fully inside the viewport — including a saved
+  // top-right position restored from localStorage, which this clamp
+  // pulls down into view on load. Prediction pills are NOT moved.
   const rect = orb.getBoundingClientRect();
   const clamp = window.__o101ClampBall || clampBallRectFallback;
-  const next = clamp({ left: rect.left, top: rect.top, width: 68, height: 86, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 10, bottomMargin: 12 });
+  const next = clamp({ left: rect.left, top: rect.top, width: 68, height: 86, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 160, bottomMargin: 12 });
   orb.style.left = `${next.left}px`;
   orb.style.top = `${next.top}px`;
   orb.style.right = 'auto';
@@ -6918,7 +7047,7 @@ function toggleDhaniwinAssistantModal(show) {
     if (orb) {
       const sheetRect = sheet.getBoundingClientRect();
       const clamp = window.__o101ClampBall || clampBallRectFallback;
-      const ballSpot = clamp({ left: sheetRect.left + sheetRect.width / 2 - 34, top: sheetRect.top + sheetRect.height / 2 - 43, width: 68, height: 86, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 10, bottomMargin: 12 });
+      const ballSpot = clamp({ left: sheetRect.left + sheetRect.width / 2 - 34, top: sheetRect.top + sheetRect.height / 2 - 43, width: 68, height: 86, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 160, bottomMargin: 12 });
       const ballCenterX = ballSpot.left + 34;
       const ballCenterY = ballSpot.top + 43;
       sheet.style.transformOrigin = `${ballCenterX - sheetRect.left}px ${ballCenterY - sheetRect.top}px`;
@@ -7249,11 +7378,20 @@ function updateFloatingOrbUI() {
   const pingEl = $('floatingOrbDotPing');
   const dotEl = $('floatingOrbDot');
   if (!window.__o101Verdict) {
+    // Fix round (ball-only): even the no-governor fallback shows
+    // only the ball, never verdict text — ballImg serves digits and
+    // letter keys alike; text remains only if no ball renderer
+    // exists (never a blank).
     const target = MobileState.activePrediction?.target || 'BIG';
     const targetEl = $('floatingOrbTarget');
     if (targetEl) {
-      targetEl.textContent = target;
-      targetEl.style.color = target === 'SMALL' ? '#bae6fd' : '#fde68a';
+      const ballHtml = (typeof window.ballImg === 'function') ? window.ballImg(String(target).toUpperCase(), 16, '') : '';
+      if (ballHtml) {
+        targetEl.innerHTML = ballHtml;
+      } else {
+        targetEl.textContent = target;
+        targetEl.style.color = target === 'SMALL' ? '#bae6fd' : '#fde68a';
+      }
     }
   }
 
@@ -7338,7 +7476,7 @@ function setupFloatingOrb() {
       if (e.cancelable && e.preventDefault) e.preventDefault();
       // Drag stays bounded: the ball can never leave the viewport.
       const clamp = window.__o101ClampBall || clampBallRectFallback;
-      const next = clamp({ left: startLeft + dx, top: startTop + dy, width: 68, height: 86, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 10, bottomMargin: 12 });
+      const next = clamp({ left: startLeft + dx, top: startTop + dy, width: 68, height: 86, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 160, bottomMargin: 12 });
       orb.style.left = `${next.left}px`;
       orb.style.top = `${next.top}px`;
       orb.style.right = 'auto';
@@ -7366,7 +7504,7 @@ function setupFloatingOrb() {
     const rect = orb.getBoundingClientRect();
     const midX = window.innerWidth / 2;
     const clamp = window.__o101ClampBall || clampBallRectFallback;
-    const snapped = clamp({ left: rect.left < midX ? 12 : window.innerWidth - 76, top: rect.top, width: 68, height: 86, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 10, bottomMargin: 12 });
+    const snapped = clamp({ left: rect.left < midX ? 12 : window.innerWidth - 76, top: rect.top, width: 68, height: 86, vw: window.innerWidth, vh: window.innerHeight, margin: 8, topMargin: 160, bottomMargin: 12 });
     const targetLeft = snapped.left;
     const targetTop = snapped.top;
 
