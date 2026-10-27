@@ -1585,6 +1585,25 @@
           </div>
         </div>
 
+        <!-- Top Bar On Scroll (Phase 3C) -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-indigo">
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg>
+            </div>
+            <div>
+              <div class="ios-label-primary">Top Bar On Scroll</div>
+              <div class="ios-label-secondary">Scroll up reopens it, or it stays hidden until you tap</div>
+            </div>
+          </div>
+          <div class="ios-row-right">
+            <select id="selTopBarScroll" onchange="setTopBarScroll(this.value)" class="ios-picker-pill">
+              <option value="stay">Stay hidden until I tap</option>
+              <option value="reopen">Reopen on scroll up</option>
+            </select>
+          </div>
+        </div>
+
       </div>
       <div class="ios-group-footer">
         Keep-Alive + Wake Lock keep live sessions running.
@@ -2116,6 +2135,13 @@
         if (selView) selView.value = viewVal;
       } catch(e) {}
 
+      // Top bar on scroll (Phase 3C): 'stay' is the default.
+      try {
+        const topBarVal = localStorage.getItem('o101_topbar_scroll') || 'stay';
+        const selTopBar = document.getElementById('selTopBarScroll');
+        if (selTopBar) selTopBar.value = (topBarVal === 'reopen') ? 'reopen' : 'stay';
+      } catch(e) {}
+
       // Notifications
       updateNotifTag();
 
@@ -2264,6 +2290,15 @@
     function setTimeframe(val) {
       localStorage.setItem('quant_default_tf', val);
       showToast(`Default Interval: ${val}`);
+    }
+
+    function setTopBarScroll(val) {
+      // Phase 3C: top-bar scroll mode. Anything but 'reopen' means 'stay'
+      // (the default): scroll up never reopens the top bar; the user taps
+      // the top-edge pull handle every time. Read live by mobile.js.
+      const v = (val === 'reopen') ? 'reopen' : 'stay';
+      try { localStorage.setItem('o101_topbar_scroll', v); } catch(e) {}
+      showToast(v === 'reopen' ? 'Top bar reopens on scroll up' : 'Top bar stays hidden until you tap');
     }
 
     function setViewMode(val) {

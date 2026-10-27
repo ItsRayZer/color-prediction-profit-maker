@@ -4269,6 +4269,19 @@ function setHomeHeaderHidden(hidden) {
 }
 window.setHomeHeaderHidden = setHomeHeaderHidden;
 
+// ── Phase 3C — top-bar scroll mode (owner order 2026-10-27) ──
+// 'stay' (DEFAULT — key absent or anything but 'reopen'): scroll up NEVER
+// reopens the top bar; the user taps the top-edge pull handle every time.
+// 'reopen': old Task D behavior — scroll up restores the top bar.
+// Read live on every scroll/gesture/bridge event so a settings change
+// applies without a reload. The menu (dock) is NOT governed by this key:
+// it always hides fully on scroll down and reopens smoothly on scroll up.
+const TOPBAR_SCROLL_KEY = 'o101_topbar_scroll';
+function topBarStayHidden() {
+  try { return localStorage.getItem(TOPBAR_SCROLL_KEY) !== 'reopen'; }
+  catch (e) { return true; }
+}
+
 function initHomeHeaderAutoHide() {
   const header = document.querySelector('header.liquid-glass-header');
   if (!header) return;
@@ -4276,11 +4289,13 @@ function initHomeHeaderAutoHide() {
   syncHeight();
   window.addEventListener('resize', syncHeight);
 
-  // Task D: the pull handle is visible whenever home-header-hidden is set, including
-  // on Home (where the scroll listener hides chrome). setHomeHeaderHidden is
-  // web-gated, so on Home the restore must also run the Home chrome show path —
-  // otherwise the handle would appear on Home and do nothing. Web behavior is
-  // untouched: the extra call is Home-gated.
+  // Task D: the pull handle is visible whenever home-header-hidden is set.
+  // Phase 3C: the handle moved OUT of #tab-web to body level (fixed, top
+  // edge) so the manual top-bar reopen works on EVERY view — inside
+  // #tab-web it was invisible whenever the web tab was hidden. setHomeHeaderHidden
+  // is web-gated for HIDING, but unhiding (hidden=false) removes the class on
+  // any tab, so showTopBar restores the bar everywhere. On Home the restore
+  // also runs the Home chrome show path. Web behavior is untouched.
   const showTopBar = () => {
     setHomeHeaderHidden(false);
     if (document.getElementById('tab-home')?.style.display !== 'none') window.__o101ShowHomeChrome?.();
@@ -4304,7 +4319,8 @@ function initHomeHeaderAutoHide() {
   }
 }
 
-// ── Liquid-glass dock: scroll-driven compact (down=small, up=big) & touch-dismiss ─────────────
+// ── Liquid-glass dock: scroll-driven hide/show (Phase 3C: down = fully hidden,
+// up = smoothly back) & touch-dismiss ─────────────
 function initDockAutoCompact() {
   const dock = document.getElementById('mobileBottomDock');
   if (!dock) return;
@@ -4343,23 +4359,35 @@ function initDockAutoCompact() {
     syncShield();
   };
 
-  // ── Task D — Home view scroll auto-hide ──
-  // On Home ONLY, scroll-down FULLY hides the top bar + dock (not compact);
-  // scroll-up restores both. Reuses the existing home-header-hidden rule (header
-  // translateY(-110%), 0.35s transition) and dock-hidden (off-screen + opacity 0 +
-  // pointer-events none), so both transitions stay CSS-smoothed and hidden chrome
-  // never intercepts touches. The bet slip / confirm tap lives in page content,
-  // not in the header or dock, so it stays fully usable while chrome is hidden.
+  // ── Phase 3C — decoupled scroll chrome (replaces Task D's Home-only rule) ──
+  // Scroll DOWN fully hides the top bar + dock on EVERY view (not compact);
+  // scroll UP reopens the dock smoothly everywhere, but the top bar reopens
+  // on scroll up ONLY in 'reopen' mode — by default ('stay') it stays hidden
+  // until the user taps the top-edge pull handle. Reuses home-header-hidden
+  // (header translateY(-110%), 0.35s transition) and dock-hidden (off-screen +
+  // opacity 0 + pointer-events none), so both transitions stay CSS-smoothed
+  // and hidden chrome never intercepts touches. Governed content (predictions,
+  // stakes, held candidates, ball panel, subtitle bubble) is never touched
+  // here — only the header + dock classes move. The bet slip / confirm tap
+  // lives in page content, not in the header or dock, so it stays fully
+  // usable while chrome is hidden.
   const isHomeView = () => document.getElementById('tab-home')?.style.display !== 'none';
-  const hideHomeChrome = () => {
+  const hideChrome = () => {
     dock.classList.remove('dock-compact');
     dock.classList.add('dock-hidden');
     document.body.classList.add('home-header-hidden');
     syncShield();
   };
   const showHomeChrome = () => {
+    // Manual restore only (pull-handle tap): header + dock, every mode.
     expand();
     document.body.classList.remove('home-header-hidden');
+  };
+  // Scroll-up restore: dock always reopens smoothly; the top bar reopens
+  // only in 'reopen' mode. In 'stay' mode (default) it stays hidden until tap.
+  const restoreOnScrollUp = () => {
+    expand();
+    if (!topBarStayHidden()) document.body.classList.remove('home-header-hidden');
   };
   window.__o101ShowHomeChrome = showHomeChrome;
 
@@ -4375,36 +4403,37 @@ function initDockAutoCompact() {
   window._dockExpand = expand;
   window._dockSyncShield = syncShield;
 
-  // ── 1. Window scroll: scrolling down = compact, scrolling up = full big size ──
-  // Task D: on Home, scroll-down FULLY hides top bar + dock; everywhere else the
-  // existing compact/expand behavior is untouched.
+  // ── 1. Window scroll: scrolling down = chrome fully hidden, scrolling up =
+  // dock smoothly back, top bar only in 'reopen' mode ──
+  // Phase 3C: the old elsewhere-compact behavior is replaced — scroll down
+  // fully hides the dock on EVERY view, and scroll up never auto-reopens
+  // the top bar by default (tap the top-edge handle instead).
   window.addEventListener('scroll', () => {
     const y = window.scrollY || 0;
 
-    // At top of screen: restore full normal menu
+    // At top of screen: dock reopens smoothly; top bar only in 'reopen' mode.
     if (y <= 15) {
-      if (isHomeView()) showHomeChrome();
-      else expand();
+      restoreOnScrollUp();
       lastScrollY = y;
       return;
     }
 
     const delta = y - lastScrollY;
     if (delta > SCROLL_THRESHOLD) {
-      // User scrolled DOWN → on Home fully hide, elsewhere make menu compact
-      if (isHomeView()) hideHomeChrome();
-      else compact();
+      // User scrolled DOWN → fully hide top bar + dock, every view.
+      hideChrome();
     } else if (delta < -SCROLL_THRESHOLD) {
-      // User scrolled UP → make menu come back big
-      if (isHomeView()) showHomeChrome();
-      else expand();
+      // User scrolled UP → dock back smoothly; top bar per mode.
+      restoreOnScrollUp();
     }
 
     lastScrollY = y;
   }, { passive: true });
 
   // ── 2. Global Viewport Touch & Swipe Gesture Engine ──
-  // Swipe Down = compact, Swipe Up = big / expand, Tap outside = hide / compact
+  // Swipe Down = fully hide chrome (Phase 3C), Swipe Up = dock back smoothly
+  // (top bar only in 'reopen' mode), Tap outside = compact dock (unchanged:
+  // a tap is not a scroll).
   let touchStartY = null;
   let touchStartX = null;
   let touchStartTime = 0;
@@ -4430,10 +4459,10 @@ function initDockAutoCompact() {
   const handleTouchMove = (clientY, clientX, target) => {
     if (touchStartY === null) return;
     if (isProtectedElement(target)) return;
-    // Task D: on Home, scroll alone drives chrome. The gesture engine's compact()
-    // would otherwise un-hide the dock mid-scroll (compact removes dock-hidden)
-    // and a tap would bring back a capsule — so on Home, gestures never touch
-    // chrome. Everywhere else this engine is untouched.
+    // Task D: on Home, scroll alone drives chrome. The gesture engine's
+    // hideChrome() would otherwise fight the scroll listener mid-scroll — so
+    // on Home, gestures never touch chrome. Everywhere else the engine mirrors
+    // the scroll listener (Phase 3C: swipe down hides, swipe up restores dock).
     if (isHomeView()) return;
 
     const dy = clientY - touchStartY;
@@ -4444,12 +4473,14 @@ function initDockAutoCompact() {
     touchMoved = true;
 
     if (dy > 12) {
-      // Swiping DOWN (finger drags down) -> compact
-      compact();
+      // Swiping DOWN (finger drags down) -> Phase 3C: fully hide chrome
+      // (same as scroll down), not compact.
+      hideChrome();
       touchStartY = clientY;
     } else if (dy < -12) {
-      // Swiping UP (finger moves up towards top) -> make big & expand
-      expand();
+      // Swiping UP (finger moves up towards top) -> dock back smoothly;
+      // top bar only in 'reopen' mode (same as scroll up).
+      restoreOnScrollUp();
       touchStartY = clientY;
     }
   };
@@ -4539,10 +4570,12 @@ function initDockAutoCompact() {
 
     shield.addEventListener('wheel', (e) => {
       if (e.deltaY > 6) {
-        compact();
+        // Phase 3C: wheel scroll down over the game view hides chrome fully.
+        hideChrome();
         shield.style.pointerEvents = 'none';
       } else if (e.deltaY < -6) {
-        expand();
+        // Wheel scroll up: dock back smoothly; top bar per mode.
+        restoreOnScrollUp();
       }
     }, { passive: true });
   }
@@ -5819,21 +5852,23 @@ function handleMobileBridgeMessage(msg) {
   } else if (msg.type === 'DHANIWIN_SCROLL') {
     // Bridge convention:
     // msg.direction='up' = finger swiped up = content scrolled DOWN
-    //   → header hides, dock slides into compact size
+    //   → Phase 3C: header hides, dock fully hides (no compact)
     // msg.direction='down' = finger swiped down = content scrolled UP
-    //   → header shows, dock comes back completely unhidden and expands to full big size
+    //   → dock reopens smoothly; header reopens only in 'reopen' mode
+    //     (by default it stays hidden until the top-edge tap)
     const userScrolledDown = msg.direction === 'up';
-    setHomeHeaderHidden(userScrolledDown);
     if (userScrolledDown) {
-      if (typeof window._dockSetCompact === 'function') window._dockSetCompact(true);
+      setHomeHeaderHidden(true);
+      if (typeof window._dockSetHidden === 'function') window._dockSetHidden(true);
     } else {
-      // User scrolled UP: immediately unhide dock and expand it back to full size
+      // User scrolled UP: dock back smoothly (CSS transition on the dock).
       if (typeof window._dockExpand === 'function') {
         window._dockExpand();
       } else {
         if (typeof window._dockSetHidden === 'function') window._dockSetHidden(false);
         if (typeof window._dockSetCompact === 'function') window._dockSetCompact(false);
       }
+      if (!topBarStayHidden()) setHomeHeaderHidden(false);
     }
   } else if (msg.type === 'DHANIWIN_TOUCH' || msg.type === 'DHANIWIN_PAGE_TAP') {
     // Touching anywhere inside the DhaniWin page makes the bottom dock compact

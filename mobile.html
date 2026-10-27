@@ -204,6 +204,11 @@
     </div>
   </header>
 
+  <!-- Top-edge pull handle (Phase 3C): body-level, NOT inside #tab-web, so the
+       manual top-bar reopen works on EVERY view. Fixed at the viewport top edge,
+       visible only while the top bar is hidden (see mobile.css); tap to show it. -->
+  <button id="homeHeaderPullHandle" type="button" aria-label="Show top bar"></button>
+
   <!-- ════════════════════════════════════════════════════════════
        MAIN VIEWPORT CONTAINER (Padded for Header & Floating Dock)
   ════════════════════════════════════════════════════════════ -->
@@ -858,9 +863,6 @@
 
       <!-- High-fidelity Invisible Touch & Gesture Shield to capture touches and swipes directly over iframe -->
       <div id="dhaniwinTouchShield" style="position: absolute; inset: 0; z-index: 50;"></div>
-
-      <!-- Pull handle: visible when our top bar is hidden; tap / swipe down to show it -->
-      <button id="homeHeaderPullHandle" type="button" aria-label="Show top bar"></button>
 
       <!-- Quick Win/Loss Sound Mute / Unmute Floating Button (Homepage / Dhani Embedded View) -->
       <button id="floatingSoundMuteBtn"

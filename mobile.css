@@ -281,10 +281,12 @@ body {
 .dock-btn { transition: transform 0.15s ease, padding 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
 
 #mobileBottomDock {
-  transition: max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1), 
-              bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1), 
-              opacity 0.22s ease,
-              transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  /* Phase 3C: the menu reopen is a real eased transition (transform +
+     opacity, ~300ms) — removing dock-hidden animates, never snaps. */
+  transition: max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.30s ease,
+              transform 0.30s ease;
   will-change: transform, max-width, bottom, opacity;
 }
 
@@ -401,7 +403,9 @@ body.home-header-hidden #tab-web {
 
 #homeHeaderPullHandle {
   display: none;
-  position: absolute;
+  /* Phase 3C: fixed at the viewport top edge (body-level markup, not inside
+     #tab-web) so the manual top-bar reopen works on every view. */
+  position: fixed;
   top: 0;
   left: 50%;
   transform: translateX(-50%);
