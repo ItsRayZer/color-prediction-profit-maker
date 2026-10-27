@@ -100,9 +100,11 @@ export function ladderLevels(balance, base) {
 
 /**
  * Per-level ladder table for display: stake, cumulative risk, and the
- * net result if the win lands exactly at that level.
+ * net result if the win lands exactly at that level. With
+ * balanceFree (Phase 3B chip ladders) the balance columns are null:
+ * there is no balance to project against, so no figure is invented.
  */
-export function ladderTable(balance, base, levels = ladderLevels(balance, base)) {
+export function ladderTable(balance, base, levels = ladderLevels(balance, base), { balanceFree = false } = {}) {
   const bal = cleanBalance(balance);
   const rows = [];
   let cumulative = 0;
@@ -116,20 +118,52 @@ export function ladderTable(balance, base, levels = ladderLevels(balance, base))
       stake,
       cumulativeRisk: cumulative,
       netIfWin: Math.round(netIfWin * 100) / 100,
-      balanceIfWin: Math.round((bal - lostBefore + stake * PAYOUT) * 100) / 100,
-      balanceIfLoss: bal - cumulative
+      balanceIfWin: balanceFree ? null : Math.round((bal - lostBefore + stake * PAYOUT) * 100) / 100,
+      balanceIfLoss: balanceFree ? null : bal - cumulative
     });
   }
   return rows;
 }
 
 /**
+ * Fixed doubling rungs per mode for an EXPLICIT base (Phase 3B: the
+ * user-selected chip, or an explicit AUTO sizing). Carried from the
+ * Phase 3A balance-derived depths at ₹1000 (6/5/4/3) — now fixed caps,
+ * so the ladder never depends on a synced balance. The 3-loss breaker
+ * binds before these caps in practice; the caps are the backstop.
+ */
+export const MODE_LADDER_RUNG_CAPS = {
+  safe: 6, balanced: 5, growth: 4, aggressive: 3,
+  profitable: 5, risk: 4, high_risk: 3
+};
+
+/**
  * Plan a safe ladder for a balance. If even a 3-level ladder does not
  * fit at the suggested base, the base is lowered; if it would fall
  * below ₹1 the plan is a STOP — the balance is too low for a safe ladder.
+ *
+ * Phase 3B balance decoupling: when baseBet is EXPLICITLY provided
+ * (user chip, or an explicit AUTO sizing), the ladder is planned from
+ * the base alone with the fixed mode rung caps above — a synced
+ * balance can neither gate it nor resize it. The balance path below
+ * runs only when no explicit base is given (legacy suggestion).
  */
 export function planLadder(balance, { mode = DEFAULT_STAKING_MODE, baseBet } = {}) {
   const bal = cleanBalance(balance);
+  if (baseBet !== undefined && baseBet !== null && Number.isFinite(Number(baseBet))) {
+    const base = Math.max(MIN_BASE_BET, Math.floor(Number(baseBet)));
+    const levels = MODE_LADDER_RUNG_CAPS[mode] ?? MODE_LADDER_RUNG_CAPS[DEFAULT_STAKING_MODE];
+    return {
+      state: 'OK',
+      reason: `${levels}-level ladder from your selected base (no balance needed; 3-loss breaker still guards).`,
+      baseBet: base,
+      levels,
+      cumulativeRisk: ladderCumulativeCost(base, levels),
+      riskBudget: null,
+      reserve: 0,
+      table: ladderTable(0, base, levels, { balanceFree: true })
+    };
+  }
   if (bal <= 0) {
     return { state: 'STOP', reason: 'No balance available, so no ladder can be planned.', baseBet: 0, levels: 0, cumulativeRisk: 0, riskBudget: 0, reserve: 0, table: [] };
   }
@@ -226,10 +260,14 @@ export function settle(session, won) {
   const peakBalance = Math.max(session.peakBalance ?? startingBalance, balance);
   const drawdown = Math.round((peakBalance - balance) * 100) / 100;
 
-  if (sessionPnL <= -(startingBalance * SESSION_STOP_LOSS_FRACTION)) {
+  // Phase 3B: ±20% stops are balance-anchored, so they only fire when
+  // a real starting balance exists. A balance-free session (user chip,
+  // no synced balance) runs on the 3-loss breaker + rung cap instead —
+  // without this guard the first loss would trip STOP_LOSS (PnL < 0 ≤ 0).
+  if (startingBalance > 0 && sessionPnL <= -(startingBalance * SESSION_STOP_LOSS_FRACTION)) {
     state = 'STOP_LOSS';
     reason = 'Session stop-loss hit: down 20% of the starting balance. The session ends here — no chasing.';
-  } else if (sessionPnL >= startingBalance * SESSION_STOP_WIN_FRACTION) {
+  } else if (startingBalance > 0 && sessionPnL >= startingBalance * SESSION_STOP_WIN_FRACTION) {
     state = 'STOP_WIN';
     reason = 'Stop-win lock: up 20% on the session. Bank the profit and stop.';
   } else if (!won && consecutiveLosses >= CIRCUIT_BREAKER_LOSSES) {
@@ -331,7 +369,8 @@ export const EXACT_BREAKER_LOSSES = 8;
 export function createExactSession(balance, { mode = DEFAULT_STAKING_MODE, baseBet, gateOpen = false } = {}) {
   if (!gateOpen) return null;
   const bal = cleanBalance(balance);
-  if (bal <= 0) {
+  const hasBase = baseBet !== undefined && baseBet !== null && Number.isFinite(Number(baseBet));
+  if (bal <= 0 && !hasBase) {
     return {
       startingBalance: 0, balance: 0, mode, baseBet: 0, ladderLevels: 0,
       planState: 'STOP', planReason: 'No balance available, so no exact session can be planned.',
@@ -340,7 +379,7 @@ export function createExactSession(balance, { mode = DEFAULT_STAKING_MODE, baseB
       breakerLosses: EXACT_BREAKER_LOSSES
     };
   }
-  let base = baseBet !== undefined ? Math.floor(Number(baseBet)) : suggestBaseBet(bal, mode);
+  let base = hasBase ? Math.floor(Number(baseBet)) : suggestBaseBet(bal, mode);
   if (!(base >= MIN_BASE_BET)) base = MIN_BASE_BET;
   return {
     startingBalance: bal,
@@ -349,7 +388,9 @@ export function createExactSession(balance, { mode = DEFAULT_STAKING_MODE, baseB
     baseBet: base,
     ladderLevels: EXACT_BREAKER_LOSSES,
     planState: 'OK',
-    planReason: 'Flat-stake exact session: no doubling, 8-loss breaker, ±20% stops on the slice.',
+    planReason: bal > 0
+      ? 'Flat-stake exact session: no doubling, 8-loss breaker, ±20% stops on the slice.'
+      : 'Flat-stake exact session: no doubling, 8-loss breaker, ±20% stops dormant without a balance.',
     level: 0, // consecutive losses (the breaker counter for flat stakes)
     consecutiveLosses: 0,
     nextStake: base,
@@ -395,10 +436,12 @@ export function settleExactFlat(session, won, payout) {
   const peakBalance = Math.max(session.peakBalance ?? startingBalance, balance);
   const drawdown = Math.round((peakBalance - balance) * 100) / 100;
   const breaker = session.breakerLosses || EXACT_BREAKER_LOSSES;
-  if (sessionPnL <= -(startingBalance * SESSION_STOP_LOSS_FRACTION)) {
+  // Phase 3B: same balance guard as settle() — ±20% stops need a real
+  // starting balance; a balance-free exact session runs on the breaker.
+  if (startingBalance > 0 && sessionPnL <= -(startingBalance * SESSION_STOP_LOSS_FRACTION)) {
     state = 'STOP_LOSS';
     reason = 'Session stop-loss hit: down 20% of the slice. The session ends here — no chasing.';
-  } else if (sessionPnL >= startingBalance * SESSION_STOP_WIN_FRACTION) {
+  } else if (startingBalance > 0 && sessionPnL >= startingBalance * SESSION_STOP_WIN_FRACTION) {
     state = 'STOP_WIN';
     reason = 'Stop-win lock: up 20% on the slice. Bank the profit and stop.';
   } else if (!won && consecutiveLosses >= breaker) {
@@ -438,9 +481,13 @@ export function settleExactFlat(session, won, payout) {
 // Resume rules (all must hold, else a fresh session starts):
 //  - a saved record exists and parses with finite numbers;
 //  - savedAt is within 24h (a ladder older than a day is stale);
-//  - the live balance matches the saved running balance within ₹0.01
-//    (rounding only — a bigger gap means manual bets happened while
-//    the app was closed, so the saved ladder is invalid).
+//  - EITHER the live balance matches the saved running balance within
+//    ₹0.01 (rounding only — a bigger gap means manual bets happened
+//    while the app was closed, so the saved ladder is invalid),
+//    OR no live balance is known at all (Phase 3B balance decoupling:
+//    then the ladder resumes balance-free — level, loss run and base
+//    carry, but every balance-derived field is zeroed so no stale
+//    balance figure is ever shown or settled against).
 export const SESSION_STORE_TTL_MS = 24 * 60 * 60 * 1000;
 export const SESSION_STORE_TOLERANCE = 0.01;
 
@@ -486,8 +533,39 @@ export function loadSessionFrom(storage, type, liveBalance, now = Date.now()) {
       if (d[k] === undefined || d[k] === null || !Number.isFinite(Number(d[k]))) return none('corrupt');
     }
     if (!d.savedAt || (now - Number(d.savedAt)) > SESSION_STORE_TTL_MS) return none('stale');
-    const live = Number(liveBalance);
-    if (!Number.isFinite(live) || Math.abs(live - Number(d.balance)) > SESSION_STORE_TOLERANCE) {
+    // Phase 3B: null/undefined/empty/NaN live balance means "no live
+    // balance known" — Number(null) is 0 (finite), so the check must
+    // happen BEFORE Number(), or a null balance would compare as ₹0
+    // and wrongly invalidate the saved ladder.
+    const live = (liveBalance === null || liveBalance === undefined || liveBalance === '')
+      ? NaN : Number(liveBalance);
+    if (!Number.isFinite(live)) {
+      // Phase 3B balance-free resume: no live balance known, so the
+      // ladder carries (level, loss run, base) but every balance-
+      // derived field is zeroed — a saved balance figure is never
+      // carried forward as if it were live.
+      return {
+        session: {
+          startingBalance: 0,
+          balance: 0,
+          mode: d.mode || DEFAULT_STAKING_MODE,
+          baseBet: Number(d.baseBet),
+          ladderLevels: Number(d.ladderLevels) || 0,
+          planState: d.planState || 'OK',
+          planReason: 'Resumed ladder from saved session (no balance known).',
+          level: Number(d.level),
+          consecutiveLosses: Number(d.consecutiveLosses),
+          nextStake: Number(d.nextStake),
+          peakBalance: 0,
+          drawdown: 0,
+          sessionPnL: 0,
+          rounds: Number(d.rounds),
+          state: d.state || 'CONTINUE'
+        },
+        reason: 'resumed'
+      };
+    }
+    if (Math.abs(live - Number(d.balance)) > SESSION_STORE_TOLERANCE) {
       return none('balance changed');
     }
     return {
@@ -517,6 +595,7 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     PAYOUT, MULTIPLIER, BREAKEVEN_WIN_RATE, STAKING_MODES, DEFAULT_STAKING_MODE,
     suggestBaseBet, ladderLevels, ladderTable, ladderCumulativeCost, riskBudget,
+    MODE_LADDER_RUNG_CAPS,
     planLadder, createSession, settle, settleBet, BALANCE_SOURCES, balanceSourceLabel,
     BALANCE_NOT_DETECTED_MESSAGE,
     sliceBalance, EXACT_BREAKER_LOSSES, createExactSession, settleExactFlat,

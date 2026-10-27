@@ -663,15 +663,6 @@
       background: rgba(255, 255, 255, 0.18);
     }
 
-    /* COFFEE CARD (Special Dark Bronze Edition) */
-    .ios-bronze-card {
-      background: linear-gradient(135deg, rgba(255, 159, 10, 0.12) 0%, rgba(28, 28, 30, 0.85) 60%, rgba(255, 204, 0, 0.06) 100%);
-      border: 0.5px solid rgba(255, 159, 10, 0.3);
-      border-radius: 14px;
-      margin: 0 16px 22px 16px;
-      padding: 16px;
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6), inset 0 0.5px 0.5px rgba(255, 204, 0, 0.2);
-    }
 
     .ios-gold-btn {
       width: 100%;
@@ -1151,46 +1142,6 @@
       </div>
     </div>
 
-    <!-- COFFEE / SUPPORTER (Apple Special Edition Dark Bronze Inset) -->
-    <div class="ios-bronze-card setting-category" data-cat="supporter">
-      <div style="display: flex; align-items: flex-start; justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 11px;">
-          <div class="ios-squircle sq-bronze">
-            <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 9h1a3.5 3.5 0 0 1 0 7h-1"/><path d="M3 9h14v6a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><path d="M6 2v2"/><path d="M10 2v2"/><path d="M14 2v2"/><path d="M4 21h13"/></svg>
-          </div>
-          <div>
-            <div style="font-size: 15px; font-weight: 600; color: #ffd60a; letter-spacing: -0.2px;">
-              Independent Server Fund
-            </div>
-            <div style="font-size: 11px; color: rgba(235, 235, 245, 0.6); margin-top: 1px;">
-              Keep 01:01 100% Free &amp; Ads-Free
-            </div>
-          </div>
-        </div>
-        <span id="settingsPageCoffeeTag" class="ios-tag-micro tag-warning">COMMUNITY</span>
-      </div>
-
-      <div id="settingsPageCoffeeBody">
-        <p style="font-size: 12px; color: rgba(235, 235, 245, 0.75); line-height: 17px; margin: 10px 0 0 0;">
-          01:01 runs ad-free on community support. A coffee keeps the servers on.
-        </p>
-
-        <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" class="ios-gold-btn">
-          <svg class="o101-ico" style="font-size: 13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
-          <span>Support 01:01 (₹18 - Any)</span>
-          <svg class="o101-ico" style="font-size: 10px; opacity: 0.7;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
-        </a>
-
-        <p style="font-size: 10px; font-family: ui-monospace, monospace; color: rgba(255, 214, 10, 0.85); text-align: center; margin: 8px 0 0 0;">
-          Supporter status lasts 7 days.
-        </p>
-
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 6px; border-top: 0.5px solid rgba(255,255,255,0.08); font-size: 10px; font-family: ui-monospace, monospace; color: rgba(235, 235, 245, 0.5);">
-          <button onclick="confirmSettingsCoffeePayment()" style="background: none; border: none; color: #ffd60a; text-decoration: underline; cursor: pointer; padding: 0; font-size: 10px;">Already paid? Verify</button>
-          <span><svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Secure UPI / Cards</span>
-        </div>
-      </div>
-    </div>
 
     <!-- SECTION: CONNECTIVITY & LIVE SYNC -->
     <div class="setting-category" data-cat="sync network">
@@ -2099,152 +2050,7 @@
       }
     }
 
-    const COFFEE_SUPPORTER_DURATION_DAYS = 7;
-    const COFFEE_SUPPORTER_DURATION_MS = COFFEE_SUPPORTER_DURATION_DAYS * 24 * 60 * 60 * 1000;
-
-    function isCoffeePaidActive() {
-      try {
-        const until = Number(localStorage.getItem('coffee_paid_until') || 0);
-        if (until && Date.now() < until) return true;
-        const today = new Date().toLocaleDateString('en-CA');
-        return localStorage.getItem('coffee_paid_date') === today;
-      } catch(e) {
-        return false;
-      }
-    }
-
-    function isCoffeePaidToday() {
-      return isCoffeePaidActive();
-    }
-
-    function checkCoffeePaymentUrl() {
-      try {
-        const search = window.location.search;
-        if (!search) return;
-        const params = new URLSearchParams(search);
-        const paymentId = params.get('razorpay_payment_id') || params.get('payment_id') || params.get('tx_id');
-        const paySuccess = params.get('pay_success') === 'true' || params.get('razorpay_payment_link_status') === 'paid';
-        if (paymentId || paySuccess) {
-          const today = new Date().toLocaleDateString('en-CA');
-          const validUntil = Date.now() + COFFEE_SUPPORTER_DURATION_MS;
-          const validUntilFormatted = new Date(validUntil).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-          localStorage.setItem('coffee_paid_date', today);
-          localStorage.setItem('coffee_paid_until', String(validUntil));
-          const info = {
-            date: today,
-            validUntil: validUntil,
-            validUntilFormatted: validUntilFormatted,
-            days: COFFEE_SUPPORTER_DURATION_DAYS,
-            paymentId: String(paymentId || ('pay_' + Math.random().toString(36).substring(2, 10))),
-            time: new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })
-          };
-          localStorage.setItem('coffee_paid_info', JSON.stringify(info));
-          const cleanUrl = window.location.origin + window.location.pathname;
-          window.history.replaceState({}, document.title, cleanUrl);
-          showToast(`Supporter Active! Popup won't come again for a while (until ${validUntilFormatted}).`);
-        }
-      } catch(e) {}
-    }
-
-    function confirmSettingsCoffeePayment() {
-      const ans = prompt('Enter your Razorpay Payment ID or UPI Reference (or tap OK to confirm support):', 'pay_');
-      if (ans !== null) {
-        const today = new Date().toLocaleDateString('en-CA');
-        const validUntil = Date.now() + COFFEE_SUPPORTER_DURATION_MS;
-        const validUntilFormatted = new Date(validUntil).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        localStorage.setItem('coffee_paid_date', today);
-        localStorage.setItem('coffee_paid_until', String(validUntil));
-        const cleanId = ans.trim();
-        const info = {
-          date: today,
-          validUntil: validUntil,
-          validUntilFormatted: validUntilFormatted,
-          days: COFFEE_SUPPORTER_DURATION_DAYS,
-          paymentId: cleanId.length > 4 ? cleanId : ('pay_confirm_' + Date.now().toString(36)),
-          time: new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })
-        };
-        localStorage.setItem('coffee_paid_info', JSON.stringify(info));
-        updateCoffeeSupporterUI();
-        showToast(`Supporter Active! Popup won't come again for a while (until ${validUntilFormatted}).`);
-      }
-    }
-
-    function updateCoffeeSupporterUI() {
-      checkCoffeePaymentUrl();
-      const tag = document.getElementById('settingsPageCoffeeTag');
-      const body = document.getElementById('settingsPageCoffeeBody');
-      if (!body) return;
-
-      if (isCoffeePaidActive()) {
-        let info = { time: 'Recently', paymentId: 'Verified' };
-        try {
-          const raw = localStorage.getItem('coffee_paid_info');
-          if (raw) info = JSON.parse(raw);
-        } catch(e) {}
-
-        const until = Number(localStorage.getItem('coffee_paid_until') || info.validUntil || 0);
-        let remainingDaysStr = '7 Days';
-        if (until > Date.now()) {
-          const daysLeft = Math.max(1, Math.ceil((until - Date.now()) / (24 * 60 * 60 * 1000)));
-          remainingDaysStr = `${daysLeft} Day${daysLeft > 1 ? 's' : ''}`;
-        }
-
-        if (tag) {
-          tag.textContent = `PAID SUPPORTER (${remainingDaysStr.toUpperCase()} LEFT)`;
-          tag.className = 'ios-tag-micro tag-active';
-        }
-
-        body.innerHTML = `
-          <div style="padding: 12px 14px; border-radius: 14px; background: rgba(52, 199, 89, 0.12); border: 1px solid rgba(52, 199, 89, 0.3); margin-top: 10px;">
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-              <div>
-                <div style="font-size: 13px; font-weight: 700; color: #34c759; display: flex; align-items: center; gap: 6px;">
-                  <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-                  <span>Supporter Active (${remainingDaysStr} Left)</span>
-                </div>
-                <div style="font-size: 11px; color: rgba(235, 235, 245, 0.75); margin-top: 3px;">
-                  Thank you for supporting 01:01! This popup won't come again for a while${info.validUntilFormatted ? ` (muted until ${info.validUntilFormatted})` : ''}.
-                </div>
-              </div>
-              <span style="font-size: 18px;"><svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></span>
-            </div>
-            <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.08); margin-top: 8px; padding-top: 6px; font-size: 10px; font-family: ui-monospace, monospace; color: rgba(235,235,245,0.5);">
-              <span>Supported: ${info.time || 'Recently'} IST (${info.paymentId ? info.paymentId.substring(0, 14) : 'Verified'})</span>
-              <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" style="color: #ffd60a; text-decoration: underline;">Support Again <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 9h1a3.5 3.5 0 0 1 0 7h-1"/><path d="M3 9h14v6a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><path d="M6 2v2"/><path d="M10 2v2"/><path d="M14 2v2"/><path d="M4 21h13"/></svg></a>
-            </div>
-          </div>
-        `;
-      } else {
-        if (tag) {
-          tag.textContent = 'COMMUNITY';
-          tag.className = 'ios-tag-micro tag-warning';
-        }
-        body.innerHTML = `
-          <p style="font-size: 12px; color: rgba(235, 235, 245, 0.75); line-height: 17px; margin: 10px 0 0 0;">
-            01:01 runs ad-free on community support. A coffee keeps the servers on.
-          </p>
-
-          <a href="https://rzp.io/rzp/bFsHIaS" target="_blank" rel="noopener noreferrer" class="ios-gold-btn">
-            <svg class="o101-ico" style="font-size: 13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
-            <span>Support 01:01 (₹18 - Any)</span>
-            <svg class="o101-ico" style="font-size: 10px; opacity: 0.7;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
-          </a>
-
-          <p style="font-size: 10px; font-family: ui-monospace, monospace; color: rgba(255, 214, 10, 0.85); text-align: center; margin: 8px 0 0 0;">
-            Supporter status lasts 7 days.
-          </p>
-
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 6px; border-top: 0.5px solid rgba(255,255,255,0.08); font-size: 10px; font-family: ui-monospace, monospace; color: rgba(235, 235, 245, 0.5);">
-            <button onclick="confirmSettingsCoffeePayment()" style="background: none; border: none; color: #ffd60a; text-decoration: underline; cursor: pointer; padding: 0; font-size: 10px;">Already paid? Verify</button>
-            <span><svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Secure UPI / Cards</span>
-          </div>
-        `;
-      }
-    }
-
     function initSettings() {
-      // Coffee Supporter Status
-      updateCoffeeSupporterUI();
       // Sound
       const soundVal = localStorage.getItem('quant_sound') !== '0';
       const swSound = document.getElementById('swSoundEffects');
