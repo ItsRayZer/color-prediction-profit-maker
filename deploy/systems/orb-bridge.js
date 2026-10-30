@@ -46,7 +46,7 @@ import {
   ledgerLevelIndex, ledgerResize, ledgerLineFor, overBalanceInfo,
   ladderStake, isHighChance, neverZeroCap, stakeWithGuards,
   pickSizingBalance, shouldAskBalance,
-  loadPnl, savePnl, applyPnlResult, totalPnl, pnlBoxText,
+  loadPnl, savePnl, applyPnlResult, totalPnl, pnlBoxText, resetAllPnl,
   autoAnchorLabel, decideAutoBase, AUTO_ANCHOR_FRACTION,
   balanceTrackKey, defaultBalanceTrack, loadBalanceTrack, saveBalanceTrack, updateBalanceTrack,
   balanceConfirmView,
@@ -2729,7 +2729,9 @@ function initBridge() {
   // reload, show the unmissable plain-language balance check. Slightly
   // delayed so a live bridge can report first and the prompt never
   // fires needlessly when a fresh verified balance already exists.
-  // Render the persisted P&L IMMEDIATELY on boot (owner: "profit/loss
+  // Owner 2026-10-30 13:53 IST: P&L resets to ₹0 on every reload (fresh session).
+  try { resetAllPnl(localStorage); } catch (e) {}
+  // Render the P&L IMMEDIATELY on boot (owner: "profit/loss
   // should refresh each reload") — don't wait for the 3s cycle.
   try { renderPnlBox(); } catch (e) { /* never break boot */ }
   setTimeout(() => { try { showBalanceConfirm(); } catch (e) { /* never break boot */ } }, 4000);

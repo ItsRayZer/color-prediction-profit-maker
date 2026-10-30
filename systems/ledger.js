@@ -352,6 +352,16 @@ export function savePnl(storage, type, v) {
   } catch (e) { /* storage unavailable: P&L stays in-memory only */ }
 }
 
+// Owner order 2026-10-30 13:53 IST: P&L resets to ₹0 on every reload (fresh each session).
+export function resetAllPnl(storage) {
+  try {
+    if (!storage) return;
+    for (const t of ['COLOR', 'SIZE', 'NUMBER']) {
+      try { storage.removeItem(pnlKey(t)); } catch (e) {}
+    }
+  } catch (e) {}
+}
+
 export function applyPnlResult(pnl, stake, won, payout = LEDGER_PAYOUT) {
   const p = Number.isFinite(Number(pnl)) ? Number(pnl) : 0;
   const s = Number.isFinite(Number(stake)) && Number(stake) > 0 ? Number(stake) : 0;
