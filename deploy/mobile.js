@@ -7724,6 +7724,48 @@ function initMobileApp() {
     MobileState.chartMode = localStorage.getItem('quant_chart_mode') || 'candles';
   } catch(e) {}
 
+  // Backup wiring for the Axo voice mute button (axoVoiceChip): the inline
+  // onclick="window.__smartBall.toggleAxoVoice()" is the primary path. This
+  // listener is a fallback for mobile browsers where inline handlers fail,
+  // plus it shows a toast so the user gets clear feedback.
+  try {
+    const voiceChip = document.getElementById('axoVoiceChip');
+    if (voiceChip && !voiceChip.dataset.voiceBackupWired) {
+      voiceChip.dataset.voiceBackupWired = '1';
+      voiceChip.addEventListener('click', function() {
+        setTimeout(function() {
+          try {
+            const hasHandler = window.__smartBall && typeof window.__smartBall.toggleAxoVoice === 'function';
+            if (!hasHandler) {
+              // Fallback: toggle directly when __smartBall isn't available.
+              const wasMuted = localStorage.getItem('o101_axo_voice') === '0';
+              localStorage.setItem('o101_axo_voice', wasMuted ? '1' : '0');
+              if (!wasMuted) {
+                try { if (window.speechSynthesis) { window.speechSynthesis.cancel(); } } catch (e) {}
+              }
+              if (window.__smartBall && typeof window.__smartBall.refreshAxoVoiceChip === 'function') {
+                window.__smartBall.refreshAxoVoiceChip();
+              } else {
+                // Direct visual update if refresh isn't available.
+                const icon = document.getElementById('axoVoiceChipIcon');
+                const nowMuted = !wasMuted;
+                if (icon) icon.className = 'fa-solid ' + (nowMuted ? 'fa-volume-xmark' : 'fa-volume-high') + ' pointer-events-none';
+                voiceChip.classList.toggle('text-emerald-300', !nowMuted);
+                voiceChip.classList.toggle('text-rose-300', nowMuted);
+                voiceChip.classList.toggle('opacity-60', nowMuted);
+                voiceChip.setAttribute('aria-pressed', nowMuted ? 'false' : 'true');
+              }
+            }
+            const muted = localStorage.getItem('o101_axo_voice') === '0';
+            if (typeof showToast === 'function') {
+              showToast(muted ? 'Axo voice muted' : 'Axo voice on', muted ? 'warn' : 'info');
+            }
+          } catch (err) {}
+        }, 60);
+      });
+    }
+  } catch (e) {}
+
   // Update Prediction Engine & Incharge UI
   updatePredictionSourceUI();
 

@@ -984,6 +984,30 @@
       </button>
     </div>
 
+    <!-- Balance confirm modal (owner order 2026-10-30 12:31 IST):
+         On EVERY reload, Axo asks the user to confirm their balance in
+         plain language. Impossible to miss, one-tap dismiss. Dismissing
+         without answering keeps the last balance — it never zeroes it.
+         Shows the P&L alongside so the full picture is clear. -->
+    <div id="axoBalanceConfirmModal" style="display:none; position:fixed; inset:0; z-index:100002; background:rgba(0,0,0,0.65); align-items:center; justify-content:center; padding:20px;" onclick="if(event.target===this){window.__smartBall&&window.__smartBall.dismissBalanceConfirm()}">
+      <div style="background:rgba(28,28,31,0.98); border:1px solid rgba(255,255,255,0.16); border-radius:20px; padding:20px; max-width:320px; width:100%; box-shadow:0 12px 40px rgba(0,0,0,0.6);">
+        <div style="color:#fff; font-size:15px; font-weight:800; margin-bottom:8px;">Check your balance</div>
+        <div id="axoBalanceConfirmText" style="color:#e4e4e7; font-size:14px; line-height:1.5; margin-bottom:6px;"></div>
+        <div id="axoBalanceConfirmPnl" style="color:#a1a1aa; font-size:12px; margin-bottom:16px;"></div>
+        <div id="axoBalanceConfirmButtons" style="display:flex; gap:8px;">
+          <button type="button" onclick="window.__smartBall&&window.__smartBall.confirmBalanceYes()" style="flex:1; padding:11px 8px; border-radius:12px; background:#10b981; color:#04120c; font-weight:800; font-size:14px; border:none; cursor:pointer; touch-action:manipulation;">Yes, correct</button>
+          <button type="button" onclick="window.__smartBall&&window.__smartBall.confirmBalanceEdit()" style="flex:1; padding:11px 8px; border-radius:12px; background:rgba(255,255,255,0.1); color:#fff; font-weight:700; font-size:14px; border:1px solid rgba(255,255,255,0.25); cursor:pointer; touch-action:manipulation;">Type new</button>
+        </div>
+        <div id="axoBalanceConfirmEditRow" style="display:none; margin-top:10px;">
+          <div style="display:flex; gap:6px; align-items:center;">
+            <input id="axoBalanceConfirmInput" type="number" inputmode="decimal" min="1" placeholder="Type balance ₹" onkeydown="if(event.key==='Enter'){window.__smartBall&&window.__smartBall.submitBalanceConfirm()}" style="flex:1; min-width:0; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.25); border-radius:10px; padding:10px 12px; color:#fff; font-size:15px; outline:none;">
+            <button type="button" onclick="window.__smartBall&&window.__smartBall.submitBalanceConfirm()" aria-label="Save balance" style="width:44px; height:44px; flex:none; border-radius:12px; background:#10b981; color:#04120c; font-size:18px; font-weight:800; cursor:pointer; border:none; touch-action:manipulation;">✓</button>
+          </div>
+        </div>
+        <button type="button" onclick="window.__smartBall&&window.__smartBall.dismissBalanceConfirm()" style="width:100%; margin-top:10px; padding:9px; border-radius:12px; background:transparent; color:#71717a; font-size:13px; border:none; cursor:pointer; touch-action:manipulation;">Not now</button>
+      </div>
+    </div>
+
     <!-- Phase 2A (owner correction 5): SYSTEM/STATUS subtitle
          lines show here as a MINIMAL notification ABOVE the Axo/ball
          area — small, dark matte, no gloss, pointer-events none
@@ -1063,7 +1087,7 @@
           <!-- Subtle Drag Pill -->
           <div class="w-8 h-1 bg-white/25 rounded-full pointer-events-none"></div>
           <div class="flex items-center gap-1.5">
-            <button type="button" id="axoVoiceChip" aria-pressed="true" title="Axo voice on/off" onclick="window.__smartBall && window.__smartBall.toggleAxoVoice()" class="w-5 h-5 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-emerald-300 flex items-center justify-center transition" style="font-size:9px">
+            <button type="button" id="axoVoiceChip" aria-pressed="true" title="Axo voice on/off" onclick="window.__smartBall && window.__smartBall.toggleAxoVoice()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-emerald-300 flex items-center justify-center transition" style="font-size:13px; touch-action:manipulation;">
               <i id="axoVoiceChipIcon" class="fa-solid fa-volume-high pointer-events-none"></i>
             </button>
             <button type="button" onclick="cycleAssistantBoxSizePreset(event)" id="assistantSizePresetBtn" class="w-5 h-5 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-zinc-300 flex items-center justify-center text-[9px] transition" title="Toggle Size (Compact / Normal / Large)">

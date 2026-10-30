@@ -49,6 +49,7 @@ import {
   loadPnl, savePnl, applyPnlResult, totalPnl, pnlBoxText,
   autoAnchorLabel, decideAutoBase, AUTO_ANCHOR_FRACTION,
   balanceTrackKey, defaultBalanceTrack, loadBalanceTrack, saveBalanceTrack, updateBalanceTrack,
+  balanceConfirmView,
   LADDER_LEVELS, HIGH_CHANCE_WILSON, DOUBLING_GATE_LOSSES
 } from './ledger.js';
 import {
@@ -2692,11 +2693,14 @@ function initBridge() {
   // the bridge's own init publish — ask for a probe immediately.
   requestBridgeReverify();
 
-  // Stake redesign (owner order 2026-10-30 ~01:06 IST): on each reload
-  // Axo asks for the balance via the subtitle when no fresh verified
-  // balance exists. Slightly delayed so a live bridge can report
-  // first and the ask never fires needlessly.
-  setTimeout(() => { try { maybeAskBalance(); } catch (e) { /* never break boot */ } }, 4000);
+  // Balance confirm modal (owner order 2026-10-30 12:31 IST): on each
+  // reload, show the unmissable plain-language balance check. Slightly
+  // delayed so a live bridge can report first and the prompt never
+  // fires needlessly when a fresh verified balance already exists.
+  // Render the persisted P&L IMMEDIATELY on boot (owner: "profit/loss
+  // should refresh each reload") — don't wait for the 3s cycle.
+  try { renderPnlBox(); } catch (e) { /* never break boot */ }
+  setTimeout(() => { try { showBalanceConfirm(); } catch (e) { /* never break boot */ } }, 4000);
 
   // Which transport the embedded DhaniWin load used (mobile.js
   // records it on every load; localStorage carries it to the
@@ -2927,7 +2931,15 @@ function initBridge() {
   function axoVoiceOn() { return axoVoiceEnabled(safeStorage()); }
 
   function axoCancelSpeech() {
-    try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {}
+    try {
+      if (window.speechSynthesis) {
+        // Aggressive cancel: some mobile engines need multiple cancels
+        // to flush a queued utterance pipeline.
+        window.speechSynthesis.cancel();
+        try { window.speechSynthesis.pause(); } catch (e) {}
+        window.speechSynthesis.cancel();
+      }
+    } catch (e) {}
   }
 
   /** The tap affordance: visible only while a line waits for a gesture. */
@@ -3292,6 +3304,125 @@ function initBridge() {
       try { window.__o101SyncBaseNow(); } catch (e) { /* a sync must never break on submit */ }
     }
     renderAxoOrb();
+  }
+
+  // ── Balance confirm modal (owner order 2026-10-30 12:31 IST) ──
+  // On EVERY reload, show an unmissable plain-language prompt:
+  // "Your last balance was ₹X — is this still your current balance?"
+  // [Yes, correct] keeps it; [Type new] opens an input; dismissing
+  // (X, outside tap, "Not now") keeps the last balance — it NEVER
+  // zeroes or clears anything. The P&L is shown alongside so the
+  // full picture is clear. Replaces the old subtle subtitle-bubble
+  // ask (maybeAskBalance) which was too easy to miss.
+  function showBalanceConfirm() {
+    try {
+      if (state.page !== 'mobile') return;
+      const modal = $('axoBalanceConfirmModal');
+      if (!modal) return;
+      // Don't re-show if already visible or already answered this session.
+      if (state.balanceConfirmShown) return;
+      if (modal.style.display === 'flex') return;
+      // If the bridge already has a fresh VERIFIED balance, we know the
+      // truth — no need to ask. The modal is for when we're unsure.
+      try {
+        if (freshVerifiedBalance(verifier.status(Date.now()))) return;
+      } catch (e) { /* a verifier hiccup must not suppress the prompt */ }
+      const track = loadBalanceTrack(safeStorage());
+      const pnlTotal = totalPnl(safeStorage());
+      const view = balanceConfirmView(track, pnlTotal);
+      const lastBal = view.lastBalance;
+      const txtEl = $('axoBalanceConfirmText');
+      const pnlEl = $('axoBalanceConfirmPnl');
+      const editRow = $('axoBalanceConfirmEditRow');
+      const btnRow = $('axoBalanceConfirmButtons');
+      if (txtEl) txtEl.textContent = view.promptText;
+      if (pnlEl) {
+        pnlEl.textContent = view.pnlText;
+        pnlEl.style.color = pnlTotal > 0 ? '#6ee7b7' : pnlTotal < 0 ? '#fda4af' : '#a1a1aa';
+      }
+      // No previous balance: skip straight to the input.
+      if (editRow) editRow.style.display = view.mode === 'input' ? 'block' : 'none';
+      if (btnRow) btnRow.style.display = view.mode === 'input' ? 'none' : 'flex';
+      modal.style.display = 'flex';
+      state.balanceConfirmShown = true;
+      // If we go straight to input, focus it for the user.
+      if (view.mode === 'input') {
+        const input = $('axoBalanceConfirmInput');
+        if (input) { try { input.focus({ preventScroll: true }); } catch (e) { try { input.focus(); } catch (e2) {} } }
+      }
+    } catch (e) { /* the confirm prompt must never break boot */ }
+  }
+
+  function hideBalanceConfirm() {
+    try {
+      const modal = $('axoBalanceConfirmModal');
+      if (modal) modal.style.display = 'none';
+      const editRow = $('axoBalanceConfirmEditRow');
+      if (editRow) editRow.style.display = 'none';
+    } catch (e) {}
+  }
+
+  /** "Yes, correct": keep the last balance as the typed balance. */
+  function confirmBalanceYes() {
+    try {
+      const track = loadBalanceTrack(safeStorage());
+      const lastBal = track && Number.isFinite(Number(track.realBalance)) && Number(track.realBalance) > 0
+        ? Math.round(Number(track.realBalance) * 100) / 100 : null;
+      if (lastBal !== null) {
+        state.typedBalance = lastBal;
+        // Fold the confirmation into the track (refreshes updatedAt).
+        const next = updateBalanceTrack(track, lastBal, track.source === 'verified' ? 'verified' : 'typed', new Date().toISOString());
+        saveBalanceTrack(safeStorage(), next);
+        try { window.__o101BalanceTrack = next; } catch (e) {}
+      }
+      hideBalanceConfirm();
+      if (typeof window !== 'undefined' && typeof window.__o101SyncBaseNow === 'function') {
+        try { window.__o101SyncBaseNow(); } catch (e) {}
+      }
+      renderAxoOrb();
+    } catch (e) { hideBalanceConfirm(); }
+  }
+
+  /** "Type new": reveal the input row. */
+  function confirmBalanceEdit() {
+    try {
+      const editRow = $('axoBalanceConfirmEditRow');
+      const btnRow = $('axoBalanceConfirmButtons');
+      if (editRow) editRow.style.display = 'block';
+      if (btnRow) btnRow.style.display = 'none';
+      const input = $('axoBalanceConfirmInput');
+      if (input) { try { input.focus({ preventScroll: true }); } catch (e) { try { input.focus(); } catch (e2) {} } }
+    } catch (e) {}
+  }
+
+  /** Submit the new balance from the confirm modal. Invalid input
+   *  keeps the modal open. Valid input saves as typed balance. */
+  function submitBalanceConfirm() {
+    try {
+      const input = $('axoBalanceConfirmInput');
+      const raw = input ? String(input.value).replace(/[^\d.]/g, '') : '';
+      const v = raw ? Number(raw) : NaN;
+      if (!Number.isFinite(v) || v <= 0) return;
+      const bal = Math.round(v * 100) / 100;
+      state.typedBalance = bal;
+      // Persist into the balance track (source: typed).
+      const prev = loadBalanceTrack(safeStorage());
+      const next = updateBalanceTrack(prev, bal, 'typed', new Date().toISOString());
+      saveBalanceTrack(safeStorage(), next);
+      try { window.__o101BalanceTrack = next; } catch (e) {}
+      hideBalanceConfirm();
+      if (input) input.value = '';
+      if (typeof window !== 'undefined' && typeof window.__o101SyncBaseNow === 'function') {
+        try { window.__o101SyncBaseNow(); } catch (e) {}
+      }
+      renderAxoOrb();
+    } catch (e) { /* invalid input: keep the modal open */ }
+  }
+
+  /** Dismiss without answering: keeps the last balance, changes
+   *  nothing. Never zeroes. */
+  function dismissBalanceConfirm() {
+    hideBalanceConfirm();
   }
 
   // ── No-skip mode (owner order 2026-10-25, UI batch) ─────────────
@@ -5962,6 +6093,13 @@ const PATTERN_PAGE_SIZE = 10;
     axoBubbleTap,
     submitTypedBalance,
     maybeAskBalance,
+    // Balance confirm modal (owner order 2026-10-30 12:31 IST):
+    // unmissable plain-language balance check on every reload.
+    showBalanceConfirm,
+    confirmBalanceYes,
+    confirmBalanceEdit,
+    submitBalanceConfirm,
+    dismissBalanceConfirm,
     // Analyse pagination (owner order 2026-10-27): < > step the
     // patterns list one page at a time; renderPatternStats clamps,
     // so next past the last page is a safe no-op re-render.
