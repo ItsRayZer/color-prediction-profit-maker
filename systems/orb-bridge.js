@@ -702,6 +702,37 @@ export function ballKeyFor(pick) {
 }
 
 /**
+ * Ball "choosing" animation (owner order 2026-10-30): when a new
+ * verdict arrives, the widget ball cycles through random faces
+ * (slot-machine style, ~800ms) before landing on the governed pick.
+ * Pure, testable. The DOM player lives in renderAxoOrb; this builds
+ * the frame sequence. The final frame is ALWAYS the verdict key —
+ * the animation can never leave a random face on screen.
+ */
+export const BALL_CHOOSE_KEYS = ['BIG', 'SMALL', 'GREEN', 'RED', 'VIOLET'];
+export const BALL_CHOOSE_STEPS = 8;
+export const BALL_CHOOSE_FRAME_MS = 90;
+
+export function buildChooseSequence(finalKey, steps = BALL_CHOOSE_STEPS, rand = Math.random) {
+  if (!finalKey) return [];
+  const pool = BALL_CHOOSE_KEYS.filter(k => k !== String(finalKey).toUpperCase());
+  const seq = [];
+  let prev = null;
+  for (let i = 0; i < steps; i++) {
+    let k = pool[Math.floor(rand() * pool.length)];
+    let guard = 0;
+    while (k === prev && pool.length > 1 && guard < 10) {
+      k = pool[Math.floor(rand() * pool.length)];
+      guard++;
+    }
+    seq.push(k);
+    prev = k;
+  }
+  seq.push(String(finalKey).toUpperCase());
+  return seq;
+}
+
+/**
  * Phase 3E display spec (design §9): every round's hero detail carries
  * the pick's honest quality — Chance (RAW win rate, labelled raw),
  * Wilson (defended chance), signed gap to the type's bar, and ONE
@@ -2372,6 +2403,7 @@ function initBridge() {
     voiceGate: new AxoVoiceGate({ voiceOn: true, subsOn: true, unlocked: false }),
     lastRoadKey: null,
     lastOrbKey: null,
+    ballChooseTimer: null, // ball "choosing" animation interval (owner 2026-10-30)
     lastLongRuns: null,
     lastLongRunsKey: null,
     ai: new AxoAiClient({ endpoint: AXO_AI_ENDPOINT })
@@ -3216,13 +3248,37 @@ function initBridge() {
     return shown;
   }
 
+  /* Subtitle update animation (owner order 2026-10-30): when the
+   * bubble text changes each round, fade the old line out, swap, and
+   * fade the new line in (~300ms total). GPU-friendly opacity/
+   * transform only. A newer line cancels an in-flight swap so rapid
+   * updates never show stale text. Reduced-motion sets instantly.
+   * CC, voice sync, and the X-dismiss behavior are untouched — this
+   * only animates the textContent write. */
+  let subtitleSwapTimer = null;
+  function setSubtitleTextAnimated(el, line) {
+    if (!el || el.textContent === line) return;
+    if (subtitleSwapTimer) { clearTimeout(subtitleSwapTimer); subtitleSwapTimer = null; }
+    if (reducedMotion()) { el.textContent = line; return; }
+    el.classList.add('o101-subtitle-swap-out');
+    subtitleSwapTimer = setTimeout(() => {
+      subtitleSwapTimer = null;
+      try {
+        el.textContent = line;
+        el.classList.remove('o101-subtitle-swap-out');
+        el.classList.add('o101-subtitle-swap-in');
+        setTimeout(() => { try { el.classList.remove('o101-subtitle-swap-in'); } catch (e) {} }, 320);
+      } catch (e) { /* the text write must never throw */ }
+    }, 150);
+  }
+
   function syncAxoSubtitleSurfaces() {
     renderAxoOrb();
     const bubble = $('axoSubtitleBubble');
     if (!bubble) return;
     const line = (state.balanceAsk && !state.balanceAskDismissed) ? BALANCE_ASK_TEXT : (state.lastLine || '');
     const textEl = $('axoSubtitleBubbleText');
-    if (textEl && line) textEl.textContent = line;
+    if (textEl && line) setSubtitleTextAnimated(textEl, line);
     positionAxoBubble();
     // Dedup: the bubble owns the subtitle now.
     const sheetLine = $('smartBallLine');
@@ -5547,6 +5603,42 @@ const PATTERN_PAGE_SIZE = 10;
       }
     } catch (e) { /* the P&L box must never break the orb render */ }
   }
+  /* Ball "choosing" animation (owner order 2026-10-30): on a new
+   * verdict, the widget ball cycles random faces slot-machine style
+   * (~800ms) then lands on the governed pick. Purely visual — the
+   * verdict is already known. A new verdict mid-animation cancels and
+   * restarts (never a stale ball). Reduced-motion skips to the final
+   * ball immediately. The final innerHTML is always the verdict's
+   * ball — the animation can never leave a random face. */
+  function axoBallChoose(pill, finalKey, finalHtml) {
+    if (axo.ballChooseTimer) { clearInterval(axo.ballChooseTimer); axo.ballChooseTimer = null; }
+    const seq = buildChooseSequence(finalKey, BALL_CHOOSE_STEPS);
+    if (!seq.length) { pill.innerHTML = finalHtml; return; }
+    let i = 0;
+    const showFrame = (k) => {
+      try {
+        const h = (typeof window.ballImg === 'function') ? window.ballImg(k, 32, '') : '';
+        if (h) pill.innerHTML = h;
+      } catch (e) { /* a frame must never break the render */ }
+    };
+    pill.classList.add('o101-ball-choosing');
+    showFrame(seq[0]);
+    i = 1;
+    axo.ballChooseTimer = setInterval(() => {
+      if (i >= seq.length) {
+        clearInterval(axo.ballChooseTimer);
+        axo.ballChooseTimer = null;
+        pill.classList.remove('o101-ball-choosing');
+        pill.innerHTML = finalHtml;
+        pill.classList.add('o101-ball-landed');
+        setTimeout(() => { try { pill.classList.remove('o101-ball-landed'); } catch (e) {} }, 400);
+        return;
+      }
+      showFrame(seq[i]);
+      i++;
+    }, BALL_CHOOSE_FRAME_MS);
+  }
+
   function renderAxoOrb() {
     if (state.page !== 'mobile') return;
     // Stake redesign (owner order 2026-10-30 ~01:06 IST): the minimal
@@ -5589,11 +5681,18 @@ const PATTERN_PAGE_SIZE = 10;
     const key = JSON.stringify([pillView.state, pillView.ballDigit]);
     if (key === axo.lastOrbKey) return;
     axo.lastOrbKey = key;
+    // A new verdict cancels any in-flight choosing animation — the
+    // new verdict always wins, never a stale ball.
+    if (axo.ballChooseTimer) { clearInterval(axo.ballChooseTimer); axo.ballChooseTimer = null; }
     if (pill) {
       const ballHtml = pillView.ballDigit && typeof window.ballImg === 'function' ? window.ballImg(pillView.ballDigit, 32, '') : '';
       if (ballHtml) {
-        pill.innerHTML = ballHtml;
         pill.classList.remove('hidden');
+        if (reducedMotion()) {
+          pill.innerHTML = ballHtml;
+        } else {
+          axoBallChoose(pill, pillView.ballDigit, ballHtml);
+        }
       } else {
         // No ball to show (no BET pick): hide the pill entirely —
         // never a text fallback, never a blank.

@@ -227,20 +227,6 @@
         <button onclick="setMobileTimeframe('5m')"  id="tfBtn-5m"  class="tf-btn flex-1 py-1.5 rounded-xl font-mono text-[10.5px] font-black transition active:scale-95 text-white/50 hover:text-white hover:bg-white/5">5m</button>
       </div>
 
-      <!-- Per-timeframe In-Charge strip (owner order 2026-10-30): each of the
-           4 WinGo timeframes elects its own in-charge model. This strip shows
-           all 4 at a glance; the main panel shows the selected tab's leader.
-           A timeframe with no data yet shows "warming up", never a guess. -->
-      <div id="tfInchargeStrip" class="px-2 py-1.5 rounded-2xl bg-black/60 border border-white/[0.08] backdrop-blur-xl">
-        <div class="text-[8px] uppercase tracking-wider text-zinc-500 font-mono mb-1">In-Charge per Timeframe</div>
-        <div class="grid grid-cols-4 gap-1" id="tfInchargeStripGrid">
-          <div class="text-center"><div class="text-[8px] font-mono text-zinc-500">30s</div><div id="tfIncharge-30s" class="text-[9px] font-bold text-purple-300 truncate">—</div></div>
-          <div class="text-center"><div class="text-[8px] font-mono text-zinc-500">1m</div><div id="tfIncharge-1m" class="text-[9px] font-bold text-purple-300 truncate">—</div></div>
-          <div class="text-center"><div class="text-[8px] font-mono text-zinc-500">3m</div><div id="tfIncharge-3m" class="text-[9px] font-bold text-purple-300 truncate">—</div></div>
-          <div class="text-center"><div class="text-[8px] font-mono text-zinc-500">5m</div><div id="tfIncharge-5m" class="text-[9px] font-bold text-purple-300 truncate">—</div></div>
-        </div>
-      </div>
-
       <!-- Task M: the ONLY on-demand entry to the adaptive AI system.
            AI Adaptive is not a menu entry; this button opens tab-ai. -->
       <button type="button" id="analyseOpenAiBtn" onclick="switchMobileTab('ai')" class="w-full p-2.5 rounded-2xl bg-black/60 border border-white/[0.08] backdrop-blur-xl flex items-center justify-between gap-2 active:scale-[0.98] transition">
@@ -583,6 +569,21 @@
             <span class="text-[7.5px] text-zinc-500 block uppercase">Neuro-State</span>
             <b id="aiChampionNeuro" class="text-purple-300 font-bold">Active</b>
           </div>
+        </div>
+      </div>
+
+      <!-- Per-timeframe In-Charge strip (owner order 2026-10-30): each of the
+           4 WinGo timeframes elects its own in-charge model. This strip shows
+           all 4 at a glance; the champion card above shows the selected
+           timeframe's leader. A timeframe with no data yet shows
+           "warming up", never a guess. -->
+      <div id="tfInchargeStrip" class="px-2 py-1.5 rounded-2xl bg-black/60 border border-white/[0.08] backdrop-blur-xl">
+        <div class="text-[8px] uppercase tracking-wider text-zinc-500 font-mono mb-1">In-Charge per Timeframe</div>
+        <div class="grid grid-cols-4 gap-1" id="tfInchargeStripGrid">
+          <div class="text-center"><div class="text-[8px] font-mono text-zinc-500">30s</div><div id="tfIncharge-30s" class="text-[9px] font-bold text-purple-300 truncate">warming up</div></div>
+          <div class="text-center"><div class="text-[8px] font-mono text-zinc-500">1m</div><div id="tfIncharge-1m" class="text-[9px] font-bold text-purple-300 truncate">warming up</div></div>
+          <div class="text-center"><div class="text-[8px] font-mono text-zinc-500">3m</div><div id="tfIncharge-3m" class="text-[9px] font-bold text-purple-300 truncate">warming up</div></div>
+          <div class="text-center"><div class="text-[8px] font-mono text-zinc-500">5m</div><div id="tfIncharge-5m" class="text-[9px] font-bold text-purple-300 truncate">warming up</div></div>
         </div>
       </div>
 
