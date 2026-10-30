@@ -50,6 +50,8 @@ import {
   autoAnchorLabel, decideAutoBase, AUTO_ANCHOR_FRACTION,
   balanceTrackKey, defaultBalanceTrack, loadBalanceTrack, saveBalanceTrack, updateBalanceTrack,
   balanceConfirmView,
+  SEQ_MODES, DEFAULT_SEQ_MODE, TREND_MIN_RUN, seqModeKey, loadSeqMode, saveSeqMode,
+  detectTrend, steadyStake,
   LADDER_LEVELS, HIGH_CHANCE_WILSON, DOUBLING_GATE_LOSSES
 } from './ledger.js';
 import {
@@ -2729,7 +2731,10 @@ function initBridge() {
   // reload, show the unmissable plain-language balance check. Slightly
   // delayed so a live bridge can report first and the prompt never
   // fires needlessly when a fresh verified balance already exists.
-  // Render the persisted P&L IMMEDIATELY on boot (owner: "profit/loss
+  // P&L reset REMOVED 2026-10-30 15:26 IST: the auto-reset on boot was
+  // wiping losses (P&L stuck at ₹0). P&L now persists and tracks correctly;
+  // owner resets manually via Settings for a fresh session.
+  // Render the P&L IMMEDIATELY on boot (owner: "profit/loss
   // should refresh each reload") — don't wait for the 3s cycle.
   try { renderPnlBox(); } catch (e) { /* never break boot */ }
   setTimeout(() => { try { showBalanceConfirm(); } catch (e) { /* never break boot */ } }, 4000);
@@ -3313,6 +3318,8 @@ function initBridge() {
   const BALANCE_ASK_TEXT = 'Tap here and type your balance \u2193';
 
   function maybeAskBalance() {
+    // Owner order 2026-10-30: ONLY on the DhaniWin game page.
+    try { if (!isOnDhaniGamePage()) return; } catch (e) { return; }
     let fresh = false;
     try { fresh = freshVerifiedBalance(verifier.status(Date.now())); } catch (e) { /* never break boot */ }
     if (shouldAskBalance({ verifiedFresh: fresh, typed: state.typedBalance, dismissed: state.balanceAskDismissed })) {
@@ -3369,10 +3376,30 @@ function initBridge() {
   // (X, outside tap, "Not now") keeps the last balance — it NEVER
   // zeroes or clears anything. The P&L is shown alongside so the
   // full picture is clear. Replaces the old subtle subtitle-bubble
+  // Owner order 2026-10-30: the balance ask shows ONLY when the
+  // user is on the DhaniWin GAME page. Detect via the active tab
+  // (tab-web) AND the iframe URL containing dhaniwin. If not on
+  // the game page, do NOT show the balance prompt.
+  function isOnDhaniGamePage() {
+    try {
+      // Check if the web tab (game page) is active.
+      const webTab = document.getElementById('tab-web');
+      const isWebTabActive = webTab && webTab.style.display !== 'none';
+      if (!isWebTabActive) return false;
+      // Check the iframe URL for dhaniwin.
+      const iframe = document.getElementById('dhaniwinIframe');
+      if (!iframe) return false;
+      const src = String(iframe.src || '').toLowerCase();
+      return src.includes('dhaniwin') && !src.includes('about:blank');
+    } catch (e) { return false; }
+  }
+
   // ask (maybeAskBalance) which was too easy to miss.
   function showBalanceConfirm() {
     try {
       if (state.page !== 'mobile') return;
+      // Owner order 2026-10-30: ONLY on the DhaniWin game page.
+      if (!isOnDhaniGamePage()) return;
       const modal = $('axoBalanceConfirmModal');
       if (!modal) return;
       // Don't re-show if already visible or already answered this session.
@@ -4298,7 +4325,72 @@ const PATTERN_PAGE_SIZE = 10;
       const L = loadLedger(safeStorage(), driverType);
       const W = Number.isFinite(g.wilsonLowerBound) ? g.wilsonLowerBound : null;
       const lossRun = Math.max(0, state.session.consecutiveLosses || 0);
-      const rz = ledgerResize(state.session.baseBet, lossRun, W, driverType, sizingBalance());
+
+      // Steady Sequence (owner order 2026-10-30 17:39/17:40 IST):
+      // flat stakes (no compounding) + trend adaptation. When a
+      // repeated trend is detected (3+ consecutive same outcome),
+      // the sequence follows the trend direction; when the trend
+      // breaks, it immediately re-detects from the latest history
+      // (never bets a dead trend).
+      const seqMode = loadSeqMode(safeStorage());
+      let trendInfo = null;
+      let useSteady = seqMode === 'steady';
+
+      if (useSteady) {
+        try {
+          const tf = state.tf || currentTf();
+          const hist = settledHistory(tf) || [];
+          // Build outcome sequences (oldest first) for trend detection.
+          const sizes = [];
+          const colors = [];
+          for (const r of hist) {
+            const sz = (r.size === 'BIG' || r.size === 'SMALL') ? r.size : roadSizeWord(r.number);
+            if (sz) sizes.push(sz);
+            const cn = Number(r.number);
+            if (Number.isFinite(cn)) {
+              // Primary color for trend purposes (0→RED, 5→GREEN).
+              const c = cn === 0 ? 'RED' : cn === 5 ? 'GREEN' : ([1, 3, 7, 9].includes(cn) ? 'GREEN' : 'RED');
+              colors.push(c);
+            } else if (r.color === 'RED' || r.color === 'GREEN' || r.color === 'VIOLET') {
+              colors.push(r.color);
+            }
+          }
+          const pickIsSize = g.pick === 'BIG' || g.pick === 'SMALL';
+          const pickIsColor = g.pick === 'RED' || g.pick === 'GREEN' || g.pick === 'VIOLET';
+          const sizeTrend = detectTrend(sizes);
+          const colorTrend = detectTrend(colors);
+          if (pickIsSize && sizeTrend) {
+            trendInfo = { direction: sizeTrend.direction, length: sizeTrend.length, kind: 'SIZE' };
+            g.pick = sizeTrend.direction;
+            g.trendInfo = trendInfo;
+          } else if (pickIsColor && colorTrend) {
+            trendInfo = { direction: colorTrend.direction, length: colorTrend.length, kind: 'COLOR' };
+            g.pick = colorTrend.direction;
+            g.trendInfo = trendInfo;
+          }
+        } catch (e) { /* trend detection never breaks the stake */ }
+      }
+
+      let rz;
+      if (useSteady) {
+        // Flat: every bet is the base, no progression.
+        const ss = steadyStake(state.session.baseBet);
+        const guards = stakeWithGuards(ss.stake, sizingBalance());
+        rz = {
+          stake: guards.stake,
+          required: guards.required,
+          level: 1,
+          levelIndex: 0,
+          gated: false,
+          weight: ledgerWeight(W, driverType),
+          over: guards.shortfall !== null
+            ? { required: guards.required, shortfall: guards.shortfall, capped: guards.capped }
+            : null,
+        };
+      } else {
+        rz = ledgerResize(state.session.baseBet, lossRun, W, driverType, sizingBalance());
+      }
+
       state.session.nextStake = rz.stake;
       state.session.shortfall = rz.over ? rz.over.shortfall : null;
       state.session.overPlan = false;
@@ -4307,7 +4399,8 @@ const PATTERN_PAGE_SIZE = 10;
         tracked: L, stake: rz.stake, required: rz.required, weight: rz.weight,
         shortfall: rz.over ? rz.over.shortfall : null,
         capped: rz.over ? rz.over.capped : null,
-        levelIndex: rz.levelIndex, level: rz.level, gated: rz.gated, lossRun
+        levelIndex: rz.levelIndex, level: rz.level, gated: rz.gated, lossRun,
+        seqMode, trend: trendInfo,
       };
       g.ledgerView = state.session.ledgerView;
       try { saveSessionTo(safeStorage(), 'SHARED', state.session); } catch (e) { /* storage must never break the cycle */ }
@@ -4336,6 +4429,39 @@ const PATTERN_PAGE_SIZE = 10;
     if (typeof window !== 'undefined' && typeof window.__o101SyncBaseNow === 'function') {
       try { window.__o101SyncBaseNow(); } catch (e) { /* a toggle must never break on sync */ }
     }
+  }
+
+  // Steady Sequence toggle (owner order 2026-10-30 17:39/17:40 IST):
+  // switches between Ladder (doubling, default) and Steady (flat
+  // stakes + trend adaptation). Persists in localStorage.
+  function toggleSeqMode() {
+    const cur = loadSeqMode(safeStorage());
+    const next = cur === 'steady' ? 'ladder' : 'steady';
+    saveSeqMode(safeStorage(), next);
+    // Refresh the toggle button label.
+    try {
+      const btn = document.getElementById('seqModeToggle');
+      if (btn) {
+        btn.textContent = next === 'steady' ? 'STEADY' : 'LADDER';
+        btn.setAttribute('aria-pressed', next === 'steady' ? 'true' : 'false');
+      }
+    } catch (e) { /* never break on UI */ }
+    say(next === 'steady'
+      ? 'Steady sequence on — flat stakes, follows trends, no compounding.'
+      : 'Ladder sequence on — doubling stakes.', 'system');
+    // Force a resize on the next cycle so the new mode applies immediately.
+    state.baseSignature = null;
+  }
+
+  // Sync the Steady/Ladder toggle button label on boot/render.
+  function renderSeqModeToggle() {
+    try {
+      const btn = document.getElementById('seqModeToggle');
+      if (!btn) return;
+      const mode = loadSeqMode(safeStorage());
+      btn.textContent = mode === 'steady' ? 'STEADY' : 'LADDER';
+      btn.setAttribute('aria-pressed', mode === 'steady' ? 'true' : 'false');
+    } catch (e) { /* never break on UI */ }
   }
 
 
@@ -4485,6 +4611,8 @@ const PATTERN_PAGE_SIZE = 10;
         ? 'text-[7.5px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 transition active:scale-95'
         : 'text-[7.5px] font-mono font-bold px-1.5 py-0.2 rounded bg-white/10 text-zinc-300 border border-white/10 transition active:scale-95';
     }
+    // Steady Sequence toggle label sync (owner 2026-10-30 17:39/17:40).
+    renderSeqModeToggle();
     // Task L: the confirm slot collapses when empty (no reserved
     // blank gap) and the sheet grows to its measured content so a
     // staged bet or a long reason can never clip the chip row.
@@ -5528,10 +5656,19 @@ const PATTERN_PAGE_SIZE = 10;
       if (levelEl) {
         // Phase 3E: derived ledger level (log2 of stake/base), not
         // the session loss-run counter — the ladder is retired.
-        const li = state.session && Number.isFinite(state.session.ledgerLevelIndex) ? state.session.ledgerLevelIndex : null;
-        levelEl.textContent = state.session && li !== null && li > 0
-          ? `Level ${li + 1} (Recovery)`
-          : 'Level 1 (Base)';
+        // Steady Sequence (owner 2026-10-30 17:39/17:40): show
+        // "Steady ₹X" + detected trend (e.g. "Trend: BIG ×3").
+        const lv = state.session ? state.session.ledgerView : null;
+        if (lv && lv.seqMode === 'steady') {
+          const stakeTxt = `Steady \u20B9${lv.stake}`;
+          const trendTxt = lv.trend ? ` \u00B7 Trend: ${lv.trend.direction} \u00D7${lv.trend.length}` : '';
+          levelEl.textContent = stakeTxt + trendTxt;
+        } else {
+          const li = state.session && Number.isFinite(state.session.ledgerLevelIndex) ? state.session.ledgerLevelIndex : null;
+          levelEl.textContent = state.session && li !== null && li > 0
+            ? `Level ${li + 1} (Recovery)`
+            : 'Level 1 (Base)';
+        }
       }
     }
   }
@@ -6174,11 +6311,22 @@ const PATTERN_PAGE_SIZE = 10;
     confirmAutoPilotBet,
     toggleAutoPilot,
     toggleAutoBase,
+    toggleSeqMode,
     // Axo (this build): voice setting, face state, ask-Axo.
     toggleAxoVoice: () => setAxoVoice(!axoVoiceOn()),
     refreshAxoVoiceChip: renderAxoVoiceChip,
     toggleAxoSubs: () => setAxoSubs(!axoSubsOn()),
     refreshAxoSubs: applyAxoSubs,
+    // Owner order 2026-10-30: lime dot on homepage opens the widget.
+    openAxoFromLime: () => {
+      try {
+        const limeDot = document.getElementById('axoLimeDot');
+        if (limeDot) limeDot.style.display = 'none';
+        if (typeof window.toggleDhaniwinAssistantModal === 'function') {
+          window.toggleDhaniwinAssistantModal(true);
+        }
+      } catch (e) {}
+    },
     // Phase 2A (owner correction 2): no-skip toggle functions stay
     // exposed but DORMANT — no UI calls them, the cycle never
     // consults them. Removal is reversible; re-wiring needs a fresh

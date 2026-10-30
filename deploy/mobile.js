@@ -2245,9 +2245,11 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
     MobileState.lastCelebratedPeriodByTf = { '30s': null, '1m': null, '3m': null, '5m': null };
   }
 
-  // STRICT DEDUPLICATION - Lock immediately to prevent concurrent re-entry
-  if (MobileState.lastCelebratedPeriodByTf[tf] === periodStr) return;
-  MobileState.lastCelebratedPeriodByTf[tf] = periodStr;
+  // FIX 2026-10-30: The lock was set here at the start, burning it even
+  // when the call had no authentic prediction. A later call with complete
+  // data would hit the lock and return silently — no PnL, no celebration.
+  // The lock is now set ONLY after hasAuthenticPrediction is confirmed
+  // (see below). Calls without an authentic prediction do not consume it.
 
   // Fix round (RC5): normalize colour at entry exactly as the history
   // sync does — the cloud path can supply no colour, and the
@@ -2413,6 +2415,16 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
     // Cannot determine authentic prediction - do NOT manufacture a fake win
     target = null;
     isWin = null;
+  }
+
+  // FIX 2026-10-30: Deduplication lock is set ONLY when we have an
+  // authentic prediction. A call without one does not burn the lock,
+  // allowing a later call with complete data to proceed to PnL +
+  // celebration. This fixes the "rain never shows" bug where the first
+  // (incomplete) settlement call consumed the one-shot lock.
+  if (hasAuthenticPrediction) {
+    if (MobileState.lastCelebratedPeriodByTf[tf] === periodStr) return;
+    MobileState.lastCelebratedPeriodByTf[tf] = periodStr;
   }
 
   // Governor disposition (orb-bridge, 2026-10-24): a round the governor
@@ -4991,6 +5003,36 @@ function switchMobileTab(tab) {
     if (orb) orb.style.display = 'none';
     if (typeof toggleDhaniwinAssistantModal === 'function') toggleDhaniwinAssistantModal(false);
   }
+
+  // Owner order 2026-10-30: widget states per tab.
+  // - Analyse page (#tab-ai): widget ALWAYS in COMPACT mode. Never
+  //   auto-open the full panel here. User can tap to expand.
+  // - Homepage: hide the full widget, show only the minimal lime dot.
+  try {
+    const limeDot = $('axoLimeDot');
+    const sheet = $('dhaniwinAssistantSheet');
+    if (tab === 'ai') {
+      // Analyse: compact mode. Close full panel if open, show orb in compact.
+      if (typeof toggleDhaniwinAssistantModal === 'function') toggleDhaniwinAssistantModal(false);
+      if (orb) {
+        orb.style.display = 'block';
+        // Force compact: set the data attribute for compact styling.
+        if (sheet) sheet.setAttribute('data-axo-compact', '3');
+      }
+      if (limeDot) limeDot.style.display = 'none';
+      if (typeof clampFloatingOrb === 'function') clampFloatingOrb();
+    } else if (tab === 'home') {
+      // Homepage: hide full widget, show only lime dot.
+      if (typeof toggleDhaniwinAssistantModal === 'function') toggleDhaniwinAssistantModal(false);
+      if (orb) orb.style.display = 'none';
+      if (limeDot) limeDot.style.display = 'block';
+    } else {
+      // Other tabs: hide lime dot.
+      if (limeDot) limeDot.style.display = 'none';
+      // On web tab, orb is already shown above; ensure compact is cleared.
+      if (tab === 'web' && sheet) sheet.removeAttribute('data-axo-compact');
+    }
+  } catch (e) { /* widget state must never break tab switch */ }
 
   // Bubble-tracks-Axo: anchor visibility changed (orb shown or
   // hidden) — the bubble tracks it or hides with it, never parks
