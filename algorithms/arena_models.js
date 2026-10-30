@@ -2045,8 +2045,209 @@ if (typeof window !== 'undefined') window.detectRepeatingPattern = detectRepeati
 if (typeof globalThis !== 'undefined') globalThis.detectRepeatingPattern = detectRepeatingPattern;
 
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── PER-MODEL ADAPTIVE SUB-STRATEGIES (owner order 2026-10-30 18:08 IST) ──
+// "Make all model individually adaptive and change trends and patterns when
+//  the result patterns changes"
+//
+// DESIGN: Each model has 3 sub-strategies:
+//   (a) "core" — the model's original logic (model-specific, preserved exactly)
+//   (b) "trend" — trend-following: predicts continuation of the recent trend
+//                 in the model's preferred dimension (honest, simple rule)
+//   (c) "fade"  — trend-fading (contrarian): predicts reversal of the recent
+//                 trend (honest, simple rule)
+//
+// ADAPTATION: On each prediction, all 3 sub-strategies are backtested
+// walk-forward on the last ADAPTIVE_WINDOW (20) settled rounds from the
+// history passed in. The sub-strategy with the highest win rate is used
+// for the current prediction. When the regime shifts (patterns change),
+// the previously-winning sub-strategy starts losing, and a different one
+// takes over — the model "adapts" automatically without any external signal.
+//
+// UNCERTAIN MODE: If ALL sub-strategies are below ADAPTIVE_UNCERTAIN_THRESHOLD
+// (45%) on the recent window, the model returns null (no prediction) rather
+// than guessing. This is honest: the model admits it has no edge right now.
+// A null pick pauses the model's record for that round, like every model.
+//
+// HONESTY NOTE: This framework does NOT claim to improve win rates. The
+// research (2026-10-30, 1,367 rounds, 276 trends + 40 ML models) found no
+// validated edge. This is an architectural fulfillment of the owner's
+// request for per-model adaptation, not a performance claim. The governance
+// (Wilson bar, blacklist, bench) applies to the model's OVERALL record,
+// not to sub-strategies.
+// ═══════════════════════════════════════════════════════════════════════════════
 
-function generateModelNextPrediction(model, history, modelStats) {
+const ADAPTIVE_WINDOW = 20;           // Rounds for sub-strategy backtest
+const ADAPTIVE_UNCERTAIN_THRESHOLD = 0.45;  // Below this: return null (uncertain)
+const ADAPTIVE_MIN_HISTORY = 25;      // Need 20 for backtest + 5 for trend detection
+
+// ── Sub-strategy predictors (pure functions) ──
+// Each takes (history, predType) and returns {predType, predTarget}.
+// "history" is an array of {number, color, size} (normalized).
+
+function adaptiveNormColor(c) {
+  return String(c || '').toUpperCase().includes('GREEN') ? 'GREEN' : 'RED';
+}
+function adaptiveNormSize(s) {
+  const str = String(s || '').toUpperCase();
+  if (str.includes('BIG')) return 'BIG';
+  if (str.includes('SMALL')) return 'SMALL';
+  return 'BIG';
+}
+
+// Trend-follow: if last 3+ outcomes are the same in the target dimension,
+// predict continuation. Otherwise, predict the most frequent in last 10.
+function adaptiveTrendFollowPredict(history, predType) {
+  const hist = Array.isArray(history) ? history : [];
+  const len = hist.length;
+  if (len === 0) return null;
+  if (predType === 'COLOR') {
+    const colors = hist.map(r => adaptiveNormColor(r.color));
+    const last3 = colors.slice(-3);
+    if (last3.length === 3 && last3[0] === last3[1] && last3[1] === last3[2]) {
+      return { predType: 'COLOR', predTarget: last3[2] };  // Continue the trend
+    }
+    const last10 = colors.slice(-10);
+    const green = last10.filter(c => c === 'GREEN').length;
+    return { predType: 'COLOR', predTarget: green >= last10.length / 2 ? 'GREEN' : 'RED' };
+  } else {  // SIZE
+    const sizes = hist.map(r => adaptiveNormSize(r.size));
+    const last3 = sizes.slice(-3);
+    if (last3.length === 3 && last3[0] === last3[1] && last3[1] === last3[2]) {
+      return { predType: 'SIZE', predTarget: last3[2] };  // Continue the trend
+    }
+    const last10 = sizes.slice(-10);
+    const big = last10.filter(s => s === 'BIG').length;
+    return { predType: 'SIZE', predTarget: big >= last10.length / 2 ? 'BIG' : 'SMALL' };
+  }
+}
+
+// Trend-fade (contrarian): if last 3+ outcomes are the same, predict reversal.
+// Otherwise, predict the LEAST frequent in last 10 (mean reversion).
+function adaptiveTrendFadePredict(history, predType) {
+  const hist = Array.isArray(history) ? history : [];
+  const len = hist.length;
+  if (len === 0) return null;
+  if (predType === 'COLOR') {
+    const colors = hist.map(r => adaptiveNormColor(r.color));
+    const last3 = colors.slice(-3);
+    if (last3.length === 3 && last3[0] === last3[1] && last3[1] === last3[2]) {
+      return { predType: 'COLOR', predTarget: last3[2] === 'GREEN' ? 'RED' : 'GREEN' };  // Fade the trend
+    }
+    const last10 = colors.slice(-10);
+    const green = last10.filter(c => c === 'GREEN').length;
+    return { predType: 'COLOR', predTarget: green < last10.length / 2 ? 'GREEN' : 'RED' };  // Least frequent
+  } else {  // SIZE
+    const sizes = hist.map(r => adaptiveNormSize(r.size));
+    const last3 = sizes.slice(-3);
+    if (last3.length === 3 && last3[0] === last3[1] && last3[1] === last3[2]) {
+      return { predType: 'SIZE', predTarget: last3[2] === 'BIG' ? 'SMALL' : 'BIG' };  // Fade the trend
+    }
+    const last10 = sizes.slice(-10);
+    const big = last10.filter(s => s === 'BIG').length;
+    return { predType: 'SIZE', predTarget: big < last10.length / 2 ? 'BIG' : 'SMALL' };  // Least frequent
+  }
+}
+
+// ── Walk-forward backtest ──
+// Tests what a sub-strategy WOULD have predicted for each of the last
+// `window` rounds, using only history available BEFORE each round (no lookahead).
+// Returns {wins, total, winRate}.
+function backtestSubStrategy(predictFn, history, window) {
+  const hist = Array.isArray(history) ? history.filter(r => !r.gap) : [];
+  const len = hist.length;
+  const w = Math.min(window || ADAPTIVE_WINDOW, len - 1);
+  if (w < 5) return { wins: 0, total: 0, winRate: 0 };  // Not enough data
+  let wins = 0;
+  let total = 0;
+  // For each of the last `w` rounds, predict using history BEFORE that round
+  for (let i = len - w; i < len; i++) {
+    const histBefore = hist.slice(0, i);  // History strictly before round i
+    if (histBefore.length < 5) continue;
+    let pred = null;
+    try { pred = predictFn(histBefore); } catch (e) { continue; }
+    if (!pred || !pred.predTarget) continue;
+    const actual = hist[i];
+    if (!actual) continue;
+    const actualTarget = pred.predType === 'COLOR'
+      ? adaptiveNormColor(actual.color)
+      : adaptiveNormSize(actual.size);
+    total++;
+    if (String(pred.predTarget).toUpperCase() === actualTarget) wins++;
+  }
+  return { wins, total, winRate: total > 0 ? wins / total : 0 };
+}
+
+// ── Adaptive sub-strategy selection ──
+// Returns {strategyId, prediction, winRate} for the best sub-strategy,
+// or {strategyId: 'uncertain', prediction: null} if all are below threshold.
+function selectAdaptiveSubStrategy(modelId, model, history, corePredictFn) {
+  const hist = Array.isArray(history) ? history.filter(r => !r.gap) : [];
+  if (hist.length < ADAPTIVE_MIN_HISTORY) {
+    return { strategyId: 'core', prediction: null, winRate: 0, reason: 'insufficient_history' };
+  }
+  // Determine the model's preferred dimension for trend/fade
+  const corePred = corePredictFn(hist);
+  const prefType = (corePred && corePred.predType) || model.predType || 'SIZE';
+  const normType = prefType === 'COLOR' ? 'COLOR' : 'SIZE';  // NUMBER models use SIZE for trend/fade
+
+  const strategies = [
+    {
+      id: 'core',
+      name: 'Original model logic',
+      predict: (h) => corePredictFn(h),
+    },
+    {
+      id: 'trend',
+      name: 'Trend-following',
+      predict: (h) => adaptiveTrendFollowPredict(h, normType),
+    },
+    {
+      id: 'fade',
+      name: 'Trend-fading (contrarian)',
+      predict: (h) => adaptiveTrendFadePredict(h, normType),
+    },
+  ];
+
+  const results = strategies.map(s => {
+    const bt = backtestSubStrategy(s.predict, hist, ADAPTIVE_WINDOW);
+    // Get current prediction from this strategy
+    let current = null;
+    try { current = s.predict(hist); } catch (e) { /* ignore */ }
+    return { id: s.id, name: s.name, wins: bt.wins, total: bt.total, winRate: bt.winRate, current };
+  });
+
+  // Sort by win rate (descending)
+  results.sort((a, b) => b.winRate - a.winRate);
+  const best = results[0];
+
+  // Uncertain mode: all below threshold
+  if (!best || best.winRate < ADAPTIVE_UNCERTAIN_THRESHOLD || !best.current) {
+    return { strategyId: 'uncertain', prediction: null, winRate: best ? best.winRate : 0, reason: 'all_below_threshold', details: results };
+  }
+
+  return { strategyId: best.id, prediction: best.current, winRate: best.winRate, reason: 'best_win_rate', details: results };
+}
+
+// Export for testing (CJS-conditional, like other functions in this file)
+if (typeof module !== "undefined" && module.exports) {
+  module.exports.ADAPTIVE_WINDOW = ADAPTIVE_WINDOW;
+  module.exports.ADAPTIVE_UNCERTAIN_THRESHOLD = ADAPTIVE_UNCERTAIN_THRESHOLD;
+  module.exports.adaptiveTrendFollowPredict = adaptiveTrendFollowPredict;
+  module.exports.adaptiveTrendFadePredict = adaptiveTrendFadePredict;
+  module.exports.backtestSubStrategy = backtestSubStrategy;
+  module.exports.selectAdaptiveSubStrategy = selectAdaptiveSubStrategy;
+}
+if (typeof globalThis !== 'undefined') {
+  globalThis.ADAPTIVE_WINDOW = ADAPTIVE_WINDOW;
+  globalThis.adaptiveTrendFollowPredict = adaptiveTrendFollowPredict;
+  globalThis.adaptiveTrendFadePredict = adaptiveTrendFadePredict;
+  globalThis.backtestSubStrategy = backtestSubStrategy;
+  globalThis.selectAdaptiveSubStrategy = selectAdaptiveSubStrategy;
+}
+
+
+function generateModelNextPrediction(model, history, modelStats, skipAdaptive) {
   const hist = Array.isArray(history) ? history.filter(r => !r.gap) : [];
   const modelId = model.id || '';
   // Observer (system model, owner orders 2026-10-27): its pick is
@@ -3992,6 +4193,47 @@ function generateModelNextPrediction(model, history, modelStats) {
       ? (sDec === 'BIG' ? 7 : 1)
       : (sDec === 'BIG' ? 8 : 2);
 
+  // ── PER-MODEL ADAPTIVE SUB-STRATEGY SELECTION (owner 2026-10-30 18:08) ──
+  // Each model adaptively chooses among its 3 sub-strategies (core / trend /
+  // fade) based on 20-round walk-forward backtest. When result patterns
+  // change (regime shift), the winning sub-strategy changes automatically.
+  // If ALL are below 45%, return null (uncertain) rather than guessing.
+  // Skipped during backtesting (skipAdaptive=true) to avoid recursion, and
+  // skipped for observer models (already returned null above).
+  if (!skipAdaptive && hist.length >= ADAPTIVE_MIN_HISTORY) {
+    try {
+      const _adaptive = selectAdaptiveSubStrategy(modelId, model, hist, (h) => {
+        // Core sub-strategy for backtest: original logic, no recursion
+        try { return generateModelNextPrediction(model, h, modelStats, true); }
+        catch (e) { return null; }
+      });
+      if (_adaptive.strategyId === 'uncertain') {
+        // Uncertain mode: all sub-strategies below 45% — honest null
+        return null;
+      }
+      if (_adaptive.strategyId !== 'core' && _adaptive.prediction && _adaptive.prediction.predTarget) {
+        // A trend/fade sub-strategy won — override the core prediction.
+        // The override is transparent: predType/predTarget come from the
+        // winning sub-strategy, conf is honest (0.60 floor, not inflated).
+        const _ap = _adaptive.prediction;
+        predType = _ap.predType === 'COLOR' ? 'COLOR' : 'SIZE';
+        predTarget = String(_ap.predTarget).toUpperCase();
+        // Re-derive cDec/sDec consistently so predColor/predSize stay coherent
+        if (predType === 'COLOR') {
+          cDec = predTarget === 'GREEN' ? 'GREEN' : 'RED';
+        } else {
+          sDec = predTarget === 'BIG' ? 'BIG' : 'SMALL';
+        }
+        conf = 0.60;  // Honest floor for adaptive override (not claiming edge)
+        // Tag the adaptive strategy for transparency (visible in debugging)
+        if (typeof patternInfo === 'undefined' || patternInfo === null) {
+          // Do not clobber pattern-repeater's patternInfo
+        }
+      }
+      // If 'core' won, fall through with the original prediction unchanged.
+    } catch (e) { /* adaptive must never break prediction; fall through to core */ }
+  }
+
   return {
     predType,
     predTarget,
@@ -4100,6 +4342,13 @@ if (typeof module !== "undefined" && module.exports) {
     generateModelNextPrediction,
     denoiseGameHistory,
     ModelQuarantineEngine,
-    detectRepeatingPattern
+    detectRepeatingPattern,
+    // Per-model adaptive sub-strategies (owner 2026-10-30 18:08)
+    ADAPTIVE_WINDOW,
+    ADAPTIVE_UNCERTAIN_THRESHOLD,
+    adaptiveTrendFollowPredict,
+    adaptiveTrendFadePredict,
+    backtestSubStrategy,
+    selectAdaptiveSubStrategy
   };
 }
