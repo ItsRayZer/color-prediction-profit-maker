@@ -2592,6 +2592,13 @@ function showWinLossCelebration(isWin, target, number, size, color, periodStr, s
       pnlBadge.textContent = `0W Streak (Reset)`;
       pnlBadge.className = 'text-xs font-black text-rose-400';
     }
+    // Owner order 2026-10-30 ~01:21 IST: the dollar rain falls on LOSS
+    // too — always on, top-down, for every governed settled bet.
+    // Visual only; the governed sound authority is untouched.
+    const lossStake = (window.MobileBridgeState && MobileBridgeState.currentStake) ? MobileBridgeState.currentStake : 0;
+    if (!reduceMotion && typeof triggerAppleMoneyRain === 'function') {
+      triggerAppleMoneyRain(lossStake, 0, false);
+    }
   }
 
   if (subtext) {
@@ -6701,19 +6708,41 @@ function dismissAppleMoneyRain() {
 window.dismissAppleMoneyRain = dismissAppleMoneyRain;
 window.dismissFullScreenWin = dismissAppleMoneyRain; // Legacy backward-compatibility
 
-function triggerAppleMoneyRain(profit, streak) {
+function triggerAppleMoneyRain(profit, streak, isWin = true) {
   dismissAppleMoneyRain();
 
   const container = $('appleMoneyRainContainer');
   const canvas = $('appleMoneyRainCanvas');
   const winTitle = $('appleMoneyWinTitle');
   const winBadge = $('appleMoneyWinBadge');
+  const winPill = $('appleMoneyWinPill');
+  const pillDot = $('appleMoneyPillDot');
   if (!container || !canvas) return;
 
-  const pStr = (profit && profit > 0) ? `+₹${Number(profit).toFixed(2)}` : '+₹2.00';
-  const sStr = streak > 1 ? ` • 🔥 ${streak}W` : '';
-  if (winTitle) winTitle.textContent = 'PREDICTION WON';
-  if (winBadge) winBadge.textContent = `${pStr}${sStr}`;
+  // Owner order 2026-10-30 ~01:21 IST: the dollar rain falls on LOSS
+  // too (always on, top-down), not win-only anymore. Visual only —
+  // the governed sound authority is untouched. The pill tints by
+  // outcome so a loss never wears win-green.
+  const amt = Number(profit);
+  const pStr = isWin
+    ? ((amt && amt > 0) ? `+₹${amt.toFixed(2)}` : '+₹2.00')
+    : `-₹${(amt && amt > 0 ? amt : 0).toFixed(2)}`;
+  const sStr = (isWin && streak > 1) ? ` • 🔥 ${streak}W` : '';
+  if (winTitle) winTitle.textContent = isWin ? 'PREDICTION WON' : 'PREDICTION MISSED';
+  if (winBadge) {
+    winBadge.textContent = `${pStr}${sStr}`;
+    winBadge.className = 'text-[10px] font-mono font-black px-2 py-0.5 rounded-full border ' +
+      (isWin ? 'bg-emerald-500/25 text-emerald-300 border-emerald-500/40'
+             : 'bg-rose-500/25 text-rose-300 border-rose-500/40');
+  }
+  if (winPill) {
+    winPill.className = 'relative z-10 px-4 py-2 rounded-full bg-black/90 border flex items-center gap-2 transform scale-95 transition-all duration-300 pointer-events-auto cursor-pointer ' +
+      (isWin ? 'border-emerald-500/40 shadow-[0_8px_32px_rgba(16,185,129,0.35)]'
+             : 'border-rose-500/40 shadow-[0_8px_32px_rgba(244,63,94,0.35)]');
+  }
+  if (pillDot) {
+    pillDot.className = 'w-2 h-2 rounded-full animate-pulse ' + (isWin ? 'bg-emerald-400' : 'bg-rose-400');
+  }
 
   container.classList.remove('hidden');
   container.style.opacity = '1';

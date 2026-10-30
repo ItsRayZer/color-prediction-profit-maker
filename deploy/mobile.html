@@ -918,6 +918,12 @@
       role="button"
       tabindex="0"
       title="Axo — tap to open the assistant">
+      <!-- Stake redesign (owner order 2026-10-30): minimal long-term
+           P&L box ABOVE the Axo widget — +₹X profit / −₹X loss, same
+           dark matte theme, Apple-like minimal. pointer-events:none:
+           display only, never blocks orb taps or drag. Text + colour
+           written by renderAxoOrb in the bridge module. -->
+      <div id="axoPnlBox" title="Long-term P&L — app-staged settled bets only" style="position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%); background:rgba(28,28,31,0.95); border:1px solid rgba(255,255,255,0.14); border-radius:9999px; padding:3px 10px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:10px; font-weight:700; color:#a1a1aa; white-space:nowrap; pointer-events:none; z-index:1;">₹0</div>
       
       <!-- Clock-Like Radial SVG Countdown Ring -->
       <svg class="absolute -inset-[3px] w-[68px] h-[68px] -rotate-90 pointer-events-none" viewBox="0 0 68 68">
@@ -959,9 +965,19 @@
          2026-10-27): the X button is a 32px tap target (glyph stays
          10px, centred on the corner) — the old 20px target was too
          small to hit reliably on a phone. -->
-    <div id="axoSubtitleBubble" aria-live="polite" style="display:none; position:fixed; z-index:100001; max-width:min(280px, calc(100vw - 120px)); pointer-events:auto;">
+    <div id="axoSubtitleBubble" aria-live="polite" onclick="window.__smartBall && window.__smartBall.axoBubbleTap(event)" style="display:none; position:fixed; z-index:100001; max-width:min(280px, calc(100vw - 120px)); pointer-events:auto;">
       <div style="background:rgba(28,28,31,0.95); border:1px solid rgba(255,255,255,0.14); border-radius:16px; padding:8px 12px; box-shadow:0 8px 30px rgba(0,0,0,0.5);">
         <span id="axoSubtitleBubbleText" style="color:#fff; font-size:12px; line-height:1.35;"></span>
+        <!-- Stake redesign (owner order 2026-10-30): inline balance
+             type row — shown when the user taps the bubble while the
+             balance ask is live. Tapping the X still closes the
+             bubble (its own handler; axoBubbleTap ignores it). -->
+        <div id="axoBalanceAskRow" style="display:none; margin-top:8px;">
+          <div style="display:flex; gap:6px; align-items:center;">
+            <input id="axoBalanceAskInput" type="number" inputmode="decimal" min="1" placeholder="Type balance ₹" onkeydown="if(event.key==='Enter'){window.__smartBall&&window.__smartBall.submitTypedBalance()}" style="flex:1; min-width:0; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); border-radius:10px; padding:7px 10px; color:#fff; font-size:13px; outline:none;">
+            <button type="button" onclick="window.__smartBall && window.__smartBall.submitTypedBalance()" aria-label="Set balance" title="Set balance" style="width:34px; height:34px; flex:none; border-radius:9999px; background:#10b981; color:#04120c; font-size:15px; font-weight:800; cursor:pointer; border:none; touch-action:manipulation;">✓</button>
+          </div>
+        </div>
       </div>
       <button type="button" id="axoSubtitleBubbleClose" aria-label="Close subtitle" title="Close subtitle" onclick="window.__smartBall && window.__smartBall.dismissAxoBubble()" style="position:absolute; top:-16px; right:-16px; width:32px; height:32px; border-radius:9999px; background:rgba(28,28,31,1); border:1px solid rgba(255,255,255,0.25); display:flex; align-items:center; justify-content:center; cursor:pointer; touch-action:manipulation;">
         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M1 1L9 9M9 1L1 9" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>
@@ -1276,7 +1292,7 @@
     <div id="appleMoneyRainContainer" class="fixed inset-0 pointer-events-none z-[100002] hidden flex flex-col items-center justify-start pt-16 transition-opacity duration-300 overflow-hidden">
       <canvas id="appleMoneyRainCanvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
       <div id="appleMoneyWinPill" class="relative z-10 px-4 py-2 rounded-full bg-black/90 border border-emerald-500/40 shadow-[0_8px_32px_rgba(16,185,129,0.35)] flex items-center gap-2 transform scale-95 transition-all duration-300 pointer-events-auto cursor-pointer" onclick="dismissAppleMoneyRain()">
-        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span id="appleMoneyPillDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
         <span id="appleMoneyWinTitle" class="text-[11px] font-black font-mono tracking-tight text-white">PREDICTION WON</span>
         <span id="appleMoneyWinBadge" class="text-[10px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-500/40">+₹2.00</span>
       </div>

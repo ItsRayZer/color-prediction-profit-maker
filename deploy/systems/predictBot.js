@@ -172,11 +172,9 @@ export function botLine(event, context = {}) {
       break;
     }
     case BOT_EVENTS.LADDER_UP: {
-      // Task R: short form — level + next stake.
-      // Phase 3D: no stop explanation exists anymore (no stops) —
-      // just the rung. Phase 3E: the level is the derived ledger
-      // level and the stake is the ledger figure — "the double" is
-      // retired with the ladder it described.
+      // Stake redesign (owner order 2026-10-30): the level is the
+      // doubling-ladder rung (1–6) and the stake is the ladder
+      // figure — the Recovery Ledger's loss record no longer sizes.
       line = `Ledger level ${c.ladderLevel + 1} — next stake ${inr(c.nextStake)}.`;
       break;
     }
@@ -221,28 +219,28 @@ export function answerQuestion(question, context = {}) {
 
   if (q.includes('skip') || q.includes('why not bet') || q.includes('no bet')) {
     // Phase 3D: skips are gone — every round shows a pick. A
-    // below-bar pick says so and stakes at a reduced tier.
+    // below-bar pick says so and stakes at the ladder rung.
     line = c.belowBar
-      ? `No skips anymore — every round shows a pick. This round's pick is ${c.pick || 'being evaluated'}${c.gateReason ? ` (${c.gateReason})` : ''} — below the safety bar, so the stake is scaled down and you decide with the tap.`
+      ? `No skips anymore — every round shows a pick. This round's pick is ${c.pick || 'being evaluated'}${c.gateReason ? ` (${c.gateReason})` : ''} — below the safety bar, so it bets at the ladder's current rung like any round, and you decide with the tap.`
       : `No skips anymore — every round shows a pick. The current call is ${c.gate || 'being evaluated'} for ${c.pick || 'the next round'}${c.gateReason ? ` (${c.gateReason})` : ''}.`;
   } else if (q.includes('how') && (q.includes('prediction') || q.includes('signal') || q.includes('made') || q.includes('decide'))) {
     const conf = pct(c.calibratedConfidence);
-    line = `Here is the chain, in order: 137 models each make a pick from the recent WinGo history. The Incharge engine ranks them by a safety-adjusted score — the Wilson lower bound of their win rate, which punishes small samples — blended with recent form. ${c.inchargeName || 'The leader'} leads${c.inchargeReason ? ` because ${c.inchargeReason}` : ''}. Its stated chance is then corrected against real outcomes by calibration${conf ? `, giving ${conf}` : ''}, and every round shows the best pick with its honest quality — below-bar picks show their gap and stake at a reduced tier, and you decide with the tap.`;
+    line = `Here is the chain, in order: 137 models each make a pick from the recent WinGo history. The Incharge engine ranks them by a safety-adjusted score — the Wilson lower bound of their win rate, which punishes small samples — blended with recent form. ${c.inchargeName || 'The leader'} leads${c.inchargeReason ? ` because ${c.inchargeReason}` : ''}. Its stated chance is then corrected against real outcomes by calibration${conf ? `, giving ${conf}` : ''}, and every round shows the best pick with its honest quality — below-bar picks show their gap and stake at the ladder's current rung, and you decide with the tap.`;
   } else if (q.includes('why this signal') || q.includes('why bet') || q.includes('this signal')) {
     const conf = pct(c.calibratedConfidence);
     line = c.belowBar
-      ? `This signal comes from ${c.inchargeName || 'the Incharge model'} picking ${c.pick || 'its target'}${conf ? ` at ${conf} calibrated confidence` : ''}. It is below the safety bar (${c.gateReason || 'quality below bar'}), so the stake is scaled down. Suggested stake: ${inr(c.nextStake)} at ledger level ${c.ladderLevel + 1}.`
+      ? `This signal comes from ${c.inchargeName || 'the Incharge model'} picking ${c.pick || 'its target'}${conf ? ` at ${conf} calibrated confidence` : ''}. It is below the safety bar (${c.gateReason || 'quality below bar'}) — it still bets at the ladder's current rung. Suggested stake: ${inr(c.nextStake)} at level ${c.ladderLevel + 1}.`
       : `This signal comes from ${c.inchargeName || 'the Incharge model'} picking ${c.pick || 'its target'}${conf ? ` at ${conf} calibrated confidence` : ''}. ${c.inchargeReason || 'It leads the Arena on its safety-adjusted measured record.'} Suggested stake: ${inr(c.nextStake)} at ledger level ${c.ladderLevel + 1}.`;
   } else if (q.includes('base bet') || q.includes('base') || q.includes('stake') || q.includes('ladder') || q.includes('risk') && q.includes('money')) {
-    line = `Your base bet is ${inr(c.baseBet)} — your selected chip (or AUTO sizing when opted in). Losses are tracked in the Recovery Ledger: a loss adds its exact stake, a win subtracts its exact profit (stake × 0.96), and the next stake is confidence-weighted — higher Wilson, higher weight (0.25× at the bar up to 1.00× at 75%+). If a required stake exceeds your balance, the app shows the required stake plus the shortfall plainly and you decide with the tap; it never silently reduces a stake. One honest note: recovery sizing does not create an edge by itself — it only works alongside a real win rate above 51.02%.`;
+    line = `Your base bet is ${inr(c.baseBet)} — your selected chip (or AUTO sizing when opted in). Stakes double on every loss across 6 levels (base, 2x, 4x, 8x, 16x, 32x); past 5 straight losses the 6th rung doubles only when the chance is high (Wilson 60%+) — otherwise it shows the base stake. The stake is never Rs 0, and it never stakes your last 10% (min Rs 1 kept safe): if a required stake exceeds that, the app shows the required stake plus the shortfall plainly and you decide with the tap. Losses are also tracked in the Recovery Ledger as bookkeeping. All profit and loss is tracked long-term in the P&L box above Axo. One honest note: doubling changes the shape of results, not the edge — long-term profit still needs a real win rate above 51.02%.`;
   } else if (q.includes('leading') || q.includes('leader') || q.includes('incharge') || q.includes('which model') || q.includes('best model')) {
     line = c.inchargeName
       ? `${c.inchargeName} is Incharge. ${c.inchargeReason || 'It ranks first on the Wilson safety-adjusted score: think of it as the win rate we can defend after punishing small samples, blended with its last-100-rounds form.'} Bets scale with evidence: below 200 evaluated rounds the stake is reduced (0.25× under 50, 0.5× under 100, 0.75× under 200) and full stake starts at 200; streak overrides now need a 5-win streak with real recent form behind them.`
       : 'No model is Incharge yet — the Arena is still building samples. Once a model leads, it can bet as soon as its Wilson bound clears breakeven plus margin, at a stake scaled to its evaluated rounds.';
   } else if (q.includes('balance') || q.includes('money status') || q.includes('money') || q.includes('p&l') || q.includes('profit') || q.includes('session')) {
-    line = `${balancePhrase(c)} ${pnlPhrase(c)} Next stake if a bet is called: ${inr(c.nextStake)}. No stops exist: losses are tracked in the Recovery Ledger and the next stake is confidence-weighted; an over-balance stake shows its shortfall for your tap decision.`;
+    line = `${balancePhrase(c)} ${pnlPhrase(c)} Next stake if a bet is called: ${inr(c.nextStake)}. No stops exist: losses are tracked in the Recovery Ledger and the next stake follows the doubling ladder; an over-balance stake shows its shortfall for your tap decision.`;
   } else if (q.includes('rule') || q.includes('stop') || q.includes('breaker')) {
-    line = 'The money rules, plainly: base bet from your selected chip (or AUTO sizing); losses are tracked in the Recovery Ledger (a loss adds its stake, a win subtracts stake × 0.96 profit); the next stake is confidence-weighted from the ledger (0.25× at the bar to 1.00× at 75%+ Wilson); if a required stake exceeds your balance, the app shows the required stake plus the shortfall and you decide with the tap. Every round shows a pick with its honest quality — below-bar picks stake at a reduced tier.';
+    line = 'The money rules, plainly: base bet from your selected chip (or AUTO sizing); losses are tracked in the Recovery Ledger (a loss adds its stake, a win subtracts stake × 0.96 profit); the next stake doubles on every loss across 6 levels (base, 2x, 4x, 8x, 16x, 32x), with the 6th rung doubling only when the chance is high (Wilson 60%+) and returning to base otherwise; the stake is never Rs 0 and never stakes your last 10% — an over-balance stake shows its required stake plus the shortfall and you decide with the tap. Every round shows a pick with its honest quality — below-bar picks say so and stake at the ladder rung.';
   } else if (q.includes('confidence') || q.includes('sure') || q.includes('accurate')) {
     const conf = pct(c.calibratedConfidence);
     line = conf
@@ -250,7 +248,7 @@ export function answerQuestion(question, context = {}) {
       : 'There is no live confidence number this second because there is no active signal. When a signal forms, its confidence is the calibrated one — measured against real outcomes, not the raw model number.';
   } else {
     // Never silent: fall back to a full, real status answer.
-    line = `${balancePhrase(c)} ${pnlPhrase(c)} ${c.inchargeName ? `Leading model: ${c.inchargeName}. ` : ''}${c.gate === 'BET' ? `Current call: bet ${c.pick || ''} with a suggested stake of ${inr(c.nextStake)}${c.belowBar ? ' (below bar — reduced tier)' : ''}.` : 'No pick is available right now (empty pool).'} Ask me why this signal, your money status, or which model is leading and I will break it down.`;
+    line = `${balancePhrase(c)} ${pnlPhrase(c)} ${c.inchargeName ? `Leading model: ${c.inchargeName}. ` : ''}${c.gate === 'BET' ? `Current call: bet ${c.pick || ''} with a suggested stake of ${inr(c.nextStake)}${c.belowBar ? ' (below bar)' : ''}.` : 'No pick is available right now (empty pool).'} Ask me why this signal, your money status, or which model is leading and I will break it down.`;
   }
 
   return { line: line.replace(/\s+/g, ' ').trim(), tone: SERIOUS_EVENTS.has(context.lastEvent) ? 'serious' : 'neutral' };
