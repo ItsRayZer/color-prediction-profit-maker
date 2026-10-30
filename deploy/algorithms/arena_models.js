@@ -1739,6 +1739,22 @@ const ARENA_CANONICAL_MODELS = [
     "arch": "Background meta-learner: follows the best-measured follow-rule",
     "desc": "System model (owner order 2026-10-27): observes every live model's walk-forward record every round and follows the best-measured follow-rule. Judged on its own record under the same bar as every model; it does not discover a game mechanism. Display-only until O4 (exact payout unverified) like every exact model. Its pick is computed by systems/observer.js, never by genFn (genFn returns null for observer ids so backfill can never fabricate its record).",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.5, "predType": "NUMBER", "predTarget": "7", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
+  },
+  {
+    "id": "pattern-repeater-color",
+    "name": "Pattern Repeater · Colour",
+    "cat": "pattern",
+    "arch": "Named repeating-pattern detector: DRAGON / CHOP / DOUBLE / STREAK with fixed identification rules",
+    "desc": "System model (owner order 2026-10-30): detects repeating colour patterns with clear names (DRAGON_GREEN = 4+ GREEN in a row, CHOP = alternating, DOUBLE_RED = pairs, STREAK_GREEN = 2-3 in a row) and predicts the pattern continues. Outputs null (no prediction) when no pattern matches. Governed under the same Wilson bar (53.02%), 2-window blacklist, and bench rules as every model. No proven edge.",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.65, "predType": "COLOR", "predTarget": "GREEN", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
+  },
+  {
+    "id": "pattern-repeater-size",
+    "name": "Pattern Repeater · Size",
+    "cat": "pattern",
+    "arch": "Named repeating-pattern detector: DRAGON / CHOP / DOUBLE / STREAK with fixed identification rules",
+    "desc": "System model (owner order 2026-10-30): detects repeating size patterns with clear names (DRAGON_BIG = 4+ BIG in a row, CHOP = alternating, DOUBLE_SMALL = pairs, STREAK_BIG = 2-3 in a row) and predicts the pattern continues. Outputs null (no prediction) when no pattern matches. Governed under the same Wilson bar (53.02%), 2-window blacklist, and bench rules as every model. No proven edge.",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.65, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   }
 ];
 
@@ -1963,6 +1979,71 @@ function denoiseGameHistory(history) {
 if (typeof window !== 'undefined') window.denoiseGameHistory = denoiseGameHistory;
 if (typeof globalThis !== 'undefined') globalThis.denoiseGameHistory = denoiseGameHistory;
 
+// ── Pattern Repeater: Named repeating-pattern detection (owner order 2026-10-30) ──
+// FIXED pattern definitions (not tuned on live data). Each pattern has a clear
+// name and identification rule. Pure function — testable, no side effects.
+// seq: array of normalized outcomes ('GREEN'/'RED' or 'BIG'/'SMALL'), oldest first.
+// Returns {name, identify, history, prediction} or null when no pattern matches.
+function detectRepeatingPattern(seq) {
+  if (!Array.isArray(seq) || seq.length < 4) return null;
+  const last4 = seq.slice(-4);
+  const [a, b, c, d] = last4;
+
+  // Short display codes
+  const short = x => x === 'GREEN' ? 'G' : x === 'RED' ? 'R' : x === 'BIG' ? 'B' : x === 'SMALL' ? 'S' : String(x);
+  const seqStr = last4.map(short).join(',');
+
+  // 1. DRAGON: 4+ consecutive same outcome (last 4 all same covers 4+)
+  if (a === b && b === c && c === d) {
+    return {
+      name: 'DRAGON_' + d,
+      identify: 'Last 4: ' + seqStr + ' — 4+ in a row',
+      history: seqStr,
+      prediction: d
+    };
+  }
+
+  // 2. CHOP: alternating for 4 rounds (A,B,A,B — no 2 consecutive same)
+  if (a !== b && b !== c && c !== d && a === c && b === d) {
+    // Continue the alternation: predict opposite of last
+    const next = d === 'GREEN' ? 'RED' : d === 'RED' ? 'GREEN' : d === 'BIG' ? 'SMALL' : 'BIG';
+    return {
+      name: 'CHOP',
+      identify: 'Last 4: ' + seqStr + ' — alternating, no 2 consecutive same',
+      history: seqStr,
+      prediction: next
+    };
+  }
+
+  // 3. DOUBLE: pair structure (X,X,Y,Y where X != Y)
+  if (a === b && c === d && a !== c) {
+    return {
+      name: 'DOUBLE_' + d,
+      identify: 'Last 4: ' + seqStr + ' — pairs (' + short(a) + short(a) + ',' + short(c) + short(c) + ')',
+      history: seqStr,
+      prediction: d  // current pair continues
+    };
+  }
+
+  // 4. STREAK: 2-3 consecutive same (not 4+, which is DRAGON — already checked)
+  if (c === d) {
+    const len = (b === c) ? 3 : 2;
+    const streakStr = last4.slice(-len).map(short).join(',');
+    return {
+      name: 'STREAK_' + d,
+      identify: 'Last ' + len + ': ' + streakStr + ' — ' + len + ' in a row',
+      history: seqStr,
+      prediction: d
+    };
+  }
+
+  // 5. NONE: no clear pattern
+  return null;
+}
+
+if (typeof window !== 'undefined') window.detectRepeatingPattern = detectRepeatingPattern;
+if (typeof globalThis !== 'undefined') globalThis.detectRepeatingPattern = detectRepeatingPattern;
+
 
 
 function generateModelNextPrediction(model, history, modelStats) {
@@ -2039,8 +2120,29 @@ function generateModelNextPrediction(model, history, modelStats) {
   let cDec = 'GREEN';
   let sProb = 0.60;
   let sDec = 'BIG';
+  let patternInfo = null;  // For pattern-repeater models: {name, identify, history, prediction}
 
   switch (modelId) {
+    // ── PATTERN REPEATER (2 Models, owner order 2026-10-30) ──
+    // Named repeating-pattern detector. Returns null (no prediction) when
+    // no pattern matches — like Observer cold start, a null pick pauses
+    // the record for that round.
+    case 'pattern-repeater-color': {
+      const pattern = detectRepeatingPattern(colors);
+      if (!pattern) return null;
+      cDec = pattern.prediction;
+      cProb = 0.65;  // Fixed honest confidence (not claiming high edge)
+      patternInfo = pattern;
+      break;
+    }
+    case 'pattern-repeater-size': {
+      const pattern = detectRepeatingPattern(sizes);
+      if (!pattern) return null;
+      sDec = pattern.prediction;
+      sProb = 0.65;  // Fixed honest confidence (not claiming high edge)
+      patternInfo = pattern;
+      break;
+    }
     // ── 1. FLY BRAIN NEUROMORPHIC (14 Models) ──
     case 'fly-mushroom-body-spiking': {
       // Sparse Kenyon cell projection
@@ -3898,7 +4000,10 @@ function generateModelNextPrediction(model, history, modelStats) {
     predColor: predType === 'NUMBER' ? (Number(predTarget) % 2 === 1 ? 'GREEN' : 'RED') : cDec,
     predSize: predType === 'NUMBER' ? (Number(predTarget) >= 5 ? 'BIG' : 'SMALL') : sDec,
     num,
-    conf
+    conf,
+    // Pattern Repeater (owner 2026-10-30): {name, identify, history, prediction}
+    // or null for all other models. UI uses this to show the active pattern.
+    patternInfo
   };
 }
 
@@ -3994,6 +4099,7 @@ if (typeof module !== "undefined" && module.exports) {
     determineOptimalArenaInChargeModel,
     generateModelNextPrediction,
     denoiseGameHistory,
-    ModelQuarantineEngine
+    ModelQuarantineEngine,
+    detectRepeatingPattern
   };
 }
