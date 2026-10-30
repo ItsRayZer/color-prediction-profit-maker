@@ -379,3 +379,65 @@ export function pnlBoxText(total) {
   if (t < 0) return `-\u20B9${abs}`;
   return `\u20B90`;
 }
+
+// ── AUTO base anchoring (owner order 2026-10-30 ~10:36 IST) ──────────
+// "Automatically change and update the base bet according to the first
+// balance and current balance automatically." AUTO base = 1% of the
+// sizing balance, re-anchored automatically BETWEEN loss runs and
+// LOCKED during a run (the ladder's recovery math is computed from
+// the run's base; moving it mid-run would break recovery sizing).
+// "First balance" = the balance the current base was anchored from
+// (session-start: the typed balance at reload, or a fresh verified
+// balance). Unknown balance → null: the caller keeps the existing
+// chip fallback, unchanged.
+
+/** Default AUTO anchor fraction: 1% of balance (the balanced mode). */
+export const AUTO_ANCHOR_FRACTION = 0.01;
+
+/**
+ * The AUTO base for a balance (pure): ceil(balance × fraction) to
+ * whole ₹, min ₹1. Null when the balance is unknown (no invented
+ * figure — the caller keeps the chip fallback).
+ */
+export function autoAnchorBase(balance, fraction = AUTO_ANCHOR_FRACTION) {
+  const b = Number(balance);
+  const f = Number(fraction);
+  if (!Number.isFinite(b) || b <= 0 || !Number.isFinite(f) || f <= 0) return null;
+  return Math.max(MIN_STAKE, Math.ceil(b * f));
+}
+
+/**
+ * Anchor label fragment for the Base line (pure): " · 1% of ₹Y"
+ * (null when there is no anchor). The fraction renders from the
+ * mode's baseFraction so non-default risk modes label honestly.
+ */
+export function autoAnchorLabel(anchorBalance, fraction = AUTO_ANCHOR_FRACTION) {
+  const b = Number(anchorBalance);
+  if (!Number.isFinite(b) || b <= 0) return null;
+  const f = Number(fraction);
+  const pct = Number.isFinite(f) && f > 0 ? f * 100 : AUTO_ANCHOR_FRACTION * 100;
+  const pctText = pct === Math.floor(pct) ? String(pct) : pct.toFixed(1);
+  const bText = b === Math.floor(b) ? String(b) : b.toFixed(2);
+  return ` \u00B7 ${pctText}% of \u20B9${bText}`;
+}
+
+/**
+ * The AUTO base decision (pure, testable): run lock + re-anchor rule.
+ * - Not AUTO → { base: null } (the caller keeps the chip path).
+ * - AUTO with lossRun > 0 → the current base, LOCKED for the run.
+ * - AUTO with lossRun == 0 → fresh anchor from the balance;
+ *   { base: null } when the balance is unknown (chip fallback).
+ * anchored = true exactly when the figure was (re-)anchored this
+ * call; anchorBalance is the balance the anchor was taken from.
+ */
+export function decideAutoBase({ autoBase = false, balance = null, lossRun = 0, currentBase = null, fraction = AUTO_ANCHOR_FRACTION } = {}) {
+  if (!autoBase) return { base: null, anchored: false, anchorBalance: null };
+  const k = Math.max(0, Math.floor(Number(lossRun) || 0));
+  if (k > 0) {
+    const locked = Math.max(MIN_STAKE, Math.floor(Number(currentBase) || MIN_STAKE));
+    return { base: locked, anchored: false, anchorBalance: null };
+  }
+  const ab = autoAnchorBase(balance, fraction);
+  if (ab === null) return { base: null, anchored: false, anchorBalance: null };
+  return { base: ab, anchored: true, anchorBalance: Number(balance) };
+}

@@ -47,10 +47,11 @@ import {
   ladderStake, isHighChance, neverZeroCap, stakeWithGuards,
   pickSizingBalance, shouldAskBalance,
   loadPnl, savePnl, applyPnlResult, totalPnl, pnlBoxText,
+  autoAnchorLabel, decideAutoBase, AUTO_ANCHOR_FRACTION,
   LADDER_LEVELS, HIGH_CHANCE_WILSON, DOUBLING_GATE_LOSSES
 } from './ledger.js';
 import {
-  createSession, settle, planLadder, suggestBaseBet,
+  createSession, settle, planLadder, suggestBaseBet, getStakingMode,
   balanceSourceLabel, BALANCE_SOURCES, DEFAULT_STAKING_MODE,
   createExactSession, settleExactFlat, sessionStoreKey, saveSessionTo, loadSessionFrom
 } from './bankroll.js';
@@ -2380,6 +2381,14 @@ function initBridge() {
     patternWatermarks: {}, // tf -> last period fed to the headless pattern engine
     patternLive: {},       // tf -> true once the initial chronological feed caught up ('live' source after)
     baseSignature: null,   // chip/AUTO/risk-mode signature driving session replans
+    // AUTO base anchor (owner order 2026-10-30 ~10:36 IST): the
+    // balance the AUTO base was last anchored from ("first balance"
+    // at session start, then re-anchored between loss runs), plus
+    // the fraction used — rendered as "Base ₹X · 1% of ₹Y". Cleared
+    // when AUTO turns off; the ladder base locks mid-run (see
+    // desiredBaseBet), so the anchor never moves during a run.
+    baseAnchorBalance: null,
+    baseAnchorFraction: AUTO_ANCHOR_FRACTION,
     apIntentSeen: null,    // updatedAt of the last settings intent applied
     lastChipBase: null,    // last MobileBridgeState.baseStake seen (manual-override detection)
     // Phase 3D: no skip counters, no hold state, no governed-
@@ -3852,38 +3861,42 @@ const PATTERN_PAGE_SIZE = 10;
       && (login.stateAgeMs === null || login.stateAgeMs === undefined || login.stateAgeMs <= BRIDGE_STATE_FRESH_MS);
   }
 
-  /** The base bet the governed ladder should run: AUTO (from the fresh
-   *  verified balance at the risk mode) or the window's chip value.
-   *  Fix round #2: AUTO without a fresh verified balance falls back
-   *  to the manual chip base instead of stalling — login state never
-   *  blocks staging. null = no chip value either. */
+  /** The base bet the governed ladder should run: AUTO (anchored to
+   *  the balance, re-anchored between loss runs, locked mid-run) or
+   *  the window's chip value. Fix round #2: AUTO without a usable
+   *  balance falls back to the manual chip base instead of stalling —
+   *  login state never blocks staging. */
   function desiredBaseBet(login) {
     const chip = window.MobileBridgeState ? Number(window.MobileBridgeState.baseStake) : NaN;
-    // Stake redesign (owner order 2026-10-30 ~01:06 IST): AUTO sizes
-    // from the fresh verified balance first, then the user's typed
-    // balance (their explicit input beats a stale number), then the
-    // chip fallback — login state never blocks staging.
-    const typedBal = Number.isFinite(state.typedBalance) && state.typedBalance > 0 ? state.typedBalance : null;
-    const raw = resolveBaseBet({
-      autoBase: ap.state.autoBase,
-      verifiedBalance: freshVerifiedBalance(login) ? login.balance : typedBal,
-      riskMode: ap.state.riskMode,
-      chipBase: chip
-    });
-    if (raw === null || raw === undefined) return raw;
-    // Graduated stakes: the raw base (AUTO or manual chip alike —
-    // the factor is a safety rule, not a default the user can bypass
-    // by tapping a big chip) is scaled by the current bet driver's
-    // sample factor. The factor lives on state (set from each
-    // cycle's gate); before the first gate it defaults to 1 and the
-    // post-gate re-sync in cycle() corrects it before any staging
-    // in the same cycle. Phase 3D: a 0 factor (below the 20-sample
-    // floor) stages at the lowest nonzero tier (0.25×) — never at
-    // full base on a handful of rounds, and never at ₹0 (the Task
-    // R1 ₹0 bug must not return).
-    const f = state.graduatedFactor ?? 1;
-    if (f === 0) return Math.max(1, Math.floor(raw * 0.25));
-    return Math.max(1, Math.floor(raw * f));
+    const chipOk = Number.isFinite(chip) && chip > 0 ? Math.floor(chip) : DEFAULT_CHIP_BASE;
+    if (ap.state.autoBase) {
+      // AUTO base anchor (owner order 2026-10-30 ~10:36 IST):
+      // 1% of the sizing balance (fresh verified > typed > none),
+      // re-anchored automatically between loss runs, LOCKED while a
+      // run is live — the ladder's recovery math is computed from
+      // the run's base, so moving it mid-run would break recovery
+      // sizing. Unknown balance → the chip fallback, unchanged.
+      const lossRun = state.session ? Math.max(0, state.session.consecutiveLosses || 0) : 0;
+      const mode = getStakingMode(ap.state.riskMode);
+      const dec = decideAutoBase({
+        autoBase: true,
+        balance: sizingBalance(),
+        lossRun,
+        currentBase: state.session ? state.session.baseBet : null,
+        fraction: mode.baseFraction
+      });
+      if (dec.base === null) return chipOk;
+      if (lossRun > 0) return dec.base; // run lock: the exact figure, never re-scaled mid-run
+      state.baseAnchorBalance = dec.anchorBalance;
+      state.baseAnchorFraction = mode.baseFraction;
+      // Graduated stakes (existing safety rule): the anchored base is
+      // scaled by the current bet driver's sample factor at anchor
+      // time only — never ₹0 (the Task R1 ₹0 bug must not return).
+      const f = state.graduatedFactor ?? 1;
+      if (f === 0) return Math.max(1, Math.floor(dec.base * 0.25));
+      return Math.max(1, Math.floor(dec.base * f));
+    }
+    return chipOk;
   }
 
   /** Keep the ONE governed session's base in step with chips / AUTO /
@@ -3895,6 +3908,7 @@ const PATTERN_PAGE_SIZE = 10;
     if (chip !== null && Number.isFinite(chip)) {
       if (state.lastChipBase !== null && chip !== state.lastChipBase && ap.state.autoBase) {
         ap.setAutoBase(false);
+        state.baseAnchorBalance = null; // manual chip wins: no AUTO anchor to show
         say(`AUTO base off — your manual chip ${inr(chip)} wins.`, 'system');
       }
       state.lastChipBase = chip;
@@ -4061,6 +4075,7 @@ const PATTERN_PAGE_SIZE = 10;
   function toggleAutoBase() {
     ap.setAutoBase(!ap.state.autoBase);
     state.baseSignature = null;
+    if (!ap.state.autoBase) state.baseAnchorBalance = null; // anchor label belongs to AUTO only
     say(ap.state.autoBase
       ? 'AUTO base on — the base bet now follows your verified balance and risk mode.'
       : 'AUTO base off — the manual chips rule.', 'system');
@@ -5168,6 +5183,17 @@ const PATTERN_PAGE_SIZE = 10;
       const baseEl = $('assistantBaseStakeDisplay');
       if (baseEl) {
         baseEl.textContent = state.session ? inr(state.session.baseBet) : '—';
+      }
+      // AUTO base anchor (owner order 2026-10-30 ~10:36 IST): when
+      // the AUTO base is anchored to a balance, the Base line shows
+      // the anchor — "Base ₹X · 1% of ₹Y". Manual chips and
+      // unknown-balance sessions show the figure alone.
+      const anchorEl = $('assistantBaseAnchorDisplay');
+      if (anchorEl) {
+        const showAnchor = !!(state.session && ap.state.autoBase && state.baseAnchorBalance);
+        anchorEl.textContent = showAnchor
+          ? autoAnchorLabel(state.baseAnchorBalance, state.baseAnchorFraction)
+          : '';
       }
       const betEl = $('mobileWebStakeDisplay');
       if (betEl) betEl.textContent = bet && state.session ? inr(state.session.nextStake) : '—';
