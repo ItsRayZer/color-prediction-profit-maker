@@ -370,6 +370,106 @@ export function resetPnl(storage, type) {
   try { if (storage) storage.removeItem(pnlKey(type)); } catch (e) { /* ignore */ }
 }
 
+// ── Background balance tracking (owner order 2026-10-30) ────────────
+// "In bg system add calculate real balance and highest balance in
+// refresh." On every cycle refresh (and every settlement) the app
+// records the real balance (verified > typed > none — the same
+// precedence as sizing) and the highest balance seen (session peak +
+// persisted all-time peak). Pure helpers; the bridge wires them into
+// the cycle and exposes the snapshot at window.__o101BalanceTrack.
+// This is ACCOUNTING, not a profit claim: it measures, never promises.
+
+export function balanceTrackKey() {
+  return 'o101_balance_track_v1';
+}
+
+export function defaultBalanceTrack() {
+  return {
+    realBalance: null,      // last known balance (verified > typed), null when unknown
+    source: 'none',         // 'verified' | 'typed' | 'none'
+    highestBalance: null,   // all-time peak real balance, null until first known
+    peakAt: null,           // ISO time the peak was set
+    updatedAt: null,        // ISO time of last update
+  };
+}
+
+export function loadBalanceTrack(storage) {
+  const d = defaultBalanceTrack();
+  try {
+    if (!storage) return d;
+    const raw = storage.getItem(balanceTrackKey());
+    if (!raw) return d;
+    const o = JSON.parse(raw);
+    if (!o || typeof o !== 'object') return d;
+    // Explicit null checks: Number(null) === 0 would fabricate a ₹0
+    // balance from a stored null. Preserve nulls honestly.
+    const clean = v => {
+      if (v === null || v === undefined || v === '') return null;
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
+    };
+    const rb = clean(o.realBalance);
+    const hb = clean(o.highestBalance);
+    return {
+      realBalance: rb,
+      source: o.source === 'verified' || o.source === 'typed' ? o.source : 'none',
+      highestBalance: hb !== null && hb > 0 ? hb : null,
+      peakAt: typeof o.peakAt === 'string' ? o.peakAt : null,
+      updatedAt: typeof o.updatedAt === 'string' ? o.updatedAt : null,
+    };
+  } catch (e) { return d; }
+}
+
+export function saveBalanceTrack(storage, track) {
+  try {
+    if (!storage || !track || typeof track !== 'object') return;
+    storage.setItem(balanceTrackKey(), JSON.stringify({
+      realBalance: track.realBalance,
+      source: track.source,
+      highestBalance: track.highestBalance,
+      peakAt: track.peakAt,
+      updatedAt: track.updatedAt,
+    }));
+  } catch (e) { /* storage must never break the cycle */ }
+}
+
+/**
+ * Pure update: fold a fresh balance reading into the track.
+ * - Unknown readings (null/undefined/'') never overwrite a known balance
+ *   and never lower the peak. (Number(null) === 0, so the null check is
+ *   explicit — a sloppy coercion here would record phantom ₹0 balances.)
+ * - A genuine zero balance is recorded as the real balance (honest) but
+ *   never as a peak.
+ * - Returns the new track object (does not mutate the input).
+ */
+export function updateBalanceTrack(prev, balance, source, nowIso) {
+  const p = prev && typeof prev === 'object' ? prev : defaultBalanceTrack();
+  const clean = v => {
+    if (v === null || v === undefined || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
+  };
+  const b = clean(balance);
+  const known = b !== null;
+  const src = source === 'verified' || source === 'typed' ? source : 'none';
+  const now = typeof nowIso === 'string' ? nowIso : new Date().toISOString();
+  const realBalance = known ? b : p.realBalance;
+  const realSource = known ? src : p.source;
+  let highestBalance = p.highestBalance;
+  let peakAt = p.peakAt;
+  if (known && b > 0 && (!Number.isFinite(Number(highestBalance)) || b > Number(highestBalance))) {
+    highestBalance = b;
+    peakAt = now;
+  }
+  return {
+    realBalance,
+    source: realSource,
+    highestBalance,
+    peakAt,
+    updatedAt: now,
+  };
+}
+
 /** P&L box text: +₹X profit / −₹X loss / ₹0 — minimal, signed. */
 export function pnlBoxText(total) {
   const t = Number.isFinite(Number(total)) ? Math.round(Number(total) * 100) / 100 : 0;

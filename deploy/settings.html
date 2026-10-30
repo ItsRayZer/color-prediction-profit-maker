@@ -1819,6 +1819,29 @@
           <svg class="o101-ico ios-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
         </div>
 
+        <!-- Share played data (opt-in research pipeline, owner order
+             2026-10-30): OFF by default. When on, settled round
+             results (prediction, stake, outcome) are batched to the
+             central research dataset — never logins, tokens, or
+             anything identifying. Turning it off drops unsent data. -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-teal">
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 14l4-4 3 3 5-6"/></svg>
+            </div>
+            <div>
+              <div class="ios-label-primary">Share played data for research</div>
+              <div class="ios-label-secondary">Off by default. Sends round results only — never logins or tokens.</div>
+            </div>
+          </div>
+          <div class="ios-row-right">
+            <label class="ios-switch">
+              <input type="checkbox" id="swPlayedShare" onchange="togglePlayedShare(this.checked)">
+              <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
+            </label>
+          </div>
+        </div>
+
         <div class="ios-row interactive" onclick="purgeCache()">
           <div class="ios-row-left">
             <div class="ios-squircle sq-red">
@@ -2130,6 +2153,11 @@
       const swAxoSubs = document.getElementById('swAxoSubs');
       if (swAxoSubs) swAxoSubs.checked = axoSubsVal;
 
+      // Played-data share (opt-in; default OFF — anything but '1' reads as off)
+      const playedShareVal = localStorage.getItem('o101_played_share') === '1';
+      const swPlayedShare = document.getElementById('swPlayedShare');
+      if (swPlayedShare) swPlayedShare.checked = playedShareVal;
+
       // Axo Language (EN default; unknown reads as EN)
       const axoLangVal = localStorage.getItem('o101_axo_lang');
       const axoLang = (axoLangVal === 'hi' || axoLangVal === 'ml') ? axoLangVal : 'en';
@@ -2321,6 +2349,20 @@
     function toggleAxoSubs(checked) {
       localStorage.setItem('o101_axo_subs', checked ? '1' : '0');
       showToast(checked ? 'Axo Subtitles On' : 'Axo Subtitles Off — prediction shows in the ball');
+    }
+
+    // Played-data share (opt-in research pipeline, owner order
+    // 2026-10-30): default OFF. Opting out drops the unsent queue —
+    // consent withdrawn means nothing held.
+    function togglePlayedShare(checked) {
+      localStorage.setItem('o101_played_share', checked ? '1' : '0');
+      if (!checked) {
+        try {
+          localStorage.removeItem('o101_played_queue_v1');
+          localStorage.removeItem('o101_played_lastflush_v1');
+        } catch (e) {}
+      }
+      showToast(checked ? 'Played-data sharing On' : 'Played-data sharing Off');
     }
 
     function setAxoLang(code) {

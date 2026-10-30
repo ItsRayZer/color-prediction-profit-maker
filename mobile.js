@@ -1259,7 +1259,9 @@ function applyUniversalCloudState(tfKey, state) {
   if (MobileState.autoMode !== false && state.inChargeModel) {
     MobileState.inChargeModel = state.inChargeModel;
     const heroName = $('heroModelName');
-    if (heroName) heroName.textContent = state.inChargeModel;
+    // Governed verdict owns the hero when locked — never overwrite it
+    // with a native in-charge name (owner order 2026-10-30).
+    if (heroName && !window.__o101Verdict) heroName.textContent = state.inChargeModel;
     const champName = $('aiChampionName');
     if (champName) champName.textContent = state.inChargeModel;
   }
@@ -1581,10 +1583,33 @@ function _updateAllPredictionUI(target, predType, conf, inChargeName, periodStr,
   const gate = checkPredictionGateStatus(tf, list);
   MobileState.predictionGate = gate;
 
+  // Panel hero is OWNED by the governed verdict (owner order
+  // 2026-10-30): every surface — hero, Axo ball, subtitle, closed
+  // pill — shows the same bet-driving pick. When the bridge has
+  // published a lock, the native per-type incharge never paints the
+  // hero; without a lock, the native prediction is the fallback.
+  const governedVerdict = window.__o101Verdict || null;
+  const heroFields = (typeof window.__o101HeroFields === 'function')
+    ? window.__o101HeroFields(governedVerdict)
+    : (governedVerdict
+      ? (governedVerdict.decision === 'BET' && governedVerdict.pick
+        ? { signal: governedVerdict.pick, type: governedVerdict.pickType || 'SIZE', modelName: governedVerdict.driverName || 'In-Charge' }
+        : { signal: '—', type: '—', modelName: null })
+      : null);
+
   // Hero signal badge
   const heroSignal = $('heroSignalBadge');
   if (heroSignal) {
-    if (gate.ready) {
+    if (heroFields) {
+      heroSignal.textContent = heroFields.signal;
+      heroSignal.className = `text-2xl font-black tracking-tight ${
+        heroFields.signal === 'BIG' ? 'text-amber-300' :
+        heroFields.signal === 'SMALL' ? 'text-sky-300' :
+        heroFields.signal === 'GREEN' ? 'text-emerald-400' :
+        heroFields.signal === 'RED' ? 'text-rose-400' :
+        heroFields.signal === '—' ? 'text-zinc-500' : 'text-white'
+      }`;
+    } else if (gate.ready) {
       heroSignal.textContent = target || 'CALCULATING...';
       heroSignal.className = `text-2xl font-black tracking-tight ${
         target === 'BIG' ? 'text-amber-300' :
@@ -1600,7 +1625,7 @@ function _updateAllPredictionUI(target, predType, conf, inChargeName, periodStr,
   }
 
   const heroType = $('heroTypeBadge');
-  if (heroType) heroType.textContent = gate.ready ? (predType || 'SIZE') : `TESTING`;
+  if (heroType) heroType.textContent = heroFields ? heroFields.type : (gate.ready ? (predType || 'SIZE') : `TESTING`);
 
   const heroConf = $('heroConfVal');
   if (heroConf) {
@@ -1609,7 +1634,7 @@ function _updateAllPredictionUI(target, predType, conf, inChargeName, periodStr,
   }
 
   const heroModel = $('heroModelName');
-  if (heroModel) heroModel.textContent = inChargeName || 'Auto Champion';
+  if (heroModel) heroModel.textContent = (heroFields && heroFields.modelName) || inChargeName || 'Auto Champion';
 
   // AI Champion card target badge
   const champTarget = $('aiChampionTargetBadge');
@@ -1638,7 +1663,7 @@ function _updateAllPredictionUI(target, predType, conf, inChargeName, periodStr,
   // verdict). While that lock exists this native render mirrors it
   // verbatim, so the sheet can never show a native prediction next to
   // a governed NO_PICK. Without orb-bridge (no lock), legacy behaviour.
-  const governedVerdict = window.__o101Verdict || null;
+  // (governedVerdict is hoisted at the top of this function.)
   const webTargetEl = $('mobileWebTargetDisplay');
   if (webTargetEl) {
     if (governedVerdict) {
@@ -3149,7 +3174,9 @@ function renderModelRosterUI() {
     }
     MobileState.inChargeModel = effectiveInCharge;
     const heroName = $('heroModelName');
-    if (heroName) heroName.textContent = effectiveInCharge;
+    // Governed verdict owns the hero when locked — never overwrite it
+    // with a native in-charge name (owner order 2026-10-30).
+    if (heroName && !window.__o101Verdict) heroName.textContent = effectiveInCharge;
     const champName = $('aiChampionName');
     if (champName) champName.textContent = effectiveInCharge;
   }
@@ -3352,7 +3379,9 @@ function setInChargeModel(name) {
   if (btn) btn.className = 'px-2 py-0.5 rounded-full font-mono text-[8px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1 active:scale-95 transition';
 
   setText('aiChampionName', name);
-  setText('heroModelName', name);
+  // Governed verdict owns the hero when locked — never overwrite it
+  // with a native in-charge name (owner order 2026-10-30).
+  if (!window.__o101Verdict) setText('heroModelName', name);
 
   renderModelRosterUI();
   renderAuthoritativeAIPrediction(MobileState.historyByTf[MobileState.timeframe] || []);
