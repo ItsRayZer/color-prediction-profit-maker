@@ -1532,6 +1532,14 @@ export const THIN_POOL_MIN = 10;
 // formatted exactly like the
 // hero's Bet figure ('₹' + en-IN grouping, whole rupees) and comes
 // from the same source (state.session.nextStake) — no new math.
+/** Stake figure formatter (owner order 2026-10-30 "never show bet
+ *  less than 1"): whole ₹, ceiled, never below ₹1. Pure. Balances
+ *  and P&L keep their own honest formatters — this is stakes only. */
+export function inrStake(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v) || v <= 0) return '₹1';
+  return '₹' + Math.ceil(v).toLocaleString('en-IN');
+}
 export function closedOrbPill({ decision = null, pick = null, stake = null, wilson = null } = {}) {
   // Phase 3D: no SKIP pill, no HELD pill — a BET shows pick · stake
   // (the governed session's nextStake, never invented); anything
@@ -1542,7 +1550,7 @@ export function closedOrbPill({ decision = null, pick = null, stake = null, wils
   // stake form (backward compatible for callers without a pool entry).
   if (decision === GATE_DECISIONS.BET && pick) {
     if (stake !== null && stake !== undefined && Number.isFinite(Number(stake)) && Number(stake) > 0) {
-      const stakeText = `₹${Number(stake).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+      const stakeText = inrStake(stake);
       const text = Number.isFinite(wilson)
         ? `${pick} · ${(wilson * 100).toFixed(1)}% · ${stakeText}`
         : `${pick} · ${stakeText}`;
@@ -3685,7 +3693,7 @@ function initBridge() {
         // figure, never the doubling figure.
         const li = state.session && Number.isFinite(state.session.ledgerLevelIndex) ? state.session.ledgerLevelIndex : null;
         parts.push('BET ' + (gate.pick || '')
-          + (verified && state.session ? ` · ledger level ${li !== null ? li + 1 : 1} · next ${inr(state.session.nextStake)}` : ''));
+          + (verified && state.session ? ` · ledger level ${li !== null ? li + 1 : 1} · next ${inrStake(state.session.nextStake)}` : ''));
       } else {
         parts.push('SKIP — ' + (gate.reason || 'gate declined'));
       }
@@ -3909,7 +3917,7 @@ const PATTERN_PAGE_SIZE = 10;
       if (state.lastChipBase !== null && chip !== state.lastChipBase && ap.state.autoBase) {
         ap.setAutoBase(false);
         state.baseAnchorBalance = null; // manual chip wins: no AUTO anchor to show
-        say(`AUTO base off — your manual chip ${inr(chip)} wins.`, 'system');
+        say(`AUTO base off — your manual chip ${inrStake(chip)} wins.`, 'system');
       }
       state.lastChipBase = chip;
     }
@@ -3968,7 +3976,7 @@ const PATTERN_PAGE_SIZE = 10;
     transportOrder(res.order);
     const dKey = res.order.timeframe + ':' + res.order.period;
     if (state.dispositions[dKey]) state.dispositions[dKey].fired = true;
-    say(`Fired: ${res.order.target} ${inr(res.order.stake)} for period …${shortPeriod(res.order.period)} — sent to the bridge on the tap you just gave.`, 'system');
+    say(`Fired: ${res.order.target} ${inrStake(res.order.stake)} for period …${shortPeriod(res.order.period)} — sent to the bridge on the tap you just gave.`, 'system');
     renderAutoPilot();
     return res;
   }
@@ -4214,7 +4222,7 @@ const PATTERN_PAGE_SIZE = 10;
     if (btn) {
       if (staged && ap.enabled) {
         btn.classList.remove('hidden');
-        btn.textContent = `BET ${staged.target} · ${inr(staged.stake)} — tap to confirm`;
+        btn.textContent = `BET ${staged.target} · ${inrStake(staged.stake)} — tap to confirm`;
       } else {
         btn.classList.add('hidden');
       }
@@ -4404,7 +4412,7 @@ const PATTERN_PAGE_SIZE = 10;
           // resize step re-derives it next cycle); the level is the
           // derived ledger level, not the loss-run counter.
           const li = ledgerLevelIndex(saved.session.nextStake, saved.session.baseBet);
-          say(`Session resumed — level ${li + 1}, next ${inr(saved.session.nextStake)}.`, 'system');
+          say(`Session resumed — level ${li + 1}, next ${inrStake(saved.session.nextStake)}.`, 'system');
         }
       } else {
         state.session = createSession(state.balance, { mode: ap.state.riskMode, baseBet: startBase });
@@ -5182,7 +5190,7 @@ const PATTERN_PAGE_SIZE = 10;
       // one-source-of-truth order.)
       const baseEl = $('assistantBaseStakeDisplay');
       if (baseEl) {
-        baseEl.textContent = state.session ? inr(state.session.baseBet) : '—';
+        baseEl.textContent = state.session ? inrStake(state.session.baseBet) : '—';
       }
       // AUTO base anchor (owner order 2026-10-30 ~10:36 IST): when
       // the AUTO base is anchored to a balance, the Base line shows
@@ -5196,7 +5204,7 @@ const PATTERN_PAGE_SIZE = 10;
           : '';
       }
       const betEl = $('mobileWebStakeDisplay');
-      if (betEl) betEl.textContent = bet && state.session ? inr(state.session.nextStake) : '—';
+      if (betEl) betEl.textContent = bet && state.session ? inrStake(state.session.nextStake) : '—';
       // Phase 3D corrected ladder (owner order 2026-10-27 ~10:38):
       // when the doubled stake exceeds a known balance, show the
       // REQUIRED stake (the Bet figure above) + the shortfall
@@ -5215,9 +5223,9 @@ const PATTERN_PAGE_SIZE = 10;
         const parts = [];
         const lv = state.session ? state.session.ledgerView : null;
         if (lv && lv.shortfall !== null && lv.shortfall !== undefined && lv.shortfall > 0) {
-          parts.push(`Needs ₹${lv.shortfall} more than balance (required ₹${lv.required}, fits ₹${lv.capped}).`);
+          parts.push(`Needs ${inrStake(lv.shortfall)} more than balance (required ${inrStake(lv.required)}, fits ${inrStake(lv.capped)}).`);
         } else if (state.session && state.session.shortfall !== null && state.session.shortfall !== undefined && state.session.shortfall > 0) {
-          parts.push(`Needs ₹${state.session.shortfall} more than balance.`);
+          parts.push(`Needs ${inrStake(state.session.shortfall)} more than balance.`);
         }
         shortEl.textContent = parts.join(' ');
       }
