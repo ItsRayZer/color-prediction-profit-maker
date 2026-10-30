@@ -584,3 +584,70 @@ export function balanceConfirmView(track, pnlTotal) {
     pnlText: `P&L so far: ${pnlText}`,
   };
 }
+
+// ── Steady Sequence (owner order 2026-10-30 17:39/17:40 IST) ────────
+// Flat betting (no compounding) + trend adaptation. Every bet is the
+// base stake — a 10-loss streak costs 10× base, not 1,023×. When a
+// repeated trend is detected (3+ consecutive same outcome), the
+// sequence follows the trend direction; when the trend breaks, it
+// immediately re-detects (never bets a dead trend).
+
+/** Stake sequence modes: ladder (doubling) vs steady (flat). */
+export const SEQ_MODES = {
+  ladder: { id: 'ladder', name: 'Ladder' },
+  steady: { id: 'steady', name: 'Steady' },
+};
+export const DEFAULT_SEQ_MODE = 'ladder';
+/** Minimum consecutive same outcomes to declare a trend. */
+export const TREND_MIN_RUN = 3;
+
+export function seqModeKey() {
+  return 'o101_seq_mode';
+}
+
+/** Load the stake sequence mode: 'ladder' (default) or 'steady'. */
+export function loadSeqMode(storage) {
+  try {
+    if (!storage) return DEFAULT_SEQ_MODE;
+    const v = String(storage.getItem(seqModeKey()) || '').toLowerCase();
+    return v === 'steady' ? 'steady' : DEFAULT_SEQ_MODE;
+  } catch (e) { return DEFAULT_SEQ_MODE; }
+}
+
+/** Persist the stake sequence mode. */
+export function saveSeqMode(storage, mode) {
+  try {
+    if (!storage) return;
+    storage.setItem(seqModeKey(), mode === 'steady' ? 'steady' : 'ladder');
+  } catch (e) { /* storage unavailable */ }
+}
+
+/**
+ * Pure: detect a repeated trend in an outcome sequence.
+ * outcomes: array of outcome strings (e.g. ['BIG','SMALL']), oldest first.
+ * Returns { direction, length } when the last TREND_MIN_RUN or more are
+ * identical, else null. Transparent and simple by design.
+ */
+export function detectTrend(outcomes) {
+  const seq = Array.isArray(outcomes) ? outcomes : [];
+  if (seq.length < TREND_MIN_RUN) return null;
+  const last = String(seq[seq.length - 1]);
+  if (!last) return null;
+  let len = 1;
+  for (let i = seq.length - 2; i >= 0; i--) {
+    if (String(seq[i]) === last) len++;
+    else break;
+  }
+  if (len < TREND_MIN_RUN) return null;
+  return { direction: last, length: len };
+}
+
+/**
+ * Pure: flat stake for Steady mode — always the base, never progresses.
+ * Returns { stake, gated } matching the ladderStake shape (gated always
+ * false; Steady never gates, it just stays flat).
+ */
+export function steadyStake(base) {
+  const b = Math.max(MIN_STAKE, Math.floor(Number(base) || MIN_STAKE));
+  return { stake: b, gated: false };
+}
