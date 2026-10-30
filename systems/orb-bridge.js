@@ -49,6 +49,7 @@ import {
   loadPnl, savePnl, applyPnlResult, totalPnl, pnlBoxText,
   autoAnchorLabel, decideAutoBase, AUTO_ANCHOR_FRACTION,
   balanceTrackKey, defaultBalanceTrack, loadBalanceTrack, saveBalanceTrack, updateBalanceTrack,
+  balanceConfirmView,
   LADDER_LEVELS, HIGH_CHANCE_WILSON, DOUBLING_GATE_LOSSES
 } from './ledger.js';
 import {
@@ -698,6 +699,37 @@ export function ballKeyFor(pick) {
   if (d) return d;
   const p = String(pick === null || pick === undefined ? '' : pick).toUpperCase();
   return ['BIG', 'SMALL', 'GREEN', 'RED', 'VIOLET'].includes(p) ? p : null;
+}
+
+/**
+ * Ball "choosing" animation (owner order 2026-10-30): when a new
+ * verdict arrives, the widget ball cycles through random faces
+ * (slot-machine style, ~800ms) before landing on the governed pick.
+ * Pure, testable. The DOM player lives in renderAxoOrb; this builds
+ * the frame sequence. The final frame is ALWAYS the verdict key —
+ * the animation can never leave a random face on screen.
+ */
+export const BALL_CHOOSE_KEYS = ['BIG', 'SMALL', 'GREEN', 'RED', 'VIOLET'];
+export const BALL_CHOOSE_STEPS = 8;
+export const BALL_CHOOSE_FRAME_MS = 90;
+
+export function buildChooseSequence(finalKey, steps = BALL_CHOOSE_STEPS, rand = Math.random) {
+  if (!finalKey) return [];
+  const pool = BALL_CHOOSE_KEYS.filter(k => k !== String(finalKey).toUpperCase());
+  const seq = [];
+  let prev = null;
+  for (let i = 0; i < steps; i++) {
+    let k = pool[Math.floor(rand() * pool.length)];
+    let guard = 0;
+    while (k === prev && pool.length > 1 && guard < 10) {
+      k = pool[Math.floor(rand() * pool.length)];
+      guard++;
+    }
+    seq.push(k);
+    prev = k;
+  }
+  seq.push(String(finalKey).toUpperCase());
+  return seq;
 }
 
 /**
@@ -2371,6 +2403,7 @@ function initBridge() {
     voiceGate: new AxoVoiceGate({ voiceOn: true, subsOn: true, unlocked: false }),
     lastRoadKey: null,
     lastOrbKey: null,
+    ballChooseTimer: null, // ball "choosing" animation interval (owner 2026-10-30)
     lastLongRuns: null,
     lastLongRunsKey: null,
     ai: new AxoAiClient({ endpoint: AXO_AI_ENDPOINT })
@@ -2692,11 +2725,14 @@ function initBridge() {
   // the bridge's own init publish — ask for a probe immediately.
   requestBridgeReverify();
 
-  // Stake redesign (owner order 2026-10-30 ~01:06 IST): on each reload
-  // Axo asks for the balance via the subtitle when no fresh verified
-  // balance exists. Slightly delayed so a live bridge can report
-  // first and the ask never fires needlessly.
-  setTimeout(() => { try { maybeAskBalance(); } catch (e) { /* never break boot */ } }, 4000);
+  // Balance confirm modal (owner order 2026-10-30 12:31 IST): on each
+  // reload, show the unmissable plain-language balance check. Slightly
+  // delayed so a live bridge can report first and the prompt never
+  // fires needlessly when a fresh verified balance already exists.
+  // Render the persisted P&L IMMEDIATELY on boot (owner: "profit/loss
+  // should refresh each reload") — don't wait for the 3s cycle.
+  try { renderPnlBox(); } catch (e) { /* never break boot */ }
+  setTimeout(() => { try { showBalanceConfirm(); } catch (e) { /* never break boot */ } }, 4000);
 
   // Which transport the embedded DhaniWin load used (mobile.js
   // records it on every load; localStorage carries it to the
@@ -2927,7 +2963,15 @@ function initBridge() {
   function axoVoiceOn() { return axoVoiceEnabled(safeStorage()); }
 
   function axoCancelSpeech() {
-    try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {}
+    try {
+      if (window.speechSynthesis) {
+        // Aggressive cancel: some mobile engines need multiple cancels
+        // to flush a queued utterance pipeline.
+        window.speechSynthesis.cancel();
+        try { window.speechSynthesis.pause(); } catch (e) {}
+        window.speechSynthesis.cancel();
+      }
+    } catch (e) {}
   }
 
   /** The tap affordance: visible only while a line waits for a gesture. */
@@ -3204,13 +3248,37 @@ function initBridge() {
     return shown;
   }
 
+  /* Subtitle update animation (owner order 2026-10-30): when the
+   * bubble text changes each round, fade the old line out, swap, and
+   * fade the new line in (~300ms total). GPU-friendly opacity/
+   * transform only. A newer line cancels an in-flight swap so rapid
+   * updates never show stale text. Reduced-motion sets instantly.
+   * CC, voice sync, and the X-dismiss behavior are untouched — this
+   * only animates the textContent write. */
+  let subtitleSwapTimer = null;
+  function setSubtitleTextAnimated(el, line) {
+    if (!el || el.textContent === line) return;
+    if (subtitleSwapTimer) { clearTimeout(subtitleSwapTimer); subtitleSwapTimer = null; }
+    if (reducedMotion()) { el.textContent = line; return; }
+    el.classList.add('o101-subtitle-swap-out');
+    subtitleSwapTimer = setTimeout(() => {
+      subtitleSwapTimer = null;
+      try {
+        el.textContent = line;
+        el.classList.remove('o101-subtitle-swap-out');
+        el.classList.add('o101-subtitle-swap-in');
+        setTimeout(() => { try { el.classList.remove('o101-subtitle-swap-in'); } catch (e) {} }, 320);
+      } catch (e) { /* the text write must never throw */ }
+    }, 150);
+  }
+
   function syncAxoSubtitleSurfaces() {
     renderAxoOrb();
     const bubble = $('axoSubtitleBubble');
     if (!bubble) return;
     const line = (state.balanceAsk && !state.balanceAskDismissed) ? BALANCE_ASK_TEXT : (state.lastLine || '');
     const textEl = $('axoSubtitleBubbleText');
-    if (textEl && line) textEl.textContent = line;
+    if (textEl && line) setSubtitleTextAnimated(textEl, line);
     positionAxoBubble();
     // Dedup: the bubble owns the subtitle now.
     const sheetLine = $('smartBallLine');
@@ -3292,6 +3360,125 @@ function initBridge() {
       try { window.__o101SyncBaseNow(); } catch (e) { /* a sync must never break on submit */ }
     }
     renderAxoOrb();
+  }
+
+  // ── Balance confirm modal (owner order 2026-10-30 12:31 IST) ──
+  // On EVERY reload, show an unmissable plain-language prompt:
+  // "Your last balance was ₹X — is this still your current balance?"
+  // [Yes, correct] keeps it; [Type new] opens an input; dismissing
+  // (X, outside tap, "Not now") keeps the last balance — it NEVER
+  // zeroes or clears anything. The P&L is shown alongside so the
+  // full picture is clear. Replaces the old subtle subtitle-bubble
+  // ask (maybeAskBalance) which was too easy to miss.
+  function showBalanceConfirm() {
+    try {
+      if (state.page !== 'mobile') return;
+      const modal = $('axoBalanceConfirmModal');
+      if (!modal) return;
+      // Don't re-show if already visible or already answered this session.
+      if (state.balanceConfirmShown) return;
+      if (modal.style.display === 'flex') return;
+      // If the bridge already has a fresh VERIFIED balance, we know the
+      // truth — no need to ask. The modal is for when we're unsure.
+      try {
+        if (freshVerifiedBalance(verifier.status(Date.now()))) return;
+      } catch (e) { /* a verifier hiccup must not suppress the prompt */ }
+      const track = loadBalanceTrack(safeStorage());
+      const pnlTotal = totalPnl(safeStorage());
+      const view = balanceConfirmView(track, pnlTotal);
+      const lastBal = view.lastBalance;
+      const txtEl = $('axoBalanceConfirmText');
+      const pnlEl = $('axoBalanceConfirmPnl');
+      const editRow = $('axoBalanceConfirmEditRow');
+      const btnRow = $('axoBalanceConfirmButtons');
+      if (txtEl) txtEl.textContent = view.promptText;
+      if (pnlEl) {
+        pnlEl.textContent = view.pnlText;
+        pnlEl.style.color = pnlTotal > 0 ? '#6ee7b7' : pnlTotal < 0 ? '#fda4af' : '#a1a1aa';
+      }
+      // No previous balance: skip straight to the input.
+      if (editRow) editRow.style.display = view.mode === 'input' ? 'block' : 'none';
+      if (btnRow) btnRow.style.display = view.mode === 'input' ? 'none' : 'flex';
+      modal.style.display = 'flex';
+      state.balanceConfirmShown = true;
+      // If we go straight to input, focus it for the user.
+      if (view.mode === 'input') {
+        const input = $('axoBalanceConfirmInput');
+        if (input) { try { input.focus({ preventScroll: true }); } catch (e) { try { input.focus(); } catch (e2) {} } }
+      }
+    } catch (e) { /* the confirm prompt must never break boot */ }
+  }
+
+  function hideBalanceConfirm() {
+    try {
+      const modal = $('axoBalanceConfirmModal');
+      if (modal) modal.style.display = 'none';
+      const editRow = $('axoBalanceConfirmEditRow');
+      if (editRow) editRow.style.display = 'none';
+    } catch (e) {}
+  }
+
+  /** "Yes, correct": keep the last balance as the typed balance. */
+  function confirmBalanceYes() {
+    try {
+      const track = loadBalanceTrack(safeStorage());
+      const lastBal = track && Number.isFinite(Number(track.realBalance)) && Number(track.realBalance) > 0
+        ? Math.round(Number(track.realBalance) * 100) / 100 : null;
+      if (lastBal !== null) {
+        state.typedBalance = lastBal;
+        // Fold the confirmation into the track (refreshes updatedAt).
+        const next = updateBalanceTrack(track, lastBal, track.source === 'verified' ? 'verified' : 'typed', new Date().toISOString());
+        saveBalanceTrack(safeStorage(), next);
+        try { window.__o101BalanceTrack = next; } catch (e) {}
+      }
+      hideBalanceConfirm();
+      if (typeof window !== 'undefined' && typeof window.__o101SyncBaseNow === 'function') {
+        try { window.__o101SyncBaseNow(); } catch (e) {}
+      }
+      renderAxoOrb();
+    } catch (e) { hideBalanceConfirm(); }
+  }
+
+  /** "Type new": reveal the input row. */
+  function confirmBalanceEdit() {
+    try {
+      const editRow = $('axoBalanceConfirmEditRow');
+      const btnRow = $('axoBalanceConfirmButtons');
+      if (editRow) editRow.style.display = 'block';
+      if (btnRow) btnRow.style.display = 'none';
+      const input = $('axoBalanceConfirmInput');
+      if (input) { try { input.focus({ preventScroll: true }); } catch (e) { try { input.focus(); } catch (e2) {} } }
+    } catch (e) {}
+  }
+
+  /** Submit the new balance from the confirm modal. Invalid input
+   *  keeps the modal open. Valid input saves as typed balance. */
+  function submitBalanceConfirm() {
+    try {
+      const input = $('axoBalanceConfirmInput');
+      const raw = input ? String(input.value).replace(/[^\d.]/g, '') : '';
+      const v = raw ? Number(raw) : NaN;
+      if (!Number.isFinite(v) || v <= 0) return;
+      const bal = Math.round(v * 100) / 100;
+      state.typedBalance = bal;
+      // Persist into the balance track (source: typed).
+      const prev = loadBalanceTrack(safeStorage());
+      const next = updateBalanceTrack(prev, bal, 'typed', new Date().toISOString());
+      saveBalanceTrack(safeStorage(), next);
+      try { window.__o101BalanceTrack = next; } catch (e) {}
+      hideBalanceConfirm();
+      if (input) input.value = '';
+      if (typeof window !== 'undefined' && typeof window.__o101SyncBaseNow === 'function') {
+        try { window.__o101SyncBaseNow(); } catch (e) {}
+      }
+      renderAxoOrb();
+    } catch (e) { /* invalid input: keep the modal open */ }
+  }
+
+  /** Dismiss without answering: keeps the last balance, changes
+   *  nothing. Never zeroes. */
+  function dismissBalanceConfirm() {
+    hideBalanceConfirm();
   }
 
   // ── No-skip mode (owner order 2026-10-25, UI batch) ─────────────
@@ -5416,6 +5603,42 @@ const PATTERN_PAGE_SIZE = 10;
       }
     } catch (e) { /* the P&L box must never break the orb render */ }
   }
+  /* Ball "choosing" animation (owner order 2026-10-30): on a new
+   * verdict, the widget ball cycles random faces slot-machine style
+   * (~800ms) then lands on the governed pick. Purely visual — the
+   * verdict is already known. A new verdict mid-animation cancels and
+   * restarts (never a stale ball). Reduced-motion skips to the final
+   * ball immediately. The final innerHTML is always the verdict's
+   * ball — the animation can never leave a random face. */
+  function axoBallChoose(pill, finalKey, finalHtml) {
+    if (axo.ballChooseTimer) { clearInterval(axo.ballChooseTimer); axo.ballChooseTimer = null; }
+    const seq = buildChooseSequence(finalKey, BALL_CHOOSE_STEPS);
+    if (!seq.length) { pill.innerHTML = finalHtml; return; }
+    let i = 0;
+    const showFrame = (k) => {
+      try {
+        const h = (typeof window.ballImg === 'function') ? window.ballImg(k, 32, '') : '';
+        if (h) pill.innerHTML = h;
+      } catch (e) { /* a frame must never break the render */ }
+    };
+    pill.classList.add('o101-ball-choosing');
+    showFrame(seq[0]);
+    i = 1;
+    axo.ballChooseTimer = setInterval(() => {
+      if (i >= seq.length) {
+        clearInterval(axo.ballChooseTimer);
+        axo.ballChooseTimer = null;
+        pill.classList.remove('o101-ball-choosing');
+        pill.innerHTML = finalHtml;
+        pill.classList.add('o101-ball-landed');
+        setTimeout(() => { try { pill.classList.remove('o101-ball-landed'); } catch (e) {} }, 400);
+        return;
+      }
+      showFrame(seq[i]);
+      i++;
+    }, BALL_CHOOSE_FRAME_MS);
+  }
+
   function renderAxoOrb() {
     if (state.page !== 'mobile') return;
     // Stake redesign (owner order 2026-10-30 ~01:06 IST): the minimal
@@ -5458,11 +5681,18 @@ const PATTERN_PAGE_SIZE = 10;
     const key = JSON.stringify([pillView.state, pillView.ballDigit]);
     if (key === axo.lastOrbKey) return;
     axo.lastOrbKey = key;
+    // A new verdict cancels any in-flight choosing animation — the
+    // new verdict always wins, never a stale ball.
+    if (axo.ballChooseTimer) { clearInterval(axo.ballChooseTimer); axo.ballChooseTimer = null; }
     if (pill) {
       const ballHtml = pillView.ballDigit && typeof window.ballImg === 'function' ? window.ballImg(pillView.ballDigit, 32, '') : '';
       if (ballHtml) {
-        pill.innerHTML = ballHtml;
         pill.classList.remove('hidden');
+        if (reducedMotion()) {
+          pill.innerHTML = ballHtml;
+        } else {
+          axoBallChoose(pill, pillView.ballDigit, ballHtml);
+        }
       } else {
         // No ball to show (no BET pick): hide the pill entirely —
         // never a text fallback, never a blank.
@@ -5962,6 +6192,13 @@ const PATTERN_PAGE_SIZE = 10;
     axoBubbleTap,
     submitTypedBalance,
     maybeAskBalance,
+    // Balance confirm modal (owner order 2026-10-30 12:31 IST):
+    // unmissable plain-language balance check on every reload.
+    showBalanceConfirm,
+    confirmBalanceYes,
+    confirmBalanceEdit,
+    submitBalanceConfirm,
+    dismissBalanceConfirm,
     // Analyse pagination (owner order 2026-10-27): < > step the
     // patterns list one page at a time; renderPatternStats clamps,
     // so next past the last page is a safe no-op re-render.

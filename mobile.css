@@ -1352,3 +1352,16 @@ a[href*="tradingview.com"] {
   #dhaniwinAssistantSheet #axoBaseBetSection { padding-top: 0; }
   #dhaniwinAssistantSheet #mobileWebVerdictReason { padding-bottom: 0; }
 }
+
+/* Ball "choosing" animation (owner order 2026-10-30): the widget ball
+   cycles faces slot-machine style before landing on the verdict.
+   .o101-ball-choosing marks the cycling state; .o101-ball-landed
+   pops the final ball on arrival. GPU-friendly transform only. */
+#floatingOrbTarget.o101-ball-landed img { animation: o101-ball-land 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes o101-ball-land { 0% { transform: scale(0.7); } 60% { transform: scale(1.08); } 100% { transform: scale(1); } }
+
+/* Subtitle update animation (owner order 2026-10-30): the bubble text
+   fades/slides on each new line. Opacity + transform only. */
+#axoSubtitleBubbleText.o101-subtitle-swap-out { opacity: 0; transform: translateY(3px); transition: opacity 0.15s ease-out, transform 0.15s ease-out; }
+#axoSubtitleBubbleText.o101-subtitle-swap-in { animation: o101-subtitle-in 0.28s ease-out; }
+@keyframes o101-subtitle-in { 0% { opacity: 0; transform: translateY(-4px); } 100% { opacity: 1; transform: translateY(0); } }

@@ -39,6 +39,11 @@ const MobileState = {
   scheduledPredictionsByPeriod: {},
   lastCelebratedPeriodByTf: { '30s': null, '1m': null, '3m': null, '5m': null },
   inChargeModel: null,
+  // Per-timeframe in-charge (owner order 2026-10-30): each of the 4 WinGo
+  // timeframes elects and keeps its own in-charge model independently.
+  // MobileState.inChargeModel always mirrors the ACTIVE timeframe's entry
+  // (backward compat for all existing readers).
+  inChargeByTf: { '30s': null, '1m': null, '3m': null, '5m': null },
   autoMode: true,
   cloudUniversalState: { '30s': null, '1m': null, '3m': null, '5m': null },
   userModelStats: {},
@@ -130,6 +135,11 @@ function initModelWorker() {
           };
           if (Array.isArray(allModelStats) && allModelStats.length > 0) {
             MobileState.modelPools[timeframe] = allModelStats;
+          }
+          // Per-timeframe in-charge (owner order 2026-10-30): the worker
+          // elects per-tf; remember each tf's leader independently.
+          if (MobileState.inChargeByTf && activeIncharge?.model?.name) {
+            MobileState.inChargeByTf[timeframe] = activeIncharge.model.name;
           }
         }
 
@@ -1003,6 +1013,9 @@ async function fetchLiveAPIResults(tfOverride) {
 
       let aiTarget = item.aiTarget || null;
       let isWin = (item.aiCorrect !== undefined && item.aiCorrect !== null) ? !!item.aiCorrect : null;
+      // Verdict pick: preserved from storage/session, never derived from native.
+      let verdictPick = item.verdictPick || null;
+      let verdictCorrect = (item.verdictCorrect !== undefined && item.verdictCorrect !== null) ? !!item.verdictCorrect : null;
 
       if (isWin === null && (item.result === 'WIN' || item.result === 'LOSS')) {
         isWin = (item.result === 'WIN');
@@ -1012,6 +1025,8 @@ async function fetchLiveAPIResults(tfOverride) {
         // Strict isolation: historical rounds before the session cutoff never carry live prediction outcomes
         aiTarget = null;
         isWin = null;
+        verdictPick = null;
+        verdictCorrect = null;
       } else {
         // 1. Check if this period was already settled in the current live session
         const existingInSession = currentList.find(c => String(c.period) === String(item.period));
@@ -1021,8 +1036,18 @@ async function fetchLiveAPIResults(tfOverride) {
             isWin = existingInSession.aiCorrect;
           }
         }
+        // Verdict-sourcing (owner order 2026-10-30): preserve the stored
+        // governed verdict pick from session. Never derive it from the native
+        // scheduled prediction below.
+        if (existingInSession && existingInSession.verdictPick && !verdictPick) {
+          verdictPick = existingInSession.verdictPick;
+          if (existingInSession.verdictCorrect !== null && existingInSession.verdictCorrect !== undefined) {
+            verdictCorrect = !!existingInSession.verdictCorrect;
+          }
+        }
 
         // 2. Check scheduled predictions for rounds that were actively scheduled in this session
+        // (native fallback for aiTarget ONLY — never for verdictPick)
         if (!aiTarget || isWin === null) {
           const sched = (MobileState.scheduledPredictionsByPeriod?.[tf] || {})[String(item.period)];
           if (sched && sched.target) {
@@ -1042,7 +1067,11 @@ async function fetchLiveAPIResults(tfOverride) {
         color,
         result: hasRealPrediction ? (isWin ? 'WIN' : 'LOSS') : null,
         aiTarget: hasRealPrediction ? aiTarget : null,
-        aiCorrect: hasRealPrediction ? isWin : null
+        aiCorrect: hasRealPrediction ? isWin : null,
+        // Verdict pick survives the sync; null (renders as "—") when never
+        // recorded from a governed verdict. Never fabricated from native.
+        verdictPick: (!isPastRoundBeforeCutoff && verdictPick) ? verdictPick : null,
+        verdictCorrect: (!isPastRoundBeforeCutoff && verdictPick && verdictCorrect !== null) ? verdictCorrect : null
       };
     });
 
@@ -1258,6 +1287,7 @@ function applyUniversalCloudState(tfKey, state) {
   // Update inCharge from cloud if in auto mode
   if (MobileState.autoMode !== false && state.inChargeModel) {
     MobileState.inChargeModel = state.inChargeModel;
+    if (MobileState.inChargeByTf && tfKey) MobileState.inChargeByTf[tfKey] = state.inChargeModel;
     const heroName = $('heroModelName');
     // Governed verdict owns the hero when locked — never overwrite it
     // with a native in-charge name (owner order 2026-10-30).
@@ -1275,6 +1305,23 @@ function applyUniversalCloudState(tfKey, state) {
 window.applyUniversalCloudState = applyUniversalCloudState;
 
 // ── 10. Authoritative AI Prediction (Single Source, No Glitch) ───────────────
+
+// Per-timeframe In-Charge strip (owner order 2026-10-30): shows each of the
+// 4 timeframes' independently-elected in-charge model. A tf with no elected
+// leader yet shows "warming up" — never a fabricated name.
+function renderTfInchargeStrip() {
+  const tfs = ['30s', '1m', '3m', '5m'];
+  for (const t of tfs) {
+    const el = document.getElementById('tfIncharge-' + t);
+    if (!el) continue;
+    const name = MobileState.inChargeByTf && MobileState.inChargeByTf[t];
+    el.textContent = name || 'warming up';
+    el.classList.toggle('text-zinc-500', !name);
+    el.classList.toggle('text-purple-300', !!name);
+  }
+}
+// Expose for tests and for orb-bridge.
+if (typeof window !== 'undefined') window.renderTfInchargeStrip = renderTfInchargeStrip;
 
 function renderAuthoritativeAIPrediction(list, forceRecompute = false) {
   const tf = MobileState.timeframe;
@@ -1336,6 +1383,10 @@ function renderAuthoritativeAIPrediction(list, forceRecompute = false) {
     inChargeName = effectiveModels[0].name;
   }
   MobileState.inChargeModel = inChargeName;
+  // Per-timeframe in-charge (owner order 2026-10-30): remember this tf's
+  // leader independently so tab switches don't clobber each other.
+  if (tf && MobileState.inChargeByTf) MobileState.inChargeByTf[tf] = inChargeName;
+  renderTfInchargeStrip();
 
   // 2. Identify the authoritative In-Charge Model object
   const champModel = effectiveModels.find(m => m.name === inChargeName || m.id === inChargeName) || effectiveModels[0];
@@ -1746,9 +1797,14 @@ function renderHistoryTable(list) {
   const display = [...list].reverse();
 
   const rows = display.map(r => {
-    const isWin = r.aiCorrect === true || r.result === 'WIN';
-    const isLoss = r.aiCorrect === false || r.result === 'LOSS';
-    const hasResult = r.aiTarget && (r.aiCorrect !== null && r.aiCorrect !== undefined);
+    // Verdict-sourced (owner order 2026-10-30): the AI TARGET column shows
+    // ONLY the stored governed verdict pick. Rows without a verdictPick
+    // (pre-fix, or non-governed) render as "—", never a native guess.
+    const vPick = r.verdictPick || null;
+    const vCorrect = (r.verdictCorrect !== undefined && r.verdictCorrect !== null) ? !!r.verdictCorrect : null;
+    const isWin = vCorrect === true;
+    const isLoss = vCorrect === false;
+    const hasResult = !!(vPick && vCorrect !== null);
 
     const numColor = (r.number === 0 || r.number === 5) ? 'text-purple-400' :
       [1,3,7,9].includes(r.number) ? 'text-emerald-400' : 'text-rose-400';
@@ -1758,8 +1814,8 @@ function renderHistoryTable(list) {
     let resultBadge = '';
     if (hasResult) {
       resultBadge = isWin
-        ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[7px] font-black">✓ ${r.aiTarget}</span>`
-        : `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[7px] font-black">✗ ${r.aiTarget}</span>`;
+        ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[7px] font-black">✓ ${vPick}</span>`
+        : `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[7px] font-black">✗ ${vPick}</span>`;
     } else {
       resultBadge = `<span class="text-zinc-600 text-[7px]">—</span>`;
     }
@@ -2393,6 +2449,10 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
 
   // Stamp history row with definitive in-charge prediction outcome
   const curHist = MobileState.historyByTf[tf] || [];
+  // Verdict-sourcing (owner order 2026-10-30): the AI TARGET column must show
+  // the GOVERNED verdict's pick, not the native in-charge prediction. Only
+  // store verdictPick when targetSource is 'governed' (Priority 0).
+  const isGovernedVerdict = (targetSource === 'governed');
   let existingRow = curHist.find(r => String(r.period) === periodStr);
   if (existingRow) {
     existingRow.number = number;
@@ -2405,6 +2465,13 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
       existingRow.aiCorrect = isWin;
       existingRow.result = isWin ? 'WIN' : 'LOSS';
       existingRow.paused = false;
+      // Store the governed verdict pick separately. The render column reads
+      // verdictPick, never a live re-computation. Null when not governed.
+      if (isGovernedVerdict) {
+        existingRow.verdictPick = target;
+        existingRow.verdictPickType = predType;
+        existingRow.verdictCorrect = isWin;
+      }
       existingRow.circuitBreakerPaused = false;
     } else if (wasPaused) {
       existingRow.paused = true;
@@ -2422,7 +2489,14 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
       aiTarget: (hasAuthenticPrediction && !wasPaused) ? target : null,
       aiType: (hasAuthenticPrediction && !wasPaused) ? predType : null,
       aiModel: (hasAuthenticPrediction && !wasPaused) ? MobileState.inChargeModel : null,
-      aiCorrect: (hasAuthenticPrediction && !wasPaused) ? isWin : null
+      aiCorrect: (hasAuthenticPrediction && !wasPaused) ? isWin : null,
+      // Governed verdict pick: only set when the target came from the
+      // governed disposition (Priority 0). The history column reads this,
+      // never a native re-computation. Old rows (pre-fix) have null here
+      // and render as "—".
+      verdictPick: (hasAuthenticPrediction && !wasPaused && isGovernedVerdict) ? target : null,
+      verdictPickType: (hasAuthenticPrediction && !wasPaused && isGovernedVerdict) ? predType : null,
+      verdictCorrect: (hasAuthenticPrediction && !wasPaused && isGovernedVerdict) ? isWin : null
     });
     curHist.sort((a, b) => String(a.period).localeCompare(String(b.period)));
   }
@@ -2719,13 +2793,31 @@ function updateIndividualModelSettlement(tf, periodStr, number, size, color, uni
       try { pred = window.generateModelNextPrediction(model, historyBefore); } catch(e) {}
     }
 
-    if (pred) {
-      model.predTarget = pred.predTarget || pred.target || model.predTarget || 'BIG';
-      model.predType = pred.predType || pred.type || model.predType || 'SIZE';
-      model.conf = pred.conf !== undefined ? pred.conf : model.conf;
+    // STRONG LOGIC (owner order 2026-10-30): only score a FRESH prediction
+    // for THIS round. If the model did not predict (pred null, no target),
+    // skip scoring entirely — never fabricate a 'BIG' or reuse a stale
+    // target from a previous round. A null pick pauses the record.
+    const freshTarget = pred ? (pred.predTarget || pred.target || null) : null;
+    if (!freshTarget) {
+      // No prediction for this round: do not touch wins/losses/total.
+      // Still update the next-round display target if the model has one.
+      if (typeof model.predict === 'function') {
+        try {
+          const nextPred = model.predict(history, models);
+          if (nextPred) {
+            model.predTarget = nextPred.predTarget || nextPred.target || model.predTarget;
+            model.predType = nextPred.predType || nextPred.type || model.predType;
+          }
+        } catch(e) {}
+      }
+      return; // skip to next model
     }
 
-    const won = evaluatePredictionCorrectness(model.predTarget || 'BIG', number, size, color);
+    model.predTarget = freshTarget;
+    model.predType = pred.predType || pred.type || model.predType || 'SIZE';
+    model.conf = pred.conf !== undefined ? pred.conf : model.conf;
+
+    const won = evaluatePredictionCorrectness(model.predTarget, number, size, color);
     model.totalEvaluated = (model.totalEvaluated || 0) + 1;
 
     if (won === true) {
@@ -2792,10 +2884,16 @@ function updateIndividualModelSettlement(tf, periodStr, number, size, color, uni
     if (!cloudState?.inChargeModel) {
       if (typeof determineOptimalArenaInChargeModel === 'function') {
         const opt = determineOptimalArenaInChargeModel(models, null, true);
-        if (opt?.model?.name) MobileState.inChargeModel = opt.model.name;
+        if (opt?.model?.name) {
+          MobileState.inChargeModel = opt.model.name;
+          if (MobileState.inChargeByTf && tf) MobileState.inChargeByTf[tf] = opt.model.name;
+        }
       } else {
         const sorted = [...models].sort((a, b) => (b.winRate || 0) - (a.winRate || 0));
-        if (sorted[0]) MobileState.inChargeModel = sorted[0].name;
+        if (sorted[0]) {
+          MobileState.inChargeModel = sorted[0].name;
+          if (MobileState.inChargeByTf && tf) MobileState.inChargeByTf[tf] = sorted[0].name;
+        }
       }
     }
   }
@@ -3134,22 +3232,19 @@ function renderModelRosterUI() {
     return Math.max(0, (centre - spread) / denominator);
   };
 
+  // STRONG LOGIC (owner order 2026-10-30): rank by Wilson lower bound ONLY.
+  // Minimum n=20 to display a win rate ("warming up" below that).
+  // Models with zero evaluations show "no data" — never 0% or fabricated.
+  const MIN_N_FOR_WR = 20;
+  const getModelN = (m) => Number(isUserReset && m.sessionEvaluated !== undefined ? m.sessionEvaluated : (m.totalEvaluated || 0));
+  const getModelWins = (m) => Number(isUserReset && m.sessionWins !== undefined ? m.sessionWins : (m.wins || 0));
+
   const calculateModelRating = (m) => {
-    const total = Number(isUserReset && m.sessionEvaluated !== undefined ? m.sessionEvaluated : (m.totalEvaluated || 0));
-    const wins = Number(isUserReset && m.sessionWins !== undefined ? m.sessionWins : (m.wins || 0));
-    const streak = Number(isUserReset && m.sessionStreak !== undefined ? m.sessionStreak : (m.streak || 0));
-    const wilson = calculateWilsonScore(wins, total) * 100;
-    const histPath = m.historyPath || [];
-    const last10 = histPath.slice(0, 10);
-    const last10WR = last10.length > 0 ? (last10.filter(x => x.won).length / last10.length) * 100 : wilson;
-    let momentum = 50;
-    if (streak > 0) momentum = Math.min(100, 50 + streak * 10);
-    else if (streak < 0) momentum = Math.max(0, 50 + streak * 20);
-    const last5 = histPath.slice(0, 5);
-    const last5WR = last5.length >= 3 ? (last5.filter(x => x.won).length / last5.length) : 0.5;
-    let slumpPenalty = 1.0;
-    if (streak <= -2 || last5WR < 0.40) slumpPenalty = 0.40;
-    return ((wilson * 0.40) + (last10WR * 0.35) + (momentum * 0.25)) * slumpPenalty;
+    const total = getModelN(m);
+    const wins = getModelWins(m);
+    // Below min-n: rank at the bottom (Wilson=0), display shows "warming up".
+    if (total < MIN_N_FOR_WR) return 0;
+    return calculateWilsonScore(wins, total);
   };
 
   const sorted = [...allModels].sort((a, b) => {
@@ -3173,6 +3268,7 @@ function renderModelRosterUI() {
       effectiveInCharge = cloudState?.inChargeModel || sorted[0].name;
     }
     MobileState.inChargeModel = effectiveInCharge;
+    if (MobileState.inChargeByTf && tf) MobileState.inChargeByTf[tf] = effectiveInCharge;
     const heroName = $('heroModelName');
     // Governed verdict owns the hero when locked — never overwrite it
     // with a native in-charge name (owner order 2026-10-30).
@@ -3257,6 +3353,35 @@ function renderModelRosterUI() {
 
   const countTag = $('algoCountTag');
   if (countTag) countTag.textContent = `${displayList.length} Models`;
+  const countHead = $('algoCountHead');
+  if (countHead) countHead.textContent = allModels.length;
+
+  // Dynamic category counts (never hardcoded 101)
+  const catCounts = {};
+  allModels.forEach(m => {
+    const c = (m.cat || 'AI').toLowerCase();
+    catCounts[c] = (catCounts[c] || 0) + 1;
+  });
+  const catBtnMap = {
+    'all': allModels.length,
+    'fly': catCounts['fly'] || 0,
+    'neural': catCounts['neural'] || 0,
+    'classical': catCounts['classical'] || 0,
+    'signal': catCounts['signal'] || 0,
+    'chaos': catCounts['chaos'] || 0,
+    'game': catCounts['game'] || 0,
+    'pattern': catCounts['pattern'] || 0,
+    'quantum': catCounts['quantum'] || 0,
+    'meta': catCounts['meta'] || 0,
+    'statistical': catCounts['statistical'] || 0,
+  };
+  Object.entries(catBtnMap).forEach(([key, count]) => {
+    const btn = $(`algoCat-${key === 'all' ? 'all' : key.charAt(0).toUpperCase() + key.slice(1)}`);
+    if (btn) {
+      const label = btn.textContent.replace(/\s*\(\d+\)\s*$/, '');
+      btn.textContent = `${label} (${count})`;
+    }
+  });
 
   const listEl = $('aiRosterList');
   if (!listEl) return;
@@ -3327,7 +3452,18 @@ function renderModelRosterUI() {
       ? 'p-2.5 rounded-2xl bg-black/60 border border-emerald-500/40 shadow-[0_0_16px_rgba(52,211,153,0.12)]'
       : 'p-2.5 rounded-2xl bg-black/40 border border-white/[0.06] hover:border-white/[0.12] transition';
 
-    const wr = a.winRatePct || `${(getWinRate(a) * 100).toFixed(1)}%`;
+    const wr = (() => {
+      const n = getModelN(a);
+      const w = getModelWins(a);
+      if (n === 0) return 'no data';
+      if (n < MIN_N_FOR_WR) return 'warming up';
+      const rawPct = ((w / n) * 100).toFixed(1);
+      const wilsonPct = (calculateWilsonScore(w, n) * 100).toFixed(1);
+      return `${rawPct}% (W ${wilsonPct}%)`;
+    })();
+    const wrDisplay = wr === 'no data' || wr === 'warming up'
+      ? `<b class="text-zinc-500">${wr}</b>`
+      : `<b class="text-emerald-400">${wr}</b>`;
     const tColor = a.predTarget === 'BIG' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
       : a.predTarget === 'SMALL' ? 'bg-sky-500/20 text-sky-300 border-sky-500/30'
       : a.predTarget === 'GREEN' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
@@ -3346,7 +3482,7 @@ function renderModelRosterUI() {
           </div>
           <div class="flex items-center gap-1.5 mt-0.5 text-[8px] text-zinc-400">
             <span class="px-1 py-0.2 rounded bg-white/5 border-white/10 border uppercase">${a.cat || 'AI'}</span>
-            <span>WR: <b class="text-emerald-400">${wr}</b> (${a.wins||0}W/${a.losses||0}L)</span>
+            <span>WR: ${wrDisplay} (${a.wins||0}W/${a.losses||0}L)</span>
             <div class="flex gap-0.5">${dotsHtml}</div>
           </div>
         </div>
@@ -4909,6 +5045,7 @@ function setMobileTimeframe(tf) {
   renderAdaptiveAI(cached);
   renderAuthoritativeAIPrediction(cached);
   renderModelRosterUI();
+  if (typeof renderTfInchargeStrip === 'function') renderTfInchargeStrip();
 
   if (cached.length === 0) {
     // Trigger immediate fetch for this timeframe
@@ -7723,6 +7860,48 @@ function initMobileApp() {
     MobileState.autoMode = localStorage.getItem('quant_arena_auto') !== '0';
     MobileState.chartMode = localStorage.getItem('quant_chart_mode') || 'candles';
   } catch(e) {}
+
+  // Backup wiring for the Axo voice mute button (axoVoiceChip): the inline
+  // onclick="window.__smartBall.toggleAxoVoice()" is the primary path. This
+  // listener is a fallback for mobile browsers where inline handlers fail,
+  // plus it shows a toast so the user gets clear feedback.
+  try {
+    const voiceChip = document.getElementById('axoVoiceChip');
+    if (voiceChip && !voiceChip.dataset.voiceBackupWired) {
+      voiceChip.dataset.voiceBackupWired = '1';
+      voiceChip.addEventListener('click', function() {
+        setTimeout(function() {
+          try {
+            const hasHandler = window.__smartBall && typeof window.__smartBall.toggleAxoVoice === 'function';
+            if (!hasHandler) {
+              // Fallback: toggle directly when __smartBall isn't available.
+              const wasMuted = localStorage.getItem('o101_axo_voice') === '0';
+              localStorage.setItem('o101_axo_voice', wasMuted ? '1' : '0');
+              if (!wasMuted) {
+                try { if (window.speechSynthesis) { window.speechSynthesis.cancel(); } } catch (e) {}
+              }
+              if (window.__smartBall && typeof window.__smartBall.refreshAxoVoiceChip === 'function') {
+                window.__smartBall.refreshAxoVoiceChip();
+              } else {
+                // Direct visual update if refresh isn't available.
+                const icon = document.getElementById('axoVoiceChipIcon');
+                const nowMuted = !wasMuted;
+                if (icon) icon.className = 'fa-solid ' + (nowMuted ? 'fa-volume-xmark' : 'fa-volume-high') + ' pointer-events-none';
+                voiceChip.classList.toggle('text-emerald-300', !nowMuted);
+                voiceChip.classList.toggle('text-rose-300', nowMuted);
+                voiceChip.classList.toggle('opacity-60', nowMuted);
+                voiceChip.setAttribute('aria-pressed', nowMuted ? 'false' : 'true');
+              }
+            }
+            const muted = localStorage.getItem('o101_axo_voice') === '0';
+            if (typeof showToast === 'function') {
+              showToast(muted ? 'Axo voice muted' : 'Axo voice on', muted ? 'warn' : 'info');
+            }
+          } catch (err) {}
+        }, 60);
+      });
+    }
+  } catch (e) {}
 
   // Update Prediction Engine & Incharge UI
   updatePredictionSourceUI();

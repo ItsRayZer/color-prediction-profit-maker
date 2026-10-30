@@ -541,3 +541,36 @@ export function decideAutoBase({ autoBase = false, balance = null, lossRun = 0, 
   if (ab === null) return { base: null, anchored: false, anchorBalance: null };
   return { base: ab, anchored: true, anchorBalance: Number(balance) };
 }
+
+/**
+ * Balance confirm modal view-model (pure, testable; owner order 2026-10-30 12:31 IST).
+ * Decides what the reload prompt shows, in plain language.
+ * - track: the loaded balance track (or null)
+ * - pnlTotal: the cumulative P&L number
+ * Returns { mode, lastBalance, promptText, pnlText }:
+ * - mode 'confirm' when a last balance exists: "Your last balance was ₹X..."
+ * - mode 'input' when no last balance: "What is your current balance?..."
+ * Dismissing the modal never changes anything (caller keeps last balance).
+ */
+export function balanceConfirmView(track, pnlTotal) {
+  const t = track && typeof track === 'object' ? track : defaultBalanceTrack();
+  const rb = Number(t.realBalance);
+  const lastBalance = Number.isFinite(rb) && rb > 0 ? Math.round(rb * 100) / 100 : null;
+  const p = Number(pnlTotal);
+  const pnlNum = Number.isFinite(p) ? Math.round(p * 100) / 100 : 0;
+  const pnlText = pnlBoxText(pnlNum);
+  if (lastBalance !== null) {
+    return {
+      mode: 'confirm',
+      lastBalance,
+      promptText: `Your last balance was \u20B9${lastBalance}. Is this still your current balance?`,
+      pnlText: `P&L so far: ${pnlText}`,
+    };
+  }
+  return {
+    mode: 'input',
+    lastBalance: null,
+    promptText: 'What is your current balance? Type it below.',
+    pnlText: `P&L so far: ${pnlText}`,
+  };
+}

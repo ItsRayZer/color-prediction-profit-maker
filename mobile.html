@@ -221,10 +221,10 @@
 
       <!-- Timeframe Selector Pills -->
       <div class="p-1 rounded-2xl bg-black/60 border border-white/[0.08] backdrop-blur-xl flex items-center justify-between gap-1">
-        <button onclick="setMobileTimeframe('30s')" id="tfBtn-30s" class="tf-btn flex-1 py-1.5 rounded-xl font-mono text-[10.5px] font-black transition active:scale-95 bg-amber-500/25 text-amber-300 border border-amber-400/40 shadow-sm">30s</button>
-        <button onclick="setMobileTimeframe('1m')"  id="tfBtn-1m"  class="tf-btn flex-1 py-1.5 rounded-xl font-mono text-[10.5px] font-black transition active:scale-95 text-white/50 hover:text-white hover:bg-white/5">1m</button>
-        <button onclick="setMobileTimeframe('3m')"  id="tfBtn-3m"  class="tf-btn flex-1 py-1.5 rounded-xl font-mono text-[10.5px] font-black transition active:scale-95 text-white/50 hover:text-white hover:bg-white/5">3m</button>
-        <button onclick="setMobileTimeframe('5m')"  id="tfBtn-5m"  class="tf-btn flex-1 py-1.5 rounded-xl font-mono text-[10.5px] font-black transition active:scale-95 text-white/50 hover:text-white hover:bg-white/5">5m</button>
+        <button onclick="setMobileTimeframe('30s')" id="tfBtn-30s" class="tf-btn flex-1 py-3 rounded-xl font-mono text-[12px] font-black transition active:scale-95 active:brightness-125 bg-amber-500/25 text-amber-300 border border-amber-400/40 shadow-sm" style="touch-action:manipulation; min-height:48px;">30s</button>
+        <button onclick="setMobileTimeframe('1m')"  id="tfBtn-1m"  class="tf-btn flex-1 py-3 rounded-xl font-mono text-[12px] font-black transition active:scale-95 active:brightness-125 text-white/50 hover:text-white hover:bg-white/5" style="touch-action:manipulation; min-height:48px;">1m</button>
+        <button onclick="setMobileTimeframe('3m')"  id="tfBtn-3m"  class="tf-btn flex-1 py-3 rounded-xl font-mono text-[12px] font-black transition active:scale-95 active:brightness-125 text-white/50 hover:text-white hover:bg-white/5" style="touch-action:manipulation; min-height:48px;">3m</button>
+        <button onclick="setMobileTimeframe('5m')"  id="tfBtn-5m"  class="tf-btn flex-1 py-3 rounded-xl font-mono text-[12px] font-black transition active:scale-95 active:brightness-125 text-white/50 hover:text-white hover:bg-white/5" style="touch-action:manipulation; min-height:48px;">5m</button>
       </div>
 
       <!-- Task M: the ONLY on-demand entry to the adaptive AI system.
@@ -572,6 +572,21 @@
         </div>
       </div>
 
+      <!-- Per-timeframe In-Charge strip (owner order 2026-10-30): each of the
+           4 WinGo timeframes elects its own in-charge model. This strip shows
+           all 4 at a glance; the champion card above shows the selected
+           timeframe's leader. A timeframe with no data yet shows
+           "warming up", never a guess. -->
+      <div id="tfInchargeStrip" class="px-2 py-1.5 rounded-2xl bg-black/60 border border-white/[0.08] backdrop-blur-xl">
+        <div class="text-[8px] uppercase tracking-wider text-zinc-500 font-mono mb-1">In-Charge per Timeframe</div>
+        <div class="grid grid-cols-4 gap-1" id="tfInchargeStripGrid">
+          <div class="text-center"><div class="text-[8px] font-mono text-zinc-500">30s</div><div id="tfIncharge-30s" class="text-[9px] font-bold text-purple-300 truncate">warming up</div></div>
+          <div class="text-center"><div class="text-[8px] font-mono text-zinc-500">1m</div><div id="tfIncharge-1m" class="text-[9px] font-bold text-purple-300 truncate">warming up</div></div>
+          <div class="text-center"><div class="text-[8px] font-mono text-zinc-500">3m</div><div id="tfIncharge-3m" class="text-[9px] font-bold text-purple-300 truncate">warming up</div></div>
+          <div class="text-center"><div class="text-[8px] font-mono text-zinc-500">5m</div><div id="tfIncharge-5m" class="text-[9px] font-bold text-purple-300 truncate">warming up</div></div>
+        </div>
+      </div>
+
       <!-- 2. STREAK & PERFORMANCE BENTO GRID -->
       <div class="grid grid-cols-2 gap-2 font-mono">
         <!-- Card 1: Current Streak -->
@@ -661,8 +676,8 @@
       <div class="liquid-glass-card p-3 space-y-2.5">
         <div class="flex items-center justify-between pb-1 border-b border-white/[0.08]">
           <div class="flex items-center gap-1.5">
-            <span class="text-[10px] font-black uppercase tracking-wider text-white">Algorithm Leaderboard (101 Models)</span>
-            <span id="algoCountTag" class="text-[8px] font-mono text-zinc-400">101 Models</span>
+            <span class="text-[10px] font-black uppercase tracking-wider text-white">Algorithm Leaderboard (<span id="algoCountHead">—</span> Models)</span>
+            <span id="algoCountTag" class="text-[8px] font-mono text-zinc-400">— Models</span>
           </div>
           <div class="flex items-center gap-1 bg-black/40 p-0.5 rounded-xl border border-white/[0.08]">
             <button id="restoreGlobalAIBtn" type="button" onclick="restoreGlobalAIStats()" class="px-2 py-0.5 rounded-lg text-[8px] font-mono font-bold transition flex items-center gap-1 bg-purple-500/25 text-purple-200 border border-purple-400/50 shadow-sm" title="Show all-time global cloud ratings">
@@ -689,7 +704,7 @@
           <button onclick="setMobileAlgoCategory('Statistical')" id="algoCat-Statistical" class="ai-filter-btn">Statistical (7)</button>
         </div>
 
-        <input type="text" id="modelSearchInput" oninput="filterModelRoster()" placeholder="Search 101 algorithms..." class="w-full bg-black/50 border border-white/[0.1] rounded-xl px-2.5 py-1.5 text-[9px] font-mono text-white placeholder-zinc-500 focus:outline-none focus:border-purple-400">
+        <input type="text" id="modelSearchInput" oninput="filterModelRoster()" placeholder="Search algorithms..." class="w-full bg-black/50 border border-white/[0.1] rounded-xl px-2.5 py-1.5 text-[9px] font-mono text-white placeholder-zinc-500 focus:outline-none focus:border-purple-400">
 
         <div id="aiRosterList" class="space-y-1.5 pr-1"></div>
 
@@ -984,6 +999,30 @@
       </button>
     </div>
 
+    <!-- Balance confirm modal (owner order 2026-10-30 12:31 IST):
+         On EVERY reload, Axo asks the user to confirm their balance in
+         plain language. Impossible to miss, one-tap dismiss. Dismissing
+         without answering keeps the last balance — it never zeroes it.
+         Shows the P&L alongside so the full picture is clear. -->
+    <div id="axoBalanceConfirmModal" style="display:none; position:fixed; inset:0; z-index:100002; background:rgba(0,0,0,0.65); align-items:center; justify-content:center; padding:20px;" onclick="if(event.target===this){window.__smartBall&&window.__smartBall.dismissBalanceConfirm()}">
+      <div style="background:rgba(28,28,31,0.98); border:1px solid rgba(255,255,255,0.16); border-radius:20px; padding:20px; max-width:320px; width:100%; box-shadow:0 12px 40px rgba(0,0,0,0.6);">
+        <div style="color:#fff; font-size:15px; font-weight:800; margin-bottom:8px;">Check your balance</div>
+        <div id="axoBalanceConfirmText" style="color:#e4e4e7; font-size:14px; line-height:1.5; margin-bottom:6px;"></div>
+        <div id="axoBalanceConfirmPnl" style="color:#a1a1aa; font-size:12px; margin-bottom:16px;"></div>
+        <div id="axoBalanceConfirmButtons" style="display:flex; gap:8px;">
+          <button type="button" onclick="window.__smartBall&&window.__smartBall.confirmBalanceYes()" style="flex:1; padding:11px 8px; border-radius:12px; background:#10b981; color:#04120c; font-weight:800; font-size:14px; border:none; cursor:pointer; touch-action:manipulation;">Yes, correct</button>
+          <button type="button" onclick="window.__smartBall&&window.__smartBall.confirmBalanceEdit()" style="flex:1; padding:11px 8px; border-radius:12px; background:rgba(255,255,255,0.1); color:#fff; font-weight:700; font-size:14px; border:1px solid rgba(255,255,255,0.25); cursor:pointer; touch-action:manipulation;">Type new</button>
+        </div>
+        <div id="axoBalanceConfirmEditRow" style="display:none; margin-top:10px;">
+          <div style="display:flex; gap:6px; align-items:center;">
+            <input id="axoBalanceConfirmInput" type="number" inputmode="decimal" min="1" placeholder="Type balance ₹" onkeydown="if(event.key==='Enter'){window.__smartBall&&window.__smartBall.submitBalanceConfirm()}" style="flex:1; min-width:0; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.25); border-radius:10px; padding:10px 12px; color:#fff; font-size:15px; outline:none;">
+            <button type="button" onclick="window.__smartBall&&window.__smartBall.submitBalanceConfirm()" aria-label="Save balance" style="width:44px; height:44px; flex:none; border-radius:12px; background:#10b981; color:#04120c; font-size:18px; font-weight:800; cursor:pointer; border:none; touch-action:manipulation;">✓</button>
+          </div>
+        </div>
+        <button type="button" onclick="window.__smartBall&&window.__smartBall.dismissBalanceConfirm()" style="width:100%; margin-top:10px; padding:9px; border-radius:12px; background:transparent; color:#71717a; font-size:13px; border:none; cursor:pointer; touch-action:manipulation;">Not now</button>
+      </div>
+    </div>
+
     <!-- Phase 2A (owner correction 5): SYSTEM/STATUS subtitle
          lines show here as a MINIMAL notification ABOVE the Axo/ball
          area — small, dark matte, no gloss, pointer-events none
@@ -1063,7 +1102,7 @@
           <!-- Subtle Drag Pill -->
           <div class="w-8 h-1 bg-white/25 rounded-full pointer-events-none"></div>
           <div class="flex items-center gap-1.5">
-            <button type="button" id="axoVoiceChip" aria-pressed="true" title="Axo voice on/off" onclick="window.__smartBall && window.__smartBall.toggleAxoVoice()" class="w-5 h-5 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-emerald-300 flex items-center justify-center transition" style="font-size:9px">
+            <button type="button" id="axoVoiceChip" aria-pressed="true" title="Axo voice on/off" onclick="window.__smartBall && window.__smartBall.toggleAxoVoice()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-emerald-300 flex items-center justify-center transition" style="font-size:13px; touch-action:manipulation;">
               <i id="axoVoiceChipIcon" class="fa-solid fa-volume-high pointer-events-none"></i>
             </button>
             <button type="button" onclick="cycleAssistantBoxSizePreset(event)" id="assistantSizePresetBtn" class="w-5 h-5 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-zinc-300 flex items-center justify-center text-[9px] transition" title="Toggle Size (Compact / Normal / Large)">
@@ -1095,14 +1134,14 @@
               <button type="button" id="axoVoiceBlockedBadge" onclick="window.__smartBall && window.__smartBall.unlockAxoVoice()" class="hidden text-[7px] font-mono font-black px-2 py-0.5 rounded-full bg-amber-500/25 text-amber-300 border border-amber-500/40 active:scale-95 transition animate-pulse" title="Tap to enable Axo voice">TAP FOR VOICE</button>
             </div>
             <div class="flex items-center gap-1.5">
-              <button type="button" id="axoCcChip" aria-pressed="true" title="Subtitles on/off — Axo keeps running" onclick="window.__smartBall && window.__smartBall.toggleAxoSubs()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 active:scale-95 transition">CC</button>
-              <button type="button" id="axoModeChip" aria-pressed="true" title="Axo mode: AI narration or Normal (templates only)" onclick="window.__smartBall && window.__smartBall.toggleAxoMode()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 active:scale-95 transition">AI</button>
-              <button type="button" id="axoLangChip" title="Axo language — tap to change" onclick="window.__smartBall && window.__smartBall.toggleAxoLang()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 border border-white/10 active:scale-95 transition">EN</button>
+              <button type="button" id="axoCcChip" aria-pressed="true" title="Subtitles on/off — Axo keeps running" onclick="window.__smartBall && window.__smartBall.toggleAxoSubs()" class="text-[9px] font-mono font-black px-3 py-2 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 active:scale-95 active:brightness-125 transition" style="touch-action:manipulation; min-height:44px; min-width:44px;">CC</button>
+              <button type="button" id="axoModeChip" aria-pressed="true" title="Axo mode: AI narration or Normal (templates only)" onclick="window.__smartBall && window.__smartBall.toggleAxoMode()" class="text-[9px] font-mono font-black px-3 py-2 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 active:scale-95 active:brightness-125 transition" style="touch-action:manipulation; min-height:44px; min-width:44px;">AI</button>
+              <button type="button" id="axoLangChip" title="Axo language — tap to change" onclick="window.__smartBall && window.__smartBall.toggleAxoLang()" class="text-[9px] font-mono font-black px-3 py-2 rounded-full bg-white/10 text-zinc-300 border border-white/10 active:scale-95 active:brightness-125 transition" style="touch-action:manipulation; min-height:44px; min-width:44px;">EN</button>
               <!-- Task E: the Auto-Pilot toggle lives here as a chip
                    (the old autoPilotRow is removed) — same id, same
                    onclick, same renderAutoPilot sync, so the control
                    survives the essentials-only cut. -->
-              <button type="button" id="autoPilotToggle" role="switch" aria-checked="false" onclick="window.__smartBall && window.__smartBall.toggleAutoPilot()" class="text-[7.5px] font-mono font-black px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 border border-white/10 active:scale-95 transition" title="Auto-Pilot on/off — staged bets still need your tap">AP OFF</button>
+              <button type="button" id="autoPilotToggle" role="switch" aria-checked="false" onclick="window.__smartBall && window.__smartBall.toggleAutoPilot()" class="text-[9px] font-mono font-black px-3 py-2 rounded-full bg-white/10 text-zinc-300 border border-white/10 active:scale-95 active:brightness-125 transition" style="touch-action:manipulation; min-height:44px; min-width:44px;" title="Auto-Pilot on/off — staged bets still need your tap">AP OFF</button>
             </div>
         </div>
 
@@ -1153,10 +1192,10 @@
                indicator. -->
           <div id="axoGameTimeRow" class="flex items-center gap-1 shrink-0">
             <span class="text-[7px] font-mono text-zinc-500 tracking-wider shrink-0">GAME TIME</span>
-            <button onclick="setMobileTimeframe('30s')" id="asstTfBtn-30s" class="flex-1 py-1 rounded-lg font-mono text-[8px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 transition active:scale-95 text-center">30s</button>
-            <button onclick="setMobileTimeframe('1m')" id="asstTfBtn-1m" class="flex-1 py-1 rounded-lg font-mono text-[8px] font-bold bg-white/5 text-zinc-400 border border-white/5 transition active:scale-95 text-center">1m</button>
-            <button onclick="setMobileTimeframe('3m')" id="asstTfBtn-3m" class="flex-1 py-1 rounded-lg font-mono text-[8px] font-bold bg-white/5 text-zinc-400 border border-white/5 transition active:scale-95 text-center">3m</button>
-            <button onclick="setMobileTimeframe('5m')" id="asstTfBtn-5m" class="flex-1 py-1 rounded-lg font-mono text-[8px] font-bold bg-white/5 text-zinc-400 border border-white/5 transition active:scale-95 text-center">5m</button>
+            <button onclick="setMobileTimeframe('30s')" id="asstTfBtn-30s" class="flex-1 py-2.5 rounded-lg font-mono text-[9px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 transition active:scale-95 active:brightness-125 text-center" style="touch-action:manipulation; min-height:44px;">30s</button>
+            <button onclick="setMobileTimeframe('1m')" id="asstTfBtn-1m" class="flex-1 py-2.5 rounded-lg font-mono text-[9px] font-bold bg-white/5 text-zinc-400 border border-white/5 transition active:scale-95 active:brightness-125 text-center" style="touch-action:manipulation; min-height:44px;">1m</button>
+            <button onclick="setMobileTimeframe('3m')" id="asstTfBtn-3m" class="flex-1 py-2.5 rounded-lg font-mono text-[9px] font-bold bg-white/5 text-zinc-400 border border-white/5 transition active:scale-95 active:brightness-125 text-center" style="touch-action:manipulation; min-height:44px;">3m</button>
+            <button onclick="setMobileTimeframe('5m')" id="asstTfBtn-5m" class="flex-1 py-2.5 rounded-lg font-mono text-[9px] font-bold bg-white/5 text-zinc-400 border border-white/5 transition active:scale-95 active:brightness-125 text-center" style="touch-action:manipulation; min-height:44px;">5m</button>
           </div>
 
           <!-- 2. Hero Prediction Box (Apple AMOLED Glass; Task K:
@@ -1260,17 +1299,17 @@
               <div class="flex items-center gap-1">
                 <span class="font-bold tracking-wider uppercase text-zinc-300">BASE BET:</span>
                 <span id="mobileWebLevelBadge" class="text-[7.5px] font-mono font-bold px-1.5 py-0.2 rounded bg-white/10 text-amber-300 border border-white/10">Level 1 (Base)</span>
-                <button type="button" id="autoBaseToggle" aria-pressed="false" onclick="window.__smartBall && window.__smartBall.toggleAutoBase()" class="text-[7.5px] font-mono font-bold px-1.5 py-0.2 rounded bg-white/10 text-zinc-300 border border-white/10 transition active:scale-95" title="AUTO base bet from your verified balance">AUTO</button>
+                <button type="button" id="autoBaseToggle" aria-pressed="false" onclick="window.__smartBall && window.__smartBall.toggleAutoBase()" class="text-[9px] font-mono font-bold px-3 py-2 rounded-lg bg-white/10 text-zinc-300 border border-white/10 transition active:scale-95 active:brightness-125" style="touch-action:manipulation; min-height:44px; min-width:44px;" title="AUTO base bet from your verified balance">AUTO</button>
               </div>
               <button type="button" onclick="stopAndResetMobileRecovery()" class="text-[7px] font-mono text-rose-400 hover:text-rose-300 underline underline-offset-2 transition active:scale-95" title="Reset Recovery Level">Reset</button>
             </div>
-            <div id="axoBaseChipGrid" class="grid grid-cols-6 gap-1">
-              <button type="button" onclick="setAssistantBaseStake(1)"   id="chipBtn-1"   class="py-1 rounded-lg font-mono text-[8.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95 transition">₹1</button>
-              <button type="button" onclick="setAssistantBaseStake(2)"   id="chipBtn-2"   class="py-1 rounded-lg font-mono text-[8.5px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 active:scale-95 transition">₹2</button>
-              <button type="button" onclick="setAssistantBaseStake(5)"   id="chipBtn-5"   class="py-1 rounded-lg font-mono text-[8.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95 transition">₹5</button>
-              <button type="button" onclick="setAssistantBaseStake(10)"  id="chipBtn-10"  class="py-1 rounded-lg font-mono text-[8.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95 transition">₹10</button>
-              <button type="button" onclick="setAssistantBaseStake(50)"  id="chipBtn-50"  class="py-1 rounded-lg font-mono text-[8.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95 transition">₹50</button>
-              <button type="button" onclick="setAssistantBaseStake(100)" id="chipBtn-100" class="py-1 rounded-lg font-mono text-[8.5px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95 transition">₹100</button>
+            <div id="axoBaseChipGrid" class="grid grid-cols-6 gap-1.5">
+              <button type="button" onclick="setAssistantBaseStake(1)"   id="chipBtn-1"   class="py-2.5 rounded-lg font-mono text-[10px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95 active:brightness-125 transition" style="touch-action:manipulation; min-height:44px;">₹1</button>
+              <button type="button" onclick="setAssistantBaseStake(2)"   id="chipBtn-2"   class="py-2.5 rounded-lg font-mono text-[10px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 active:scale-95 active:brightness-125 transition" style="touch-action:manipulation; min-height:44px;">₹2</button>
+              <button type="button" onclick="setAssistantBaseStake(5)"   id="chipBtn-5"   class="py-2.5 rounded-lg font-mono text-[10px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95 active:brightness-125 transition" style="touch-action:manipulation; min-height:44px;">₹5</button>
+              <button type="button" onclick="setAssistantBaseStake(10)"  id="chipBtn-10"  class="py-2.5 rounded-lg font-mono text-[10px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95 active:brightness-125 transition" style="touch-action:manipulation; min-height:44px;">₹10</button>
+              <button type="button" onclick="setAssistantBaseStake(50)"  id="chipBtn-50"  class="py-2.5 rounded-lg font-mono text-[10px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95 active:brightness-125 transition" style="touch-action:manipulation; min-height:44px;">₹50</button>
+              <button type="button" onclick="setAssistantBaseStake(100)" id="chipBtn-100" class="py-2.5 rounded-lg font-mono text-[10px] font-bold bg-white/5 text-zinc-300 border border-white/5 active:scale-95 active:brightness-125 transition" style="touch-action:manipulation; min-height:44px;">₹100</button>
             </div>
           </div>
 
