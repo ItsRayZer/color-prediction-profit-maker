@@ -1003,6 +1003,9 @@ async function fetchLiveAPIResults(tfOverride) {
 
       let aiTarget = item.aiTarget || null;
       let isWin = (item.aiCorrect !== undefined && item.aiCorrect !== null) ? !!item.aiCorrect : null;
+      // Verdict pick: preserved from storage/session, never derived from native.
+      let verdictPick = item.verdictPick || null;
+      let verdictCorrect = (item.verdictCorrect !== undefined && item.verdictCorrect !== null) ? !!item.verdictCorrect : null;
 
       if (isWin === null && (item.result === 'WIN' || item.result === 'LOSS')) {
         isWin = (item.result === 'WIN');
@@ -1012,6 +1015,8 @@ async function fetchLiveAPIResults(tfOverride) {
         // Strict isolation: historical rounds before the session cutoff never carry live prediction outcomes
         aiTarget = null;
         isWin = null;
+        verdictPick = null;
+        verdictCorrect = null;
       } else {
         // 1. Check if this period was already settled in the current live session
         const existingInSession = currentList.find(c => String(c.period) === String(item.period));
@@ -1021,8 +1026,18 @@ async function fetchLiveAPIResults(tfOverride) {
             isWin = existingInSession.aiCorrect;
           }
         }
+        // Verdict-sourcing (owner order 2026-10-30): preserve the stored
+        // governed verdict pick from session. Never derive it from the native
+        // scheduled prediction below.
+        if (existingInSession && existingInSession.verdictPick && !verdictPick) {
+          verdictPick = existingInSession.verdictPick;
+          if (existingInSession.verdictCorrect !== null && existingInSession.verdictCorrect !== undefined) {
+            verdictCorrect = !!existingInSession.verdictCorrect;
+          }
+        }
 
         // 2. Check scheduled predictions for rounds that were actively scheduled in this session
+        // (native fallback for aiTarget ONLY — never for verdictPick)
         if (!aiTarget || isWin === null) {
           const sched = (MobileState.scheduledPredictionsByPeriod?.[tf] || {})[String(item.period)];
           if (sched && sched.target) {
@@ -1042,7 +1057,11 @@ async function fetchLiveAPIResults(tfOverride) {
         color,
         result: hasRealPrediction ? (isWin ? 'WIN' : 'LOSS') : null,
         aiTarget: hasRealPrediction ? aiTarget : null,
-        aiCorrect: hasRealPrediction ? isWin : null
+        aiCorrect: hasRealPrediction ? isWin : null,
+        // Verdict pick survives the sync; null (renders as "—") when never
+        // recorded from a governed verdict. Never fabricated from native.
+        verdictPick: (!isPastRoundBeforeCutoff && verdictPick) ? verdictPick : null,
+        verdictCorrect: (!isPastRoundBeforeCutoff && verdictPick && verdictCorrect !== null) ? verdictCorrect : null
       };
     });
 
@@ -1746,9 +1765,14 @@ function renderHistoryTable(list) {
   const display = [...list].reverse();
 
   const rows = display.map(r => {
-    const isWin = r.aiCorrect === true || r.result === 'WIN';
-    const isLoss = r.aiCorrect === false || r.result === 'LOSS';
-    const hasResult = r.aiTarget && (r.aiCorrect !== null && r.aiCorrect !== undefined);
+    // Verdict-sourced (owner order 2026-10-30): the AI TARGET column shows
+    // ONLY the stored governed verdict pick. Rows without a verdictPick
+    // (pre-fix, or non-governed) render as "—", never a native guess.
+    const vPick = r.verdictPick || null;
+    const vCorrect = (r.verdictCorrect !== undefined && r.verdictCorrect !== null) ? !!r.verdictCorrect : null;
+    const isWin = vCorrect === true;
+    const isLoss = vCorrect === false;
+    const hasResult = !!(vPick && vCorrect !== null);
 
     const numColor = (r.number === 0 || r.number === 5) ? 'text-purple-400' :
       [1,3,7,9].includes(r.number) ? 'text-emerald-400' : 'text-rose-400';
@@ -1758,8 +1782,8 @@ function renderHistoryTable(list) {
     let resultBadge = '';
     if (hasResult) {
       resultBadge = isWin
-        ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[7px] font-black">✓ ${r.aiTarget}</span>`
-        : `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[7px] font-black">✗ ${r.aiTarget}</span>`;
+        ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[7px] font-black">✓ ${vPick}</span>`
+        : `<span class="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[7px] font-black">✗ ${vPick}</span>`;
     } else {
       resultBadge = `<span class="text-zinc-600 text-[7px]">—</span>`;
     }
@@ -2393,6 +2417,10 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
 
   // Stamp history row with definitive in-charge prediction outcome
   const curHist = MobileState.historyByTf[tf] || [];
+  // Verdict-sourcing (owner order 2026-10-30): the AI TARGET column must show
+  // the GOVERNED verdict's pick, not the native in-charge prediction. Only
+  // store verdictPick when targetSource is 'governed' (Priority 0).
+  const isGovernedVerdict = (targetSource === 'governed');
   let existingRow = curHist.find(r => String(r.period) === periodStr);
   if (existingRow) {
     existingRow.number = number;
@@ -2405,6 +2433,13 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
       existingRow.aiCorrect = isWin;
       existingRow.result = isWin ? 'WIN' : 'LOSS';
       existingRow.paused = false;
+      // Store the governed verdict pick separately. The render column reads
+      // verdictPick, never a live re-computation. Null when not governed.
+      if (isGovernedVerdict) {
+        existingRow.verdictPick = target;
+        existingRow.verdictPickType = predType;
+        existingRow.verdictCorrect = isWin;
+      }
       existingRow.circuitBreakerPaused = false;
     } else if (wasPaused) {
       existingRow.paused = true;
@@ -2422,7 +2457,14 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
       aiTarget: (hasAuthenticPrediction && !wasPaused) ? target : null,
       aiType: (hasAuthenticPrediction && !wasPaused) ? predType : null,
       aiModel: (hasAuthenticPrediction && !wasPaused) ? MobileState.inChargeModel : null,
-      aiCorrect: (hasAuthenticPrediction && !wasPaused) ? isWin : null
+      aiCorrect: (hasAuthenticPrediction && !wasPaused) ? isWin : null,
+      // Governed verdict pick: only set when the target came from the
+      // governed disposition (Priority 0). The history column reads this,
+      // never a native re-computation. Old rows (pre-fix) have null here
+      // and render as "—".
+      verdictPick: (hasAuthenticPrediction && !wasPaused && isGovernedVerdict) ? target : null,
+      verdictPickType: (hasAuthenticPrediction && !wasPaused && isGovernedVerdict) ? predType : null,
+      verdictCorrect: (hasAuthenticPrediction && !wasPaused && isGovernedVerdict) ? isWin : null
     });
     curHist.sort((a, b) => String(a.period).localeCompare(String(b.period)));
   }
