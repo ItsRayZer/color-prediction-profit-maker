@@ -46,7 +46,7 @@ import {
   ledgerLevelIndex, ledgerResize, ledgerLineFor, overBalanceInfo,
   ladderStake, isHighChance, neverZeroCap, stakeWithGuards,
   pickSizingBalance, shouldAskBalance,
-  loadPnl, savePnl, applyPnlResult, totalPnl, pnlBoxText, resetAllPnl,
+  loadPnl, savePnl, applyPnlResult, totalPnl, pnlBoxText,
   autoAnchorLabel, decideAutoBase, AUTO_ANCHOR_FRACTION,
   balanceTrackKey, defaultBalanceTrack, loadBalanceTrack, saveBalanceTrack, updateBalanceTrack,
   balanceConfirmView,
@@ -2729,8 +2729,9 @@ function initBridge() {
   // reload, show the unmissable plain-language balance check. Slightly
   // delayed so a live bridge can report first and the prompt never
   // fires needlessly when a fresh verified balance already exists.
-  // Owner 2026-10-30 13:53 IST: P&L resets to ₹0 on every reload (fresh session).
-  try { resetAllPnl(localStorage); } catch (e) {}
+  // P&L reset REMOVED 2026-10-30 15:26 IST: the auto-reset on boot was
+  // wiping losses (P&L stuck at ₹0). P&L now persists and tracks correctly;
+  // owner resets manually via Settings for a fresh session.
   // Render the P&L IMMEDIATELY on boot (owner: "profit/loss
   // should refresh each reload") — don't wait for the 3s cycle.
   try { renderPnlBox(); } catch (e) { /* never break boot */ }
@@ -3315,6 +3316,8 @@ function initBridge() {
   const BALANCE_ASK_TEXT = 'Tap here and type your balance \u2193';
 
   function maybeAskBalance() {
+    // Owner order 2026-10-30: ONLY on the DhaniWin game page.
+    try { if (!isOnDhaniGamePage()) return; } catch (e) { return; }
     let fresh = false;
     try { fresh = freshVerifiedBalance(verifier.status(Date.now())); } catch (e) { /* never break boot */ }
     if (shouldAskBalance({ verifiedFresh: fresh, typed: state.typedBalance, dismissed: state.balanceAskDismissed })) {
@@ -3371,10 +3374,30 @@ function initBridge() {
   // (X, outside tap, "Not now") keeps the last balance — it NEVER
   // zeroes or clears anything. The P&L is shown alongside so the
   // full picture is clear. Replaces the old subtle subtitle-bubble
+  // Owner order 2026-10-30: the balance ask shows ONLY when the
+  // user is on the DhaniWin GAME page. Detect via the active tab
+  // (tab-web) AND the iframe URL containing dhaniwin. If not on
+  // the game page, do NOT show the balance prompt.
+  function isOnDhaniGamePage() {
+    try {
+      // Check if the web tab (game page) is active.
+      const webTab = document.getElementById('tab-web');
+      const isWebTabActive = webTab && webTab.style.display !== 'none';
+      if (!isWebTabActive) return false;
+      // Check the iframe URL for dhaniwin.
+      const iframe = document.getElementById('dhaniwinIframe');
+      if (!iframe) return false;
+      const src = String(iframe.src || '').toLowerCase();
+      return src.includes('dhaniwin') && !src.includes('about:blank');
+    } catch (e) { return false; }
+  }
+
   // ask (maybeAskBalance) which was too easy to miss.
   function showBalanceConfirm() {
     try {
       if (state.page !== 'mobile') return;
+      // Owner order 2026-10-30: ONLY on the DhaniWin game page.
+      if (!isOnDhaniGamePage()) return;
       const modal = $('axoBalanceConfirmModal');
       if (!modal) return;
       // Don't re-show if already visible or already answered this session.
@@ -6181,6 +6204,16 @@ const PATTERN_PAGE_SIZE = 10;
     refreshAxoVoiceChip: renderAxoVoiceChip,
     toggleAxoSubs: () => setAxoSubs(!axoSubsOn()),
     refreshAxoSubs: applyAxoSubs,
+    // Owner order 2026-10-30: lime dot on homepage opens the widget.
+    openAxoFromLime: () => {
+      try {
+        const limeDot = document.getElementById('axoLimeDot');
+        if (limeDot) limeDot.style.display = 'none';
+        if (typeof window.toggleDhaniwinAssistantModal === 'function') {
+          window.toggleDhaniwinAssistantModal(true);
+        }
+      } catch (e) {}
+    },
     // Phase 2A (owner correction 2): no-skip toggle functions stay
     // exposed but DORMANT — no UI calls them, the cycle never
     // consults them. Removal is reversible; re-wiring needs a fresh
