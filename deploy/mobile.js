@@ -39,6 +39,11 @@ const MobileState = {
   scheduledPredictionsByPeriod: {},
   lastCelebratedPeriodByTf: { '30s': null, '1m': null, '3m': null, '5m': null },
   inChargeModel: null,
+  // Per-timeframe in-charge (owner order 2026-10-30): each of the 4 WinGo
+  // timeframes elects and keeps its own in-charge model independently.
+  // MobileState.inChargeModel always mirrors the ACTIVE timeframe's entry
+  // (backward compat for all existing readers).
+  inChargeByTf: { '30s': null, '1m': null, '3m': null, '5m': null },
   autoMode: true,
   cloudUniversalState: { '30s': null, '1m': null, '3m': null, '5m': null },
   userModelStats: {},
@@ -130,6 +135,11 @@ function initModelWorker() {
           };
           if (Array.isArray(allModelStats) && allModelStats.length > 0) {
             MobileState.modelPools[timeframe] = allModelStats;
+          }
+          // Per-timeframe in-charge (owner order 2026-10-30): the worker
+          // elects per-tf; remember each tf's leader independently.
+          if (MobileState.inChargeByTf && activeIncharge?.model?.name) {
+            MobileState.inChargeByTf[timeframe] = activeIncharge.model.name;
           }
         }
 
@@ -1277,6 +1287,7 @@ function applyUniversalCloudState(tfKey, state) {
   // Update inCharge from cloud if in auto mode
   if (MobileState.autoMode !== false && state.inChargeModel) {
     MobileState.inChargeModel = state.inChargeModel;
+    if (MobileState.inChargeByTf && tfKey) MobileState.inChargeByTf[tfKey] = state.inChargeModel;
     const heroName = $('heroModelName');
     // Governed verdict owns the hero when locked — never overwrite it
     // with a native in-charge name (owner order 2026-10-30).
@@ -1294,6 +1305,23 @@ function applyUniversalCloudState(tfKey, state) {
 window.applyUniversalCloudState = applyUniversalCloudState;
 
 // ── 10. Authoritative AI Prediction (Single Source, No Glitch) ───────────────
+
+// Per-timeframe In-Charge strip (owner order 2026-10-30): shows each of the
+// 4 timeframes' independently-elected in-charge model. A tf with no elected
+// leader yet shows "warming up" — never a fabricated name.
+function renderTfInchargeStrip() {
+  const tfs = ['30s', '1m', '3m', '5m'];
+  for (const t of tfs) {
+    const el = document.getElementById('tfIncharge-' + t);
+    if (!el) continue;
+    const name = MobileState.inChargeByTf && MobileState.inChargeByTf[t];
+    el.textContent = name || 'warming up';
+    el.classList.toggle('text-zinc-500', !name);
+    el.classList.toggle('text-purple-300', !!name);
+  }
+}
+// Expose for tests and for orb-bridge.
+if (typeof window !== 'undefined') window.renderTfInchargeStrip = renderTfInchargeStrip;
 
 function renderAuthoritativeAIPrediction(list, forceRecompute = false) {
   const tf = MobileState.timeframe;
@@ -1355,6 +1383,10 @@ function renderAuthoritativeAIPrediction(list, forceRecompute = false) {
     inChargeName = effectiveModels[0].name;
   }
   MobileState.inChargeModel = inChargeName;
+  // Per-timeframe in-charge (owner order 2026-10-30): remember this tf's
+  // leader independently so tab switches don't clobber each other.
+  if (tf && MobileState.inChargeByTf) MobileState.inChargeByTf[tf] = inChargeName;
+  renderTfInchargeStrip();
 
   // 2. Identify the authoritative In-Charge Model object
   const champModel = effectiveModels.find(m => m.name === inChargeName || m.id === inChargeName) || effectiveModels[0];
@@ -2761,13 +2793,31 @@ function updateIndividualModelSettlement(tf, periodStr, number, size, color, uni
       try { pred = window.generateModelNextPrediction(model, historyBefore); } catch(e) {}
     }
 
-    if (pred) {
-      model.predTarget = pred.predTarget || pred.target || model.predTarget || 'BIG';
-      model.predType = pred.predType || pred.type || model.predType || 'SIZE';
-      model.conf = pred.conf !== undefined ? pred.conf : model.conf;
+    // STRONG LOGIC (owner order 2026-10-30): only score a FRESH prediction
+    // for THIS round. If the model did not predict (pred null, no target),
+    // skip scoring entirely — never fabricate a 'BIG' or reuse a stale
+    // target from a previous round. A null pick pauses the record.
+    const freshTarget = pred ? (pred.predTarget || pred.target || null) : null;
+    if (!freshTarget) {
+      // No prediction for this round: do not touch wins/losses/total.
+      // Still update the next-round display target if the model has one.
+      if (typeof model.predict === 'function') {
+        try {
+          const nextPred = model.predict(history, models);
+          if (nextPred) {
+            model.predTarget = nextPred.predTarget || nextPred.target || model.predTarget;
+            model.predType = nextPred.predType || nextPred.type || model.predType;
+          }
+        } catch(e) {}
+      }
+      return; // skip to next model
     }
 
-    const won = evaluatePredictionCorrectness(model.predTarget || 'BIG', number, size, color);
+    model.predTarget = freshTarget;
+    model.predType = pred.predType || pred.type || model.predType || 'SIZE';
+    model.conf = pred.conf !== undefined ? pred.conf : model.conf;
+
+    const won = evaluatePredictionCorrectness(model.predTarget, number, size, color);
     model.totalEvaluated = (model.totalEvaluated || 0) + 1;
 
     if (won === true) {
@@ -2834,10 +2884,16 @@ function updateIndividualModelSettlement(tf, periodStr, number, size, color, uni
     if (!cloudState?.inChargeModel) {
       if (typeof determineOptimalArenaInChargeModel === 'function') {
         const opt = determineOptimalArenaInChargeModel(models, null, true);
-        if (opt?.model?.name) MobileState.inChargeModel = opt.model.name;
+        if (opt?.model?.name) {
+          MobileState.inChargeModel = opt.model.name;
+          if (MobileState.inChargeByTf && tf) MobileState.inChargeByTf[tf] = opt.model.name;
+        }
       } else {
         const sorted = [...models].sort((a, b) => (b.winRate || 0) - (a.winRate || 0));
-        if (sorted[0]) MobileState.inChargeModel = sorted[0].name;
+        if (sorted[0]) {
+          MobileState.inChargeModel = sorted[0].name;
+          if (MobileState.inChargeByTf && tf) MobileState.inChargeByTf[tf] = sorted[0].name;
+        }
       }
     }
   }
@@ -3176,22 +3232,19 @@ function renderModelRosterUI() {
     return Math.max(0, (centre - spread) / denominator);
   };
 
+  // STRONG LOGIC (owner order 2026-10-30): rank by Wilson lower bound ONLY.
+  // Minimum n=20 to display a win rate ("warming up" below that).
+  // Models with zero evaluations show "no data" — never 0% or fabricated.
+  const MIN_N_FOR_WR = 20;
+  const getModelN = (m) => Number(isUserReset && m.sessionEvaluated !== undefined ? m.sessionEvaluated : (m.totalEvaluated || 0));
+  const getModelWins = (m) => Number(isUserReset && m.sessionWins !== undefined ? m.sessionWins : (m.wins || 0));
+
   const calculateModelRating = (m) => {
-    const total = Number(isUserReset && m.sessionEvaluated !== undefined ? m.sessionEvaluated : (m.totalEvaluated || 0));
-    const wins = Number(isUserReset && m.sessionWins !== undefined ? m.sessionWins : (m.wins || 0));
-    const streak = Number(isUserReset && m.sessionStreak !== undefined ? m.sessionStreak : (m.streak || 0));
-    const wilson = calculateWilsonScore(wins, total) * 100;
-    const histPath = m.historyPath || [];
-    const last10 = histPath.slice(0, 10);
-    const last10WR = last10.length > 0 ? (last10.filter(x => x.won).length / last10.length) * 100 : wilson;
-    let momentum = 50;
-    if (streak > 0) momentum = Math.min(100, 50 + streak * 10);
-    else if (streak < 0) momentum = Math.max(0, 50 + streak * 20);
-    const last5 = histPath.slice(0, 5);
-    const last5WR = last5.length >= 3 ? (last5.filter(x => x.won).length / last5.length) : 0.5;
-    let slumpPenalty = 1.0;
-    if (streak <= -2 || last5WR < 0.40) slumpPenalty = 0.40;
-    return ((wilson * 0.40) + (last10WR * 0.35) + (momentum * 0.25)) * slumpPenalty;
+    const total = getModelN(m);
+    const wins = getModelWins(m);
+    // Below min-n: rank at the bottom (Wilson=0), display shows "warming up".
+    if (total < MIN_N_FOR_WR) return 0;
+    return calculateWilsonScore(wins, total);
   };
 
   const sorted = [...allModels].sort((a, b) => {
@@ -3215,6 +3268,7 @@ function renderModelRosterUI() {
       effectiveInCharge = cloudState?.inChargeModel || sorted[0].name;
     }
     MobileState.inChargeModel = effectiveInCharge;
+    if (MobileState.inChargeByTf && tf) MobileState.inChargeByTf[tf] = effectiveInCharge;
     const heroName = $('heroModelName');
     // Governed verdict owns the hero when locked — never overwrite it
     // with a native in-charge name (owner order 2026-10-30).
@@ -3299,6 +3353,35 @@ function renderModelRosterUI() {
 
   const countTag = $('algoCountTag');
   if (countTag) countTag.textContent = `${displayList.length} Models`;
+  const countHead = $('algoCountHead');
+  if (countHead) countHead.textContent = allModels.length;
+
+  // Dynamic category counts (never hardcoded 101)
+  const catCounts = {};
+  allModels.forEach(m => {
+    const c = (m.cat || 'AI').toLowerCase();
+    catCounts[c] = (catCounts[c] || 0) + 1;
+  });
+  const catBtnMap = {
+    'all': allModels.length,
+    'fly': catCounts['fly'] || 0,
+    'neural': catCounts['neural'] || 0,
+    'classical': catCounts['classical'] || 0,
+    'signal': catCounts['signal'] || 0,
+    'chaos': catCounts['chaos'] || 0,
+    'game': catCounts['game'] || 0,
+    'pattern': catCounts['pattern'] || 0,
+    'quantum': catCounts['quantum'] || 0,
+    'meta': catCounts['meta'] || 0,
+    'statistical': catCounts['statistical'] || 0,
+  };
+  Object.entries(catBtnMap).forEach(([key, count]) => {
+    const btn = $(`algoCat-${key === 'all' ? 'all' : key.charAt(0).toUpperCase() + key.slice(1)}`);
+    if (btn) {
+      const label = btn.textContent.replace(/\s*\(\d+\)\s*$/, '');
+      btn.textContent = `${label} (${count})`;
+    }
+  });
 
   const listEl = $('aiRosterList');
   if (!listEl) return;
@@ -3369,7 +3452,18 @@ function renderModelRosterUI() {
       ? 'p-2.5 rounded-2xl bg-black/60 border border-emerald-500/40 shadow-[0_0_16px_rgba(52,211,153,0.12)]'
       : 'p-2.5 rounded-2xl bg-black/40 border border-white/[0.06] hover:border-white/[0.12] transition';
 
-    const wr = a.winRatePct || `${(getWinRate(a) * 100).toFixed(1)}%`;
+    const wr = (() => {
+      const n = getModelN(a);
+      const w = getModelWins(a);
+      if (n === 0) return 'no data';
+      if (n < MIN_N_FOR_WR) return 'warming up';
+      const rawPct = ((w / n) * 100).toFixed(1);
+      const wilsonPct = (calculateWilsonScore(w, n) * 100).toFixed(1);
+      return `${rawPct}% (W ${wilsonPct}%)`;
+    })();
+    const wrDisplay = wr === 'no data' || wr === 'warming up'
+      ? `<b class="text-zinc-500">${wr}</b>`
+      : `<b class="text-emerald-400">${wr}</b>`;
     const tColor = a.predTarget === 'BIG' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
       : a.predTarget === 'SMALL' ? 'bg-sky-500/20 text-sky-300 border-sky-500/30'
       : a.predTarget === 'GREEN' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
@@ -3388,7 +3482,7 @@ function renderModelRosterUI() {
           </div>
           <div class="flex items-center gap-1.5 mt-0.5 text-[8px] text-zinc-400">
             <span class="px-1 py-0.2 rounded bg-white/5 border-white/10 border uppercase">${a.cat || 'AI'}</span>
-            <span>WR: <b class="text-emerald-400">${wr}</b> (${a.wins||0}W/${a.losses||0}L)</span>
+            <span>WR: ${wrDisplay} (${a.wins||0}W/${a.losses||0}L)</span>
             <div class="flex gap-0.5">${dotsHtml}</div>
           </div>
         </div>
@@ -4951,6 +5045,7 @@ function setMobileTimeframe(tf) {
   renderAdaptiveAI(cached);
   renderAuthoritativeAIPrediction(cached);
   renderModelRosterUI();
+  if (typeof renderTfInchargeStrip === 'function') renderTfInchargeStrip();
 
   if (cached.length === 0) {
     // Trigger immediate fetch for this timeframe
