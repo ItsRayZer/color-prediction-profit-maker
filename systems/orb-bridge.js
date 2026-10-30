@@ -48,6 +48,7 @@ import {
   pickSizingBalance, shouldAskBalance,
   loadPnl, savePnl, applyPnlResult, totalPnl, pnlBoxText,
   autoAnchorLabel, decideAutoBase, AUTO_ANCHOR_FRACTION,
+  balanceTrackKey, defaultBalanceTrack, loadBalanceTrack, saveBalanceTrack, updateBalanceTrack,
   LADDER_LEVELS, HIGH_CHANCE_WILSON, DOUBLING_GATE_LOSSES
 } from './ledger.js';
 import {
@@ -60,6 +61,7 @@ import { AxoAiClient, buildAxoPayload, localRegimeLabel, localSessionSummary, AX
 import { analyseHistoryChunked } from './longAnalysis.js';
 import { AutoPilot, AUTOPILOT_SETTINGS_KEY, autoBaseBet } from './autoPilot.js';
 import { PatternStore } from './patternStore.js';
+import { notePlayedRound } from './played-share.js';
 
 export const MODEL_HISTORY_KEY = 'o101_model_history_v1';
 const RECENT_CAP = 100;
@@ -775,6 +777,26 @@ export function heroVerdictView(gate) {
 export function heroPanelTextFor(view) {
   if (!view || view.decision === 'BET') return { reason: '', detail: '' };
   return { reason: view.reasonText || '', detail: '' };
+}
+
+/** Panel-hero fields from a governed verdict (pure, testable). Owner
+ *  order 2026-10-30: EVERY surface — panel hero, Axo ball, subtitle,
+ *  closed pill — shows the same bet-driving pick, so the hero reads
+ *  the published verdict instead of the native per-type incharge.
+ *  Returns null when no verdict lock applies (the hero then uses its
+ *  native fallback). The classic script (mobile.js) consumes this via
+ *  window.__o101HeroFields with an inline fallback when the module
+ *  is absent — same function, one source of truth. */
+export function heroFieldsForVerdict(verdict) {
+  if (!verdict) return null;
+  if (verdict.decision === 'BET' && verdict.pick) {
+    return {
+      signal: verdict.pick,
+      type: verdict.pickType || 'SIZE',
+      modelName: verdict.driverName || 'In-Charge',
+    };
+  }
+  return { signal: '—', type: '—', modelName: null };
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -4043,6 +4065,40 @@ const PATTERN_PAGE_SIZE = 10;
     return pickSizingBalance({ verified, verifiedFresh: fresh, typed: state.typedBalance });
   }
 
+  // Background balance tracking (owner order 2026-10-30): same
+  // precedence as sizingBalance(), but also reports WHICH source won.
+  function sizingBalanceWithSource() {
+    let verified = null, fresh = false;
+    try {
+      const login = verifier.status(Date.now());
+      fresh = freshVerifiedBalance(login);
+      if (fresh && login && Number.isFinite(login.balance) && login.balance >= 0) verified = login.balance;
+    } catch (e) { /* a verifier hiccup must never break tracking */ }
+    const t = Number(state.typedBalance);
+    if (fresh && Number.isFinite(Number(verified)) && Number(verified) >= 0) {
+      return { balance: Math.round(Number(verified) * 100) / 100, source: 'verified' };
+    }
+    if (Number.isFinite(t) && t > 0) {
+      return { balance: Math.round(t * 100) / 100, source: 'typed' };
+    }
+    return { balance: null, source: 'none' };
+  }
+
+  // Background balance tracking (owner order 2026-10-30): fold the
+  // current reading into the persisted track (real + highest balance)
+  // and expose the snapshot for the played-share payload. Runs every
+  // cycle refresh; unknown readings never clobber known ones.
+  function trackBalanceRefresh() {
+    try {
+      const { balance, source } = sizingBalanceWithSource();
+      const prev = loadBalanceTrack(safeStorage());
+      const next = updateBalanceTrack(prev, balance, source, new Date().toISOString());
+      saveBalanceTrack(safeStorage(), next);
+      try { window.__o101BalanceTrack = next; } catch (e) {}
+      return next;
+    } catch (e) { return null; }
+  }
+
   // Stake redesign (owner order 2026-10-30 ~01:06 IST): the doubling
   // ladder is the SOLE stake authority — double on loss across 6
   // levels, high-chance gate past 5 consecutive losses, never-₹0
@@ -4452,7 +4508,15 @@ const PATTERN_PAGE_SIZE = 10;
       // verdict can overwrite). Skipped rounds are NOT caught up.
       const settleCheck = governedSettlementAllowed({ isFirst, lastPick: state.lastPick, picksByPeriod: state.picksByPeriod, tf, period: latestPeriod });
       if (settleCheck.allowed) {
-        const won = ev(state.lastPick.target, latest.number, latest.size, latest.color);
+        // P&L fix (owner order 2026-10-30): evaluate the pick that was
+        // actually issued FOR this settled period (the stamped record),
+        // NOT the live single-slot lastPick (which the next round's
+        // verdict can already have overwritten). A stale lastPick made
+        // wins/losses — and therefore the P&L — evaluate the wrong pick
+        // on fast period transitions.
+        const settleRec = state.picksByPeriod ? state.picksByPeriod[String(tf) + ':' + String(latestPeriod)] : null;
+        const settleTarget = (settleRec && settleRec.target) || (state.lastPick && state.lastPick.target);
+        const won = ev(settleTarget, latest.number, latest.size, latest.color);
         if (won !== null && won !== undefined) {
           const decision = settleCheck.decision;
           const fired = ap.hasFired(tf, latestPeriod);
@@ -4485,6 +4549,31 @@ const PATTERN_PAGE_SIZE = 10;
               }
             });
             state.session = result.session;
+            // Played-data share (opt-in research pipeline, owner order
+            // 2026-10-30; default OFF in Settings). Records the governed
+            // settled BET for the central dataset. Fail-closed and
+            // silent: it never blocks settlement and never carries
+            // credentials (see systems/played-share.js invariants).
+            try {
+              // Balance snapshot for the research dataset (owner order
+              // 2026-10-30): from the background balance track; null
+              // when unknown. The worker stores them only when valid.
+              const __bt = (typeof window !== 'undefined' && window.__o101BalanceTrack) || null;
+              notePlayedRound({
+                tf,
+                issueNumber: String(latestPeriod),
+                number: latest.number,
+                color: latest.color,
+                size: latest.size,
+                prediction: settleTarget,
+                stake: result.session.stakeUsed,
+                outcome: won ? 'win' : 'loss',
+                fired: !!fired,
+                settledAt: new Date().toISOString(),
+                balance: __bt ? __bt.realBalance : null,
+                highestBalance: __bt ? __bt.highestBalance : null,
+              });
+            } catch (_e) { /* share must never break settlement */ }
             // Phase 3E Recovery Ledger: the SAME settlement events as
             // the ladder (this branch = ap-off every BET + ap-on
             // fired BETs). The missed-bet branch above moves NO
@@ -4492,7 +4581,7 @@ const PATTERN_PAGE_SIZE = 10;
             // figure from the previous cycle's resize (settle() only
             // ever sees that figure as nextStake here).
             const settleType = (state.gate && state.gate.driverType)
-              || (state.lastPick && (state.lastPick.target === 'BIG' || state.lastPick.target === 'SMALL') ? 'SIZE' : 'COLOR');
+              || (settleTarget === 'BIG' || settleTarget === 'SMALL' ? 'SIZE' : 'COLOR');
             if (result.session && Number.isFinite(result.session.stakeUsed) && result.session.stakeUsed > 0) {
               const L0 = loadLedger(safeStorage(), settleType);
               const upd = applyLedgerResult(L0, result.session.stakeUsed, !!won);
@@ -4507,6 +4596,11 @@ const PATTERN_PAGE_SIZE = 10;
                 const p0 = loadPnl(safeStorage(), settleType);
                 savePnl(safeStorage(), settleType, applyPnlResult(p0, result.session.stakeUsed, !!won));
               } catch (e) { /* P&L must never break settlement */ }
+              // P&L fix (owner order 2026-10-30): refresh the box NOW,
+              // on this settlement — win AND loss — not only on the
+              // later renderAxoOrb pass. The box reads persisted
+              // storage, so it is also correct on every reload.
+              try { renderPnlBox(); } catch (e) { /* never break settlement */ }
               // Provisional next stake from the new doubling ladder
               // (driven by the post-settlement consecutive-loss run;
               // the next cycle's resize re-derives it with the fresh
@@ -4917,6 +5011,12 @@ const PATTERN_PAGE_SIZE = 10;
     gate.observerFollow = locked.observerFollow || null;
     gate.driverWinRate = locked.driverWinRate ?? null;
     gate.driverType = locked.driverType || null;
+    // Panel-hero identity (owner order 2026-10-30): the bet-driving
+    // model's id rides the gate so every surface can name the model
+    // behind the verdict's pick. locked.inchargeId is the bet
+    // driver's id on a BET (the incharge's own id on NO_PICK, where
+    // no driver is shown anyway).
+    gate.driverId = locked.inchargeId || null;
     gate.benchFloor = locked.benchFloor || null;
     // Fix round (no-pick hold): a fresh NO_PICK while models and
     // history exist must not replace the previous BET display — hold
@@ -5031,6 +5131,9 @@ const PATTERN_PAGE_SIZE = 10;
     // in-ball prediction, and (throttled) the long-run analysis.
     renderAxoRoad();
     renderAxoOrb();
+    // Background balance tracking (owner order 2026-10-30): real +
+    // highest balance, refreshed every cycle. Cheap, fail-silent.
+    trackBalanceRefresh();
     scheduleLongAnalysis();
     // Auto-Pilot staging (speaks the BET line itself when it stages,
     // exactly once per staged round).
@@ -5081,7 +5184,12 @@ const PATTERN_PAGE_SIZE = 10;
     // companions (exactDisplay, asiTrialNote) for inspection.
     // Phase 3E: + Chance/Wilson/gap/tag/ledger line + bench floor
     // (the closed pill reads wilson + stake from here).
-    window.__o101Verdict = { decision: view.decision, pick: view.pick, confText: view.confText, reason: view.reasonText || '', key: state.verdictKey || null, exactDisplay: gate.exactDisplay || null, asiTrialNote: gate.asiTrialNote || null, chanceText: view.chanceText || '', wilsonText: view.wilsonText || '', gapText: view.gapText || '', qualityTag: view.qualityTag || '', observerLine: view.observerLine || '', ledgerLine: view.ledgerLine || '', wilson: Number.isFinite(gate.wilsonLowerBound) ? gate.wilsonLowerBound : null, benchFloor: gate.benchFloor || null };
+    // Owner order 2026-10-30: + pickType/driverId/driverName so the
+    // panel hero shows the verdict's pick + type + the model that
+    // produced it — never the native per-type incharge.
+    const _driverId = gate.driverId || null;
+    const _driverModel = _driverId ? arenaModels().find(m => m && m.id === _driverId) : null;
+    window.__o101Verdict = { decision: view.decision, pick: view.pick, pickType: gate.driverType || null, driverId: _driverId, driverName: _driverModel ? (_driverModel.name || _driverId) : null, confText: view.confText, reason: view.reasonText || '', key: state.verdictKey || null, exactDisplay: gate.exactDisplay || null, asiTrialNote: gate.asiTrialNote || null, chanceText: view.chanceText || '', wilsonText: view.wilsonText || '', gapText: view.gapText || '', qualityTag: view.qualityTag || '', observerLine: view.observerLine || '', ledgerLine: view.ledgerLine || '', wilson: Number.isFinite(gate.wilsonLowerBound) ? gate.wilsonLowerBound : null, benchFloor: gate.benchFloor || null };
     if (state.page !== 'mobile') return;
     const targetEl = $('mobileWebTargetDisplay');
     if (targetEl) {
@@ -5291,14 +5399,13 @@ const PATTERN_PAGE_SIZE = 10;
   // ball's pick pill + under-bar (period + last-5 road letters).
   // Keyed like the strip. The ball never shows the old classic art:
   // its face is Axo's (setAxoFace), its text is the governed verdict.
-  function renderAxoOrb() {
+  // P&L box (owner order 2026-10-30 ~01:06 IST; hardened 2026-10-30):
+  // standalone so the settlement block can refresh it IMMEDIATELY
+  // after every P&L write — never relying solely on the later
+  // renderAxoOrb pass. Shows the persisted cumulative P&L on every
+  // reload (storage is the source of truth, not in-memory state).
+  function renderPnlBox() {
     if (state.page !== 'mobile') return;
-    // Stake redesign (owner order 2026-10-30 ~01:06 IST): the minimal
-    // P&L box above the Axo widget — long-term cumulative P&L,
-    // +₹X profit / −₹X loss, same dark-matte theme. Rendered before
-    // the ball's early-return key so it updates on settlement even
-    // when the verdict is unchanged. pointer-events:none in markup —
-    // it never blocks orb taps or drag.
     try {
       const pnlBox = $('axoPnlBox');
       if (pnlBox) {
@@ -5308,6 +5415,16 @@ const PATTERN_PAGE_SIZE = 10;
         pnlBox.style.color = total > 0 ? '#6ee7b7' : total < 0 ? '#fda4af' : '#a1a1aa';
       }
     } catch (e) { /* the P&L box must never break the orb render */ }
+  }
+  function renderAxoOrb() {
+    if (state.page !== 'mobile') return;
+    // Stake redesign (owner order 2026-10-30 ~01:06 IST): the minimal
+    // P&L box above the Axo widget — long-term cumulative P&L,
+    // +₹X profit / −₹X loss, same dark-matte theme. Rendered before
+    // the ball's early-return key so it updates on settlement even
+    // when the verdict is unchanged. pointer-events:none in markup —
+    // it never blocks orb taps or drag.
+    renderPnlBox();
     const pill = $('floatingOrbTarget');
     const bar = $('floatingOrbUnderBar');
     if (!pill && !bar) return;
@@ -5939,6 +6056,10 @@ const PATTERN_PAGE_SIZE = 10;
   // Pull-to-refresh visual math for the classic script (same
   // pattern: one source of truth, inline fallback when absent).
   window.__o101PullVisual = pullRefreshVisual;
+  // Panel-hero fields from the governed verdict for the classic
+  // script (owner order 2026-10-30: every surface shows the same
+  // bet-driving pick — same pattern, inline fallback when absent).
+  window.__o101HeroFields = heroFieldsForVerdict;
   renderAxoVoiceChip();
   renderAxoVoiceBadge();
   applyAxoSubs();
