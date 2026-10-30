@@ -43,7 +43,11 @@ import {
 } from './observer.js';
 import {
   barFor, ledgerWeight, ledgerStake, applyLedgerResult, saveLedger, loadLedger,
-  ledgerLevelIndex, ledgerResize, ledgerLineFor, overBalanceInfo
+  ledgerLevelIndex, ledgerResize, ledgerLineFor, overBalanceInfo,
+  ladderStake, isHighChance, neverZeroCap, stakeWithGuards,
+  pickSizingBalance, shouldAskBalance,
+  loadPnl, savePnl, applyPnlResult, totalPnl, pnlBoxText,
+  LADDER_LEVELS, HIGH_CHANCE_WILSON, DOUBLING_GATE_LOSSES
 } from './ledger.js';
 import {
   createSession, settle, planLadder, suggestBaseBet,
@@ -2358,6 +2362,13 @@ function initBridge() {
     session: null,         // bankroll session
     balance: null,
     balanceSource: 'none',
+    // Stake redesign (owner order 2026-10-30 ~01:06 IST): the user's
+    // TYPED balance — session-scoped (cleared on reload; the owner
+    // ordered the ask on each reload). Feeds stake sizing via
+    // sizingBalance() when no fresh verified bridge balance exists.
+    typedBalance: null,
+    balanceAsk: false,        // the subtitle balance-ask is live
+    balanceAskDismissed: false, // user X-dismissed the ask this session
     backfilledKey: null,
     loginState: null,      // last LoginVerifier state string spoken/rendered
     login: null,           // last LoginVerifier status object
@@ -2641,6 +2652,12 @@ function initBridge() {
   // Launch auto-connect: do not wait for the first poll ticks or for
   // the bridge's own init publish — ask for a probe immediately.
   requestBridgeReverify();
+
+  // Stake redesign (owner order 2026-10-30 ~01:06 IST): on each reload
+  // Axo asks for the balance via the subtitle when no fresh verified
+  // balance exists. Slightly delayed so a live bridge can report
+  // first and the ask never fires needlessly.
+  setTimeout(() => { try { maybeAskBalance(); } catch (e) { /* never break boot */ } }, 4000);
 
   // Which transport the embedded DhaniWin load used (mobile.js
   // records it on every load; localStorage carries it to the
@@ -3105,7 +3122,10 @@ function initBridge() {
   function positionAxoBubble() {
     const bubble = $('axoSubtitleBubble');
     if (!bubble) return false;
-    const line = state.lastLine || '';
+    // Stake redesign: while the balance ask is live, the bubble shows
+    // the ask line (sticky) — verdict says keep updating lastLine and
+    // voice, but the ask stays visible until typed or X-dismissed.
+    const line = (state.balanceAsk && !state.balanceAskDismissed) ? BALANCE_ASK_TEXT : (state.lastLine || '');
     const show = bubbleVisible({ subsOn: axoSubsOn(), text: line, dismissedText: state.bubbleDismissedText || '' });
     if (!show) {
       bubble.style.display = 'none';
@@ -3149,7 +3169,7 @@ function initBridge() {
     renderAxoOrb();
     const bubble = $('axoSubtitleBubble');
     if (!bubble) return;
-    const line = state.lastLine || '';
+    const line = (state.balanceAsk && !state.balanceAskDismissed) ? BALANCE_ASK_TEXT : (state.lastLine || '');
     const textEl = $('axoSubtitleBubbleText');
     if (textEl && line) textEl.textContent = line;
     positionAxoBubble();
@@ -3161,10 +3181,78 @@ function initBridge() {
   /** The bubble's X: closes the CURRENT subtitle bubble only —
    *  never the bot, never CC, never voice. The next DIFFERENT say()
    *  line shows the bubble again: dismissal is per-line (distinct
-   *  text), not a setting — a same-text re-say stays dismissed. */
+   *  text), not a setting — a same-text re-say stays dismissed.
+   *  Stake redesign: X also ends a live balance ask for this session
+   *  (the ask returns on the next reload, per the owner's order). */
   function dismissAxoBubble() {
     state.bubbleDismissedText = state.lastLine || '';
+    if (state.balanceAsk) {
+      state.balanceAsk = false;
+      state.balanceAskDismissed = true;
+      const row = $('axoBalanceAskRow');
+      if (row) row.style.display = 'none';
+    }
     syncAxoSubtitleSurfaces();
+  }
+
+  // ── Balance ask (owner order 2026-10-30 ~01:06 IST) ───────────────
+  // On each reload, Axo asks for the balance via the subtitle when no
+  // fresh verified balance exists. The user taps the bubble and TYPES
+  // the balance into the inline row — clean, minimal, obvious. The
+  // typed balance is session-scoped (the ask returns on reload) and
+  // feeds stake sizing via sizingBalance() until a verified balance
+  // arrives. It never blocks anything: every feature works
+  // balance-free exactly as today.
+  const BALANCE_ASK_TEXT = 'Tap here and type your balance \u2193';
+
+  function maybeAskBalance() {
+    let fresh = false;
+    try { fresh = freshVerifiedBalance(verifier.status(Date.now())); } catch (e) { /* never break boot */ }
+    if (shouldAskBalance({ verifiedFresh: fresh, typed: state.typedBalance, dismissed: state.balanceAskDismissed })) {
+      state.balanceAsk = true;
+      say(BALANCE_ASK_TEXT, 'verdict');
+      syncAxoSubtitleSurfaces();
+    }
+  }
+
+  function resolveBalanceAsk() {
+    state.balanceAsk = false;
+    const row = $('axoBalanceAskRow');
+    if (row) row.style.display = 'none';
+    syncAxoSubtitleSurfaces();
+  }
+
+  /** Tap on the subtitle bubble (not the X — it has its own handler):
+   *  while the balance ask is live, toggles the inline type row. */
+  function axoBubbleTap(e) {
+    try {
+      if (e && e.target && e.target.closest && e.target.closest('#axoSubtitleBubbleClose')) return;
+    } catch (err) { /* fall through to the ask check */ }
+    if (!state.balanceAsk || state.balanceAskDismissed) return;
+    const row = $('axoBalanceAskRow');
+    if (!row) return;
+    const showing = row.style.display !== 'none';
+    row.style.display = showing ? 'none' : 'block';
+    if (!showing) {
+      const input = $('axoBalanceAskInput');
+      if (input) { try { input.focus({ preventScroll: true }); } catch (err) { try { input.focus(); } catch (e2) {} } }
+    }
+  }
+
+  /** Submit the typed balance: validate, store session-scoped, resize
+   *  stakes immediately. Invalid input keeps the row open. */
+  function submitTypedBalance() {
+    const input = $('axoBalanceAskInput');
+    const raw = input ? String(input.value).replace(/[^\d.]/g, '') : '';
+    const v = raw ? Number(raw) : NaN;
+    if (!Number.isFinite(v) || v <= 0) return;
+    state.typedBalance = Math.round(v * 100) / 100;
+    resolveBalanceAsk();
+    say(`Balance set \u2014 stakes now follow \u20B9${state.typedBalance}.`, 'system');
+    if (typeof window !== 'undefined' && typeof window.__o101SyncBaseNow === 'function') {
+      try { window.__o101SyncBaseNow(); } catch (e) { /* a sync must never break on submit */ }
+    }
+    renderAxoOrb();
   }
 
   // ── No-skip mode (owner order 2026-10-25, UI batch) ─────────────
@@ -3479,9 +3567,9 @@ function initBridge() {
       balanceSource: state.balanceSource,
       balanceSourceLabel: state.balanceSource !== 'none' ? balanceSourceLabel(state.balanceSource) : null,
       baseBet: state.session ? state.session.baseBet : 0,
-      // Phase 3E: the spoken "level" is the derived ledger level
-      // (log2 of stake/base) when known, else the session loss-run
-      // counter — the ladder it used to name is retired.
+      // Stake redesign (owner order 2026-10-30): the spoken "level"
+      // is the doubling-ladder rung index (0-based; display adds 1)
+      // when known, else the session loss-run counter.
       ladderLevel: state.session && Number.isFinite(state.session.ledgerLevelIndex) ? state.session.ledgerLevelIndex : (state.session ? state.session.level : 0),
       // Phase 3E: post-settlement tracked ledger loss for the WIN
       // line (null when no ledger info — the old line is kept then).
@@ -3542,6 +3630,9 @@ function initBridge() {
     renderWindowStatus();
     renderBalanceBlock(login);
     renderAutoPilot();
+    // Stake redesign: a fresh verified balance arriving resolves a
+    // live balance ask — no need to type what the bridge proved.
+    if (state.balanceAsk && freshVerifiedBalance(login)) resolveBalanceAsk();
     if (state.loginState !== login.state) {
       const prevLoginState = state.loginState;
       state.loginState = login.state;
@@ -3768,9 +3859,14 @@ const PATTERN_PAGE_SIZE = 10;
    *  blocks staging. null = no chip value either. */
   function desiredBaseBet(login) {
     const chip = window.MobileBridgeState ? Number(window.MobileBridgeState.baseStake) : NaN;
+    // Stake redesign (owner order 2026-10-30 ~01:06 IST): AUTO sizes
+    // from the fresh verified balance first, then the user's typed
+    // balance (their explicit input beats a stale number), then the
+    // chip fallback — login state never blocks staging.
+    const typedBal = Number.isFinite(state.typedBalance) && state.typedBalance > 0 ? state.typedBalance : null;
     const raw = resolveBaseBet({
       autoBase: ap.state.autoBase,
-      verifiedBalance: freshVerifiedBalance(login) ? login.balance : null,
+      verifiedBalance: freshVerifiedBalance(login) ? login.balance : typedBal,
       riskMode: ap.state.riskMode,
       chipBase: chip
     });
@@ -3910,24 +4006,43 @@ const PATTERN_PAGE_SIZE = 10;
   // the same function. A gate's driverType is always set by the cycle
   // companions (held gates carry their own previous driver), so no
   // locker fallback is needed here.
+  // Stake redesign (owner order 2026-10-30 ~01:06 IST): the balance
+  // the stake engine sizes against. Precedence: fresh verified bridge
+  // balance (ground truth) -> typed balance (the user's explicit
+  // input this session) -> none. A stale number never beats the
+  // user's typed input; nothing is invented when neither exists.
+  function sizingBalance() {
+    let verified = null, fresh = false;
+    try {
+      const login = verifier.status(Date.now());
+      fresh = freshVerifiedBalance(login);
+      if (fresh && login && Number.isFinite(login.balance) && login.balance > 0) verified = login.balance;
+    } catch (e) { /* a verifier hiccup must never break sizing */ }
+    return pickSizingBalance({ verified, verifiedFresh: fresh, typed: state.typedBalance });
+  }
+
+  // Stake redesign (owner order 2026-10-30 ~01:06 IST): the doubling
+  // ladder is the SOLE stake authority — double on loss across 6
+  // levels, high-chance gate past 5 consecutive losses, never-₹0
+  // floor, never-zero-balance guard. Driven by the session's
+  // consecutive-loss counter (persisted via saveSessionTo, so a
+  // reload keeps the doubling position).
   function applyLedgerResize(g) {
     if (state.session && g.decision === GATE_DECISIONS.BET) {
       const driverType = g.driverType || 'COLOR';
       const L = loadLedger(safeStorage(), driverType);
       const W = Number.isFinite(g.wilsonLowerBound) ? g.wilsonLowerBound : null;
-      const knownBalance = (state.session && Number.isFinite(state.session.balance) && state.session.balance > 0)
-        ? state.session.balance : null;
-      const rz = ledgerResize(state.session.baseBet, L, W, driverType, knownBalance);
+      const lossRun = Math.max(0, state.session.consecutiveLosses || 0);
+      const rz = ledgerResize(state.session.baseBet, lossRun, W, driverType, sizingBalance());
       state.session.nextStake = rz.stake;
       state.session.shortfall = rz.over ? rz.over.shortfall : null;
       state.session.overPlan = false;
       state.session.ledgerLevelIndex = rz.levelIndex;
       state.session.ledgerView = {
-        tracked: L, stake: rz.stake, weight: rz.weight,
-        required: rz.stake,
+        tracked: L, stake: rz.stake, required: rz.required, weight: rz.weight,
         shortfall: rz.over ? rz.over.shortfall : null,
         capped: rz.over ? rz.over.capped : null,
-        levelIndex: rz.levelIndex
+        levelIndex: rz.levelIndex, level: rz.level, gated: rz.gated, lossRun
       };
       g.ledgerView = state.session.ledgerView;
       try { saveSessionTo(safeStorage(), 'SHARED', state.session); } catch (e) { /* storage must never break the cycle */ }
@@ -4359,19 +4474,30 @@ const PATTERN_PAGE_SIZE = 10;
               const L0 = loadLedger(safeStorage(), settleType);
               const upd = applyLedgerResult(L0, result.session.stakeUsed, !!won);
               saveLedger(safeStorage(), settleType, upd.L);
-              // Provisional next stake from the new ledger (the next
-              // cycle's resize re-derives it with the fresh driver
-              // Wilson before any display or staging — the doubling
-              // figure settle() computed is never displayed, staged,
-              // or persisted).
+              // Stake redesign (owner order 2026-10-30 ~01:06 IST):
+              // long-term P&L — win adds the exact 0.96x profit, loss
+              // subtracts the exact stake. Persisted across sessions;
+              // reset only by the owner's explicit Settings reset.
+              // Manual DhaniWin-surface bets are invisible to the app
+              // and are NOT in it.
+              try {
+                const p0 = loadPnl(safeStorage(), settleType);
+                savePnl(safeStorage(), settleType, applyPnlResult(p0, result.session.stakeUsed, !!won));
+              } catch (e) { /* P&L must never break settlement */ }
+              // Provisional next stake from the new doubling ladder
+              // (driven by the post-settlement consecutive-loss run;
+              // the next cycle's resize re-derives it with the fresh
+              // driver Wilson before any display or staging).
               const base = state.session.baseBet;
               const wLast = state.gate && Number.isFinite(state.gate.wilsonLowerBound) ? state.gate.wilsonLowerBound : null;
-              const nextStake = ledgerStake(base, upd.L, wLast, settleType);
+              const newLossRun = Math.max(0, (result.session && result.session.consecutiveLosses) || 0);
+              const rz2 = ledgerResize(base, newLossRun, wLast, settleType, sizingBalance());
+              const nextStake = rz2.stake;
               state.session.nextStake = nextStake;
               state.session.shortfall = null;
               state.session.overPlan = false;
-              state.session.ledgerLevelIndex = ledgerLevelIndex(nextStake, base);
-              state.session.ledgerView = { tracked: upd.L, stake: nextStake, weight: ledgerWeight(wLast, settleType), required: nextStake, shortfall: null, capped: null, levelIndex: state.session.ledgerLevelIndex };
+              state.session.ledgerLevelIndex = rz2.levelIndex;
+              state.session.ledgerView = { tracked: upd.L, stake: nextStake, required: rz2.required, weight: rz2.weight, shortfall: null, capped: null, levelIndex: rz2.levelIndex, level: rz2.level, gated: rz2.gated, lossRun: newLossRun };
             }
             // Phase 3A: persist the settled ladder immediately.
             try { saveSessionTo(safeStorage(), 'SHARED', state.session); } catch (e) { /* storage must never break settlement */ }
@@ -5133,6 +5259,21 @@ const PATTERN_PAGE_SIZE = 10;
   // its face is Axo's (setAxoFace), its text is the governed verdict.
   function renderAxoOrb() {
     if (state.page !== 'mobile') return;
+    // Stake redesign (owner order 2026-10-30 ~01:06 IST): the minimal
+    // P&L box above the Axo widget — long-term cumulative P&L,
+    // +₹X profit / −₹X loss, same dark-matte theme. Rendered before
+    // the ball's early-return key so it updates on settlement even
+    // when the verdict is unchanged. pointer-events:none in markup —
+    // it never blocks orb taps or drag.
+    try {
+      const pnlBox = $('axoPnlBox');
+      if (pnlBox) {
+        const total = totalPnl(safeStorage());
+        const txt = pnlBoxText(total);
+        if (pnlBox.textContent !== txt) pnlBox.textContent = txt;
+        pnlBox.style.color = total > 0 ? '#6ee7b7' : total < 0 ? '#fda4af' : '#a1a1aa';
+      }
+    } catch (e) { /* the P&L box must never break the orb render */ }
     const pill = $('floatingOrbTarget');
     const bar = $('floatingOrbUnderBar');
     if (!pill && !bar) return;
@@ -5666,6 +5807,10 @@ const PATTERN_PAGE_SIZE = 10;
     cancelNoSkip,
     exportHistory,
     dismissAxoBubble,
+    // Stake redesign (owner order 2026-10-30 ~01:06 IST): balance ask.
+    axoBubbleTap,
+    submitTypedBalance,
+    maybeAskBalance,
     // Analyse pagination (owner order 2026-10-27): < > step the
     // patterns list one page at a time; renderPatternStats clamps,
     // so next past the last page is a safe no-op re-render.
