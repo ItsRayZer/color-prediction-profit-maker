@@ -5,7 +5,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Mushroom Body Spiking Net",
     "cat": "fly",
     "arch": "Associative Kenyon Cells + Plasticity",
-    "desc": "Drosophila olfactory associative memory reservoir",
+    "desc": "Drosophila olfactory associative memory reservoir", "strategy": "Sparse Kenyon projection: counts GREEN on even indices, BIG on odd (last 10)", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "GREEN",
@@ -24,7 +24,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Antennal Lobe Odor glomeruli",
     "cat": "fly",
     "arch": "Lateral Inhibition Glomerular Net",
-    "desc": "Frequency contrast enhancement via local interneurons",
+    "desc": "Frequency contrast enhancement via local interneurons", "strategy": "Lateral inhibition: weighted distance from 5 over last 8 numbers", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -43,7 +43,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Central Complex Ring Neurons",
     "cat": "fly",
     "arch": "Azimuth Ring Attractor Oscillator",
-    "desc": "Phase-tracking direction vector for pattern sequences",
+    "desc": "Phase-tracking direction vector for pattern sequences", "strategy": "Ring attractor: cosine/sine-weighted vote over last 8", "complexity": "complex",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -62,7 +62,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Neuromodulated DAN Plasticity",
     "cat": "fly",
     "arch": "Dopamine Reward-Prediction-Error",
-    "desc": "Continuous online synaptic weight adaptation",
+    "desc": "Continuous online synaptic weight adaptation", "strategy": "Dopamine-gated: follow last if dopamine high, invert if low", "complexity": "simple",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -81,7 +81,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Octopaminergic High-Arousal",
     "cat": "fly",
     "arch": "Octopamine Urgency Gating Engine",
-    "desc": "High-gain volatility response during transitions",
+    "desc": "High-gain volatility response during transitions", "strategy": "Volatility urgency: follow last if avg move >3.4, else invert", "complexity": "simple",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "GREEN",
@@ -100,7 +100,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Liquid State Machine (LSM)",
     "cat": "fly",
     "arch": "3D Recurrent Microcircuit Reservoir",
-    "desc": "High-dimensional fading memory spiking reservoir",
+    "desc": "High-dimensional fading memory spiking reservoir", "strategy": "Fading memory: exponential decay (0.68) over last 10", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -119,7 +119,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Lateral Horn Fast-Escape",
     "cat": "fly",
     "arch": "Hardwired Instinctive Reflex Circuit",
-    "desc": "Rapid reflex suppression of high-risk entropy traps",
+    "desc": "Rapid reflex suppression of high-risk entropy traps", "strategy": "Escape circuit: fade extremes (4+ or 0-1 of 5), else invert last", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -138,7 +138,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Spectral Echo State Reservoir",
     "cat": "fly",
     "arch": "Echo State Net with Spectral Radius 0.95",
-    "desc": "Harmonic resonance tracking across 30s sequences",
+    "desc": "Harmonic resonance tracking across 30s sequences", "strategy": "Spectral resonance: cosine/sine harmonic over last 12", "complexity": "complex",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -157,7 +157,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Delay-Coupled Spiking Net",
     "cat": "fly",
     "arch": "Axonal Conduction Delay Lines",
-    "desc": "Temporal coincidence detection across historical intervals",
+    "desc": "Temporal coincidence detection across historical intervals", "strategy": "Delay lines: match last vs lag-2 and lag-4", "complexity": "simple",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "GREEN",
@@ -176,7 +176,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Hebbian STDP Plasticity Net",
     "cat": "fly",
     "arch": "Spike-Timing-Dependent Plasticity",
-    "desc": "Local unsupervised reward-modulated reinforcement",
+    "desc": "Local unsupervised reward-modulated reinforcement", "strategy": "STDP transitions: P(next|last) from full-history counts with Laplace", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -195,7 +195,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Continuous Attractor Energy Net",
     "cat": "fly",
     "arch": "Hopfield-Inspired Energy Minimization",
-    "desc": "Attractor basin stability mapping of game trends",
+    "desc": "Attractor basin stability mapping of game trends", "strategy": "Hopfield energy: mean of last 8 vs 4.5 threshold", "complexity": "simple",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -214,7 +214,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Calcium Adaptation Metaplastic",
     "cat": "fly",
     "arch": "Spike-Frequency Calcium Dynamics",
-    "desc": "Self-adjusting threshold prevents overfitting runs",
+    "desc": "Self-adjusting threshold prevents overfitting runs", "strategy": "Calcium threshold: decayed (0.7) accumulation over last 7, fade extremes", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -233,7 +233,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Optic Lobe Motion Correlator",
     "cat": "fly",
     "arch": "Hassenstein-Reichardt Detector",
-    "desc": "Spatio-temporal direction selectivity on draw sequences",
+    "desc": "Spatio-temporal direction selectivity on draw sequences", "strategy": "Motion correlator: velocity and acceleration of last 3 numbers", "complexity": "simple",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "GREEN",
@@ -252,7 +252,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Whole-Brain Connectome Net",
     "cat": "fly",
     "arch": "139,255 Neuron Synaptic Graph Net",
-    "desc": "Holistic multi-neuropil recurrent consensus integration",
+    "desc": "Holistic multi-neuropil recurrent consensus integration", "strategy": "5-neuropil vote: mean-4, green-count-5, parity weighted", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -271,7 +271,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "LSTM Recurrent Sequence Net",
     "cat": "neural",
     "arch": "Long Short-Term Memory (64 hidden)",
-    "desc": "Multi-step temporal state tracking across past 50 rounds",
+    "desc": "Multi-step temporal state tracking across past 50 rounds", "strategy": "LSTM cells: forget/input gates over last 16", "complexity": "complex",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -290,7 +290,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Gated Recurrent Unit (GRU)",
     "cat": "neural",
     "arch": "Bi-Directional GRU Layer",
-    "desc": "Fast gradient convergence for sequence classification",
+    "desc": "Fast gradient convergence for sequence classification", "strategy": "GRU: update gate over last 12", "complexity": "complex",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -309,7 +309,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Temporal Convolutional Net (TCN)",
     "cat": "neural",
     "arch": "Dilated Causal 1D Convolutions",
-    "desc": "Exponential receptive field over historical numbers",
+    "desc": "Exponential receptive field over historical numbers", "strategy": "Dilated conv: weighted diffs at lags 1,2,4,8", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "GREEN",
@@ -328,7 +328,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Deep MLP Classifier",
     "cat": "neural",
     "arch": "Dense 128-64-32 LeakyReLU",
-    "desc": "Non-linear feature extraction on lagged probability vectors",
+    "desc": "Non-linear feature extraction on lagged probability vectors", "strategy": "Mean-5 vs mean-15 crossover", "complexity": "simple",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -347,7 +347,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Gradient Boosted Trees",
     "cat": "neural",
     "arch": "LightGBM-Style Histogram Split",
-    "desc": "High accuracy decision boundary over feature interactions",
+    "desc": "High accuracy decision boundary over feature interactions", "strategy": "Decision stumps: last1/last2 thresholds summed", "complexity": "simple",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -366,7 +366,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Random Forest Ensemble",
     "cat": "neural",
     "arch": "100 Decision Trees with Bootstrap",
-    "desc": "Variance reduction across volatile win/loss transitions",
+    "desc": "Variance reduction across volatile win/loss transitions", "strategy": "Majority vote over last 7 outcomes", "complexity": "simple",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -385,7 +385,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Softmax Logistic Model",
     "cat": "neural",
     "arch": "Calibrated L2 Regularized Softmax",
-    "desc": "Probabilistic baseline for class boundary verification",
+    "desc": "Probabilistic baseline for class boundary verification", "strategy": "Sigmoid on mean-10 (size) and green-count-10 (color)", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "GREEN",
@@ -404,7 +404,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Pattern Neural Recognizer",
     "cat": "neural",
     "arch": "Embedding Similarity Layer",
-    "desc": "Learned pattern distance to historical winning streaks",
+    "desc": "Learned pattern distance to historical winning streaks", "strategy": "Nearest 3-number sequence match in history, predict what followed", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -423,7 +423,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Market Regime Classifier Net",
     "cat": "neural",
     "arch": "Categorical Cross-Entropy Regime Net",
-    "desc": "Classifies current sequence into Trend, PingPong, or Chop",
+    "desc": "Classifies current sequence into Trend, PingPong, or Chop", "strategy": "Ping-pong detector: if 4+ alternations in last 6, continue alternating", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -442,7 +442,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Streak Dynamics Neural Net",
     "cat": "neural",
     "arch": "Recurrent Streak Predictor",
-    "desc": "Calculates continuation probability of active color streaks",
+    "desc": "Calculates continuation probability of active color streaks", "strategy": "Streak amplifier: follow last, confidence scales with streak length", "complexity": "simple",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -461,7 +461,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Mean Reversion Neural Net",
     "cat": "neural",
     "arch": "Non-Linear Peak Detector",
-    "desc": "Detects extreme imbalance and predicts sudden reversal",
+    "desc": "Detects extreme imbalance and predicts sudden reversal", "strategy": "Contrarian: always predict opposite of last", "complexity": "simple",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "GREEN",
@@ -480,7 +480,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Anomaly Isolation Net",
     "cat": "neural",
     "arch": "Isolation Density Estimator",
-    "desc": "Flags abnormal lottery clusters and reduces position risk",
+    "desc": "Flags abnormal lottery clusters and reduces position risk", "strategy": "Z-score anomaly: fade outliers beyond 2 sigma", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -499,7 +499,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "1st Order Markov Chain",
     "cat": "classical",
     "arch": "Transition Matrix Dynamic MLE",
-    "desc": "Calculates conditional probability P(Next | Previous)",
+    "desc": "Calculates conditional probability P(Next | Previous)", "strategy": "First-order Markov: P(next|last) from transition counts", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -518,7 +518,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "2nd Order Markov Dynamics",
     "cat": "classical",
     "arch": "Tri-gram Transition Probability Tensor",
-    "desc": "Conditioned on past two results P(Next | Prev, Prev2)",
+    "desc": "Conditioned on past two results P(Next | Prev, Prev2)", "strategy": "Second-order Markov: P(next|last two)", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -537,7 +537,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Conjugate Dirichlet Bayesian",
     "cat": "classical",
     "arch": "Dirichlet-Multinomial Conjugate Prior",
-    "desc": "Smoothed probability updating robust to small sample sizes",
+    "desc": "Smoothed probability updating robust to small sample sizes", "strategy": "Bayesian transition with Dirichlet prior", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "GREEN",
@@ -556,7 +556,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exponential Decay Recency",
     "cat": "classical",
     "arch": "Half-Life Decay Weighting (alpha=0.15)",
-    "desc": "Gives highest statistical priority to immediate recent outcomes",
+    "desc": "Gives highest statistical priority to immediate recent outcomes", "strategy": "Exponentially weighted vote over last 10 (recent = more weight)", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -575,7 +575,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Empirical Frequency Model",
     "cat": "classical",
     "arch": "Windowed Frequency Distribution (N=100)",
-    "desc": "Standard deviation outlier tracking on color/size counts",
+    "desc": "Standard deviation outlier tracking on color/size counts", "strategy": "Most frequent outcome in last 20", "complexity": "simple",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -594,7 +594,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Momentum Streak Rider",
     "cat": "classical",
     "arch": "Markovian Persistence Estimator",
-    "desc": "Aggressively follows active streaks until statistically capped",
+    "desc": "Aggressively follows active streaks until statistically capped", "strategy": "Ride streak: follow last, confidence grows with streak", "complexity": "simple",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -613,7 +613,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Streak Breaker Reversion",
     "cat": "classical",
     "arch": "Geometric Distribution Cap",
-    "desc": "Predicts color reversal when streak length exceeds 5 rounds",
+    "desc": "Predicts color reversal when streak length exceeds 5 rounds", "strategy": "Fade streak: predict opposite, confidence grows with streak", "complexity": "simple",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "GREEN",
@@ -632,7 +632,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Poisson Run-Length Estimator",
     "cat": "classical",
     "arch": "Poisson Renewal Process",
-    "desc": "Models duration between consecutive color repetitions",
+    "desc": "Models duration between consecutive color repetitions", "strategy": "Switch rate: if >50% switches in last 15, fade; else follow", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -651,7 +651,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Suffix Tree Pattern Matcher",
     "cat": "classical",
     "arch": "Longest Matching Suffix Search",
-    "desc": "Finds identical past sequences and replicates historical outcome",
+    "desc": "Finds identical past sequences and replicates historical outcome", "strategy": "Suffix match: find last 2-pattern in history, predict what followed", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -670,7 +670,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Prefix Trie Pattern Matcher",
     "cat": "classical",
     "arch": "Compressed Radix Trie Lookup",
-    "desc": "Hierarchical sequence frequency matching",
+    "desc": "Hierarchical sequence frequency matching", "strategy": "Trie counts: P(next|last two) from full-history pattern frequencies", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -689,7 +689,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Casino Trap & Noise Filter",
     "cat": "classical",
     "arch": "Kolmogorov Complexity Estimator",
-    "desc": "Identifies non-random server traps and shifts safely to consensus",
+    "desc": "Identifies non-random server traps and shifts safely to consensus", "strategy": "Trap: if few runs in last 16 (trending), follow; else fade", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "GREEN",
@@ -708,7 +708,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Bayesian Change-Point Detector",
     "cat": "classical",
     "arch": "CUSUM / BOCPD Regime Shift",
-    "desc": "Detects exact round when distribution mechanics shift",
+    "desc": "Detects exact round when distribution mechanics shift", "strategy": "CUSUM: cumulative deviation over last 10, fade if beyond threshold", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -727,7 +727,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Shannon Entropy Minimizer",
     "cat": "classical",
     "arch": "Information Entropy Metric",
-    "desc": "Bets only when round entropy falls below 0.65 bits",
+    "desc": "Bets only when round entropy falls below 0.65 bits", "strategy": "Entropy-weighted: follow majority, confidence from (1 - entropy)", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -746,7 +746,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Kolmogorov-Smirnov Drift",
     "cat": "classical",
     "arch": "Two-Sample KS Test Drift Detector",
-    "desc": "Monitors distribution shifts between 30s and 1m windows",
+    "desc": "Monitors distribution shifts between 30s and 1m windows", "strategy": "Drift: compare recent-6 mean vs past-12 mean, fade the drift", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -765,7 +765,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Mathematical Inversion Model",
     "cat": "classical",
     "arch": "Parity Phase Inverter",
-    "desc": "Calculates counter-trend odds during heavy one-sided runs",
+    "desc": "Calculates counter-trend odds during heavy one-sided runs", "strategy": "Parity inversion: GREEN if sum(last2) even, BIG if sum <10", "complexity": "simple",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "GREEN",
@@ -784,7 +784,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Base Quant Predictor (OG Algorithm)",
     "cat": "statistical",
     "arch": "Original Weighted Quant System",
-    "desc": "The original primary algorithm with momentum and pattern weighting",
+    "desc": "The original primary algorithm with momentum and pattern weighting", "strategy": "Sum-3: BIG if sum(last3) >= 14, GREEN if sum odd", "complexity": "simple",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -804,7 +804,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "3-Gram Markov Sequence",
     "cat": "statistical",
     "arch": "Conditional N-Gram Distribution",
-    "desc": "Statistical frequency lookup over 3-token outcome histories",
+    "desc": "Statistical frequency lookup over 3-token outcome histories", "strategy": "N-gram: most common continuation of last 2-sequence", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -823,7 +823,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Hidden Markov Model (HMM)",
     "cat": "statistical",
     "arch": "Baum-Welch 3-State Latent Model",
-    "desc": "Infers unobserved hidden market states (Bull/Bear/Chop)",
+    "desc": "Infers unobserved hidden market states (Bull/Bear/Chop)", "strategy": "HMM: hidden bull/bear states via EM-like update", "complexity": "complex",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -842,7 +842,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Bayesian Online Model",
     "cat": "statistical",
     "arch": "Sequential Bayesian Inference",
-    "desc": "Real-time posterior updating after every resolved round",
+    "desc": "Real-time posterior updating after every resolved round", "strategy": "Online Bayes: Beta-Binomial updating per outcome", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "GREEN",
@@ -861,7 +861,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Cosine Sequence Similarity",
     "cat": "statistical",
     "arch": "Vector Cosine Distance",
-    "desc": "Matches current window vector with highest similarity past windows",
+    "desc": "Matches current window vector with highest similarity past windows", "strategy": "Most similar historical window (Euclidean), predict what followed", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -880,7 +880,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Bootstrap Resampling Model",
     "cat": "statistical",
     "arch": "Monte Carlo 1000x Resampling",
-    "desc": "Calculates non-parametric confidence intervals for next color",
+    "desc": "Calculates non-parametric confidence intervals for next color", "strategy": "Bootstrap: resampled mean of last 20", "complexity": "medium",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -899,7 +899,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Statistical Baseline Ensemble",
     "cat": "statistical",
     "arch": "Multi-Hypothesis Average",
-    "desc": "Blends classical frequency, N-Gram, and Bayesian posteriors",
+    "desc": "Blends classical frequency, N-Gram, and Bayesian posteriors", "strategy": "Vote of 5 sub-strategies (freq, streak, markov, recency, mean)", "complexity": "complex",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -918,7 +918,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Neural Consensus Engine",
     "cat": "meta",
     "arch": "Cross-Neural Majority Voting",
-    "desc": "Synthesizes predictions across all 12 deep and reservoir networks",
+    "desc": "Synthesizes predictions across all 12 deep and reservoir networks", "strategy": "Consensus of neural family predictions", "complexity": "complex",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "GREEN",
@@ -937,7 +937,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Classical Mathematical Consensus",
     "cat": "meta",
     "arch": "Weighted Borda Count",
-    "desc": "Democratic consensus across 15 classical mathematical models",
+    "desc": "Democratic consensus across 15 classical mathematical models", "strategy": "Consensus of classical family predictions", "complexity": "complex",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -956,7 +956,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Multi-Timeframe Voting Net",
     "cat": "meta",
     "arch": "30s / 1m / 3m Cross-Validation",
-    "desc": "Aligns micro 30s signals with macro 1m and 3m trend directions",
+    "desc": "Aligns micro 30s signals with macro 1m and 3m trend directions", "strategy": "Cross-timeframe: align signals from 30s/1m/3m/5m", "complexity": "complex",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -975,7 +975,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Adaptive Win-Rate Weighted",
     "cat": "meta",
     "arch": "Dynamic Brier-Calibrated Ensemble",
-    "desc": "Weights every model proportionally to its last-20 round win rate",
+    "desc": "Weights every model proportionally to its last-20 round win rate", "strategy": "Adaptive weights: upweight recent winners among sub-models", "complexity": "complex",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "RED",
@@ -994,7 +994,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "ASI Supercomputer",
     "cat": "meta",
     "arch": "Apex Meta-Intelligence · Domain Arbitrage · Triple-Lock Orthogonal Consensus",
-    "desc": "Omniscient meta-intelligence that shadows the top-performing specialist cluster, arbitrates color vs size conviction, and locks multi-disciplinary consensus for max win rate",
+    "desc": "Omniscient meta-intelligence that shadows the top-performing specialist cluster, arbitrates color vs size conviction, and locks multi-disciplinary consensus for max win rate", "strategy": "ASI ensemble: governed trial-gated meta-model", "complexity": "complex",
     "baseWinRate": 0,
     "streak": 0,
     "predColor": "GREEN",
@@ -1013,7 +1013,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Kalman State Estimator",
     "cat": "signal",
     "arch": "Recursive Quadratic Minimum-Variance Filter",
-    "desc": "Optimal recursive state estimation decoupling lottery trend drift from white observation noise",
+    "desc": "Optimal recursive state estimation decoupling lottery trend drift from white observation noise", "strategy": "Kalman: recursive state estimate of number series", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.81, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1021,7 +1021,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "FFT Harmonic Extrapolator",
     "cat": "signal",
     "arch": "Fast Fourier Transform Discrete Peak Analyzer",
-    "desc": "Spectral frequency decomposition isolating hidden sinusoidal periodicity in parity oscillations",
+    "desc": "Spectral frequency decomposition isolating hidden sinusoidal periodicity in parity oscillations", "strategy": "FFT: dominant frequency component phase", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 8, "conf": 0.80, "predType": "COLOR", "predTarget": "RED", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1029,7 +1029,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Discrete Wavelet Denoising",
     "cat": "signal",
     "arch": "Daubechies DWT Multi-Resolution Filter",
-    "desc": "Separates high-frequency lottery jitter from underlying low-frequency macro momentum vectors",
+    "desc": "Separates high-frequency lottery jitter from underlying low-frequency macro momentum vectors", "strategy": "Wavelet: multi-resolution decomposition", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 3, "conf": 0.79, "predType": "SIZE", "predTarget": "SMALL", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1037,7 +1037,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "RSI Parity Oscillator",
     "cat": "signal",
     "arch": "14-Period Relative Strength Parity Index",
-    "desc": "Quantifies overbought and oversold bounds with momentum divergence triggers",
+    "desc": "Quantifies overbought and oversold bounds with momentum divergence triggers", "strategy": "RSI: momentum oscillator on number series", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.82, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1045,7 +1045,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "MACD Acceleration Vector",
     "cat": "signal",
     "arch": "Dual Exponential Moving Average Divergence",
-    "desc": "Measures trend momentum acceleration and signal-line crossovers across historical sequences",
+    "desc": "Measures trend momentum acceleration and signal-line crossovers across historical sequences", "strategy": "MACD: fast/slow EMA crossover", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 8, "conf": 0.78, "predType": "COLOR", "predTarget": "RED", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1053,7 +1053,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Stochastic %K/%D Cross",
     "cat": "signal",
     "arch": "Lane Fast/Slow Stochastic Oscillator",
-    "desc": "Computes current outcome relative to recent range extremes to detect cyclical turning points",
+    "desc": "Computes current outcome relative to recent range extremes to detect cyclical turning points", "strategy": "Stochastic: %K/%D oscillator", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 9, "conf": 0.79, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1061,7 +1061,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Bollinger Band Squeeze",
     "cat": "signal",
     "arch": "Volumetric Standard Deviation Band Envelope",
-    "desc": "Detects volatility compression breakouts and standard deviation mean-reversion boundaries",
+    "desc": "Detects volatility compression breakouts and standard deviation mean-reversion boundaries", "strategy": "Bollinger: fade touches of 2-sigma bands", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 2, "conf": 0.80, "predType": "SIZE", "predTarget": "SMALL", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1069,7 +1069,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "ARIMA Time Lag Predictor",
     "cat": "signal",
     "arch": "Autoregressive Integrated Moving Average",
-    "desc": "Models stationary differenced series with optimal autoregressive and moving average parameters",
+    "desc": "Models stationary differenced series with optimal autoregressive and moving average parameters", "strategy": "ARIMA: autoregressive on lagged differences", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.77, "predType": "COLOR", "predTarget": "GREEN", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1077,7 +1077,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "EMA Triple Cross Vector",
     "cat": "signal",
     "arch": "Triple Exponential Moving Average (3/8/21)",
-    "desc": "High-conviction trend inflection confirmation using multi-horizon exponential filters",
+    "desc": "High-conviction trend inflection confirmation using multi-horizon exponential filters", "strategy": "Triple EMA crossover signal", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 6, "conf": 0.81, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1085,7 +1085,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Spectral Power Density",
     "cat": "signal",
     "arch": "Welch Periodogram Spectral Estimator",
-    "desc": "Isolates dominant energy resonance frequencies in alternating color patterns",
+    "desc": "Isolates dominant energy resonance frequencies in alternating color patterns", "strategy": "Power spectral density peak", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 1, "conf": 0.78, "predType": "COLOR", "predTarget": "GREEN", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1093,7 +1093,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Autocorrelation Function",
     "cat": "signal",
     "arch": "Pearson Lag Autocorrelation Structure",
-    "desc": "Identifies recurring harmonic intervals across 30+ lag windows in lottery series",
+    "desc": "Identifies recurring harmonic intervals across 30+ lag windows in lottery series", "strategy": "ACF: lag-1 autocorrelation direction", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 8, "conf": 0.79, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1101,7 +1101,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Partial Autocorrelation",
     "cat": "signal",
     "arch": "Yule-Walker Direct Lag Equation Solver",
-    "desc": "Eliminates intermediate lag correlation noise to reveal pure primary step dependency",
+    "desc": "Eliminates intermediate lag correlation noise to reveal pure primary step dependency", "strategy": "PACF: partial autocorrelation impulse", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.80, "predType": "COLOR", "predTarget": "GREEN", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1109,7 +1109,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Hurst Fractal Memory",
     "cat": "chaos",
     "arch": "Rescaled Range R/S Statistic Extractor",
-    "desc": "Distinguishes persistent Dragon trending (H > 0.5) from anti-persistent alternating chop (H < 0.5)",
+    "desc": "Distinguishes persistent Dragon trending (H > 0.5) from anti-persistent alternating chop (H < 0.5)", "strategy": "Hurst: persistence (H>0.5 trend) vs anti-persistence", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 9, "conf": 0.83, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1117,7 +1117,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Lyapunov Phase Attractor",
     "cat": "chaos",
     "arch": "Maximal Lyapunov Exponent Estimator",
-    "desc": "Calculates exponential rate of separation of infinitesimally close trajectories in phase space",
+    "desc": "Calculates exponential rate of separation of infinitesimally close trajectories in phase space", "strategy": "Lyapunov: divergence rate regime", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 4, "conf": 0.81, "predType": "COLOR", "predTarget": "RED", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1125,7 +1125,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Fractal Box Dimension",
     "cat": "chaos",
     "arch": "Minkowski-Bouligand Box Counting Grid",
-    "desc": "Quantifies geometric structural complexity and pattern roughness on draw manifolds",
+    "desc": "Quantifies geometric structural complexity and pattern roughness on draw manifolds", "strategy": "Fractal dimension: roughness regime", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 3, "conf": 0.79, "predType": "SIZE", "predTarget": "SMALL", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1133,7 +1133,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Takens Phase Space Embedding",
     "cat": "chaos",
     "arch": "Delay Coordinate Manifold Reconstructor",
-    "desc": "Unfolds scalar time series into high-dimensional phase space attractor trajectories",
+    "desc": "Unfolds scalar time series into high-dimensional phase space attractor trajectories", "strategy": "Takens: delay-embedded attractor's next point", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 8, "conf": 0.82, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1141,7 +1141,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Recurrence Quant Analysis",
     "cat": "chaos",
     "arch": "Cross-Recurrence Plot Diagonal Scanner",
-    "desc": "Evaluates deterministic structure, laminarity, and trapping time in state recurrence matrices",
+    "desc": "Evaluates deterministic structure, laminarity, and trapping time in state recurrence matrices", "strategy": "RQA: recurrence plot determinism", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.80, "predType": "COLOR", "predTarget": "GREEN", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1149,7 +1149,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Max Entropy Production",
     "cat": "chaos",
     "arch": "Non-Equilibrium Thermodynamic Dissipation",
-    "desc": "Predicts regime evolution along the maximum thermodynamic entropy production pathway",
+    "desc": "Predicts regime evolution along the maximum thermodynamic entropy production pathway", "strategy": "Max-entropy: least-biased distribution", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 6, "conf": 0.78, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1157,7 +1157,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Multi-Scale Sample Entropy",
     "cat": "chaos",
     "arch": "Coarse-Grained Scale Irregularity Metric",
-    "desc": "Assesses dynamic complexity across coarse-grained time resolutions to anticipate regime flips",
+    "desc": "Assesses dynamic complexity across coarse-grained time resolutions to anticipate regime flips", "strategy": "Multiscale entropy across horizons", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 1, "conf": 0.81, "predType": "SIZE", "predTarget": "SMALL", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1165,7 +1165,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Approximate Entropy Scanner",
     "cat": "chaos",
     "arch": "Pincus Regularity Statistic Analyzer",
-    "desc": "Logarithmic sub-pattern recurrence probability quantifier detecting orderly sequences",
+    "desc": "Logarithmic sub-pattern recurrence probability quantifier detecting orderly sequences", "strategy": "Approximate entropy: regularity measure", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 2, "conf": 0.79, "predType": "COLOR", "predTarget": "RED", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1173,7 +1173,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Catastrophe Cusp Bifurcation",
     "cat": "chaos",
     "arch": "Thom Cusp Singularity Surface Potential",
-    "desc": "Models abrupt catastrophic shifts between continuous states when bifurcation thresholds cross",
+    "desc": "Models abrupt catastrophic shifts between continuous states when bifurcation thresholds cross", "strategy": "Cusp catastrophe: bifurcation warning", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.82, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1181,7 +1181,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Rule 110 Cellular Automata",
     "cat": "chaos",
     "arch": "Turing-Complete Elementary Automata",
-    "desc": "Simulates localized interacting glider structures on binary history lattices",
+    "desc": "Simulates localized interacting glider structures on binary history lattices", "strategy": "Cellular automaton: rule-30-like evolution", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 8, "conf": 0.78, "predType": "COLOR", "predTarget": "RED", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1189,7 +1189,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Minimax Casino Exploiter",
     "cat": "game_theory",
     "arch": "Zero-Sum Von Neumann Minimax Matrix",
-    "desc": "Minimizes maximum possible player regret assuming adversarial counter-play by RNG house",
+    "desc": "Minimizes maximum possible player regret assuming adversarial counter-play by RNG house", "strategy": "Minimax: assume adversarial house, minimize max loss", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.84, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1197,7 +1197,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Fictitious Play Optimizer",
     "cat": "game_theory",
     "arch": "Brown-Robinson Fictitious Play Dynamizer",
-    "desc": "Computes best-response actions against the historical empirical strategy of the draw sequence",
+    "desc": "Computes best-response actions against the historical empirical strategy of the draw sequence", "strategy": "Fictitious play: best response to empirical frequencies", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 2, "conf": 0.81, "predType": "COLOR", "predTarget": "RED", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1205,7 +1205,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Regret-Matching Equilibrium",
     "cat": "game_theory",
     "arch": "Hart-Mas-Colell No-Regret Learning",
-    "desc": "Iterative probability distribution update weighted by cumulative positive counterfactual regret",
+    "desc": "Iterative probability distribution update weighted by cumulative positive counterfactual regret", "strategy": "Regret matching: minimize counterfactual regret", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 3, "conf": 0.80, "predType": "SIZE", "predTarget": "SMALL", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1213,7 +1213,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Kelly Optimal Edge Allocator",
     "cat": "game_theory",
     "arch": "Logarithmic Utility Wealth Growth Maximizer",
-    "desc": "Calibrates prediction conviction strictly by statistical edge over fair random odds",
+    "desc": "Calibrates prediction conviction strictly by statistical edge over fair random odds", "strategy": "Kelly: bet the growth-optimal side (uses edge estimate)", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 9, "conf": 0.83, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1221,7 +1221,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Anti-Martingale Paroli",
     "cat": "game_theory",
     "arch": "Positive Progression Compound Maximizer",
-    "desc": "Aggressively follows winning runs to ride hot winning clusters while truncating drawdowns",
+    "desc": "Aggressively follows winning runs to ride hot winning clusters while truncating drawdowns", "strategy": "Anti-martingale: follow wins, fade losses", "complexity": "simple",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 8, "conf": 0.82, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1229,7 +1229,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Nash Bi-Matrix Equilibrium",
     "cat": "game_theory",
     "arch": "Non-Cooperative Game Saddle-Point Resolver",
-    "desc": "Solves the stationary mixed strategy equilibrium where neither player has incentive to unilaterally deviate",
+    "desc": "Solves the stationary mixed strategy equilibrium where neither player has incentive to unilaterally deviate", "strategy": "Nash: equilibrium mix (50/50 with tie-break)", "complexity": "simple",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 1, "conf": 0.79, "predType": "COLOR", "predTarget": "GREEN", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1237,7 +1237,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Prospect Theory Compensator",
     "cat": "game_theory",
     "arch": "Kahneman-Tversky Non-Linear Probability Weighting",
-    "desc": "Offsets behavioral asymmetry by over-weighting low-probability tail clusters and dampening noise",
+    "desc": "Offsets behavioral asymmetry by over-weighting low-probability tail clusters and dampening noise", "strategy": "Prospect: overweight small probabilities, loss-averse", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 6, "conf": 0.80, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1245,7 +1245,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Stackelberg Leader-Follower",
     "cat": "game_theory",
     "arch": "Hierarchical Commitment Game Solver",
-    "desc": "Models leader-follower dynamic anticipating counter-moves from game pool variance",
+    "desc": "Models leader-follower dynamic anticipating counter-moves from game pool variance", "strategy": "Stackelberg: leader-follower (house moves first)", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.81, "predType": "COLOR", "predTarget": "GREEN", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1253,7 +1253,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Evolutionary Stable Strategy",
     "cat": "game_theory",
     "arch": "Maynard Smith Replicator Population Differential",
-    "desc": "Maintains an uninvadable policy immune to sudden shifts in random noise distributions",
+    "desc": "Maintains an uninvadable policy immune to sudden shifts in random noise distributions", "strategy": "ESS: evolutionarily stable strategy", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 4, "conf": 0.79, "predType": "SIZE", "predTarget": "SMALL", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1261,7 +1261,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "UCB1 Multi-Armed Bandit",
     "cat": "game_theory",
     "arch": "Auer-Cesa-Bianchi Upper Confidence Bound",
-    "desc": "Optimal balance of exploiting historically winning states while actively exploring emerging shifts",
+    "desc": "Optimal balance of exploiting historically winning states while actively exploring emerging shifts", "strategy": "UCB1: upper confidence bound arm selection", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.82, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1269,7 +1269,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Dynamic Time Warping",
     "cat": "pattern",
     "arch": "Non-Linear Elastic Dynamic Programming Alignment",
-    "desc": "Aligns non-linear speed variations in past winning streaks with the current sequence",
+    "desc": "Aligns non-linear speed variations in past winning streaks with the current sequence", "strategy": "DTW: dynamic time warping nearest sequence", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 9, "conf": 0.83, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1277,7 +1277,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "KNN Multi-Metric Search",
     "cat": "pattern",
     "arch": "K-Nearest Neighbors Hamming-Euclidean Ensemble",
-    "desc": "Retrieves the k-most structurally identical historical sequences to vote on next outcome",
+    "desc": "Retrieves the k-most structurally identical historical sequences to vote on next outcome", "strategy": "KNN: k-nearest historical windows", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 2, "conf": 0.81, "predType": "COLOR", "predTarget": "RED", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1285,7 +1285,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Levenshtein Distance Matcher",
     "cat": "pattern",
     "arch": "Edit Distance Sequence Metric Search",
-    "desc": "Calculates minimum insertion, deletion, and substitution cost to match historical patterns",
+    "desc": "Calculates minimum insertion, deletion, and substitution cost to match historical patterns", "strategy": "Levenshtein: edit-distance nearest pattern", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 3, "conf": 0.80, "predType": "SIZE", "predTarget": "SMALL", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1293,7 +1293,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "LZ78 Dictionary Predictor",
     "cat": "pattern",
     "arch": "Ziv-Lempel Incremental Parsing Tree",
-    "desc": "Constructs a prefix dictionary of sequence phrases to project high-probability continuations",
+    "desc": "Constructs a prefix dictionary of sequence phrases to project high-probability continuations", "strategy": "LZ78: compression-based prediction", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 8, "conf": 0.82, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1301,7 +1301,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "PPM-D Context Predictor",
     "cat": "pattern",
     "arch": "Prediction by Partial Matching Context Tree",
-    "desc": "Finite-context compression model using escape probabilities across multi-depth trees",
+    "desc": "Finite-context compression model using escape probabilities across multi-depth trees", "strategy": "PPM: prediction by partial matching", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.81, "predType": "COLOR", "predTarget": "GREEN", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1309,7 +1309,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Gods Eye Hyper Ensemble",
     "cat": "meta",
     "arch": "Holographic Consensus & Omnipresent Cross-Pattern Matrix",
-    "desc": "Omnipresent multi-horizon ensemble synthesizing spatial digit resonance, cycle flows, and consensus convergence with adaptive self-healing",
+    "desc": "Omnipresent multi-horizon ensemble synthesizing spatial digit resonance, cycle flows, and consensus convergence with adaptive self-healing", "strategy": "Multi-horizon holographic pattern & cycle synthesis", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.91, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1317,7 +1317,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "AdaBoost Adaptive Booster",
     "cat": "pattern",
     "arch": "Sequential Exponential Loss Weak-Learner Ensemble",
-    "desc": "Iteratively boosts sample weights of recently misclassified patterns to master difficult regimes",
+    "desc": "Iteratively boosts sample weights of recently misclassified patterns to master difficult regimes", "strategy": "AdaBoost: weighted weak learners", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 1, "conf": 0.82, "predType": "SIZE", "predTarget": "SMALL", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1325,7 +1325,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "XGBoost Gradient Partitioner",
     "cat": "pattern",
     "arch": "Newton-Raphson Regularized Tree Partitioner",
-    "desc": "Second-order Taylor expansion loss minimization splitting sequence feature vectors",
+    "desc": "Second-order Taylor expansion loss minimization splitting sequence feature vectors", "strategy": "Gradient tree: split on lag features", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 4, "conf": 0.83, "predType": "COLOR", "predTarget": "RED", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1333,7 +1333,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "RBF Kernel SVM Classifier",
     "cat": "pattern",
     "arch": "Radial Basis Maximum-Margin Support Vector Machine",
-    "desc": "Projects high-dimensional non-linear draw features into reproducing kernel Hilbert space",
+    "desc": "Projects high-dimensional non-linear draw features into reproducing kernel Hilbert space", "strategy": "SVM: max-margin hyperplane on lag features", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.81, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1341,7 +1341,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Chebyshev Polynomial Fit",
     "cat": "pattern",
     "arch": "Orthogonal Minimax Polynomial Interpolator",
-    "desc": "Suppresses edge oscillation errors to compute optimal smooth polynomial trend curves",
+    "desc": "Suppresses edge oscillation errors to compute optimal smooth polynomial trend curves", "strategy": "Chebyshev polynomial fit extrapolation", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 8, "conf": 0.79, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1349,7 +1349,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Quantum Bloch Sphere Net",
     "cat": "quantum",
     "arch": "Qubit Unitary State Rotation Vector",
-    "desc": "Maps parity state amplitudes onto the spherical geometry of a 2-level quantum system",
+    "desc": "Maps parity state amplitudes onto the spherical geometry of a 2-level quantum system", "strategy": "Bloch sphere: quantum state rotation", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.84, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1357,7 +1357,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Born Wavefunction Collapse",
     "cat": "quantum",
     "arch": "Hermitian Observable Measurement Projector",
-    "desc": "Simulates wavepacket decoherence and Born rule probability extraction on mixed states",
+    "desc": "Simulates wavepacket decoherence and Born rule probability extraction on mixed states", "strategy": "Born rule: probabilistic collapse", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 2, "conf": 0.82, "predType": "COLOR", "predTarget": "RED", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1365,7 +1365,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Temporal Future-Traveling Predictor",
     "cat": "quantum",
     "arch": "Phase-Shifted Temporal Manifold Extrapolation",
-    "desc": "Simulates forward-dilated sequence vectors to extrapolate upcoming state collapse before round boundary closure",
+    "desc": "Simulates forward-dilated sequence vectors to extrapolate upcoming state collapse before round boundary closure", "strategy": "Phase-shifted temporal manifold extrapolation", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 2, "conf": 0.89, "predType": "COLOR", "predTarget": "RED", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1373,7 +1373,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Dirichlet Multinomial Process",
     "cat": "statistical",
     "arch": "Polya Urn Compound Cluster Generator",
-    "desc": "Non-parametric Bayesian model capturing rich-get-richer clustering in consecutive outcomes",
+    "desc": "Non-parametric Bayesian model capturing rich-get-richer clustering in consecutive outcomes", "strategy": "Dirichlet process: nonparametric clustering", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 9, "conf": 0.83, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1381,7 +1381,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Bivariate Copula Dependency",
     "cat": "statistical",
     "arch": "Frank-Clayton Archimedean Copula Coupling",
-    "desc": "Binds non-linear tail dependence and joint distribution between Number, Size, and Color",
+    "desc": "Binds non-linear tail dependence and joint distribution between Number, Size, and Color", "strategy": "Copula: joint color-size dependency", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 8, "conf": 0.82, "predType": "COLOR", "predTarget": "RED", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1389,7 +1389,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "ASI Apex Master Conductor v5.0",
     "cat": "meta",
     "arch": "Supreme Meta-Intelligence · 100-Model Neural Conductor · Orthogonal Regime Gating",
-    "desc": "Omniscient master meta-engine that monitors and synthesizes all 100 sub-algorithms in real-time, boosting active streak leaders, pruning toxic outliers, and delivering ultra-high accuracy consensus",
+    "desc": "Omniscient master meta-engine that monitors and synthesizes all 100 sub-algorithms in real-time, boosting active streak leaders, pruning toxic outliers, and delivering ultra-high accuracy consensus", "strategy": "APEX master: top-level ensemble coordinator", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.88, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1397,7 +1397,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Fly 1",
     "cat": "fly",
     "arch": "Digit Pattern Continuation · window 2 · full history",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit pattern (window 2, full) — exact ball, 10% base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 0, "conf": 0.1, "predType": "NUMBER", "predTarget": "0", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "pattern", "window": 2, "scope": "full"}}
   },
@@ -1406,7 +1406,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Fly 2",
     "cat": "fly",
     "arch": "Digit Pattern Continuation · window 2 · last 100",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit pattern (window 2, recent100) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 3, "conf": 0.1, "predType": "NUMBER", "predTarget": "3", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "pattern", "window": 2, "scope": "recent100"}}
   },
@@ -1415,7 +1415,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Fly 3",
     "cat": "fly",
     "arch": "Digit Pattern Continuation · window 3 · full history",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit pattern (window 3, full) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 6, "conf": 0.1, "predType": "NUMBER", "predTarget": "6", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "pattern", "window": 3, "scope": "full"}}
   },
@@ -1424,7 +1424,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Fly 4",
     "cat": "fly",
     "arch": "Digit Pattern Continuation · window 3 · last 100",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit pattern (window 3, recent100) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 9, "conf": 0.1, "predType": "NUMBER", "predTarget": "9", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "pattern", "window": 3, "scope": "recent100"}}
   },
@@ -1433,7 +1433,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Neural 1",
     "cat": "neural",
     "arch": "Digit Pattern Continuation · window 4 · full history",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit pattern (window 4, full) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 1, "conf": 0.1, "predType": "NUMBER", "predTarget": "1", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "pattern", "window": 4, "scope": "full"}}
   },
@@ -1442,7 +1442,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Neural 2",
     "cat": "neural",
     "arch": "Digit Pattern Continuation · window 4 · last 100",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit pattern (window 4, recent100) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 4, "conf": 0.1, "predType": "NUMBER", "predTarget": "4", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "pattern", "window": 4, "scope": "recent100"}}
   },
@@ -1451,7 +1451,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Neural 3",
     "cat": "neural",
     "arch": "Digit Pattern Continuation · window 5 · full history",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit pattern (window 5, full) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.1, "predType": "NUMBER", "predTarget": "7", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "pattern", "window": 5, "scope": "full"}}
   },
@@ -1460,7 +1460,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Neural 4",
     "cat": "neural",
     "arch": "Digit Pattern Continuation · window 5 · last 100",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit pattern (window 5, recent100) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 0, "conf": 0.1, "predType": "NUMBER", "predTarget": "0", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "pattern", "window": 5, "scope": "recent100"}}
   },
@@ -1469,7 +1469,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Classical 1",
     "cat": "classical",
     "arch": "Digit Pattern Continuation · window 6 · full history",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit pattern (window 6, full) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 2, "conf": 0.1, "predType": "NUMBER", "predTarget": "2", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "pattern", "window": 6, "scope": "full"}}
   },
@@ -1478,7 +1478,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Classical 2",
     "cat": "classical",
     "arch": "Digit Pattern Continuation · window 6 · last 100",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit pattern (window 6, recent100) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 5, "conf": 0.1, "predType": "NUMBER", "predTarget": "5", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "pattern", "window": 6, "scope": "recent100"}}
   },
@@ -1487,7 +1487,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Classical 3",
     "cat": "classical",
     "arch": "Digit Pattern Continuation · window 7 · full history",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit pattern (window 7, full) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 8, "conf": 0.1, "predType": "NUMBER", "predTarget": "8", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "pattern", "window": 7, "scope": "full"}}
   },
@@ -1496,7 +1496,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Classical 4",
     "cat": "classical",
     "arch": "Digit Pattern Continuation · window 7 · last 100",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit pattern (window 7, recent100) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 1, "conf": 0.1, "predType": "NUMBER", "predTarget": "1", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "pattern", "window": 7, "scope": "recent100"}}
   },
@@ -1505,7 +1505,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Statistical 1",
     "cat": "statistical",
     "arch": "Digit Frequency · last 20 · full history",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit freq (window 20, full) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 3, "conf": 0.1, "predType": "NUMBER", "predTarget": "3", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "freq", "window": 20, "scope": "full"}}
   },
@@ -1514,7 +1514,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Statistical 2",
     "cat": "statistical",
     "arch": "Digit Frequency · last 20 · last 100 cap",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit freq (window 20, recent100) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 6, "conf": 0.1, "predType": "NUMBER", "predTarget": "6", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "freq", "window": 20, "scope": "recent100"}}
   },
@@ -1523,7 +1523,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Statistical 3",
     "cat": "statistical",
     "arch": "Digit Frequency · last 50 · full history",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit freq (window 50, full) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 9, "conf": 0.1, "predType": "NUMBER", "predTarget": "9", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "freq", "window": 50, "scope": "full"}}
   },
@@ -1532,7 +1532,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Meta 1",
     "cat": "meta",
     "arch": "Digit Frequency · last 50 · last 100 cap",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit freq (window 50, recent100) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 4, "conf": 0.1, "predType": "NUMBER", "predTarget": "4", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "freq", "window": 50, "scope": "recent100"}}
   },
@@ -1541,7 +1541,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Meta 2",
     "cat": "meta",
     "arch": "Digit Frequency · last 100 · full history",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit freq (window 100, full) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.1, "predType": "NUMBER", "predTarget": "7", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "freq", "window": 100, "scope": "full"}}
   },
@@ -1550,7 +1550,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Meta 3",
     "cat": "meta",
     "arch": "Digit Frequency · last 100 · last 100 cap",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit freq (window 100, recent100) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 0, "conf": 0.1, "predType": "NUMBER", "predTarget": "0", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "freq", "window": 100, "scope": "recent100"}}
   },
@@ -1559,7 +1559,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Signal 1",
     "cat": "signal",
     "arch": "Digit Frequency · last 200 · full history",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit freq (window 200, full) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 5, "conf": 0.1, "predType": "NUMBER", "predTarget": "5", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "freq", "window": 200, "scope": "full"}}
   },
@@ -1568,7 +1568,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Signal 2",
     "cat": "signal",
     "arch": "Digit Frequency · last 200 · last 100 cap",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit freq (window 200, recent100) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 8, "conf": 0.1, "predType": "NUMBER", "predTarget": "8", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "freq", "window": 200, "scope": "recent100"}}
   },
@@ -1577,7 +1577,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Signal 3",
     "cat": "signal",
     "arch": "Digit Momentum · window 3 · full history",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit momentum (window 3, full) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 1, "conf": 0.1, "predType": "NUMBER", "predTarget": "1", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "momentum", "window": 3, "scope": "full"}}
   },
@@ -1586,7 +1586,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Chaos 1",
     "cat": "chaos",
     "arch": "Digit Momentum · window 3 · last 100 cap",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit momentum (window 3, recent100) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 6, "conf": 0.1, "predType": "NUMBER", "predTarget": "6", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "momentum", "window": 3, "scope": "recent100"}}
   },
@@ -1595,7 +1595,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Chaos 2",
     "cat": "chaos",
     "arch": "Digit Momentum · window 5 · full history",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit momentum (window 5, full) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 9, "conf": 0.1, "predType": "NUMBER", "predTarget": "9", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "momentum", "window": 5, "scope": "full"}}
   },
@@ -1604,7 +1604,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Chaos 3",
     "cat": "chaos",
     "arch": "Digit Momentum · window 5 · last 100 cap",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit momentum (window 5, recent100) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 2, "conf": 0.1, "predType": "NUMBER", "predTarget": "2", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "momentum", "window": 5, "scope": "recent100"}}
   },
@@ -1613,7 +1613,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Game Theory 1",
     "cat": "game_theory",
     "arch": "Digit Momentum · window 8 · full history",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit momentum (window 8, full) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.1, "predType": "NUMBER", "predTarget": "7", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "momentum", "window": 8, "scope": "full"}}
   },
@@ -1622,7 +1622,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Game Theory 2",
     "cat": "game_theory",
     "arch": "Digit Momentum · window 8 · last 100 cap",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit momentum (window 8, recent100) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 0, "conf": 0.1, "predType": "NUMBER", "predTarget": "0", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "momentum", "window": 8, "scope": "recent100"}}
   },
@@ -1631,7 +1631,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Game Theory 3",
     "cat": "game_theory",
     "arch": "Digit Momentum · window 13 · full history",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit momentum (window 13, full) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 3, "conf": 0.1, "predType": "NUMBER", "predTarget": "3", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "momentum", "window": 13, "scope": "full"}}
   },
@@ -1640,7 +1640,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Pattern 1",
     "cat": "pattern",
     "arch": "Digit Momentum · window 13 · last 100 cap",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit momentum (window 13, recent100) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "BIG", "num": 8, "conf": 0.1, "predType": "NUMBER", "predTarget": "8", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "momentum", "window": 13, "scope": "recent100"}}
   },
@@ -1649,7 +1649,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Pattern 2",
     "cat": "pattern",
     "arch": "Digit Anti-Momentum · last 20 · full history",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit anti (window 20, full) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "SMALL", "num": 1, "conf": 0.1, "predType": "NUMBER", "predTarget": "1", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "anti", "window": 20, "scope": "full"}}
   },
@@ -1658,7 +1658,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Pattern 3",
     "cat": "pattern",
     "arch": "Digit Anti-Momentum · last 20 · last 100 cap",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit anti (window 20, recent100) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 4, "conf": 0.1, "predType": "NUMBER", "predTarget": "4", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "anti", "window": 20, "scope": "recent100"}}
   },
@@ -1667,7 +1667,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Quantum 1",
     "cat": "quantum",
     "arch": "Digit Anti-Momentum · last 50 · full history",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit anti (window 50, full) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 9, "conf": 0.1, "predType": "NUMBER", "predTarget": "9", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "anti", "window": 50, "scope": "full"}}
   },
@@ -1676,7 +1676,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Quantum 2",
     "cat": "quantum",
     "arch": "Digit Anti-Momentum · last 50 · last 100 cap",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit anti (window 50, recent100) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 2, "conf": 0.1, "predType": "NUMBER", "predTarget": "2", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "anti", "window": 50, "scope": "recent100"}}
   },
@@ -1685,7 +1685,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Exact Quantum 3",
     "cat": "quantum",
     "arch": "Digit Last-2 Follower · full history",
-    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.",
+    "desc": "Predicts the exact ball digit from digit-sequence strategy. Base rate 10% — measured, never claimed.", "strategy": "Digit pair (window ?, full) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 5, "conf": 0.1, "predType": "NUMBER", "predTarget": "5", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"digit": {"kind": "pair", "scope": "full"}}
   },
@@ -1694,7 +1694,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Quantum Color Extra 1",
     "cat": "quantum",
     "arch": "Digit-Sequence Colour Pattern · window 3 · full history",
-    "desc": "Quantum-family colour gap-filler: brings quantum colour to 3 governed models. Parameterized, like all Phase 3A models.",
+    "desc": "Quantum-family colour gap-filler: brings quantum colour to 3 governed models. Parameterized, like all Phase 3A models.", "strategy": "Digit pattern (window 3, full) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.75, "predType": "COLOR", "predTarget": "GREEN", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"color": {"kind": "pattern", "window": 3, "scope": "full"}}
   },
@@ -1703,7 +1703,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Quantum Size Extra 1",
     "cat": "quantum",
     "arch": "Digit-Sequence Size Pattern · window 2 · full history",
-    "desc": "Quantum-family size gap-filler (1 of 2): brings quantum size to 3 governed models.",
+    "desc": "Quantum-family size gap-filler (1 of 2): brings quantum size to 3 governed models.", "strategy": "Digit pattern (window 2, full) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.75, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"size": {"kind": "pattern", "window": 2, "scope": "full"}}
   },
@@ -1712,7 +1712,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Quantum Size Extra 2",
     "cat": "quantum",
     "arch": "Digit-Sequence Size Frequency · last 100 · last-100 cap",
-    "desc": "Quantum-family size gap-filler (2 of 2): brings quantum size to 3 governed models.",
+    "desc": "Quantum-family size gap-filler (2 of 2): brings quantum size to 3 governed models.", "strategy": "Digit freq (window 100, recent100) - exact ball, 10pct base rate", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "RED", "predSize": "SMALL", "num": 2, "conf": 0.75, "predType": "SIZE", "predTarget": "SMALL", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": [],
     "gen": {"size": {"kind": "freq", "window": 100, "scope": "recent100"}}
   },
@@ -1721,7 +1721,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Observer · Colour",
     "cat": "observer",
     "arch": "Background meta-learner: follows the best-measured follow-rule",
-    "desc": "System model (owner order 2026-10-27): observes every live model's walk-forward record every round and follows the best-measured follow-rule. Judged on its own record under the same bar as every model; it does not discover a game mechanism. Its pick is computed by systems/observer.js, never by genFn (genFn returns null for observer ids so backfill can never fabricate its record).",
+    "desc": "System model (owner order 2026-10-27): observes every live model's walk-forward record every round and follows the best-measured follow-rule. Judged on its own record under the same bar as every model; it does not discover a game mechanism. Its pick is computed by systems/observer.js, never by genFn (genFn returns null for observer ids so backfill can never fabricate its record).", "strategy": "Meta: follows best-measured color rule (live store only)", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.5, "predType": "COLOR", "predTarget": "GREEN", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1729,7 +1729,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Observer · Size",
     "cat": "observer",
     "arch": "Background meta-learner: follows the best-measured follow-rule",
-    "desc": "System model (owner order 2026-10-27): observes every live model's walk-forward record every round and follows the best-measured follow-rule. Judged on its own record under the same bar as every model; it does not discover a game mechanism. Its pick is computed by systems/observer.js, never by genFn (genFn returns null for observer ids so backfill can never fabricate its record).",
+    "desc": "System model (owner order 2026-10-27): observes every live model's walk-forward record every round and follows the best-measured follow-rule. Judged on its own record under the same bar as every model; it does not discover a game mechanism. Its pick is computed by systems/observer.js, never by genFn (genFn returns null for observer ids so backfill can never fabricate its record).", "strategy": "Meta: follows best-measured size rule (live store only)", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.5, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1737,7 +1737,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Observer · Number",
     "cat": "observer",
     "arch": "Background meta-learner: follows the best-measured follow-rule",
-    "desc": "System model (owner order 2026-10-27): observes every live model's walk-forward record every round and follows the best-measured follow-rule. Judged on its own record under the same bar as every model; it does not discover a game mechanism. Display-only until O4 (exact payout unverified) like every exact model. Its pick is computed by systems/observer.js, never by genFn (genFn returns null for observer ids so backfill can never fabricate its record).",
+    "desc": "System model (owner order 2026-10-27): observes every live model's walk-forward record every round and follows the best-measured follow-rule. Judged on its own record under the same bar as every model; it does not discover a game mechanism. Display-only until O4 (exact payout unverified) like every exact model. Its pick is computed by systems/observer.js, never by genFn (genFn returns null for observer ids so backfill can never fabricate its record).", "strategy": "Meta: follows best-measured number rule (display-only)", "complexity": "complex",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.5, "predType": "NUMBER", "predTarget": "7", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1745,7 +1745,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Pattern Repeater · Colour",
     "cat": "pattern",
     "arch": "Named repeating-pattern detector: DRAGON / CHOP / DOUBLE / STREAK with fixed identification rules",
-    "desc": "System model (owner order 2026-10-30): detects repeating colour patterns with clear names (DRAGON_GREEN = 4+ GREEN in a row, CHOP = alternating, DOUBLE_RED = pairs, STREAK_GREEN = 2-3 in a row) and predicts the pattern continues. Outputs null (no prediction) when no pattern matches. Governed under the same Wilson bar (53.02%), 2-window blacklist, and bench rules as every model. No proven edge.",
+    "desc": "System model (owner order 2026-10-30): detects repeating colour patterns with clear names (DRAGON_GREEN = 4+ GREEN in a row, CHOP = alternating, DOUBLE_RED = pairs, STREAK_GREEN = 2-3 in a row) and predicts the pattern continues. Outputs null (no prediction) when no pattern matches. Governed under the same Wilson bar (53.02%), 2-window blacklist, and bench rules as every model. No proven edge.", "strategy": "Named repeating patterns (DRAGON/CHOP/DOUBLE/STREAK); null if none", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.65, "predType": "COLOR", "predTarget": "GREEN", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   },
   {
@@ -1753,7 +1753,7 @@ const ARENA_CANONICAL_MODELS = [
     "name": "Pattern Repeater · Size",
     "cat": "pattern",
     "arch": "Named repeating-pattern detector: DRAGON / CHOP / DOUBLE / STREAK with fixed identification rules",
-    "desc": "System model (owner order 2026-10-30): detects repeating size patterns with clear names (DRAGON_BIG = 4+ BIG in a row, CHOP = alternating, DOUBLE_SMALL = pairs, STREAK_BIG = 2-3 in a row) and predicts the pattern continues. Outputs null (no prediction) when no pattern matches. Governed under the same Wilson bar (53.02%), 2-window blacklist, and bench rules as every model. No proven edge.",
+    "desc": "System model (owner order 2026-10-30): detects repeating size patterns with clear names (DRAGON_BIG = 4+ BIG in a row, CHOP = alternating, DOUBLE_SMALL = pairs, STREAK_BIG = 2-3 in a row) and predicts the pattern continues. Outputs null (no prediction) when no pattern matches. Governed under the same Wilson bar (53.02%), 2-window blacklist, and bench rules as every model. No proven edge.", "strategy": "Named repeating patterns (DRAGON/CHOP/DOUBLE/STREAK); null if none", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.65, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   }
 ];
