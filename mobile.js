@@ -3157,8 +3157,10 @@ function renderModelRosterUI() {
   // Champion card stats
   const champModel = sorted.find(m => m.name === effectiveInCharge) || sorted[0];
   if (champModel) {
-    const activeTarget = MobileState.activePrediction?.target || champModel.predTarget || 'BIG';
-    const activeType = MobileState.activePrediction?.type || champModel.predType || 'SIZE';
+    // No-fabrication: when neither the native prediction nor the model
+    // has a target, show '—' — never an invented 'BIG'.
+    const activeTarget = MobileState.activePrediction?.target || champModel.predTarget || '—';
+    const activeType = MobileState.activePrediction?.type || champModel.predType || '—';
     champModel.predTarget = activeTarget;
     champModel.predType = activeType;
 
@@ -3170,7 +3172,8 @@ function renderModelRosterUI() {
         activeTarget === 'SMALL' ? 'bg-sky-500/20 text-sky-300 border-sky-500/30' :
         activeTarget === 'GREEN' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' :
         activeTarget === 'RED' ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' :
-        'bg-amber-500/20 text-amber-300 border-amber-500/30'
+        activeTarget === 'VIOLET' ? 'bg-violet-500/20 text-violet-300 border-violet-500/30' :
+        'bg-white/5 text-zinc-400 border-white/10'
       }`;
     }
 
@@ -3301,7 +3304,9 @@ function renderModelRosterUI() {
     const tColor = a.predTarget === 'BIG' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
       : a.predTarget === 'SMALL' ? 'bg-sky-500/20 text-sky-300 border-sky-500/30'
       : a.predTarget === 'GREEN' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-      : 'bg-rose-500/20 text-rose-300 border-rose-500/30';
+      : a.predTarget === 'RED' ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+      : a.predTarget === 'VIOLET' ? 'bg-violet-500/20 text-violet-300 border-violet-500/30'
+      : 'bg-white/5 text-zinc-400 border-white/10';
 
     return `<div class="${cardClass} flex items-center justify-between font-mono text-[9px]">
       <div class="flex items-center gap-2 relative z-10">
@@ -3310,7 +3315,7 @@ function renderModelRosterUI() {
           <div class="flex items-center gap-1.5">
             <span class="font-bold text-white max-w-[150px] truncate">${a.name}</span>
             ${isLead ? '<span class="px-1.5 py-0.2 rounded bg-amber-400 text-black text-[7px] font-black font-mono">IN CHARGE</span>' : ''}
-            <span class="px-1.5 py-0.2 rounded ${tColor} border text-[7px] font-black">${a.predTarget || 'BIG'}</span>
+            <span class="px-1.5 py-0.2 rounded ${tColor} border text-[7px] font-black">${a.predTarget || '—'}</span>
           </div>
           <div class="flex items-center gap-1.5 mt-0.5 text-[8px] text-zinc-400">
             <span class="px-1 py-0.2 rounded bg-white/5 border-white/10 border uppercase">${a.cat || 'AI'}</span>
