@@ -3316,6 +3316,8 @@ function initBridge() {
   const BALANCE_ASK_TEXT = 'Tap here and type your balance \u2193';
 
   function maybeAskBalance() {
+    // Owner order 2026-10-30: ONLY on the DhaniWin game page.
+    try { if (!isOnDhaniGamePage()) return; } catch (e) { return; }
     let fresh = false;
     try { fresh = freshVerifiedBalance(verifier.status(Date.now())); } catch (e) { /* never break boot */ }
     if (shouldAskBalance({ verifiedFresh: fresh, typed: state.typedBalance, dismissed: state.balanceAskDismissed })) {

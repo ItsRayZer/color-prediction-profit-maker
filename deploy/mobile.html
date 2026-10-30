@@ -970,6 +970,20 @@
       <span id="floatingOrbDot" class="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-black pointer-events-none"></span>
     </div>
 
+    <!-- Owner order 2026-10-30: minimal "lime" indicator for the
+         homepage — a small, clean, non-intrusive dot. Tapping it
+         opens the Axo widget. Shown ONLY on the home tab; the full
+         widget stays hidden there. -->
+    <div id="axoLimeDot"
+      class="fixed select-none cursor-pointer transition-transform active:scale-90"
+      style="bottom: 90px; right: 16px; width: 14px; height: 14px; z-index: 99998; display: none;"
+      role="button"
+      tabindex="0"
+      title="Axo — tap to open"
+      onclick="window.__smartBall && window.__smartBall.openAxoFromLime ? window.__smartBall.openAxoFromLime() : (typeof toggleDhaniwinAssistantModal === 'function' && toggleDhaniwinAssistantModal(true))">
+      <span style="display:block; width:14px; height:14px; border-radius:9999px; background:#a3e635; box-shadow:0 0 8px rgba(163,230,53,0.6), 0 0 2px rgba(163,230,53,0.9); border:2px solid rgba(0,0,0,0.4);"></span>
+    </div>
+
     <!-- Outside floating subtitle bubble (owner order 2026-10-25,
          reverses fix round #5's deletion): the subtitle lives HERE,
          outside the panel, next to the avatar — speaking or panel
@@ -1004,22 +1018,27 @@
          plain language. Impossible to miss, one-tap dismiss. Dismissing
          without answering keeps the last balance — it never zeroes it.
          Shows the P&L alongside so the full picture is clear. -->
-    <div id="axoBalanceConfirmModal" style="display:none; position:fixed; inset:0; z-index:100002; background:rgba(0,0,0,0.65); align-items:center; justify-content:center; padding:20px;" onclick="if(event.target===this){window.__smartBall&&window.__smartBall.dismissBalanceConfirm()}">
-      <div style="background:rgba(28,28,31,0.98); border:1px solid rgba(255,255,255,0.16); border-radius:20px; padding:20px; max-width:320px; width:100%; box-shadow:0 12px 40px rgba(0,0,0,0.6);">
-        <div style="color:#fff; font-size:15px; font-weight:800; margin-bottom:8px;">Check your balance</div>
-        <div id="axoBalanceConfirmText" style="color:#e4e4e7; font-size:14px; line-height:1.5; margin-bottom:6px;"></div>
-        <div id="axoBalanceConfirmPnl" style="color:#a1a1aa; font-size:12px; margin-bottom:16px;"></div>
-        <div id="axoBalanceConfirmButtons" style="display:flex; gap:8px;">
-          <button type="button" onclick="window.__smartBall&&window.__smartBall.confirmBalanceYes()" style="flex:1; padding:11px 8px; border-radius:12px; background:#10b981; color:#04120c; font-weight:800; font-size:14px; border:none; cursor:pointer; touch-action:manipulation;">Yes, correct</button>
-          <button type="button" onclick="window.__smartBall&&window.__smartBall.confirmBalanceEdit()" style="flex:1; padding:11px 8px; border-radius:12px; background:rgba(255,255,255,0.1); color:#fff; font-weight:700; font-size:14px; border:1px solid rgba(255,255,255,0.25); cursor:pointer; touch-action:manipulation;">Type new</button>
+    <div id="axoBalanceConfirmModal" style="display:none; position:fixed; inset:0; z-index:100002; background:rgba(0,0,0,0.4); backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%); align-items:center; justify-content:center; padding:20px;" onclick="if(event.target===this){window.__smartBall&&window.__smartBall.dismissBalanceConfirm()}">
+      <!-- Owner order 2026-10-30: Apple-like GenZ premium lucid glass —
+           frosted glass morphism, clean typography, subtle borders. -->
+      <div style="background:rgba(28,28,32,0.55); backdrop-filter:blur(30px) saturate(200%); -webkit-backdrop-filter:blur(30px) saturate(200%); border:1px solid rgba(255,255,255,0.18); border-radius:24px; padding:24px 20px; max-width:320px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15);">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+          <div style="width:36px; height:36px; border-radius:12px; background:linear-gradient(135deg, rgba(163,230,53,0.25), rgba(16,185,129,0.25)); border:1px solid rgba(163,230,53,0.3); display:flex; align-items:center; justify-content:center; font-size:18px;">💰</div>
+          <div style="color:#fff; font-size:17px; font-weight:800; letter-spacing:-0.3px;">Check your balance</div>
         </div>
-        <div id="axoBalanceConfirmEditRow" style="display:none; margin-top:10px;">
-          <div style="display:flex; gap:6px; align-items:center;">
-            <input id="axoBalanceConfirmInput" type="number" inputmode="decimal" min="1" placeholder="Type balance ₹" onkeydown="if(event.key==='Enter'){window.__smartBall&&window.__smartBall.submitBalanceConfirm()}" style="flex:1; min-width:0; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.25); border-radius:10px; padding:10px 12px; color:#fff; font-size:15px; outline:none;">
-            <button type="button" onclick="window.__smartBall&&window.__smartBall.submitBalanceConfirm()" aria-label="Save balance" style="width:44px; height:44px; flex:none; border-radius:12px; background:#10b981; color:#04120c; font-size:18px; font-weight:800; cursor:pointer; border:none; touch-action:manipulation;">✓</button>
+        <div id="axoBalanceConfirmText" style="color:rgba(255,255,255,0.85); font-size:14px; line-height:1.5; margin-bottom:6px; font-weight:500;"></div>
+        <div id="axoBalanceConfirmPnl" style="color:#a1a1aa; font-size:12px; margin-bottom:18px; font-weight:600;"></div>
+        <div id="axoBalanceConfirmButtons" style="display:flex; gap:10px;">
+          <button type="button" onclick="window.__smartBall&&window.__smartBall.confirmBalanceYes()" style="flex:1; padding:13px 8px; border-radius:16px; background:linear-gradient(135deg, #a3e635, #10b981); color:#04120c; font-weight:800; font-size:14px; border:none; cursor:pointer; touch-action:manipulation; box-shadow:0 4px 16px rgba(163,230,53,0.3);">Yes, correct</button>
+          <button type="button" onclick="window.__smartBall&&window.__smartBall.confirmBalanceEdit()" style="flex:1; padding:13px 8px; border-radius:16px; background:rgba(255,255,255,0.08); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); color:#fff; font-weight:700; font-size:14px; border:1px solid rgba(255,255,255,0.2); cursor:pointer; touch-action:manipulation;">Type new</button>
+        </div>
+        <div id="axoBalanceConfirmEditRow" style="display:none; margin-top:12px;">
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input id="axoBalanceConfirmInput" type="number" inputmode="decimal" min="1" placeholder="Type balance ₹" onkeydown="if(event.key==='Enter'){window.__smartBall&&window.__smartBall.submitBalanceConfirm()}" style="flex:1; min-width:0; background:rgba(255,255,255,0.06); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.25); border-radius:14px; padding:12px 14px; color:#fff; font-size:16px; font-weight:600; outline:none;">
+            <button type="button" onclick="window.__smartBall&&window.__smartBall.submitBalanceConfirm()" aria-label="Save balance" style="width:48px; height:48px; flex:none; border-radius:14px; background:linear-gradient(135deg, #a3e635, #10b981); color:#04120c; font-size:20px; font-weight:800; cursor:pointer; border:none; touch-action:manipulation; box-shadow:0 4px 16px rgba(163,230,53,0.3);">✓</button>
           </div>
         </div>
-        <button type="button" onclick="window.__smartBall&&window.__smartBall.dismissBalanceConfirm()" style="width:100%; margin-top:10px; padding:9px; border-radius:12px; background:transparent; color:#71717a; font-size:13px; border:none; cursor:pointer; touch-action:manipulation;">Not now</button>
+        <button type="button" onclick="window.__smartBall&&window.__smartBall.dismissBalanceConfirm()" style="width:100%; margin-top:12px; padding:10px; border-radius:14px; background:transparent; color:rgba(255,255,255,0.5); font-size:13px; font-weight:600; border:none; cursor:pointer; touch-action:manipulation;">Not now</button>
       </div>
     </div>
 
@@ -1085,23 +1104,25 @@
         <div class="assistant-resize-handle resize-corner-tr" data-resize="tr" title="Drag to resize"></div>
         <div class="assistant-resize-handle resize-corner-tl" data-resize="tl" title="Drag to resize"></div>
 
-        <!-- Draggable Header Bar: Title + Drag Indicator + Size Toggle + Minimize Button -->
-        <div id="assistantSheetHeader" class="px-2.5 py-1.5 flex items-center justify-between border-b border-white/[0.06] select-none bg-white/[0.03] cursor-grab active:cursor-grabbing touch-none">
-          <div class="flex items-center gap-2 min-w-0">
+        <!-- Draggable Header Bar: Title + Drag Indicator + Size Toggle + Minimize Button
+             Owner order 2026-10-30: minimalistic, no overlapping —
+             proper spacing, each element has clear space. -->
+        <div id="assistantSheetHeader" class="px-2.5 py-1.5 flex items-center justify-between border-b border-white/[0.06] select-none bg-white/[0.03] cursor-grab active:cursor-grabbing touch-none" style="gap: 8px; min-height: 72px;">
+          <div class="flex items-center gap-2 min-w-0 shrink-0">
             <!-- Axo face (orb-bridge): two stacked frames crossfaded by
                  setAxoFace; the corner chip is the Axo voice mute. -->
-            <div id="axoFaceHost" class="relative shrink-0" style="width:64px;height:64px">
+            <div id="axoFaceHost" class="relative shrink-0" style="width:56px;height:56px; flex:none;">
               <img id="axoFaceBack" alt="" aria-hidden="true" draggable="false" class="absolute inset-0 w-full h-full object-contain opacity-0" style="transition: opacity 140ms ease">
               <img id="axoFaceFront" alt="" aria-hidden="true" draggable="false" class="absolute inset-0 w-full h-full object-contain opacity-100" style="transition: opacity 140ms ease">
             </div>
-            <div class="flex items-center gap-1.5 pointer-events-none">
-              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span class="text-[9.5px] font-mono font-black text-white/90 tracking-wider">01:01 ASSISTANT</span>
+            <div class="flex items-center gap-1.5 pointer-events-none shrink-0">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+              <span class="text-[9.5px] font-mono font-black text-white/90 tracking-wider whitespace-nowrap">01:01 ASSISTANT</span>
             </div>
           </div>
           <!-- Subtle Drag Pill -->
-          <div class="w-8 h-1 bg-white/25 rounded-full pointer-events-none"></div>
-          <div class="flex items-center gap-1.5">
+          <div class="w-8 h-1 bg-white/25 rounded-full pointer-events-none shrink-0"></div>
+          <div class="flex items-center gap-1.5 shrink-0">
             <button type="button" id="axoVoiceChip" aria-pressed="true" title="Axo voice on/off" onclick="window.__smartBall && window.__smartBall.toggleAxoVoice()" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-emerald-300 flex items-center justify-center transition" style="font-size:13px; touch-action:manipulation;">
               <i id="axoVoiceChipIcon" class="fa-solid fa-volume-high pointer-events-none"></i>
             </button>
@@ -1125,15 +1146,17 @@
              meet the 32px phone tap target (see mobile.css). It is
              NOT a drag handle (every chip is a button, which the
              drag start ignores anyway). -->
-        <div id="axoControlRow" class="flex items-center justify-between px-2 h-[34px] shrink-0 border-b border-white/[0.06]">
-            <div class="flex items-center gap-1.5 min-w-0">
+        <div id="axoControlRow" class="flex items-center justify-between px-2 h-[34px] shrink-0 border-b border-white/[0.06]" style="gap: 6px; overflow: hidden;">
+            <div class="flex items-center gap-1.5 min-w-0 shrink-0">
               <span class="text-[7px] font-mono text-zinc-500 tracking-wider shrink-0">AXO</span>
               <!-- Tap-for-voice affordance: visible ONLY while a line
                    waits for the first ball/panel gesture. Tapping it
-                   unlocks voice and speaks the queued line. -->
-              <button type="button" id="axoVoiceBlockedBadge" onclick="window.__smartBall && window.__smartBall.unlockAxoVoice()" class="hidden text-[7px] font-mono font-black px-2 py-0.5 rounded-full bg-amber-500/25 text-amber-300 border border-amber-500/40 active:scale-95 transition animate-pulse" title="Tap to enable Axo voice">TAP FOR VOICE</button>
+                   unlocks voice and speaks the queued line.
+                   Owner order 2026-10-30: minimal, no overlapping —
+                   small pill, never covers the face or other chips. -->
+              <button type="button" id="axoVoiceBlockedBadge" onclick="window.__smartBall && window.__smartBall.unlockAxoVoice()" class="hidden text-[7px] font-mono font-black px-2 py-0.5 rounded-full bg-amber-500/25 text-amber-300 border border-amber-500/40 active:scale-95 transition animate-pulse shrink-0" style="max-width: 90px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Tap to enable Axo voice">TAP FOR VOICE</button>
             </div>
-            <div class="flex items-center gap-1.5">
+            <div class="flex items-center gap-1.5 shrink-0">
               <button type="button" id="axoCcChip" aria-pressed="true" title="Subtitles on/off — Axo keeps running" onclick="window.__smartBall && window.__smartBall.toggleAxoSubs()" class="text-[8.5px] font-mono font-black px-2.5 py-1 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 active:scale-95 active:brightness-125 transition" style="touch-action:manipulation; min-height:32px; min-width:36px;">CC</button>
               <button type="button" id="axoModeChip" aria-pressed="true" title="Axo mode: AI narration or Normal (templates only)" onclick="window.__smartBall && window.__smartBall.toggleAxoMode()" class="text-[8.5px] font-mono font-black px-2.5 py-1 rounded-full bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 active:scale-95 active:brightness-125 transition" style="touch-action:manipulation; min-height:32px; min-width:36px;">AI</button>
               <button type="button" id="axoLangChip" title="Axo language — tap to change" onclick="window.__smartBall && window.__smartBall.toggleAxoLang()" class="text-[8.5px] font-mono font-black px-2.5 py-1 rounded-full bg-white/10 text-zinc-300 border border-white/10 active:scale-95 active:brightness-125 transition" style="touch-action:manipulation; min-height:32px; min-width:36px;">EN</button>

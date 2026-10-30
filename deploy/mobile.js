@@ -5004,6 +5004,36 @@ function switchMobileTab(tab) {
     if (typeof toggleDhaniwinAssistantModal === 'function') toggleDhaniwinAssistantModal(false);
   }
 
+  // Owner order 2026-10-30: widget states per tab.
+  // - Analyse page (#tab-ai): widget ALWAYS in COMPACT mode. Never
+  //   auto-open the full panel here. User can tap to expand.
+  // - Homepage: hide the full widget, show only the minimal lime dot.
+  try {
+    const limeDot = $('axoLimeDot');
+    const sheet = $('dhaniwinAssistantSheet');
+    if (tab === 'ai') {
+      // Analyse: compact mode. Close full panel if open, show orb in compact.
+      if (typeof toggleDhaniwinAssistantModal === 'function') toggleDhaniwinAssistantModal(false);
+      if (orb) {
+        orb.style.display = 'block';
+        // Force compact: set the data attribute for compact styling.
+        if (sheet) sheet.setAttribute('data-axo-compact', '3');
+      }
+      if (limeDot) limeDot.style.display = 'none';
+      if (typeof clampFloatingOrb === 'function') clampFloatingOrb();
+    } else if (tab === 'home') {
+      // Homepage: hide full widget, show only lime dot.
+      if (typeof toggleDhaniwinAssistantModal === 'function') toggleDhaniwinAssistantModal(false);
+      if (orb) orb.style.display = 'none';
+      if (limeDot) limeDot.style.display = 'block';
+    } else {
+      // Other tabs: hide lime dot.
+      if (limeDot) limeDot.style.display = 'none';
+      // On web tab, orb is already shown above; ensure compact is cleared.
+      if (tab === 'web' && sheet) sheet.removeAttribute('data-axo-compact');
+    }
+  } catch (e) { /* widget state must never break tab switch */ }
+
   // Bubble-tracks-Axo: anchor visibility changed (orb shown or
   // hidden) — the bubble tracks it or hides with it, never parks
   // at a stale spot.
