@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01.01 Admin</title>
+<style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:#0b0b0e;color:#e8e8ea;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;padding:20px;max-width:1100px;margin-left:auto;margin-right:auto}
+header{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+h1{font-size:20px;margin:0}
+h2{font-size:15px;margin:0 0 12px}
+.viewonly{font-size:11px;color:#a1a1aa;border:1px solid #3f3f46;border-radius:999px;padding:3px 10px;white-space:nowrap}
+#login{max-width:320px;margin:70px auto;text-align:center}
+#login input{width:100%;background:#18181b;border:1px solid #3f3f46;color:#fff;border-radius:8px;padding:10px 12px;font-size:15px;margin-bottom:10px}
+button{background:#f5b301;border:0;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;color:#111}
+button.ghost{background:#27272a;color:#e8e8ea}
+button:disabled{opacity:.5;cursor:default}
+.err{color:#fb7185;font-size:13px;min-height:18px;margin:8px 0 0}
+.stats{display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.stat{background:#131316;border:1px solid #27272a;border-radius:12px;padding:12px 16px;min-width:110px;flex:1}
+.stat span{font-size:20px;font-weight:700;display:block}
+.stat label{font-size:11px;color:#a1a1aa}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid #1f1f23;white-space:nowrap}
+th{color:#a1a1aa;font-weight:500;font-size:11px;text-transform:uppercase;cursor:pointer;user-select:none}
+th:hover{color:#e8e8ea}
+th .arrow{font-size:9px}
+td.pos{color:#34d399}
+td.neg{color:#fb7185}
+tr.clickable{cursor:pointer}
+tr.clickable:hover td{background:#141417}
+#drilldown{background:#101014;border:1px solid #27272a;border-radius:12px;padding:16px;margin-top:18px}
+#drilldown .dd-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+#drilldown .dd-head h2{margin:0;flex:1;min-width:200px}
+.daynav{display:flex;align-items:center;gap:8px;font-size:13px;color:#a1a1aa}
+.daynav button{padding:6px 10px;font-size:12px}
+.foot{display:flex;align-items:center;gap:10px;margin-top:16px;color:#a1a1aa;font-size:12px;flex-wrap:wrap}
+.mono{font-family:ui-monospace,monospace;font-size:12px}
+@media(max-width:640px){th,td{padding:7px 5px;font-size:12px}.stats{gap:8px}}
+</style>
+</head>
+<body>
+<header><h1>01.01 Admin</h1><span class="viewonly">View only</span></header>
+
+<section id="login">
+<form id="loginForm">
+<input id="pw" type="password" placeholder="Password" autocomplete="current-password" aria-label="Password">
+<button type="submit">Sign in</button>
+<p id="err" class="err" role="alert"></p>
+</form>
+</section>
+
+<section id="dash" hidden>
+<div class="stats">
+<div class="stat"><span id="liveCount">0</span><label>Live users</label></div>
+<div class="stat"><span id="rounds24h">0</span><label>Rounds (24h)</label></div>
+<div class="stat"><span id="totalProfit">-</span><label>Total profit (24h)</label></div>
+<div class="stat"><span id="kvBuckets" class="mono">-</span><label>KV day buckets</label></div>
+</div>
+
+<h2>Users</h2>
+<table aria-label="Users">
+<thead><tr>
+<th data-k="id">User <span class="arrow"></span></th>
+<th data-k="lastSeen">Last seen <span class="arrow"></span></th>
+<th data-k="rounds24h">Rounds <span class="arrow"></span></th>
+<th data-k="profit">Profit <span class="arrow"></span></th>
+<th data-k="balance">Balance <span class="arrow"></span></th>
+<th data-k="highestBalance">Highest <span class="arrow"></span></th>
+</tr></thead>
+<tbody id="tbody"></tbody>
+</table>
+
+<section id="drilldown" hidden>
+<div class="dd-head">
+<h2>Rounds &mdash; <span id="ddId" class="mono"></span></h2>
+<div class="daynav">
+<button id="ddPrev" class="ghost" type="button">&lt; Prev day</button>
+<span id="ddDay" class="mono"></span>
+<button id="ddNext" class="ghost" type="button">Next day &gt;</button>
+<button id="ddClose" class="ghost" type="button">Close</button>
+</div>
+</div>
+<table aria-label="User rounds">
+<thead><tr><th>Time</th><th>TF</th><th>Issue</th><th>Ball</th><th>Prediction</th><th>Stake</th><th>Outcome</th><th>P&amp;L</th></tr></thead>
+<tbody id="ddBody"></tbody>
+</table>
+<p id="ddNote" class="mono" style="color:#a1a1aa;font-size:12px"></p>
+</section>
+
+<div class="foot">
+<span id="updated"></span>
+<button id="refreshBtn" class="ghost" type="button">Refresh</button>
+<button id="logoutBtn" class="ghost" type="button">Sign out</button>
+</div>
+</section>
+
+<script>
+"use strict";
+var API = "https://o101-dhani-proxy.mrabensojan.workers.dev";
+var TOKEN = null;               // page memory only, never persisted
+var USERS = [];
+var SORT_K = "lastSeen", SORT_D = -1;
+var DD_ID = null, DD_DAY = null;
+var refreshTimer = null;
+
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function ago(iso){var t=Date.parse(iso);if(isNaN(t))return "-";var m=Math.max(0,Math.round((Date.now()-t)/60000));return m<1?"just now":m+" min ago";}
+function money(n){if(n===null||n===undefined||isNaN(n))return "-";var v=Number(n);return (v<0?"-":"")+"\u20B9"+Math.abs(v).toFixed(2);}
+function hm(iso){var t=Date.parse(iso);if(isNaN(t))return "-";var d=new Date(t);return d.toLocaleDateString()+" "+d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",second:"2-digit"});}
+function todayUTC(){return new Date().toISOString().slice(0,10);}
+
+async function api(path, opts){
+  var res = await fetch(API + path, opts || {});
+  if(res.status === 401){ doLogout(); throw new Error("auth"); }
+  var data = null;
+  try{ data = await res.json(); }catch(e){}
+  if(!res.ok) throw new Error((data && data.error) || ("http "+res.status));
+  return data;
+}
+function authz(){ return { "authorization": "Bearer " + TOKEN }; }
+
+async function doLogin(ev){
+  ev.preventDefault();
+  var err = document.getElementById("err");
+  err.textContent = "";
+  var pw = document.getElementById("pw").value;
+  try{
+    var data = await api("/api/admin/login", { method:"POST", headers:{ "content-type":"application/json" }, body: JSON.stringify({ password: pw }) });
+    if(!data || !data.token) throw new Error("bad login");
+    TOKEN = data.token;
+    document.getElementById("pw").value = "";
+    document.getElementById("login").hidden = true;
+    document.getElementById("dash").hidden = false;
+    await loadSummary();
+    if(refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = setInterval(refreshAll, 60000);
+  }catch(e){
+    err.textContent = (e && e.message === "auth") ? "Session expired." : "Wrong password or login failed.";
+  }
+}
+function doLogout(){
+  TOKEN = null; USERS = []; DD_ID = null;
+  if(refreshTimer){ clearInterval(refreshTimer); refreshTimer = null; }
+  document.getElementById("dash").hidden = true;
+  document.getElementById("drilldown").hidden = true;
+  document.getElementById("login").hidden = false;
+}
+async function refreshAll(){
+  if(!TOKEN) return;
+  try{ await loadSummary(); }catch(e){}
+  if(DD_ID){ try{ await loadRounds(); }catch(e){} }
+}
+async function loadSummary(){
+  var d = await api("/api/admin/summary", { headers: authz() });
+  USERS = d.liveUsers || [];
+  renderStats(d);
+  renderUsers();
+  document.getElementById("updated").textContent = "Updated " + new Date().toLocaleTimeString();
+}
+function renderStats(d){
+  document.getElementById("liveCount").textContent = d.totals.liveCount;
+  document.getElementById("rounds24h").textContent = d.totals.rounds24h;
+  var tp = document.getElementById("totalProfit");
+  tp.textContent = money(d.totals.totalProfit);
+  tp.style.color = d.totals.totalProfit < 0 ? "#fb7185" : (d.totals.totalProfit > 0 ? "#34d399" : "");
+  document.getElementById("kvBuckets").textContent = d.kvInfo.dayBuckets + (d.kvInfo.oldestDay ? " / " + d.kvInfo.oldestDay : "");
+}
+function sortVal(u, k){
+  var v = u[k];
+  if(v === null || v === undefined) return SORT_D === 1 ? Infinity : -Infinity;
+  if(k === "lastSeen") return Date.parse(v) || 0;
+  if(k === "id") return String(v);
+  return Number(v);
+}
+function renderUsers(){
+  var rows = USERS.slice().sort(function(a,b){
+    var va = sortVal(a, SORT_K), vb = sortVal(b, SORT_K);
+    if(va < vb) return -1 * SORT_D;
+    if(va > vb) return 1 * SORT_D;
+    return 0;
+  });
+  var html = rows.map(function(u){
+    var pc = u.profit < 0 ? "neg" : (u.profit > 0 ? "pos" : "");
+    return '<tr class="clickable" data-uid="'+esc(u.installId||"")+'" data-did="'+esc(u.id)+'">'+
+      '<td class="mono">'+esc(u.id)+'</td><td>'+esc(ago(u.lastSeen))+'</td><td>'+u.rounds24h+'</td>'+
+      '<td class="'+pc+'">'+esc(money(u.profit))+'</td><td>'+esc(money(u.balance))+'</td><td>'+esc(money(u.highestBalance))+'</td></tr>';
+  }).join("");
+  document.getElementById("tbody").innerHTML = html || '<tr><td colspan="6">No live users right now.</td></tr>';
+  document.querySelectorAll("th[data-k]").forEach(function(th){
+    var k = th.getAttribute("data-k");
+    var arrow = th.querySelector(".arrow");
+    arrow.textContent = (k === SORT_K) ? (SORT_D === 1 ? " ▲" : " ▼") : "";
+  });
+  document.querySelectorAll("#tbody tr.clickable").forEach(function(tr){
+    tr.addEventListener("click", function(){ openDrill(tr.getAttribute("data-uid"), tr.getAttribute("data-did")); });
+  });
+}
+document.querySelectorAll("th[data-k]").forEach(function(th){
+  th.addEventListener("click", function(){
+    var k = th.getAttribute("data-k");
+    if(SORT_K === k){ SORT_D = -SORT_D; } else { SORT_K = k; SORT_D = (k === "id") ? 1 : -1; }
+    renderUsers();
+  });
+});
+
+async function openDrill(installId, displayId){
+  if(!installId) return;
+  DD_ID = installId;
+  DD_DAY = todayUTC();
+  document.getElementById("ddId").textContent = displayId || installId.slice(0,8);
+  document.getElementById("drilldown").hidden = false;
+  await loadRounds();
+  document.getElementById("drilldown").scrollIntoView({ block:"nearest" });
+}
+function shiftDay(delta){
+  if(!DD_DAY) return;
+  var d = new Date(DD_DAY + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + delta);
+  var next = d.toISOString().slice(0,10);
+  if(next > todayUTC()) return; // never the future
+  DD_DAY = next;
+  loadRounds().catch(function(){});
+}
+async function loadRounds(){
+  if(!DD_ID || !TOKEN) return;
+  document.getElementById("ddDay").textContent = DD_DAY;
+  var q = "/api/admin/rounds?installId=" + encodeURIComponent(DD_ID) + "&day=" + encodeURIComponent(DD_DAY) + "&limit=100";
+  var d = await api(q, { headers: authz() });
+  var rows = (d.rounds || []).map(function(r){
+    var pc = r.profit < 0 ? "neg" : (r.profit > 0 ? "pos" : "");
+    var ball = (r.number === null ? "-" : r.number) + (r.color ? " " + r.color : "");
+    return "<tr><td>" + esc(hm(r.settledAt)) + "</td><td>" + esc(r.tf) + "</td>" +
+      '<td class="mono">' + esc(r.issueNumber) + "</td><td>" + esc(ball) + "</td>" +
+      "<td>" + esc(r.prediction) + "</td><td>" + (r.stake === null ? "-" : "\u20B9" + Number(r.stake).toFixed(2)) + "</td>" +
+      "<td>" + esc(r.outcome) + "</td>" +
+      '<td class="' + pc + '">' + esc(money(r.profit)) + "</td></tr>";
+  }).join("");
+  document.getElementById("ddBody").innerHTML = rows || '<tr><td colspan="8">No rounds on this day.</td></tr>';
+  document.getElementById("ddNote").textContent = "Showing " + (d.rounds||[]).length + " of " + d.total + " rounds on " + d.day + ".";
+}
+
+document.getElementById("loginForm").addEventListener("submit", doLogin);
+document.getElementById("refreshBtn").addEventListener("click", function(){ refreshAll().catch(function(){}); });
+document.getElementById("logoutBtn").addEventListener("click", doLogout);
+document.getElementById("ddClose").addEventListener("click", function(){ DD_ID = null; document.getElementById("drilldown").hidden = true; });
+document.getElementById("ddPrev").addEventListener("click", function(){ shiftDay(-1); });
+document.getElementById("ddNext").addEventListener("click", function(){ shiftDay(1); });
+</script>
+</body>
+</html>
