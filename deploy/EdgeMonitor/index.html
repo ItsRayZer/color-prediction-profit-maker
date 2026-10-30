@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="data:," />
+    <title>WinGo Edge Monitor</title>
+    <style>
+      :root {
+        --bg: #0a0d12;
+        --panel: #12161f;
+        --panel-2: #171c28;
+        --line: #232b3a;
+        --line-soft: #1b222f;
+        --text: #e8ecf3;
+        --muted: #98a2b5;
+        --faint: #6b7689;
+        --red: #f45b6a;
+        --red-dim: rgba(244, 91, 106, 0.12);
+        --green: #2fd98a;
+        --green-dim: rgba(47, 217, 138, 0.10);
+        --amber: #f5b84c;
+        --amber-dim: rgba(245, 184, 76, 0.10);
+        --teal: #3ec6d8;
+        --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+        --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 15px;
+        line-height: 1.55;
+      }
+      .wrap {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 20px 16px 56px;
+      }
+
+      /* ---------- Verdict banner ---------- */
+      .verdict {
+        border: 1px solid var(--line);
+        border-top: 3px solid var(--red);
+        background: var(--panel);
+        border-radius: 10px;
+        padding: 20px 20px 18px;
+      }
+      .verdict-top {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 8px 16px;
+      }
+      .verdict-word {
+        font-family: var(--mono);
+        font-size: clamp(30px, 7vw, 44px);
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        color: var(--red);
+        line-height: 1;
+      }
+      .verdict-plain {
+        font-size: 17px;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .verdict-sub {
+        margin: 10px 0 0;
+        color: var(--muted);
+        max-width: 62ch;
+      }
+      .stamp {
+        margin-top: 14px;
+        padding-top: 12px;
+        border-top: 1px solid var(--line-soft);
+        font-family: var(--mono);
+        font-size: 12.5px;
+        color: var(--faint);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 20px;
+      }
+      .stamp b { color: var(--muted); font-weight: 600; }
+
+      /* ---------- Stat strip ---------- */
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .stat {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 14px 14px 12px;
+      }
+      .stat .num {
+        font-family: var(--mono);
+        font-size: 26px;
+        font-weight: 700;
+        line-height: 1.1;
+      }
+      .stat .lbl {
+        margin-top: 4px;
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.35;
+      }
+      .stat .num.green { color: var(--green); }
+      .stat .num.amber { color: var(--amber); }
+
+      /* ---------- Sections ---------- */
+      section { margin-top: 34px; }
+      h2 {
+        font-size: 19px;
+        font-weight: 700;
+        margin: 0 0 6px;
+        letter-spacing: 0.01em;
+      }
+      .section-lede {
+        color: var(--muted);
+        margin: 0 0 16px;
+        max-width: 66ch;
+      }
+
+      /* ---------- Per-game breakdown ---------- */
+      .games {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 16px 18px 14px;
+      }
+      .game-row {
+        display: grid;
+        grid-template-columns: 52px 1fr 74px;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 0;
+      }
+      .game-row + .game-row { border-top: 1px solid var(--line-soft); }
+      .game-name {
+        font-family: var(--mono);
+        font-weight: 700;
+        font-size: 15px;
+      }
+      .bar {
+        height: 8px;
+        background: var(--panel-2);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      .bar > i {
+        display: block;
+        height: 100%;
+        border-radius: 4px;
+        background: var(--teal);
+      }
+      .game-count {
+        font-family: var(--mono);
+        font-size: 14px;
+        text-align: right;
+        color: var(--muted);
+      }
+      .game-count b { color: var(--text); font-size: 16px; }
+      .games-foot {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid var(--line-soft);
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      /* ---------- Pipeline steps ---------- */
+      .steps { display: flex; flex-direction: column; gap: 0; }
+      .step {
+        display: grid;
+        grid-template-columns: 34px 1fr;
+        gap: 14px;
+        position: relative;
+        padding-bottom: 22px;
+      }
+      .step:last-child { padding-bottom: 0; }
+      .step::before {
+        content: "";
+        position: absolute;
+        left: 16px;
+        top: 36px;
+        bottom: 2px;
+        width: 2px;
+        background: var(--line);
+      }
+      .step:last-child::before { display: none; }
+      .step-dot {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        font-family: var(--mono);
+        font-weight: 700;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--teal);
+        position: relative;
+        z-index: 1;
+      }
+      .step h3 {
+        margin: 4px 0 4px;
+        font-size: 15.5px;
+        font-weight: 700;
+      }
+      .step p {
+        margin: 0;
+        color: var(--muted);
+        max-width: 64ch;
+      }
+      .step p b, .step p strong { color: var(--text); font-weight: 600; }
+
+      /* ---------- Gates ---------- */
+      .gates {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+      .gate {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 16px;
+      }
+      .gate-tag {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        color: var(--faint);
+      }
+      .gate h3 {
+        margin: 6px 0 6px;
+        font-size: 15px;
+        font-weight: 700;
+      }
+      .gate p { margin: 0; font-size: 13.5px; color: var(--muted); }
+      .gate .need {
+        margin-top: 12px;
+        font-family: var(--mono);
+        font-size: 20px;
+        font-weight: 700;
+      }
+      .gate .need small {
+        display: block;
+        font-family: var(--sans);
+        font-size: 12px;
+        font-weight: 400;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+
+      /* ---------- Best signal panel ---------- */
+      .best {
+        margin-top: 14px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 18px;
+      }
+      .best-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 6px 14px;
+      }
+      .best-name {
+        font-family: var(--mono);
+        font-size: 19px;
+        font-weight: 700;
+      }
+      .best-where {
+        color: var(--muted);
+        font-size: 13.5px;
+      }
+      .best-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        margin-top: 16px;
+      }
+      .meter-lbl {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        font-size: 13px;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      .meter-lbl b {
+        font-family: var(--mono);
+        font-size: 15px;
+        color: var(--text);
+      }
+      .meter {
+        height: 10px;
+        background: var(--panel-2);
+        border-radius: 5px;
+        overflow: hidden;
+        position: relative;
+      }
+      .meter > i {
+        display: block;
+        height: 100%;
+        border-radius: 5px;
+      }
+      .meter > i.fail { background: var(--red); }
+      .meter > i.pass { background: var(--green); }
+      .meter-note {
+        margin-top: 6px;
+        font-size: 12.5px;
+        color: var(--faint);
+      }
+      .best-verdict {
+        margin-top: 16px;
+        padding: 12px 14px;
+        background: var(--red-dim);
+        border-radius: 8px;
+        font-size: 14px;
+      }
+      .best-verdict b { color: var(--red); }
+
+      /* ---------- Signal families ---------- */
+      .families {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+      .family {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 14px 16px;
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+      }
+      .family .count {
+        font-family: var(--mono);
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--teal);
+        line-height: 1.1;
+        min-width: 34px;
+      }
+      .family h3 { margin: 0 0 3px; font-size: 14.5px; font-weight: 700; }
+      .family p { margin: 0; font-size: 13px; color: var(--muted); }
+
+      /* ---------- Schedule ---------- */
+      .schedule {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .sched-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px 16px;
+        padding: 13px 18px;
+        align-items: baseline;
+      }
+      .sched-row + .sched-row { border-top: 1px solid var(--line-soft); }
+      .sched-row .what { font-weight: 600; font-size: 14.5px; }
+      .sched-row .detail { color: var(--muted); font-size: 13px; grid-column: 1; }
+      .sched-row .when {
+        font-family: var(--mono);
+        font-size: 13.5px;
+        color: var(--amber);
+        grid-row: 1;
+        grid-column: 2;
+        text-align: right;
+        white-space: nowrap;
+      }
+      .dot-live {
+        display: inline-block;
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: var(--green);
+        margin-right: 7px;
+        vertical-align: 1px;
+      }
+
+      /* ---------- Honest notes ---------- */
+      .notes {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 6px 18px;
+      }
+      .note {
+        padding: 13px 0;
+      }
+      .note + .note { border-top: 1px solid var(--line-soft); }
+      .note h3 { margin: 0 0 3px; font-size: 14.5px; font-weight: 700; }
+      .note p { margin: 0; color: var(--muted); font-size: 14px; max-width: 66ch; }
+      .note p b { color: var(--text); font-weight: 600; }
+
+      footer {
+        margin-top: 36px;
+        padding-top: 14px;
+        border-top: 1px solid var(--line-soft);
+        color: var(--faint);
+        font-size: 12.5px;
+        font-family: var(--mono);
+      }
+
+      @media (max-width: 640px) {
+        .stats { grid-template-columns: repeat(2, 1fr); }
+        .gates { grid-template-columns: 1fr; }
+        .best-grid { grid-template-columns: 1fr; }
+        .families { grid-template-columns: 1fr; }
+        .wrap { padding: 14px 12px 44px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+
+      <!-- ============ VERDICT ============ -->
+      <div class="verdict">
+        <div class="verdict-top">
+          <span class="verdict-word">NO_EDGE</span>
+          <span class="verdict-plain">No proven edge found yet</span>
+        </div>
+        <p class="verdict-sub">
+          The search is running and the data is growing, but no betting signal has
+          passed all three proof gates so far. Until one does, the honest answer
+          stays the same: nothing here is worth betting on yet.
+        </p>
+        <div class="stamp">
+          <span><b>Snapshot:</b> 30 Oct 2026, ~11:55 IST</span>
+          <span>Refreshed on request</span>
+          <span>Collector still running in the background</span>
+        </div>
+      </div>
+
+      <!-- ============ HEADLINE NUMBERS ============ -->
+      <div class="stats">
+        <div class="stat">
+          <div class="num">161</div>
+          <div class="lbl">live rounds collected so far, and growing every 2 minutes</div>
+        </div>
+        <div class="stat">
+          <div class="num">50</div>
+          <div class="lbl">fixed candidate signals under test, set in advance</div>
+        </div>
+        <div class="stat">
+          <div class="num">44</div>
+          <div class="lbl">features worked out for every single round</div>
+        </div>
+        <div class="stat">
+          <div class="num amber">0</div>
+          <div class="lbl">signals that have cleared all three gates</div>
+        </div>
+      </div>
+
+      <!-- ============ PER-GAME BREAKDOWN ============ -->
+      <section>
+        <h2>Where the rounds come from</h2>
+        <p class="section-lede">
+          Every game is collected and tested separately. The four games are never
+          mixed together, because a pattern in one game says nothing about another.
+        </p>
+        <div class="games">
+          <div class="game-row">
+            <span class="game-name">30s</span>
+            <div class="bar"><i style="width:100%"></i></div>
+            <span class="game-count"><b>79</b> rounds</span>
+          </div>
+          <div class="game-row">
+            <span class="game-name">1m</span>
+            <div class="bar"><i style="width:57%"></i></div>
+            <span class="game-count"><b>45</b> rounds</span>
+          </div>
+          <div class="game-row">
+            <span class="game-name">3m</span>
+            <div class="bar"><i style="width:25%"></i></div>
+            <span class="game-count"><b>20</b> rounds</span>
+          </div>
+          <div class="game-row">
+            <span class="game-name">5m</span>
+            <div class="bar"><i style="width:22%"></i></div>
+            <span class="game-count"><b>17</b> rounds</span>
+          </div>
+          <div class="games-foot">
+            Plus <b>40 seed rounds from 1 Oct</b> kept as background history, for a
+            working total of <b>201 rounds</b>. The 30s game fills up fastest simply
+            because it draws most often.
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ HOW IT WORKS ============ -->
+      <section>
+        <h2>How the edge search works</h2>
+        <p class="section-lede">
+          An "edge" means a pattern that wins often enough, often enough times,
+          that it is very unlikely to be luck. The system is built to be hard to
+          fool, including by itself.
+        </p>
+        <div class="steps">
+          <div class="step">
+            <div class="step-dot">1</div>
+            <div>
+              <h3>A collector gathers every result</h3>
+              <p>
+                Every <b>2 minutes</b>, a small program checks the live WinGo
+                results feed for all four games (30s, 1m, 3m, 5m) and stores
+                every new ball: its number, colour, and size, plus the full
+                result record. Nothing is picked by hand and nothing is skipped.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-dot">2</div>
+            <div>
+              <h3>Each round is described by 44 features</h3>
+              <p>
+                For every round, the system works out <b>44 facts</b> about what
+                came before it: current streaks, how often results alternate,
+                whether the game is in a streaky or choppy mood, what the other
+                games are doing, and more. These facts are what signals look at
+                when deciding whether to fire.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-dot">3</div>
+            <div>
+              <h3>50 fixed signals are tested, the same list every time</h3>
+              <p>
+                The candidate signals were <b>written down in advance and never
+                change</b>: base patterns, regime signals that react to streaky
+                or choppy stretches, signals using the full result record, and
+                cross-game signals. Fixing the list in advance stops the search
+                from inventing a new "pattern" to fit whatever luck just happened.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-dot">4</div>
+            <div>
+              <h3>Testing is walk-forward: signals are graded on rounds they never saw</h3>
+              <p>
+                For each game, the <b>first half of its history is context</b>
+                (the background a signal is allowed to look at) and the
+                <b>second half is the test</b>. A signal only earns credit for
+                rounds in the test half. This is the difference between "this
+                pattern fits the past" and "this pattern actually predicted
+                what came next."
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-dot">5</div>
+            <div>
+              <h3>A signal must clear all three gates on the test data</h3>
+              <p>
+                Enough test rounds, a win rate that stays above the bar even
+                after a strict safety margin, and a check that it beats pure
+                chance once you account for testing 50 signals at once. Miss
+                any one gate and it does not count. The gates are spelled out
+                below.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-dot">6</div>
+            <div>
+              <h3>The verdict is binary, and you get pinged only on a real find</h3>
+              <p>
+                If a signal clears all three gates, the result is
+                <b>EDGE_FOUND</b> and you get a message. Otherwise the result is
+                <b>NO_EDGE</b>, nothing changes, and the search quietly keeps
+                collecting. No "almost an edge" alerts, no hype.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ THE THREE GATES ============ -->
+      <section>
+        <h2>The three gates</h2>
+        <p class="section-lede">
+          All three must pass on the held-out test rounds, for one game at a
+          time. One gate failing is enough to reject the signal.
+        </p>
+        <div class="gates">
+          <div class="gate">
+            <div class="gate-tag">GATE 1</div>
+            <h3>Enough evidence</h3>
+            <p>
+              The signal must have fired on at least 100 test rounds. A pattern
+              seen a handful of times proves nothing, however good it looks.
+            </p>
+            <div class="need">&ge; 100<small>test rounds minimum</small></div>
+          </div>
+          <div class="gate">
+            <div class="gate-tag">GATE 2</div>
+            <h3>A win rate above the bar, with a safety margin</h3>
+            <p>
+              The signal's win rate is shrunk by a strict statistical margin
+              (the Wilson lower bound). Even after that shrink, it must still
+              beat 53.02%, roughly the break-even line for these bets.
+            </p>
+            <div class="need">&ge; 53.02%<small>Wilson lower-bound win rate</small></div>
+          </div>
+          <div class="gate">
+            <div class="gate-tag">GATE 3</div>
+            <h3>Beats chance, honestly</h3>
+            <p>
+              Testing 50 signals means some will look good by pure luck. This
+              check corrects for that: the odds of the result being a fluke
+              must be under 5%.
+            </p>
+            <div class="need">&lt; 5%<small>chance it is a fluke (multiple-comparison check)</small></div>
+          </div>
+        </div>
+
+        <!-- Best signal so far -->
+        <div class="best">
+          <div class="best-head">
+            <span class="best-name">mr-size-streak2</span>
+            <span class="best-where">best signal so far &middot; 30s game &middot; a size signal that follows short streaks</span>
+          </div>
+          <div class="best-grid">
+            <div>
+              <div class="meter-lbl"><span>Gate 1 &middot; test rounds</span><b>16 / 100</b></div>
+              <div class="meter"><i class="fail" style="width:16%"></i></div>
+              <div class="meter-note">Only 16 test rounds so far. This is the gate it fails, by a long way.</div>
+            </div>
+            <div>
+              <div class="meter-lbl"><span>Gate 2 &middot; Wilson win rate</span><b>0.570 vs 0.5302</b></div>
+              <div class="meter"><i class="pass" style="width:57%"></i></div>
+              <div class="meter-note">Above the bar on paper, but on just 16 rounds that number can swing wildly with a few more draws.</div>
+            </div>
+          </div>
+          <div class="best-verdict">
+            <b>Verdict: not an edge.</b> A strong-looking score on 16 rounds is
+            exactly the kind of mirage the gates exist to catch. Gate 3 is not
+            even reached until there is enough data to judge. It stays on the
+            watch list and gets re-tested automatically as rounds pile up.
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SIGNAL FAMILIES ============ -->
+      <section>
+        <h2>The 50 signals under test</h2>
+        <p class="section-lede">
+          Four families, all fixed in advance. Every daily run tests all 50,
+          on every game, the same way.
+        </p>
+        <div class="families">
+          <div class="family">
+            <div class="count">20</div>
+            <div>
+              <h3>Base patterns</h3>
+              <p>Streaks, alternation, and recent-history patterns on colour and size.</p>
+            </div>
+          </div>
+          <div class="family">
+            <div class="count">10</div>
+            <div>
+              <h3>Regime signals</h3>
+              <p>React to the game's current mood: riding streaks, fading traps, or following alternation.</p>
+            </div>
+          </div>
+          <div class="family">
+            <div class="count">8</div>
+            <div>
+              <h3>Full-record signals</h3>
+              <p>Use the extra fields in each result record, not just the ball itself.</p>
+            </div>
+          </div>
+          <div class="family">
+            <div class="count">12</div>
+            <div>
+              <h3>Cross-game signals</h3>
+              <p>Look at what the other timeframes are doing before deciding on this one.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SCHEDULE ============ -->
+      <section>
+        <h2>What runs when</h2>
+        <div class="schedule">
+          <div class="sched-row">
+            <span class="what"><span class="dot-live"></span>Collector</span>
+            <span class="when">every 2 min</span>
+            <span class="detail">Polls the live feed for all four games and stores every new ball. Running now.</span>
+          </div>
+          <div class="sched-row">
+            <span class="what">Daily analysis</span>
+            <span class="when">next: Sat 31 Oct, ~09:24 IST</span>
+            <span class="detail">Tests all 50 signals against the latest data with the three gates. Reports only if an edge is found.</span>
+          </div>
+          <div class="sched-row">
+            <span class="what">This page</span>
+            <span class="when">on request</span>
+            <span class="detail">A snapshot, not a live feed. Ask for a refresh any time and it is rebuilt with the newest numbers.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ HONEST NOTES ============ -->
+      <section>
+        <h2>Honest notes</h2>
+        <div class="notes">
+          <div class="note">
+            <h3>The "extra" data turned out to be mostly echoes</h3>
+            <p>
+              The full result record was checked field by field. The
+              <b>premium</b> field is just the ball number repeated,
+              <b>sum</b> is always 0, and the feed's own colour label matches
+              the colour already worked out from the number. No hidden signal
+              there, but everything is stored anyway, so nothing is lost if
+              that ever changes.
+            </p>
+          </div>
+          <div class="note">
+            <h3>A separate backtest found the same thing</h3>
+            <p>
+              Before the collector existed, 140 prediction models from the app
+              were tested against 80 rounds of real history, graded only on
+              rounds they had not seen. <b>Zero cleared the bar.</b> The best
+              raw scores were small-sample noise, the same trap the gates are
+              built to reject.
+            </p>
+          </div>
+          <div class="note">
+            <h3>The bar does not move</h3>
+            <p>
+              The 53.02% requirement, the 100-round minimum, and the 5% fluke
+              limit stay exactly where they are. They change only on the
+              owner's explicit word, never because a result looks tempting.
+            </p>
+          </div>
+          <div class="note">
+            <h3>No profit is promised, ever</h3>
+            <p>
+              WinGo results may simply be random, in which case the correct
+              long-term answer is NO_EDGE forever, and this system will keep
+              saying so. Its job is to tell the truth about the data, not to
+              manufacture a reason to bet.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        WinGo Edge Monitor &middot; snapshot 30 Oct 2026, ~11:55 IST &middot; verdict NO_EDGE
+      </footer>
+
+    </div>
+  </body>
+</html>
