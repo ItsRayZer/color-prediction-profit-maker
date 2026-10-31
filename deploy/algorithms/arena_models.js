@@ -2064,10 +2064,15 @@ if (typeof globalThis !== 'undefined') globalThis.detectRepeatingPattern = detec
 // the previously-winning sub-strategy starts losing, and a different one
 // takes over — the model "adapts" automatically without any external signal.
 //
-// UNCERTAIN MODE: If ALL sub-strategies are below ADAPTIVE_UNCERTAIN_THRESHOLD
-// (45%) on the recent window, the model returns null (no prediction) rather
-// than guessing. This is honest: the model admits it has no edge right now.
-// A null pick pauses the model's record for that round, like every model.
+// UNCERTAIN HANDLING (fix 2026-10-31): If ALL sub-strategies are below
+// ADAPTIVE_UNCERTAIN_THRESHOLD (45%) on the recent window, the model falls
+// back to its CORE strategy (original logic) rather than returning null.
+// Rationale: returning null drains the verdict pool when many models go
+// uncertain at once, making predictions appear "stuck". The governance layer
+// (Wilson bar 53.02%, blacklist, bench) still filters truly bad models, so
+// honesty is preserved without silencing the pool. A perf cache keyed by
+// (modelId, histLen, lastId) avoids recomputing the 60-prediction backtest
+// when history hasn't changed within a cycle.
 //
 // HONESTY NOTE: This framework does NOT claim to improve win rates. The
 // research (2026-10-30, 1,367 rounds, 276 trends + 40 ML models) found no
@@ -2078,8 +2083,34 @@ if (typeof globalThis !== 'undefined') globalThis.detectRepeatingPattern = detec
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const ADAPTIVE_WINDOW = 20;           // Rounds for sub-strategy backtest
-const ADAPTIVE_UNCERTAIN_THRESHOLD = 0.45;  // Below this: return null (uncertain)
+const ADAPTIVE_UNCERTAIN_THRESHOLD = 0.45;  // Below this: fall back to core (never null-out the pool)
 const ADAPTIVE_MIN_HISTORY = 25;      // Need 20 for backtest + 5 for trend detection
+
+// ── Adaptive selection cache (perf fix 2026-10-31) ──
+// selectAdaptiveSubStrategy runs 3 sub-strategies × 20 rounds = 60 predictions
+// per model. For 142 models that's ~8,520 predictions per cycle — enough to
+// freeze the UI thread on a phone ("predictions stuck"). The history only
+// changes when a new round settles, so we cache per (modelId, histLen, lastId)
+// and reuse within a cycle. Cache is bounded (Map with simple eviction).
+const _adaptiveCache = new Map();
+const _ADAPTIVE_CACHE_MAX = 500;
+function _adaptiveCacheKey(modelId, hist) {
+  const len = hist.length;
+  const last = len > 0 ? hist[len - 1] : null;
+  const lastId = last ? (last.issueNumber || last.issue || last.number || '') : '';
+  return modelId + '|' + len + '|' + lastId;
+}
+function _adaptiveCacheGet(key) {
+  return _adaptiveCache.get(key) || null;
+}
+function _adaptiveCacheSet(key, val) {
+  if (_adaptiveCache.size >= _ADAPTIVE_CACHE_MAX) {
+    // Evict oldest (Map preserves insertion order)
+    const firstKey = _adaptiveCache.keys().next().value;
+    if (firstKey !== undefined) _adaptiveCache.delete(firstKey);
+  }
+  _adaptiveCache.set(key, val);
+}
 
 // ── Sub-strategy predictors (pure functions) ──
 // Each takes (history, predType) and returns {predType, predTarget}.
@@ -2186,6 +2217,12 @@ function selectAdaptiveSubStrategy(modelId, model, history, corePredictFn) {
   if (hist.length < ADAPTIVE_MIN_HISTORY) {
     return { strategyId: 'core', prediction: null, winRate: 0, reason: 'insufficient_history' };
   }
+  // Perf: reuse cached selection if history hasn't changed (2026-10-31).
+  // The backtest is deterministic on the history, so a cache hit is exact.
+  const _ck = _adaptiveCacheKey(modelId, hist);
+  const _cached = _adaptiveCacheGet(_ck);
+  if (_cached) return _cached;
+
   // Determine the model's preferred dimension for trend/fade
   const corePred = corePredictFn(hist);
   const prefType = (corePred && corePred.predType) || model.predType || 'SIZE';
@@ -2221,12 +2258,24 @@ function selectAdaptiveSubStrategy(modelId, model, history, corePredictFn) {
   results.sort((a, b) => b.winRate - a.winRate);
   const best = results[0];
 
-  // Uncertain mode: all below threshold
-  if (!best || best.winRate < ADAPTIVE_UNCERTAIN_THRESHOLD || !best.current) {
-    return { strategyId: 'uncertain', prediction: null, winRate: best ? best.winRate : 0, reason: 'all_below_threshold', details: results };
+  let out;
+  // Below-threshold fallback (fix 2026-10-31): NEVER return null for 'uncertain'.
+  // Returning null empties the model's pick, and if many models go uncertain at
+  // once the verdict pool drains and predictions appear "stuck". Instead, fall
+  // back to the core strategy (original model logic) — the governance layer
+  // (Wilson bar, blacklist, bench) still filters truly bad models. Honesty is
+  // preserved: we report the low winRate, we just don't silence the model.
+  if (!best || !best.current) {
+    const coreRes = results.find(r => r.id === 'core');
+    out = { strategyId: 'core', prediction: coreRes ? coreRes.current : null, winRate: coreRes ? coreRes.winRate : 0, reason: 'fallback_no_current', details: results };
+  } else if (best.winRate < ADAPTIVE_UNCERTAIN_THRESHOLD) {
+    const coreRes = results.find(r => r.id === 'core');
+    out = { strategyId: 'core', prediction: coreRes ? coreRes.current : best.current, winRate: coreRes ? coreRes.winRate : best.winRate, reason: 'fallback_below_threshold', details: results };
+  } else {
+    out = { strategyId: best.id, prediction: best.current, winRate: best.winRate, reason: 'best_win_rate', details: results };
   }
-
-  return { strategyId: best.id, prediction: best.current, winRate: best.winRate, reason: 'best_win_rate', details: results };
+  _adaptiveCacheSet(_ck, out);
+  return out;
 }
 
 // Export for testing (CJS-conditional, like other functions in this file)
@@ -4208,7 +4257,8 @@ function generateModelNextPrediction(model, history, modelStats, skipAdaptive) {
         catch (e) { return null; }
       });
       if (_adaptive.strategyId === 'uncertain') {
-        // Uncertain mode: all sub-strategies below 45% — honest null
+        // Legacy guard: selectAdaptiveSubStrategy no longer returns 'uncertain'
+        // (fix 2026-10-31 — it falls back to core instead). Kept defensively.
         return null;
       }
       if (_adaptive.strategyId !== 'core' && _adaptive.prediction && _adaptive.prediction.predTarget) {
