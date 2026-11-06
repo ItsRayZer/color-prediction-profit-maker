@@ -4938,6 +4938,15 @@ function switchMobileTab(tab) {
   // Fix round #2: every tab is usable without login — no unlock modal gate.
   try { localStorage.setItem('active_mobile_tab', tab); } catch(e) {}
 
+  // Owner order 2026-11-06 (his report "balance Asking not coming"):
+  // leaving the game tab re-arms the balance ask, so the next entry
+  // to the timer page asks again unless the balance was answered.
+  if (tab !== 'web') {
+    try {
+      if (window.__smartBall && typeof window.__smartBall.resetBalanceAsk === 'function') window.__smartBall.resetBalanceAsk();
+    } catch (e) { /* the prompt must never break a tab switch */ }
+  }
+
   ['home', 'ai', 'sim', 'web', 'pattern'].forEach(t => {
     const section = $(`tab-${t}`);
     if (section) section.style.display = t === tab ? 'block' : 'none';
@@ -5002,7 +5011,8 @@ function switchMobileTab(tab) {
       // Delayed 6s so the DhaniWin page has loaded and the balance is
       // visible behind the prompt (the prompt has no blur by the same
       // order). showBalanceConfirm guards itself: game tab still
-      // active + once per session + no fresh verified balance.
+      // active + answered once per session (a dismiss re-arms) + no
+      // fresh verified balance.
       setTimeout(() => {
         try {
           if (window.__smartBall && typeof window.__smartBall.showBalanceConfirm === 'function') window.__smartBall.showBalanceConfirm();

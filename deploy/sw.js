@@ -1,12 +1,7 @@
 // 01:01 Service Worker for Standalone PWA Installation
-// CACHE BUMP 2026-11-06 (owner: blur/predictions/profit still stale on
-// his phone): the old v6 cache is cache-FIRST for static assets, so a
-// phone that installed v6 keeps serving the old blurred modal, the old
-// prediction code and the old P&L code even after production deploys
-// the fix. Bumping the name forces the browser to install this worker,
-// precache the fresh files and delete the v6 cache on activate. Bump
-// the name on EVERY ship that must reach installed phones the same day.
-const CACHE_NAME = '0101-pwa-cache-v7';
+// CACHE BUMP 2026-11-06 (balance ask re-arm fix): bump the name on
+// EVERY ship that must reach installed phones the same day.
+const CACHE_NAME = '0101-pwa-cache-v8';
 const ASSETS_TO_CACHE = [
   '/',
   '/mobile',
