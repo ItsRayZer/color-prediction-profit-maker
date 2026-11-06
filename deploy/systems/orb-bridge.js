@@ -336,6 +336,20 @@ export const BRIDGE_STATE_KEY = 'o101_bridge_state_v1';
 export const RTDB_BASE = 'https://zer0one-376d1-default-rtdb.asia-southeast1.firebasedatabase.app';
 
 /**
+ * Is this URL a WinGo colour-prediction TIMER page (the page with the
+ * countdown + wallet balance the user reads before typing it in)?
+ * Pure. The bridge auto-navigates to these paths (INTERVAL_URL_MAP in
+ * dhaniwin-bridge.js): /WinGo/WinGo_30S, /WinGo_1M, /WinGo_3M,
+ * /WinGo_5M. Owner order 2026-11-06: the balance prompt fires ONLY
+ * when a timer page is open — never on the DhaniWin home/login page,
+ * never on a lobby page without a timer path.
+ */
+export function isWinGoTimerUrl(url) {
+  if (typeof url !== 'string' || !url) return false;
+  return /\/wingo\/wingo_(30s|1m|3m|5m)/i.test(url);
+}
+
+/**
  * Normalise a raw published bridge state (from DHANIWIN_USER_STATE on
  * the channel / postMessage, or the RTDB /user_state node) — or null
  * when the payload is not a bridge state at all. Pure. The session
@@ -2727,17 +2741,22 @@ function initBridge() {
   // the bridge's own init publish — ask for a probe immediately.
   requestBridgeReverify();
 
-  // Balance confirm modal (owner order 2026-10-30 12:31 IST): on each
-  // reload, show the unmissable plain-language balance check. Slightly
-  // delayed so a live bridge can report first and the prompt never
-  // fires needlessly when a fresh verified balance already exists.
+  // Balance confirm modal (owner order 2026-10-30 12:31 IST, trigger
+  // amended 2026-11-06): the prompt fires ONLY when the user opens the
+  // colour-prediction timer page — on the web-tab open (mobile.js
+  // switchMobileTab, delayed so the game page loads first) or on the
+  // bridge's WinGo proof (APK: DHANIWIN_TIMEFRAME_CHANGE / a WinGo
+  // timer URL in the handshake). It NEVER fires on a boot timer any
+  // more: the old 4s-after-boot ambush popped over a half-loaded page
+  // before the user could see their balance. showBalanceConfirm keeps
+  // its own guards (game tab + once per session + no fresh verified
+  // balance), so every trigger is a safe no-op when it should not ask.
   // P&L reset REMOVED 2026-10-30 15:26 IST: the auto-reset on boot was
   // wiping losses (P&L stuck at ₹0). P&L now persists and tracks correctly;
   // owner resets manually via Settings for a fresh session.
   // Render the P&L IMMEDIATELY on boot (owner: "profit/loss
   // should refresh each reload") — don't wait for the 3s cycle.
   try { renderPnlBox(); } catch (e) { /* never break boot */ }
-  setTimeout(() => { try { showBalanceConfirm(); } catch (e) { /* never break boot */ } }, 4000);
 
   // Which transport the embedded DhaniWin load used (mobile.js
   // records it on every load; localStorage carries it to the
@@ -6343,6 +6362,9 @@ const PATTERN_PAGE_SIZE = 10;
     // Balance confirm modal (owner order 2026-10-30 12:31 IST):
     // unmissable plain-language balance check on every reload.
     showBalanceConfirm,
+    // WinGo timer-page check (owner order 2026-11-06): mobile.js uses
+    // this to fire the prompt only when a timer page is actually open.
+    isWinGoTimerUrl,
     confirmBalanceYes,
     confirmBalanceEdit,
     submitBalanceConfirm,

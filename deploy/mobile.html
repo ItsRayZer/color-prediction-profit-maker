@@ -1013,15 +1013,19 @@
       </button>
     </div>
 
-    <!-- Balance confirm modal (owner order 2026-10-30 12:31 IST):
-         On EVERY reload, Axo asks the user to confirm their balance in
-         plain language. Impossible to miss, one-tap dismiss. Dismissing
-         without answering keeps the last balance — it never zeroes it.
-         Shows the P&L alongside so the full picture is clear. -->
-    <div id="axoBalanceConfirmModal" style="display:none; position:fixed; inset:0; z-index:100002; background:rgba(0,0,0,0.4); backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%); align-items:center; justify-content:center; padding:20px;" onclick="if(event.target===this){window.__smartBall&&window.__smartBall.dismissBalanceConfirm()}">
-      <!-- Owner order 2026-10-30: Apple-like GenZ premium lucid glass —
-           frosted glass morphism, clean typography, subtle borders. -->
-      <div style="background:rgba(28,28,32,0.55); backdrop-filter:blur(30px) saturate(200%); -webkit-backdrop-filter:blur(30px) saturate(200%); border:1px solid rgba(255,255,255,0.18); border-radius:24px; padding:24px 20px; max-width:320px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15);">
+    <!-- Balance confirm modal (owner order 2026-10-30 12:31 IST, amended
+         2026-11-06): On EVERY reload, Axo asks the user to confirm their
+         balance in plain language. Impossible to miss, one-tap dismiss.
+         Dismissing without answering keeps the last balance — it never
+         zeroes it. Shows the P&L alongside so the full picture is clear.
+         2026-11-06 owner order: NO blur anywhere on this modal — the
+         overlay is a light scrim with NO backdrop-filter and the card
+         is solid, so the DhaniWin page (and the balance on it) stays
+         visible behind the prompt while the user types. -->
+    <div id="axoBalanceConfirmModal" style="display:none; position:fixed; inset:0; z-index:100002; background:rgba(0,0,0,0.18); align-items:center; justify-content:center; padding:20px;" onclick="if(event.target===this){window.__smartBall&&window.__smartBall.dismissBalanceConfirm()}">
+      <!-- Owner order 2026-11-06: solid card, no frosted glass, no blur —
+           the game page behind must stay readable. -->
+      <div style="background:rgba(28,28,32,0.97); border:1px solid rgba(255,255,255,0.18); border-radius:24px; padding:24px 20px; max-width:320px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15);">
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
           <div style="width:36px; height:36px; border-radius:12px; background:linear-gradient(135deg, rgba(163,230,53,0.25), rgba(16,185,129,0.25)); border:1px solid rgba(163,230,53,0.3); display:flex; align-items:center; justify-content:center; font-size:18px;">💰</div>
           <div style="color:#fff; font-size:17px; font-weight:800; letter-spacing:-0.3px;">Check your balance</div>
@@ -1030,11 +1034,11 @@
         <div id="axoBalanceConfirmPnl" style="color:#a1a1aa; font-size:12px; margin-bottom:18px; font-weight:600;"></div>
         <div id="axoBalanceConfirmButtons" style="display:flex; gap:10px;">
           <button type="button" onclick="window.__smartBall&&window.__smartBall.confirmBalanceYes()" style="flex:1; padding:13px 8px; border-radius:16px; background:linear-gradient(135deg, #a3e635, #10b981); color:#04120c; font-weight:800; font-size:14px; border:none; cursor:pointer; touch-action:manipulation; box-shadow:0 4px 16px rgba(163,230,53,0.3);">Yes, correct</button>
-          <button type="button" onclick="window.__smartBall&&window.__smartBall.confirmBalanceEdit()" style="flex:1; padding:13px 8px; border-radius:16px; background:rgba(255,255,255,0.08); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); color:#fff; font-weight:700; font-size:14px; border:1px solid rgba(255,255,255,0.2); cursor:pointer; touch-action:manipulation;">Type new</button>
+          <button type="button" onclick="window.__smartBall&&window.__smartBall.confirmBalanceEdit()" style="flex:1; padding:13px 8px; border-radius:16px; background:rgba(255,255,255,0.08); color:#fff; font-weight:700; font-size:14px; border:1px solid rgba(255,255,255,0.2); cursor:pointer; touch-action:manipulation;">Type new</button>
         </div>
         <div id="axoBalanceConfirmEditRow" style="display:none; margin-top:12px;">
           <div style="display:flex; gap:8px; align-items:center;">
-            <input id="axoBalanceConfirmInput" type="number" inputmode="decimal" min="1" placeholder="Type balance ₹" onkeydown="if(event.key==='Enter'){window.__smartBall&&window.__smartBall.submitBalanceConfirm()}" style="flex:1; min-width:0; background:rgba(255,255,255,0.06); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.25); border-radius:14px; padding:12px 14px; color:#fff; font-size:16px; font-weight:600; outline:none;">
+            <input id="axoBalanceConfirmInput" type="number" inputmode="decimal" min="1" placeholder="Type balance ₹" onkeydown="if(event.key==='Enter'){window.__smartBall&&window.__smartBall.submitBalanceConfirm()}" style="flex:1; min-width:0; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.25); border-radius:14px; padding:12px 14px; color:#fff; font-size:16px; font-weight:600; outline:none;">
             <button type="button" onclick="window.__smartBall&&window.__smartBall.submitBalanceConfirm()" aria-label="Save balance" style="width:48px; height:48px; flex:none; border-radius:14px; background:linear-gradient(135deg, #a3e635, #10b981); color:#04120c; font-size:20px; font-weight:800; cursor:pointer; border:none; touch-action:manipulation; box-shadow:0 4px 16px rgba(163,230,53,0.3);">✓</button>
           </div>
         </div>

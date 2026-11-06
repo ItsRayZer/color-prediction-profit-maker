@@ -4997,6 +4997,17 @@ function switchMobileTab(tab) {
         const barText = $('mobileWebAddressBarText');
         if (barText) barText.textContent = targetUrl;
       }
+      // Owner order 2026-11-06: ask for the balance ONLY when the user
+      // opens the colour-prediction (game) tab — never on app boot.
+      // Delayed 6s so the DhaniWin page has loaded and the balance is
+      // visible behind the prompt (the prompt has no blur by the same
+      // order). showBalanceConfirm guards itself: game tab still
+      // active + once per session + no fresh verified balance.
+      setTimeout(() => {
+        try {
+          if (window.__smartBall && typeof window.__smartBall.showBalanceConfirm === 'function') window.__smartBall.showBalanceConfirm();
+        } catch (e) { /* the prompt must never break a tab switch */ }
+      }, 6000);
     }
   } else {
     // Hidden on AI Adaptive, Pattern, and other tabs
@@ -6045,10 +6056,28 @@ function handleMobileBridgeMessage(msg) {
       // once instead of waiting for the bridge's 15s heartbeat.
       postMobileBridge({ type: 'DHANIWIN_REQUEST_SYNC', timestamp: Date.now() });
     }
+    // Owner order 2026-11-06 (APK only — the website frame is
+    // cross-origin so no bridge runs there): the bridge handshake /
+    // heartbeat carries the real page URL, so a WinGo timer URL is
+    // exact proof the colour-prediction timer page is open. Ask for
+    // the balance then — the prompt has no blur, so the balance stays
+    // visible behind it. showBalanceConfirm guards itself (game tab
+    // + once per session + no fresh verified balance).
+    try {
+      if (msg.url && window.__smartBall && typeof window.__smartBall.isWinGoTimerUrl === 'function' && window.__smartBall.isWinGoTimerUrl(msg.url) && typeof window.__smartBall.showBalanceConfirm === 'function') window.__smartBall.showBalanceConfirm();
+    } catch (e) { /* the prompt must never break bridge handling */ }
   } else if (msg.type === 'DHANIWIN_TIMEFRAME_CHANGE' && msg.timeframe) {
     if (MobileState.timeframe !== msg.timeframe && ['30s', '1m', '3m', '5m'].includes(msg.timeframe)) {
       console.log('[Mobile] ⚡ Synced timeframe from embedded game:', msg.timeframe);
       setMobileTimeframe(msg.timeframe);
+      // Owner order 2026-11-06: a timeframe change means the bridge
+      // saw a WinGo timer tab open — exact proof the timer page is
+      // open (APK). Ask for the balance now; showBalanceConfirm
+      // guards itself (game tab + once per session + no fresh
+      // verified balance).
+      try {
+        if (window.__smartBall && typeof window.__smartBall.showBalanceConfirm === 'function') window.__smartBall.showBalanceConfirm();
+      } catch (e) { /* the prompt must never break bridge handling */ }
     }
   } else if (msg.type === 'DHANIWIN_BET_CONFIRMATION') {
     setMobileBridgeStatus(true, `Confirmed: ${msg.target} ₹${msg.stake}`);
