@@ -3421,7 +3421,11 @@ function initBridge() {
       if (!isOnDhaniGamePage()) return;
       const modal = $('axoBalanceConfirmModal');
       if (!modal) return;
-      // Don't re-show if already visible or already answered this session.
+      // Owner order 2026-11-06 (his report "balance Asking not
+      // coming"): a dismiss is a snooze, not an answer. Only an
+      // answered balance (Yes / typed) stops the prompt for the
+      // session; a dismiss re-arms it for the next game-tab open.
+      if (state.balanceConfirmed) return;
       if (state.balanceConfirmShown) return;
       if (modal.style.display === 'flex') return;
       // If the bridge already has a fresh VERIFIED balance, we know the
@@ -3477,6 +3481,8 @@ function initBridge() {
         saveBalanceTrack(safeStorage(), next);
         try { window.__o101BalanceTrack = next; } catch (e) {}
       }
+      // Answered: never ask again this session.
+      state.balanceConfirmed = true;
       hideBalanceConfirm();
       if (typeof window !== 'undefined' && typeof window.__o101SyncBaseNow === 'function') {
         try { window.__o101SyncBaseNow(); } catch (e) {}
@@ -3507,6 +3513,8 @@ function initBridge() {
       if (!Number.isFinite(v) || v <= 0) return;
       const bal = Math.round(v * 100) / 100;
       state.typedBalance = bal;
+      // Answered: never ask again this session.
+      state.balanceConfirmed = true;
       // Persist into the balance track (source: typed).
       const prev = loadBalanceTrack(safeStorage());
       const next = updateBalanceTrack(prev, bal, 'typed', new Date().toISOString());
@@ -3522,9 +3530,20 @@ function initBridge() {
   }
 
   /** Dismiss without answering: keeps the last balance, changes
-   *  nothing. Never zeroes. */
+   *  nothing. Never zeroes. A dismiss is a snooze, not an answer —
+   *  it re-arms the prompt for the next game-tab open (owner
+   *  2026-11-06: "balance Asking not coming"). */
   function dismissBalanceConfirm() {
     hideBalanceConfirm();
+    state.balanceConfirmShown = false;
+  }
+
+  /** Leaving the game tab re-arms the ask: the next entry to the
+   *  timer page asks again unless the balance was answered. Called
+   *  from mobile.js switchMobileTab. */
+  function resetBalanceAsk() {
+    try { hideBalanceConfirm(); } catch (e) {}
+    state.balanceConfirmShown = false;
   }
 
   // ── No-skip mode (owner order 2026-10-25, UI batch) ─────────────
@@ -6369,6 +6388,7 @@ const PATTERN_PAGE_SIZE = 10;
     confirmBalanceEdit,
     submitBalanceConfirm,
     dismissBalanceConfirm,
+    resetBalanceAsk,
     // Analyse pagination (owner order 2026-10-27): < > step the
     // patterns list one page at a time; renderPatternStats clamps,
     // so next past the last page is a safe no-op re-render.
