@@ -2447,6 +2447,7 @@ function initBridge() {
     lastPeriodSeen: null,  // latest settled period processed (global, kept for compat)
     lastPeriodSeenByTf: {}, // Fix round (RC2): per-timeframe latest settled period
     picksByPeriod: {},   // Fix round (RC2): 'tf:period' -> { target, prob, decision } for the issued governed pick, cap ~5
+    settledVerdicts: {}, // Fix round (verdict stamp 2026-11-07): 'tf:period' -> { pick, won, decision } for the governed BET the settlement just evaluated. The live app's history/accuracy reads it (window.__o101SettledVerdict) instead of depending only on the in-memory disposition lookup. Persisted to o101_settled_verdicts so a reload restores it.
     lastCycleTf: null,   // Fix round (RC2): timeframe of the previous cycle (tf-change reset detection)
     pendingPicks: null,    // Map for the upcoming round (computed pre-round)
     pendingForPeriod: null,
@@ -2503,6 +2504,65 @@ function initBridge() {
   function safeStorage() {
     try { const t = '__o101_probe__'; localStorage.setItem(t, '1'); localStorage.removeItem(t); return localStorage; }
     catch (e) { return null; }
+  }
+
+  // ── Settled governed verdicts (fix round, verdict stamp 2026-11-07) ──
+  // The settlement that moves P&L already knows, for the exact period
+  // that just closed, the governed pick that was issued for it and
+  // whether it won. Record that here (in-memory + persisted) so the
+  // live app's own history/accuracy path can read the verdict from the
+  // same authoritative source as P&L, instead of depending only on the
+  // in-memory disposition lookup at settle time. A missed BET (AP on,
+  // never fired) still counts: the pick was issued and judged.
+  // Keyed 'tf:period' (full issue number). The persisted map is capped
+  // at 200 entries (oldest dropped). The live app reads it through
+  // window.__o101SettledVerdict (memory first, persisted fallback),
+  // which also tries a last-5-digits period match when the exact key
+  // misses (the same fallback the settle path uses for active
+  // predictions) — a full/short period-format mismatch must never
+  // silently drop a verdict again.
+  const SETTLED_VERDICTS_KEY = 'o101_settled_verdicts';
+  const SETTLED_VERDICTS_CAP = 200;
+  function recordSettledVerdict({ tf, period, pick, won, decision }) {
+    try {
+      if (!tf || !period || !pick) return;
+      const key = String(tf) + ':' + String(period);
+      const rec = { pick: String(pick), won: !!won, decision: decision || null, settledAt: Date.now() };
+      state.settledVerdicts[key] = rec;
+      const keys = Object.keys(state.settledVerdicts);
+      if (keys.length > SETTLED_VERDICTS_CAP) delete state.settledVerdicts[keys[0]];
+      const store = safeStorage();
+      if (!store) return;
+      let map = {};
+      try { map = JSON.parse(store.getItem(SETTLED_VERDICTS_KEY) || '{}') || {}; } catch (e) { map = {}; }
+      map[key] = rec;
+      const mKeys = Object.keys(map);
+      if (mKeys.length > SETTLED_VERDICTS_CAP) {
+        // Drop oldest by settledAt (object order is insertion order).
+        for (let i = 0; i < mKeys.length - SETTLED_VERDICTS_CAP; i++) delete map[mKeys[i]];
+      }
+      try { store.setItem(SETTLED_VERDICTS_KEY, JSON.stringify(map)); } catch (e) {}
+    } catch (e) { /* recording must never break settlement */ }
+  }
+  function readSettledVerdict(tf, period) {
+    try {
+      const key = String(tf) + ':' + String(period);
+      if (state.settledVerdicts[key]) return state.settledVerdicts[key];
+      const store = safeStorage();
+      if (store) {
+        try {
+          const map = JSON.parse(store.getItem(SETTLED_VERDICTS_KEY) || '{}') || {};
+          if (map[key]) return map[key];
+          // Last-5-digits fallback: a full/short period-format mismatch
+          // between the writer and the reader must not drop the verdict.
+          const suffix = String(period).slice(-5);
+          for (const k of Object.keys(map)) {
+            if (k.startsWith(String(tf) + ':') && k.slice(-5) === suffix) return map[k];
+          }
+        } catch (e) {}
+      }
+      return null;
+    } catch (e) { return null; }
   }
 
   // ── Page adapters ────────────────────────────────────────────────
@@ -4889,6 +4949,15 @@ const PATTERN_PAGE_SIZE = 10;
         if (won !== null && won !== undefined) {
           const decision = settleCheck.decision;
           const fired = ap.hasFired(tf, latestPeriod);
+          // Fix round (verdict stamp 2026-11-07): record the settled
+          // governed verdict here — the same source that moves P&L —
+          // so the live app's history/accuracy reads it (via
+          // window.__o101SettledVerdict) instead of depending only on
+          // the in-memory disposition lookup. A missed BET still
+          // counts: the pick was issued and judged.
+          if (decision === GATE_DECISIONS.BET && settleTarget) {
+            recordSettledVerdict({ tf, period: latestPeriod, pick: settleTarget, won: !!won, decision });
+          }
           if (decision === GATE_DECISIONS.BET && ap.enabled && !fired) {
             // Auto-Pilot was on but the owner never fired this round:
             // a MISSED BET (PLAN.md §6) — the locked pick went
@@ -6460,6 +6529,11 @@ const PATTERN_PAGE_SIZE = 10;
     return false;
   };
   window.__o101GovernedDisposition = (tf, period) => state.dispositions[String(tf) + ':' + String(period)] || null;
+  // Fix round (verdict stamp 2026-11-07): the settled governed verdict
+  // for a period (pick + outcome), written by the settlement that moves
+  // P&L. The live app's settleRoundOutcome consults it first; the
+  // fetch tick's restoration reads the persisted map for older rounds.
+  window.__o101SettledVerdict = (tf, period) => readSettledVerdict(tf, period);
   // Fix round (real-time base bet, owner order 2026-10-27 ~12:01 IST):
   // synchronous base-bet sync for chip taps (mobile.js
   // setAssistantBaseStake) and the AUTO toggle (toggleAutoBase above).
