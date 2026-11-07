@@ -1059,6 +1059,28 @@ async function fetchLiveAPIResults(tfOverride) {
           isWin = pv.aiCorrect;
           verdictPick = pv.verdictPick;
           verdictCorrect = pv.verdictCorrect;
+        } else if (typeof window.__o101SettledVerdict === 'function') {
+          // Fix round (verdict stamp 2026-11-07): the settled governed
+          // verdict (persisted o101_settled_verdicts) is also a real
+          // recorded verdict — restore it, never invent one.
+          try {
+            const _sv = window.__o101SettledVerdict(tf, item.period);
+            if (_sv && _sv.decision === 'BET' && _sv.pick) {
+              verdictPick = String(_sv.pick);
+              aiTarget = verdictPick;
+              if (_sv.won !== null && _sv.won !== undefined) { verdictCorrect = !!_sv.won; isWin = !!_sv.won; }
+            } else {
+              aiTarget = null;
+              isWin = null;
+              verdictPick = null;
+              verdictCorrect = null;
+            }
+          } catch (e) {
+            aiTarget = null;
+            isWin = null;
+            verdictPick = null;
+            verdictCorrect = null;
+          }
         } else {
           aiTarget = null;
           isWin = null;
@@ -1096,6 +1118,26 @@ async function fetchLiveAPIResults(tfOverride) {
               if (isWin === null && pv.aiCorrect !== null && pv.aiCorrect !== undefined) isWin = !!pv.aiCorrect;
             }
           }
+        }
+        // Fallback (fix round, verdict stamp 2026-11-07): the settled
+        // governed verdict written by the orb-bridge settlement that
+        // moves P&L (persisted o101_settled_verdicts). Covers rounds
+        // whose verdict was settled but never stamped into the history
+        // row (disposition lookup missed) — the verdict fills in on
+        // the next fetch tick instead of staying a dash forever.
+        // Never fabricates: only a record the app itself settled.
+        if (!verdictPick && typeof window.__o101SettledVerdict === 'function') {
+          try {
+            const _sv = window.__o101SettledVerdict(tf, item.period);
+            if (_sv && _sv.decision === 'BET' && _sv.pick) {
+              verdictPick = String(_sv.pick);
+              if (_sv.won !== null && _sv.won !== undefined) verdictCorrect = !!_sv.won;
+              if (!aiTarget) {
+                aiTarget = verdictPick;
+                if (isWin === null && _sv.won !== null && _sv.won !== undefined) isWin = !!_sv.won;
+              }
+            }
+          } catch (e) {}
         }
 
         // 2. Check scheduled predictions for rounds that were actively scheduled in this session
@@ -2359,7 +2401,26 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
 
   const isLocalSource = (MobileState.inchargeConfig?.predictionSource || 'LOCAL') === 'LOCAL';
 
-  // Fix round (RC1) Priority 0: the GOVERNED pick wins. The governed
+  // Fix round (verdict stamp 2026-11-07) Priority 0a: the SETTLED
+  // governed verdict wins first. It is written by the orb-bridge
+  // settlement that moves P&L — the same authoritative source — so it
+  // carries the pick that was actually issued for this exact period
+  // AND its outcome, and it survives even when the in-memory
+  // disposition lookup below misses (timing / period-format mismatch).
+  // A settled BET is a governed verdict whatever fired it.
+  if (!target && typeof window.__o101SettledVerdict === 'function') {
+    try {
+      const _sv = window.__o101SettledVerdict(tf, periodStr);
+      if (_sv && _sv.decision === 'BET' && _sv.pick) {
+        target = String(_sv.pick);
+        predType = ['RED','GREEN','VIOLET'].includes(target) ? 'COLOR' : 'SIZE';
+        targetSource = 'governed';
+        if (isWin === null && _sv.won !== null && _sv.won !== undefined) isWin = !!_sv.won;
+      }
+    } catch(e) {}
+  }
+
+  // Fix round (RC1) Priority 0b: the GOVERNED pick wins. The governed
   // disposition (orb-bridge, keyed by this exact round) carries the
   // pick the ball actually showed; the arena scheduled pick below
   // comes from a different engine and routinely differs, so it must
@@ -2367,7 +2428,9 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
   // disposition with no pick (NO_PICK) leaves target unset here —
   // the governor-suppression check below already silences those
   // rounds, and nothing here may invent a pick for them.
-  if (typeof window.__o101GovernedDisposition === 'function') {
+  // Only runs when the settled verdict above did not already supply
+  // the pick (it must never overwrite the authoritative record).
+  if (!target && typeof window.__o101GovernedDisposition === 'function') {
     try {
       const _disp = window.__o101GovernedDisposition(tf, periodStr);
       // Fix round correction: the disposition pick is the gate's pick
