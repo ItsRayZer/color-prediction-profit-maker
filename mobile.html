@@ -61,9 +61,12 @@
     console.log('[Mobile Firebase] Connected to RTDB (zer0one-376d1)');
 
     // Register Service Worker for Standalone PWA
+    // updateViaCache: 'none' (owner order 2026-11-07): the browser must
+    // fetch sw.js fresh on every update check, so a new ship reaches
+    // the phone on the next open instead of waiting out a cached copy.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
+        navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
           .then(reg => console.log('[PWA] ServiceWorker registered with scope:', reg.scope))
           .catch(err => console.log('[PWA] ServiceWorker registration failed:', err));
       });
@@ -690,6 +693,7 @@
         </div>
 
         <!-- Category Filter Pills -->
+        <div class="text-[8px] text-zinc-500 leading-tight">Adaptive models on the same live signal share results, so identical rows are the same pick, not copied data. Ranked by Wilson lower bound.</div>
         <div class="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar">
           <button onclick="setMobileAlgoCategory('all')" id="algoCat-all" class="ai-filter-btn active">All (142)</button>
           <button onclick="setMobileAlgoCategory('Fly')" id="algoCat-Fly" class="ai-filter-btn">Fly (18)</button>

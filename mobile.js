@@ -1002,6 +1002,34 @@ async function fetchLiveAPIResults(tfOverride) {
 
     const cutoff = MobileState.auditResetPeriod?.[tf] || localStorage.getItem(`wingo_audit_reset_${tf}`);
 
+    // Owner order 2026-11-07 (history dashes + accuracy 0 after every
+    // reload): the app's own recorded governed verdicts are persisted in
+    // quant_history_<tf> (written by settleRoundOutcome). Restore them
+    // for the preservation step below, so a reload does not wipe the AI
+    // TARGET column and the accuracy to dashes/zero. A restored verdict
+    // is the app's own record, never a derivation — rounds with NO
+    // recorded verdict still render "—" and still count as nothing.
+    let persistedVerdicts = null;
+    try {
+      const rawHist = localStorage.getItem(`quant_history_${tf}`);
+      if (rawHist) {
+        const arrHist = JSON.parse(rawHist);
+        if (Array.isArray(arrHist)) {
+          persistedVerdicts = new Map();
+          for (const r of arrHist) {
+            if (r && r.period && r.verdictPick) {
+              persistedVerdicts.set(String(r.period), {
+                verdictPick: r.verdictPick,
+                verdictCorrect: (r.verdictCorrect !== undefined && r.verdictCorrect !== null) ? !!r.verdictCorrect : null,
+                aiTarget: r.aiTarget || null,
+                aiCorrect: (r.aiCorrect !== undefined && r.aiCorrect !== null) ? !!r.aiCorrect : null
+              });
+            }
+          }
+        }
+      }
+    } catch (e) { persistedVerdicts = null; }
+
     // Process list: retain real predictions for rounds actively predicted in current session,
     // and do NOT fabricate fake predictions for past rounds fetched on reload/reopening
     const processedList = parsedList.map(item => {
@@ -1022,11 +1050,21 @@ async function fetchLiveAPIResults(tfOverride) {
       }
 
       if (isPastRoundBeforeCutoff) {
-        // Strict isolation: historical rounds before the session cutoff never carry live prediction outcomes
-        aiTarget = null;
-        isWin = null;
-        verdictPick = null;
-        verdictCorrect = null;
+        // Strict isolation: historical rounds before the session cutoff
+        // never carry a FABRICATED prediction — but a verdict the app
+        // itself recorded (persisted) is restored, not invented.
+        const pv = persistedVerdicts ? persistedVerdicts.get(String(item.period)) : null;
+        if (pv) {
+          aiTarget = pv.aiTarget;
+          isWin = pv.aiCorrect;
+          verdictPick = pv.verdictPick;
+          verdictCorrect = pv.verdictCorrect;
+        } else {
+          aiTarget = null;
+          isWin = null;
+          verdictPick = null;
+          verdictCorrect = null;
+        }
       } else {
         // 1. Check if this period was already settled in the current live session
         const existingInSession = currentList.find(c => String(c.period) === String(item.period));
@@ -1045,6 +1083,20 @@ async function fetchLiveAPIResults(tfOverride) {
             verdictCorrect = !!existingInSession.verdictCorrect;
           }
         }
+        // Fallback (owner order 2026-11-07): the app's own recorded
+        // verdict, persisted across reloads. Covers a reload where the
+        // in-memory session list is empty but the verdict was recorded.
+        if (!verdictPick && persistedVerdicts) {
+          const pv = persistedVerdicts.get(String(item.period));
+          if (pv && pv.verdictPick) {
+            verdictPick = pv.verdictPick;
+            if (pv.verdictCorrect !== null && pv.verdictCorrect !== undefined) verdictCorrect = !!pv.verdictCorrect;
+            if (!aiTarget && pv.aiTarget) {
+              aiTarget = pv.aiTarget;
+              if (isWin === null && pv.aiCorrect !== null && pv.aiCorrect !== undefined) isWin = !!pv.aiCorrect;
+            }
+          }
+        }
 
         // 2. Check scheduled predictions for rounds that were actively scheduled in this session
         // (native fallback for aiTarget ONLY — never for verdictPick)
@@ -1057,8 +1109,11 @@ async function fetchLiveAPIResults(tfOverride) {
         }
       }
 
-      // ONLY keep prediction outcome if this round was genuinely predicted in real-time in this session
-      const hasRealPrediction = !isPastRoundBeforeCutoff && !!(aiTarget && isWin !== null);
+      // ONLY keep prediction outcome if this round was genuinely predicted.
+      // Pre-cutoff rounds without a recorded verdict already have nulls
+      // above, so the cutoff needs no second gate here — a restored
+      // recorded verdict is real data, not a fabrication.
+      const hasRealPrediction = !!(aiTarget && isWin !== null);
 
       return {
         ...item,
@@ -1070,8 +1125,8 @@ async function fetchLiveAPIResults(tfOverride) {
         aiCorrect: hasRealPrediction ? isWin : null,
         // Verdict pick survives the sync; null (renders as "—") when never
         // recorded from a governed verdict. Never fabricated from native.
-        verdictPick: (!isPastRoundBeforeCutoff && verdictPick) ? verdictPick : null,
-        verdictCorrect: (!isPastRoundBeforeCutoff && verdictPick && verdictCorrect !== null) ? verdictCorrect : null
+        verdictPick: verdictPick ? verdictPick : null,
+        verdictCorrect: (verdictPick && verdictCorrect !== null) ? verdictCorrect : null
       };
     });
 
@@ -1232,17 +1287,48 @@ function applyCloudHistory(tfKey, val) {
   const tf = tfKey;
   const currentList = MobileState.historyByTf[tf] || [];
 
+  // Owner order 2026-11-07: the app's own recorded governed verdicts,
+  // persisted in quant_history_<tf> — restored here so this path never
+  // drops a recorded verdict the way it used to.
+  let persistedVerdicts = null;
+  try {
+    const rawHist = localStorage.getItem(`quant_history_${tf}`);
+    if (rawHist) {
+      const arrHist = JSON.parse(rawHist);
+      if (Array.isArray(arrHist)) {
+        persistedVerdicts = new Map();
+        for (const r of arrHist) {
+          if (r && r.period && r.verdictPick) {
+            persistedVerdicts.set(String(r.period), {
+              verdictPick: r.verdictPick,
+              verdictCorrect: (r.verdictCorrect !== undefined && r.verdictCorrect !== null) ? !!r.verdictCorrect : null
+            });
+          }
+        }
+      }
+    }
+  } catch (e) { persistedVerdicts = null; }
+
   let list = val.map(item => {
     const period = String(item.issueNumber || item.issue || item.period || '');
     const num = parseInt(item.number ?? item.openNumber ?? 0, 10);
     const size = item.size || (num >= 5 ? 'BIG' : 'SMALL');
     const color = item.color || (num === 0 ? 'RED,VIOLET' : num === 5 ? 'GREEN,VIOLET' : [1,3,7,9].includes(num) ? 'GREEN' : 'RED');
 
-    // Retain prediction outcome ONLY if it was genuinely settled in the active live session
+    // Retain prediction outcome ONLY if it was genuinely settled in the active live session.
+    // Owner order 2026-11-07: also restore the app's own recorded
+    // governed verdict (persisted in quant_history_<tf>) so a reload
+    // does not wipe the AI TARGET column — a recorded verdict is the
+    // app's own data, never a fabrication.
+    const pv = persistedVerdicts ? persistedVerdicts.get(period) : null;
     const existingInSession = currentList.find(c => String(c.period) === period);
     const aiTarget = existingInSession?.aiTarget || null;
     const aiCorrect = (existingInSession?.aiCorrect !== undefined && existingInSession?.aiCorrect !== null) ? existingInSession.aiCorrect : null;
     const result = aiCorrect !== null ? (aiCorrect ? 'WIN' : 'LOSS') : null;
+    const verdictPick = existingInSession?.verdictPick || pv?.verdictPick || null;
+    const verdictCorrect = (existingInSession?.verdictCorrect !== undefined && existingInSession?.verdictCorrect !== null)
+      ? !!existingInSession.verdictCorrect
+      : (pv && pv.verdictCorrect !== null && pv.verdictCorrect !== undefined ? !!pv.verdictCorrect : null);
 
     return {
       period,
@@ -1252,7 +1338,9 @@ function applyCloudHistory(tfKey, val) {
       result,
       aiTarget,
       aiType: existingInSession?.aiType || null,
-      aiCorrect
+      aiCorrect,
+      verdictPick,
+      verdictCorrect
     };
   }).filter(r => r.period && !isNaN(r.number));
 
@@ -1990,12 +2078,13 @@ function renderPredictionAudit(list) {
   // Owner order 2026-11-07: the card measures the GOVERNED signal the
   // user sees — settled rounds carrying verdictPick/verdictCorrect.
   // TimeframeManager stats measured the native prediction instead, so
-  // the card read 0 while signals were live. Pre-reload rounds are
-  // stripped by the cutoff and never counted.
-  const cutoff = MobileState.auditResetPeriod?.[tf] || localStorage.getItem(`wingo_audit_reset_${tf}`);
+  // the card read 0 while signals were live. The audit counts every
+  // RECORDED verdict (this session + restored from the app's own
+  // records) — the reload cutoff no longer zeroes it, because a
+  // recorded verdict is real data, not a fabrication. Rounds with no
+  // recorded verdict never count.
   const settled = (list || []).filter(r => {
     if (!r.verdictPick || r.verdictCorrect === null || r.verdictCorrect === undefined) return false;
-    if (cutoff && String(r.period) <= String(cutoff)) return false;
     return true;
   });
 
@@ -2043,13 +2132,14 @@ window.renderPredictionAudit = renderPredictionAudit;
 function renderAdaptiveAI(list) {
   if (!list || list.length === 0) return;
   const tf = MobileState.timeframe;
-  const cutoff = MobileState.auditResetPeriod?.[tf] || localStorage.getItem(`wingo_audit_reset_${tf}`);
 
-  // Filter strictly to rounds that had real live predictions AFTER the session reset cutoff
+  // Owner order 2026-11-07: count every RECORDED outcome (this session
+  // + restored from the app's own records). The reload cutoff used to
+  // zero this panel after any refresh; a recorded outcome is real data,
+  // not a fabrication. Rounds with no recorded outcome never count.
   const settled = list.filter(r => {
     if (r.paused || r.circuitBreakerPaused) return false;
     if (!r.aiTarget || r.aiCorrect === null || r.aiCorrect === undefined) return false;
-    if (cutoff && cutoff !== 'SESSION_START' && String(r.period) <= String(cutoff)) return false;
     return true;
   });
   const last20 = settled.slice(-20);
@@ -4864,10 +4954,17 @@ function initDockAutoCompact() {
   // Fix round (owner order 2026-10-27 ~12:03 IST): this handle IS the
   // menu line — tapping it is the ONLY way the hidden menu returns.
   // Scroll/swipe up deliberately never calls expand() anymore.
+  // Owner order 2026-11-07: on the Analyse page the menu restores
+  // COMPACT (the page keeps its compact menu); everywhere else it
+  // restores full.
+  const restoreDock = () => {
+    if (document.getElementById('tab-ai')?.style.display !== 'none') compact();
+    else expand();
+  };
   const restoreHandle = document.getElementById('dockRestoreHandle');
   if (restoreHandle) {
-    restoreHandle.addEventListener('click', expand);
-    restoreHandle.addEventListener('pointerdown', expand, { passive: true });
+    restoreHandle.addEventListener('click', restoreDock);
+    restoreHandle.addEventListener('pointerdown', restoreDock, { passive: true });
 
     let rStartY = null;
     restoreHandle.addEventListener('touchstart', (e) => {
@@ -4877,7 +4974,7 @@ function initDockAutoCompact() {
       if (rStartY !== null && e.touches && e.touches[0]) {
         const dy = e.touches[0].clientY - rStartY;
         if (dy < -6) { // Swipe UP from bottom strip
-          expand();
+          restoreDock();
           rStartY = null;
         }
       }
@@ -4999,6 +5096,24 @@ function switchMobileTab(tab) {
   // Header auto-hide applies only to the Home (web) tab
   if (tab !== 'web') document.body.classList.remove('home-header-hidden');
   if (typeof window._dockSyncShield === 'function') window._dockSyncShield();
+
+  // Owner order 2026-11-07: on the Analyse page the menu (dock) stays
+  // COMPACT (slim icons-only pill) — the page is dense and the full
+  // menu eats space. Leaving Analyse restores the full menu. A hidden
+  // dock is never forced back by a tab switch; the bottom line is the
+  // only way it returns.
+  try {
+    const dockEl = document.getElementById('mobileBottomDock');
+    if (dockEl && !dockEl.classList.contains('dock-hidden')) {
+      if (tab === 'ai') {
+        if (typeof window._dockSetCompact === 'function') window._dockSetCompact(true);
+        else { dockEl.classList.add('dock-compact'); document.body.classList.add('nav-compact'); }
+      } else if (dockEl.classList.contains('dock-compact')) {
+        if (typeof window._dockSetCompact === 'function') window._dockSetCompact(false);
+        else { dockEl.classList.remove('dock-compact'); document.body.classList.remove('nav-compact'); }
+      }
+    }
+  } catch (e) { /* menu state must never break a tab switch */ }
 
   // Lazy-init pattern view when pattern tab is shown
   if (tab === 'pattern') {
