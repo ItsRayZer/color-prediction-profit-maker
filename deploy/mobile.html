@@ -519,7 +519,7 @@
       <div class="liquid-glass-card p-3 space-y-2">
         <div class="flex items-center justify-between pb-1 border-b border-white/[0.08]">
           <span class="text-[9.5px] font-black uppercase tracking-wider text-white">Digit Frequency (0–9)</span>
-          <span class="text-[8px] font-mono text-zinc-400">Last 100 Rounds</span>
+          <span class="text-[8px] font-mono text-zinc-400">Last 10 Draws</span>
         </div>
         <div id="digitFrequencyGrid" class="grid grid-cols-5 gap-1.5 pt-1"></div>
       </div>
@@ -684,24 +684,24 @@
               <i class="fa-solid fa-earth-americas text-[7px]"></i> Global
             </button>
             <button id="resetAIWinRateBtn" type="button" onclick="resetUserAIModelsWinRate()" class="px-2 py-0.5 rounded-lg text-[8px] font-mono font-bold transition flex items-center gap-1 text-zinc-400 hover:text-rose-300 border border-transparent" title="Reset all model win rates to 0% for your personal session">
-              <i class="fa-solid fa-rotate-left text-[7px]"></i> Reset 0%
+              <i class="fa-solid fa-rotate-left text-[7px]"></i> Reset
             </button>
           </div>
         </div>
 
         <!-- Category Filter Pills -->
         <div class="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar">
-          <button onclick="setMobileAlgoCategory('all')" id="algoCat-all" class="ai-filter-btn active">All (101)</button>
-          <button onclick="setMobileAlgoCategory('Fly')" id="algoCat-Fly" class="ai-filter-btn">Fly (14)</button>
-          <button onclick="setMobileAlgoCategory('Neural')" id="algoCat-Neural" class="ai-filter-btn">Neural (12)</button>
-          <button onclick="setMobileAlgoCategory('Classical')" id="algoCat-Classical" class="ai-filter-btn">Classical (15)</button>
-          <button onclick="setMobileAlgoCategory('Signal')" id="algoCat-Signal" class="ai-filter-btn">Signal (12)</button>
-          <button onclick="setMobileAlgoCategory('Chaos')" id="algoCat-Chaos" class="ai-filter-btn">Chaos (10)</button>
-          <button onclick="setMobileAlgoCategory('Game')" id="algoCat-Game" class="ai-filter-btn">Game (10)</button>
-          <button onclick="setMobileAlgoCategory('Pattern')" id="algoCat-Pattern" class="ai-filter-btn">Pattern (10)</button>
-          <button onclick="setMobileAlgoCategory('Quantum')" id="algoCat-Quantum" class="ai-filter-btn">Quantum (5)</button>
-          <button onclick="setMobileAlgoCategory('Meta')" id="algoCat-Meta" class="ai-filter-btn">Meta (6)</button>
-          <button onclick="setMobileAlgoCategory('Statistical')" id="algoCat-Statistical" class="ai-filter-btn">Statistical (7)</button>
+          <button onclick="setMobileAlgoCategory('all')" id="algoCat-all" class="ai-filter-btn active">All (142)</button>
+          <button onclick="setMobileAlgoCategory('Fly')" id="algoCat-Fly" class="ai-filter-btn">Fly (18)</button>
+          <button onclick="setMobileAlgoCategory('Neural')" id="algoCat-Neural" class="ai-filter-btn">Neural (16)</button>
+          <button onclick="setMobileAlgoCategory('Classical')" id="algoCat-Classical" class="ai-filter-btn">Classical (19)</button>
+          <button onclick="setMobileAlgoCategory('Signal')" id="algoCat-Signal" class="ai-filter-btn">Signal (15)</button>
+          <button onclick="setMobileAlgoCategory('Chaos')" id="algoCat-Chaos" class="ai-filter-btn">Chaos (13)</button>
+          <button onclick="setMobileAlgoCategory('Game')" id="algoCat-Game" class="ai-filter-btn">Game (13)</button>
+          <button onclick="setMobileAlgoCategory('Pattern')" id="algoCat-Pattern" class="ai-filter-btn">Pattern (14)</button>
+          <button onclick="setMobileAlgoCategory('Quantum')" id="algoCat-Quantum" class="ai-filter-btn">Quantum (9)</button>
+          <button onclick="setMobileAlgoCategory('Meta')" id="algoCat-Meta" class="ai-filter-btn">Meta (10)</button>
+          <button onclick="setMobileAlgoCategory('Statistical')" id="algoCat-Statistical" class="ai-filter-btn">Statistical (12)</button>
         </div>
 
         <input type="text" id="modelSearchInput" oninput="filterModelRoster()" placeholder="Search algorithms..." class="w-full bg-black/50 border border-white/[0.1] rounded-xl px-2.5 py-1.5 text-[9px] font-mono text-white placeholder-zinc-500 focus:outline-none focus:border-purple-400">

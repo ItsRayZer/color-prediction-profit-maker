@@ -1,7 +1,8 @@
 // 01:01 Service Worker for Standalone PWA Installation
-// CACHE BUMP 2026-11-06 (balance ask re-arm fix): bump the name on
-// EVERY ship that must reach installed phones the same day.
-const CACHE_NAME = '0101-pwa-cache-v8';
+// CACHE BUMP 2026-11-07 (P&L after-fee profit + reset on refresh by default):
+// bump the name on EVERY ship that must reach installed phones the
+// same day.
+const CACHE_NAME = '0101-pwa-cache-v10';
 const ASSETS_TO_CACHE = [
   '/',
   '/mobile',

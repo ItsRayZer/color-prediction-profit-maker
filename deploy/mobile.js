@@ -1075,7 +1075,18 @@ async function fetchLiveAPIResults(tfOverride) {
       };
     });
 
-    // Detect new round → trigger settlement
+    // Owner order 2026-11-07 (AI TARGET dashes): assign the new list
+    // BEFORE settling. settleRoundOutcome stamps the verdict into
+    // MobileState.historyByTf — settling first stamped the OLD list,
+    // which this assignment then threw away, so the column could never
+    // show a verdict. The persist below still runs before the stamp;
+    // pre-reload rounds are stripped by the cutoff on the next load.
+    MobileState.historyByTf[tf] = processedList;
+    try {
+      localStorage.setItem(`quant_history_${tf}`, JSON.stringify(processedList.slice(-500)));
+    } catch(e) {}
+
+    // Detect new round → trigger settlement (stamps the LIVE list now).
     if (latestOld && latestNew && String(latestOld.period) !== String(latestNew.period)) {
       const processedLatest = processedList[processedList.length - 1];
       settleRoundOutcome(
@@ -1088,11 +1099,6 @@ async function fetchLiveAPIResults(tfOverride) {
         universalState
       );
     }
-
-    MobileState.historyByTf[tf] = processedList;
-    try {
-      localStorage.setItem(`quant_history_${tf}`, JSON.stringify(processedList.slice(-500)));
-    } catch(e) {}
 
     // Deep-history warm-up (fix round #6): once per session, in the
     // background, so a fresh origin's starved model store warms from
@@ -1981,39 +1987,29 @@ function drawMobileGraphConnector(hist) {
 
 function renderPredictionAudit(list) {
   const tf = MobileState.timeframe;
-  let sess = null;
-  if (window.TimeframeManager && typeof window.TimeframeManager.getStats === 'function') {
-    sess = window.TimeframeManager.getStats(tf);
-  }
+  // Owner order 2026-11-07: the card measures the GOVERNED signal the
+  // user sees — settled rounds carrying verdictPick/verdictCorrect.
+  // TimeframeManager stats measured the native prediction instead, so
+  // the card read 0 while signals were live. Pre-reload rounds are
+  // stripped by the cutoff and never counted.
+  const cutoff = MobileState.auditResetPeriod?.[tf] || localStorage.getItem(`wingo_audit_reset_${tf}`);
+  const settled = (list || []).filter(r => {
+    if (!r.verdictPick || r.verdictCorrect === null || r.verdictCorrect === undefined) return false;
+    if (cutoff && String(r.period) <= String(cutoff)) return false;
+    return true;
+  });
 
-  let total = 0, wins = 0, losses = 0, maxWin = 0, maxLoss = 0, curStreak = 0;
+  let total = settled.length;
+  let wins = settled.filter(r => r.verdictCorrect === true).length;
+  let losses = total - wins;
+  let maxWin = 0, maxLoss = 0, curStreak = 0;
 
-  if (sess) {
-    total = sess.totalSettled || 0;
-    wins = sess.correctCount || 0;
-    losses = sess.wrongCount || 0;
-    maxWin = sess.maxWinStreak || 0;
-    maxLoss = sess.maxLossStreak || 0;
-    curStreak = sess.curStreak || 0;
-  } else {
-    // Compute from local list strictly for rounds after auditResetPeriod that had live predictions
-    const cutoff = MobileState.auditResetPeriod?.[tf] || localStorage.getItem(`wingo_audit_reset_${tf}`);
-    const settled = (list || []).filter(r => {
-      if (!r.aiTarget || r.aiCorrect === null || r.aiCorrect === undefined) return false;
-      if (cutoff && String(r.period) <= String(cutoff)) return false;
-      return true;
-    });
-    total = settled.length;
-    wins = settled.filter(r => r.aiCorrect === true).length;
-    losses = total - wins;
-
-    let runW = 0, runL = 0;
-    settled.forEach(r => {
-      if (r.aiCorrect) { runW++; runL = 0; if (runW > maxWin) maxWin = runW; }
-      else { runL++; runW = 0; if (runL > maxLoss) maxLoss = runL; }
-    });
-    curStreak = runW > 0 ? runW : -runL;
-  }
+  let runW = 0, runL = 0;
+  settled.forEach(r => {
+    if (r.verdictCorrect) { runW++; runL = 0; if (runW > maxWin) maxWin = runW; }
+    else { runL++; runW = 0; if (runL > maxLoss) maxLoss = runL; }
+  });
+  curStreak = runW > 0 ? runW : -runL;
 
   MobileState.auditStats = { total, wins, losses, maxWinStreak: maxWin, maxLossStreak: maxLoss, curStreak };
 
@@ -3043,7 +3039,16 @@ function getEffectiveModelList(tf) {
       const losses = s ? Number(s.losses || 0) : 0;
       const totalEvaluated = wins + losses;
       const winRate = totalEvaluated > 0 ? Number((wins / totalEvaluated).toFixed(4)) : 0;
-      const streak = s ? Number(s.streak || 0) : 0;
+      // Owner order 2026-11-07 ("WR: no data" next to real W/L): the
+      // WR gate reads sessionEvaluated/sessionWins, so the session
+      // branch must SET them from the session map — the {...localM}
+      // spread leaked the worker's ephemeral session counters (0 after
+      // any reload/replay) and the gate saw n=0 beside real W/L.
+      // Session streak is the worker's live sessionStreak while it has
+      // counted live rounds, else the map's streak.
+      const streak = (Number(localM.sessionEvaluated || 0) > 0 && Number.isFinite(Number(localM.sessionStreak)))
+        ? Number(localM.sessionStreak)
+        : (s ? Number(s.streak || 0) : 0);
       const bestStreak = s ? Number(s.bestStreak || 0) : 0;
       const historyPath = s ? (s.historyPath || []) : [];
 
@@ -3054,6 +3059,8 @@ function getEffectiveModelList(tf) {
         totalEvaluated,
         winRate,
         winRatePct: `${(winRate * 100).toFixed(1)}%`,
+        sessionEvaluated: totalEvaluated,
+        sessionWins: wins,
         streak,
         bestStreak,
         historyPath
@@ -3208,9 +3215,16 @@ function renderModelRosterUI() {
   if (restoreBtn && resetBtn) {
     restoreBtn.classList.remove('hidden');
     resetBtn.classList.remove('hidden');
+    // Owner order 2026-11-07 (the old hardcoded zero-percent label):
+    // the label shows the REAL session win rate from settled governed
+    // verdicts, or just "Session" when none settled yet. Never a
+    // hardcoded percent.
+    const sessVerdicts = (MobileState.historyByTf?.[tf] || []).filter(r => r.verdictPick && r.verdictCorrect !== null && r.verdictCorrect !== undefined);
+    const sessWins = sessVerdicts.filter(r => r.verdictCorrect === true).length;
+    const sessLabel = sessVerdicts.length > 0 ? `Session ${Math.round((sessWins / sessVerdicts.length) * 100)}%` : 'Session';
     if (isUserReset) {
       resetBtn.className = 'px-2 py-0.5 rounded-lg text-[8px] font-mono font-bold transition flex items-center gap-1 bg-rose-500/25 text-rose-200 border border-rose-400/50 shadow-sm';
-      resetBtn.innerHTML = '<i class="fa-solid fa-check text-[7px]"></i> Session 0%';
+      resetBtn.innerHTML = `<i class="fa-solid fa-check text-[7px]"></i> ${sessLabel}`;
 
       restoreBtn.className = 'px-2 py-0.5 rounded-lg text-[8px] font-mono font-bold transition flex items-center gap-1 text-zinc-400 hover:text-purple-300 border border-transparent';
       restoreBtn.innerHTML = '<i class="fa-solid fa-earth-americas text-[7px]"></i> Global';
@@ -3219,7 +3233,7 @@ function renderModelRosterUI() {
       restoreBtn.innerHTML = '<i class="fa-solid fa-check text-[7px]"></i> Global';
 
       resetBtn.className = 'px-2 py-0.5 rounded-lg text-[8px] font-mono font-bold transition flex items-center gap-1 text-zinc-400 hover:text-rose-300 border border-transparent';
-      resetBtn.innerHTML = '<i class="fa-solid fa-rotate-left text-[7px]"></i> Reset 0%';
+      resetBtn.innerHTML = '<i class="fa-solid fa-rotate-left text-[7px]"></i> Reset';
     }
   }
 
@@ -3287,6 +3301,14 @@ function renderModelRosterUI() {
     if (heroName && !window.__o101Verdict) heroName.textContent = effectiveInCharge;
     const champName = $('aiChampionName');
     if (champName) champName.textContent = effectiveInCharge;
+  }
+
+  // Owner order 2026-11-07 (leaderboard #1 differed from the hero):
+  // the GOVERNED verdict owns the IN CHARGE badge. Its driver is the
+  // model actually driving the bets; the native sort / worker election
+  // never overrides the badge.
+  if (typeof window !== 'undefined' && window.__o101Verdict && window.__o101Verdict.driverName) {
+    effectiveInCharge = window.__o101Verdict.driverName;
   }
 
   // Champion card stats
@@ -3381,7 +3403,10 @@ function renderModelRosterUI() {
     'classical': catCounts['classical'] || 0,
     'signal': catCounts['signal'] || 0,
     'chaos': catCounts['chaos'] || 0,
-    'game': catCounts['game'] || 0,
+    // Game models carry cat 'game_theory' — the exact-key lookup
+    // read 0 and the pill showed "Game (0)" while tapping it listed
+    // 13 models (owner order 2026-11-07: fake data).
+    'game': (catCounts['game'] || 0) + (catCounts['game_theory'] || 0),
     'pattern': catCounts['pattern'] || 0,
     'quantum': catCounts['quantum'] || 0,
     'meta': catCounts['meta'] || 0,
@@ -4591,6 +4616,18 @@ function initDockAutoCompact() {
   // ── 1. Window scroll: scrolling down = chrome fully hidden, scrolling up =
   // menu stays hidden (tap the menu line to bring it back), top bar only
   // in 'reopen' mode ──
+  // Owner order 2026-11-07: a tap inside the cross-origin DhaniWin
+  // iframe moves focus into it, so the parent window blurs — the only
+  // signal the website gets for game-area taps once the shield has
+  // released. Blur on the web tab fully hides chrome (the lines bring
+  // it back). Focus changes from app switches also hide chrome, which
+  // is harmless: the line restores it.
+  window.addEventListener('blur', () => {
+    try {
+      if (document.getElementById('tab-web')?.style.display === 'none') return;
+      hideChrome();
+    } catch (e) { /* hiding chrome must never break focus handling */ }
+  });
   // Phase 3C: the old elsewhere-compact behavior is replaced — scroll down
   // fully hides the dock on EVERY view, and scroll up never auto-reopens
   // the top bar by default (tap the top-edge handle instead). Fix round
@@ -4750,10 +4787,11 @@ function initDockAutoCompact() {
     };
 
     const onShieldUp = () => {
-      // Clean tap (no significant move) -> the old tap path: compact
-      // + release so the next game tap reaches the iframe.
-      if (sStartY !== null && !sMoved && !dock.classList.contains('dock-compact')) {
-        compact();
+      // Clean tap in the game area (owner order 2026-11-07): FULLY hide
+      // top + bottom, not just compact — then release the shield so the
+      // next game tap reaches the iframe. The lines bring chrome back.
+      if (sStartY !== null && !sMoved) {
+        hideChrome();
         shield.style.pointerEvents = 'none';
       }
       sLastMoved = sMoved;
@@ -4776,10 +4814,11 @@ function initDockAutoCompact() {
     shield.addEventListener('touchend', onShieldUp, { passive: true });
     shield.addEventListener('click', (e) => {
       // A click with no preceding move is a tap: same tap path as
-      // pointerup. A click AFTER a swipe must not compact (the swipe
-      // already resolved the gesture) — sLastMoved guards that.
-      if (!sLastMoved && !dock.classList.contains('dock-compact')) {
-        compact();
+      // pointerup — fully hide chrome. A click AFTER a swipe must not
+      // hide again (the swipe already resolved the gesture) — sLastMoved
+      // guards that.
+      if (!sLastMoved) {
+        hideChrome();
         shield.style.pointerEvents = 'none';
       }
     }, { passive: true });

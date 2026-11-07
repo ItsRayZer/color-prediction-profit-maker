@@ -235,7 +235,7 @@ export function createSession(balance, { mode = DEFAULT_STAKING_MODE, baseBet } 
  * @returns new session fields plus { stakeUsed, state, reason } where
  *  state is CONTINUE | RESET only — no stop states exist since Phase 3D.
  */
-export function settle(session, won) {
+export function settle(session, won, profitFactor = PAYOUT) {
   if (!session || !(session.nextStake > 0)) {
     return { ...session, stakeUsed: 0, reason: 'Session is not active.' };
   }
@@ -247,8 +247,14 @@ export function settle(session, won) {
   let state;
   let reason;
 
+  // Owner order 2026-11-07: the win credits the pick's AFTER-FEE
+  // profit (profitFactor; default 0.96 for a 2x pick). A violet win
+  // returns 3.41x, an exact win 7.82x, a half win (red on 0 / green
+  // on 5) 0.47x — the session P&L must book the real return, not a
+  // flat 0.96x.
+  const pf = Number.isFinite(Number(profitFactor)) ? Number(profitFactor) : PAYOUT;
   if (won) {
-    balance += stake * PAYOUT;
+    balance += stake * pf;
     level = 0;
     consecutiveLosses = 0;
   } else {
