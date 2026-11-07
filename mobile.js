@@ -2527,8 +2527,18 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
   }
 
   // Priority 6: In-charge model replay
+  // FIX 2026-11-08 (frozen leaderboard): _hadTargetBeforeReplay was
+  // declared with const INSIDE this if-block but referenced AFTER it.
+  // When an early priority (settled governed verdict, scheduled
+  // prediction, cloud row) already resolved BOTH target and isWin,
+  // the block was skipped, the const never existed, and the reference
+  // below threw ReferenceError — killing settleRoundOutcome before it
+  // ever reached updateIndividualModelSettlement, so per-model session
+  // stats never accumulated and the leaderboard froze. The flag is
+  // now declared before the block; semantics unchanged (it records
+  // whether a target existed BEFORE the replay ran).
+  const _hadTargetBeforeReplay = !!target;
   if (isWin === null || !target) {
-    const _hadTargetBeforeReplay = !!target;
     const models = (typeof getEffectiveModelList === 'function') ? getEffectiveModelList(tf) : [];
     const inCharge = models.find(m => m.name === MobileState.inChargeModel) || models[0];
     if (inCharge) {
