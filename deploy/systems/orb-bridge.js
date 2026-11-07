@@ -47,6 +47,7 @@ import {
   ladderStake, isHighChance, neverZeroCap, stakeWithGuards,
   pickSizingBalance, shouldAskBalance,
   loadPnl, savePnl, applyPnlResult, totalPnl, pnlBoxText,
+  pnlProfitFactor, resetAllPnl, shouldResetPnlOnLoad,
   autoAnchorLabel, decideAutoBase, AUTO_ANCHOR_FRACTION,
   balanceTrackKey, defaultBalanceTrack, loadBalanceTrack, saveBalanceTrack, updateBalanceTrack,
   balanceConfirmView,
@@ -992,7 +993,7 @@ export function selectGateTracker({ typeTracker = null, pooledTracker = null } =
 // Suii/Bruh cues only ever fired from the old sim path. The sound hook
 // is injected (window.playSoundEffect in the browser) so the mobile
 // app's own sound setting and synth fallback stay in charge of audio.
-export function settleGovernedPick({ won, session = null, gateDecision = null, hooks = {} } = {}) {
+export function settleGovernedPick({ won, session = null, gateDecision = null, profitFactor = null, hooks = {} } = {}) {
   const events = [];
   let nextSession = session || null;
   if (gateDecision !== GATE_DECISIONS.BET) {
@@ -1003,7 +1004,9 @@ export function settleGovernedPick({ won, session = null, gateDecision = null, h
     try { hooks.playSound(sound); } catch (e) { /* audio must never break settlement */ }
   }
   if (nextSession && nextSession.nextStake > 0) {
-    nextSession = settle(nextSession, !!won);
+    // profitFactor (owner order 2026-11-07) is the pick's after-fee
+    // profit multiple; null/undefined keeps settle()'s 0.96 default.
+    nextSession = settle(nextSession, !!won, Number.isFinite(profitFactor) ? profitFactor : undefined);
     events.push(won ? BOT_EVENTS.WIN : BOT_EVENTS.LOSS);
     // Phase 3D: no stop events exist — a loss only ever pushes
     // LADDER_UP (the ladder doubles), a win pushes nothing extra.
@@ -2334,6 +2337,19 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 }
 
 function initBridge() {
+  // Owner order 2026-11-07: P&L resets to ₹0 on every refresh BY
+  // DEFAULT (Settings "Keep profit after refresh" opts out). Runs once
+  // per page load, before the first cycle/render, so in-session wins
+  // and losses always accumulate normally — the old bug (losses
+  // showing as 0) came from resetting mid-session, never from a
+  // once-per-load reset.
+  try {
+    if (!window.__o101PnlResetDone && shouldResetPnlOnLoad(safeStorage())) {
+      resetAllPnl(safeStorage());
+    }
+    window.__o101PnlResetDone = true;
+  } catch (e) { /* P&L reset must never break boot */ }
+
   const $ = id => document.getElementById(id);
   const inr = n => '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 
@@ -4893,10 +4909,16 @@ const PATTERN_PAGE_SIZE = 10;
           } else if (decision === GATE_DECISIONS.BET) {
             tracker.record(state.lastPick.prob, !!won);
             recordTypeCalibration(state.lastPick.target, state.lastPick.prob, !!won);
+            // Owner order 2026-11-07: profit AFTER the 2% fee, for the
+            // pick that actually won — half win on the violet number
+            // (0.47x), violet 3.41x, exact 7.82x, everything else
+            // 0.96x — not a flat 0.96x for every win.
+            const profitFactor = pnlProfitFactor(settleTarget, latest.number);
             const result = settleGovernedPick({
               won: !!won,
               session: state.session,
               gateDecision: decision,
+              profitFactor,
               hooks: {
                 playSound: type => { try { if (typeof window.playSoundEffect === 'function') window.playSoundEffect(type); } catch (e) {} }
               }
@@ -4939,15 +4961,16 @@ const PATTERN_PAGE_SIZE = 10;
               const L0 = loadLedger(safeStorage(), settleType);
               const upd = applyLedgerResult(L0, result.session.stakeUsed, !!won);
               saveLedger(safeStorage(), settleType, upd.L);
-              // Stake redesign (owner order 2026-10-30 ~01:06 IST):
-              // long-term P&L — win adds the exact 0.96x profit, loss
-              // subtracts the exact stake. Persisted across sessions;
-              // reset only by the owner's explicit Settings reset.
-              // Manual DhaniWin-surface bets are invisible to the app
-              // and are NOT in it.
+              // Stake redesign (owner order 2026-10-30 ~01:06 IST;
+              // after-fee profit per pick, owner order 2026-11-07):
+              // long-term P&L — win adds the pick's after-fee profit
+              // (profitFactor), loss subtracts the exact stake. Resets
+              // to ₹0 on every refresh by default; Settings "Keep
+              // profit after refresh" opts out. Manual DhaniWin-surface
+              // bets are invisible to the app and are NOT in it.
               try {
                 const p0 = loadPnl(safeStorage(), settleType);
-                savePnl(safeStorage(), settleType, applyPnlResult(p0, result.session.stakeUsed, !!won));
+                savePnl(safeStorage(), settleType, applyPnlResult(p0, result.session.stakeUsed, !!won, profitFactor));
               } catch (e) { /* P&L must never break settlement */ }
               // P&L fix (owner order 2026-10-30): refresh the box NOW,
               // on this settlement — win AND loss — not only on the

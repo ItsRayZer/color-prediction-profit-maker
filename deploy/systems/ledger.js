@@ -322,13 +322,45 @@ export function shouldAskBalance({ verifiedFresh = false, typed = null, dismisse
   return true;
 }
 
-// ── Long-term P&L tracking (owner order 2026-10-30 ~01:06 IST) ───────
-// Cumulative NET profit/loss per type, persisted across sessions.
-// Updated on every staged settled bet: win → +0.96×stake, loss →
-// −stake. Can go negative (honest). Reset ONLY by the owner's explicit
-// Settings reset — never on reload, session end, date change, or app
-// update. Manual DhaniWin-surface bets are invisible to the app and
-// are NOT in it (the P&L box title says so).
+// ── Long-term P&L tracking (owner order 2026-10-30 ~01:06 IST;
+// reset default changed 2026-11-07) ───────
+// Cumulative NET profit/loss per type WITHIN one load, AFTER the 2%
+// fee (see pnlProfitFactor). By default it resets to ₹0 on every
+// refresh (owner order 2026-11-07); Settings "Keep profit after
+// refresh" opts out. Manual DhaniWin-surface bets are invisible to
+// the app and are NOT in it (the P&L box title says so).
+
+/** WinGo fee: 2% charged on the payout (worked maths:
+ * research_notes/dhaniwin-wingo-result-generation-researc-20261023-1253/report.md §3).
+ * 2x win → 1.96x back (profit 0.96x); 4.5x violet → 4.41x back
+ * (profit 3.41x); 9x exact → 8.82x back (profit 7.82x). A red win
+ * on 0 / green win on 5 is a HALF win: 1.5x headline → 1.47x back
+ * (profit 0.47x). */
+export const WINGO_FEE_RATE = 0.02;
+
+/** After-fee PROFIT multiple for one settled win, from the pick and
+ * the winning ball number. Pure. A loss is always -1x stake.
+ * (The old code booked every win at a flat 0.96x — a half win
+ * overstated by 0.49x, a violet win understated by 2.45x.) */
+export function pnlProfitFactor(pick, number) {
+  const p = String(pick || '').toUpperCase();
+  const n = Number(number);
+  const profit = (headline) => Math.round((headline * (1 - WINGO_FEE_RATE) - 1) * 100) / 100;
+  if (p === 'VIOLET') return profit(4.5);
+  if (/^[0-9]$/.test(p)) return profit(9);
+  if (p === 'RED' && n === 0) return profit(1.5);
+  if (p === 'GREEN' && n === 5) return profit(1.5);
+  return profit(2);
+}
+
+/** P&L keep flag (owner order 2026-11-07): by default the P&L resets
+ * to ₹0 on every refresh. Settings "Keep profit after refresh" opts
+ * out (flag '1'). */
+export const PNL_KEEP_KEY = 'o101_pnl_keep_across_refresh';
+export function shouldResetPnlOnLoad(storage) {
+  try { return !storage || storage.getItem(PNL_KEEP_KEY) !== '1'; }
+  catch (e) { return true; }
+}
 
 export function pnlKey(type) {
   return `o101_pnl_v1_${String(type || 'COLOR').toUpperCase()}`;
@@ -352,7 +384,10 @@ export function savePnl(storage, type, v) {
   } catch (e) { /* storage unavailable: P&L stays in-memory only */ }
 }
 
-// Owner order 2026-10-30 13:53 IST: P&L resets to ₹0 on every reload (fresh each session).
+// Owner order 2026-11-07: P&L resets to ₹0 on every refresh BY
+// DEFAULT (Settings "Keep profit after refresh" opts out — see
+// shouldResetPnlOnLoad). Runs once per load from initBridge, before
+// the first cycle, so in-session wins and losses always accumulate.
 export function resetAllPnl(storage) {
   try {
     if (!storage) return;

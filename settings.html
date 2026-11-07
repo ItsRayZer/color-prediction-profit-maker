@@ -1842,6 +1842,27 @@
           </div>
         </div>
 
+        <!-- Keep profit after refresh (owner order 2026-11-07): OFF by
+             default — profit resets to ₹0 on every refresh. When on,
+             the profit carries across refreshes until reset. -->
+        <div class="ios-row">
+          <div class="ios-row-left">
+            <div class="ios-squircle sq-amber">
+              <svg class="o101-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20"/><path d="M17 6.5c0-1.9-2.2-3-5-3s-5 1.1-5 3 1.8 2.6 5 3.2 5 1.4 5 3.3-2.2 3-5 3-5-1.1-5-3"/></svg>
+            </div>
+            <div>
+              <div class="ios-label-primary">Keep profit after refresh</div>
+              <div class="ios-label-secondary">Off by default. Profit resets to ₹0 on every refresh.</div>
+            </div>
+          </div>
+          <div class="ios-row-right">
+            <label class="ios-switch">
+              <input type="checkbox" id="swKeepPnl" onchange="toggleKeepPnl(this.checked)">
+              <span class="ios-switch-track"><span class="ios-switch-thumb"></span></span>
+            </label>
+          </div>
+        </div>
+
         <div class="ios-row interactive" onclick="purgeCache()">
           <div class="ios-row-left">
             <div class="ios-squircle sq-red">
@@ -2181,6 +2202,11 @@
       const swKeep = document.getElementById('swKeepAlive');
       if (swKeep) swKeep.checked = keepVal;
 
+      // Keep profit after refresh (default off = reset on refresh)
+      const pnlKeepVal = localStorage.getItem('o101_pnl_keep_across_refresh') === '1';
+      const swKeepPnl = document.getElementById('swKeepPnl');
+      if (swKeepPnl) swKeepPnl.checked = pnlKeepVal;
+
       // Timeframe
       const tfVal = localStorage.getItem('quant_default_tf') || '30s';
       const selTf = document.getElementById('selTimeframe');
@@ -2393,6 +2419,11 @@
         tag.className = checked ? 'ios-tag-micro tag-active' : 'ios-tag-micro tag-neutral';
       }
       showToast(checked ? 'Background Keep-Alive Active' : 'Keep-Alive Disabled');
+    }
+
+    function toggleKeepPnl(checked) {
+      localStorage.setItem('o101_pnl_keep_across_refresh', checked ? '1' : '0');
+      showToast(checked ? 'Profit kept across refresh' : 'Profit resets on refresh');
     }
 
     function setTimeframe(val) {
