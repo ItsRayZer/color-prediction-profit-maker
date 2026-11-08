@@ -55,8 +55,13 @@ describe('SW update hardening', () => {
     assert.ok(mobileHtml.includes("navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })"), 'registration must bypass the HTTP cache on update checks');
   });
 
-  it('uses the current cache name (v12, bumped 2026-11-07)', () => {
-    assert.ok(swSrc.includes("const CACHE_NAME = '0101-pwa-cache-v12'"), 'CACHE_NAME must be v12');
+  it('cache name matches the app build version (Round 29: was a stale v12 pin)', () => {
+    // The old pin ('CACHE_NAME must be v12') went stale at the v13 ship
+    // and failed the suite; the version is pinned once, in
+    // O101_BUILD_VERSION, and every other test cross-checks it.
+    const build = mobileSrc.match(/const O101_BUILD_VERSION = (\d+)/);
+    assert.ok(build, 'mobile.js must define O101_BUILD_VERSION');
+    assert.ok(swSrc.includes(`const CACHE_NAME = '0101-pwa-cache-v${build[1]}'`), 'CACHE_NAME must match O101_BUILD_VERSION');
     assert.ok(!swSrc.includes('0101-pwa-cache-v10'), 'no stale v10 reference may remain');
   });
 });
