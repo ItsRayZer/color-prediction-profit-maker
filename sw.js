@@ -2,7 +2,7 @@
 // CACHE BUMP 2026-11-07 (Analyse compact menu + SW update hardening):
 // bump the name on EVERY ship that must reach installed phones the
 // same day.
-const CACHE_NAME = '0101-pwa-cache-v13';
+const CACHE_NAME = '0101-pwa-cache-v14';
 const ASSETS_TO_CACHE = [
   '/',
   '/mobile',

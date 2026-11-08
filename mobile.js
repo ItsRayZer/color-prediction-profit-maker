@@ -2944,6 +2944,9 @@ window.triggerAITargetBoxAnimation = triggerAITargetBoxAnimation;
 // ── 18. Individual Model Settlement (All 53 Models) ───────────────────────────
 
 function updateIndividualModelSettlement(tf, periodStr, number, size, color, universalState) {
+  // Round 29: arm Session tracking before the map write below, so the
+  // first settled round already counts — no Reset tap required.
+  if (typeof ensureSessionTracking === 'function') ensureSessionTracking(tf);
   const models = (typeof getCanonicalModelsForTf === 'function') ? getCanonicalModelsForTf(tf) : [];
   if (!models || models.length === 0) return;
 
@@ -3309,10 +3312,38 @@ function filterModelRoster() {
 }
 window.filterModelRoster = filterModelRoster;
 
+// Round 29 (2026-11-08): build stamp + Session auto-start.
+// The owner's phone showed Session 0W/0L at 12:36 IST on the v13 ship
+// even though the computer test proved v13 ticks live: two causes.
+// (1) Session tracking only armed when the user tapped Reset — a fresh
+// phone/user never armed it, so the session map was never written and
+// the ranking, the per-model win rate and the in-charge election all
+// had zero signal. Now the session auto-arms on the first settle /
+// render for a timeframe unless the user explicitly chose Global.
+// (2) Nothing in the app said which build was running, so a stale
+// phone could not be told apart from the new code. O101_BUILD_VERSION
+// is stamped next to the leaderboard title and must match the sw.js
+// CACHE_NAME version on every ship.
+const O101_BUILD_VERSION = 14;
+if (typeof window !== 'undefined') window.__o101Build = 'v' + O101_BUILD_VERSION;
+
+function ensureSessionTracking(tf) {
+  tf = tf || MobileState.timeframe;
+  try {
+    if (localStorage.getItem(`quant_user_ai_reset_${tf}`)) return;
+    if (localStorage.getItem(`quant_user_ai_global_${tf}`)) return; // user explicitly chose Global
+    const period = (typeof computeRTState === 'function') ? computeRTState(tf).periodStr : String(Date.now());
+    localStorage.setItem(`quant_user_ai_reset_${tf}`, period);
+    localStorage.setItem(`quant_user_model_stats_${tf}`, JSON.stringify({}));
+  } catch (e) {}
+}
+window.ensureSessionTracking = ensureSessionTracking;
+
 function resetUserAIModelsWinRate() {
   const tf = MobileState.timeframe;
   const period = (typeof computeRTState === 'function') ? computeRTState(tf).periodStr : String(Date.now());
   localStorage.setItem(`quant_user_ai_reset_${tf}`, period);
+  try { localStorage.removeItem(`quant_user_ai_global_${tf}`); } catch (e) {}
   localStorage.setItem(`quant_user_model_stats_${tf}`, JSON.stringify({}));
   if (MobileState.modelPools) delete MobileState.modelPools[tf];
 
@@ -3346,6 +3377,9 @@ function restoreGlobalAIStats() {
   const tf = MobileState.timeframe;
   localStorage.removeItem(`quant_user_ai_reset_${tf}`);
   localStorage.removeItem(`quant_user_model_stats_${tf}`);
+  // Explicit Global choice: auto-arm must not re-arm Session on the
+  // next render/settle (Round 29).
+  try { localStorage.setItem(`quant_user_ai_global_${tf}`, '1'); } catch (e) {}
   if (MobileState.modelPools) delete MobileState.modelPools[tf];
 
   if (modelWorker) {
@@ -3370,6 +3404,11 @@ window.restoreGlobalAIStats = restoreGlobalAIStats;
 
 function renderModelRosterUI() {
   const tf = MobileState.timeframe;
+  // Round 29: arm Session tracking on first paint, and stamp the build
+  // version next to the leaderboard title so a stale phone is visible.
+  if (typeof ensureSessionTracking === 'function') ensureSessionTracking(tf);
+  const buildTag = (typeof $ === 'function') ? $('o101BuildTag') : null;
+  if (buildTag) buildTag.textContent = 'v' + O101_BUILD_VERSION;
   const isUserReset = !!localStorage.getItem(`quant_user_ai_reset_${tf}`);
 
   const restoreBtn = $('restoreGlobalAIBtn');
@@ -5830,6 +5869,7 @@ function clearAppCache() {
     try { localStorage.removeItem(`quant_history_${tf}`); } catch(e) {}
     try { localStorage.removeItem(`quant_user_ai_reset_${tf}`); } catch(e) {}
     try { localStorage.removeItem(`quant_user_model_stats_${tf}`); } catch(e) {}
+    try { localStorage.removeItem(`quant_user_ai_global_${tf}`); } catch(e) {}
   });
   MobileState.historyByTf = { '30s': [], '1m': [], '3m': [], '5m': [] };
   MobileState.modelPools = {};

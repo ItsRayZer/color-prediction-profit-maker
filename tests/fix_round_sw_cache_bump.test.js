@@ -15,8 +15,8 @@ import { describe, it } from 'node:test';
 const swSrc = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 
 describe('service worker cache bump', () => {
-  it('uses the current cache name (v13, bumped 2026-11-08)', () => {
-    assert.ok(swSrc.includes("const CACHE_NAME = '0101-pwa-cache-v13'"), 'CACHE_NAME must be v13');
+  it('uses the current cache name (v14, bumped 2026-11-08)', () => {
+    assert.ok(swSrc.includes("const CACHE_NAME = '0101-pwa-cache-v14'"), 'CACHE_NAME must be v14');
     assert.ok(!swSrc.includes('0101-pwa-cache-v10'), 'no stale v10 reference may remain');
   });
 
