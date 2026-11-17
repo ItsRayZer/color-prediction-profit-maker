@@ -73,7 +73,7 @@ describe('leaderboard reads one record, not two', () => {
   });
 
   it('static category pills show true catalog counts (first paint)', () => {
-    for (const [label, count] of [['All', 142], ['Fly', 18], ['Neural', 16], ['Classical', 19], ['Signal', 15], ['Chaos', 13], ['Game', 13], ['Pattern', 14], ['Quantum', 9], ['Meta', 10], ['Statistical', 12]]) {
+    for (const [label, count] of [['All', 143], ['Fly', 18], ['Neural', 16], ['Classical', 19], ['Signal', 15], ['Chaos', 13], ['Game', 13], ['Pattern', 14], ['Quantum', 9], ['Meta', 10], ['Statistical', 13]]) {
       assert.ok(mobileHtml.includes(`${label} (${count})`), `static pill must say ${label} (${count})`);
     }
     assert.ok(!mobileHtml.includes('All (101)'), 'stale All (101) must be gone');

@@ -33,7 +33,7 @@
 
 import { InchargeEngine, INCHARGE_MODES, wilsonLowerBound, selectInchargeOwnerRule } from './inchargeEngine.js';
 import { CalibrationTracker, PerModelCalibrationTracker, calibrationLabel, plattScale, CALIBRATION_KEY, expectedCalibrationError } from './calibration.js';
-import { evaluateSignalGate, GATE_DECISIONS, GateCooldown, sampleStakeFactor, betTypeOfPick, ASI_TRIAL_IDS, ASI_TRIAL_GATE_REASON } from './signalGate.js';
+import { evaluateSignalGate, GATE_DECISIONS, GateCooldown, sampleStakeFactor, betTypeOfPick, ASI_TRIAL_IDS, ASI_TRIAL_GATE_REASON, DISPLAY_ONLY_IDS, DISPLAY_ONLY_GATE_REASON } from './signalGate.js';
 import { BlacklistManager } from './blacklist.js';
 import { BenchManager, benchStatusLabel, benchProgressText, benchRoundsText } from './bench.js';
 import {
@@ -2588,6 +2588,28 @@ function initBridge() {
 
   function settledHistory(tf) {
     return rawHistory(tf).filter(r => r && !r.gap && r.number !== null && r.number !== undefined);
+  }
+
+  // Prediction window (cold-big-20, owner order 2026-11-15): live picks
+  // need up to 20 prior rounds, but the live fetch loop only holds the
+  // latest ~10 per timeframe. Merge the deep-history tail (warm-up
+  // store, up to 600 rounds, persisted) with the live list, deduped by
+  // period (live wins), sorted oldest-first, capped at 24. The cap is
+  // deliberate: 20 for the signal + gap slack, still under
+  // ADAPTIVE_MIN_HISTORY (25), so the per-model adaptive override stays
+  // skipped live exactly as today. Settlement, verdict locking and
+  // history display keep the 10-round live list untouched.
+  function predictionHistory(tf) {
+    try {
+      const ms = (typeof window !== 'undefined' && window.MobileState) || null;
+      const live = rawHistory(tf);
+      const deep = (ms && ms.deepHistoryByTf && ms.deepHistoryByTf[tf]) || [];
+      const byPeriod = new Map();
+      for (const r of deep) if (r && r.period) byPeriod.set(String(r.period), r);
+      for (const r of live) if (r && r.period) byPeriod.set(String(r.period), r);
+      const merged = [...byPeriod.values()].sort((a, b) => String(a.period).localeCompare(String(b.period)));
+      return merged.filter(r => r && !r.gap && r.number !== null && r.number !== undefined).slice(-24);
+    } catch (e) { return settledHistory(tf); }
   }
 
   function arenaModels() {
@@ -5239,7 +5261,7 @@ const PATTERN_PAGE_SIZE = 10;
     //    the round reuse it verbatim, so the displayed verdict can
     //    never flip mid-round. The lock releases on period roll-over
     //    or timeframe switch (a new key).
-    const picks = nextRoundPicks(arenaModels(), history, gen);
+    const picks = nextRoundPicks(arenaModels(), predictionHistory(tf), gen);
     // Phase Observer: compute (or reuse, keyed by tf:latestPeriod —
     // the verdict lock key — so a mid-round backfill can never flip
     // the pick) Observer's picks for the upcoming round from live
@@ -5321,16 +5343,19 @@ const PATTERN_PAGE_SIZE = 10;
       // status rides asiTrialNote. If no colour/size pick exists at
       // all, the verdict is NO_PICK (the only honest no-pick state).
       const inchargeIsTrial = ASI_TRIAL_IDS.includes(incharge.id);
+      const inchargeIsDisplayOnly = DISPLAY_ONLY_IDS.includes(incharge.id);
       const inchargeIsExact = (incharge.predType || 'COLOR') === 'NUMBER';
       const exactDisplay = inchargeIsExact && myPick ? { digit: myPick.target, modelId: incharge.id, modelName: incharge.name } : null;
       const asiTrialNote = inchargeIsTrial ? ASI_TRIAL_GATE_REASON : null;
+      const displayOnlyNote = inchargeIsDisplayOnly ? DISPLAY_ONLY_GATE_REASON : null;
       let betDriver = null;
       let betPick = null;
-      if (!inchargeIsTrial && !inchargeIsExact && myPick) {
+      if (!inchargeIsTrial && !inchargeIsDisplayOnly && !inchargeIsExact && myPick) {
         betDriver = incharge; betPick = myPick;
       } else {
         for (const m of ranked) {
           if (ASI_TRIAL_IDS.includes(m.id)) continue;
+          if (DISPLAY_ONLY_IDS.includes(m.id)) continue;
           if ((m.predType || 'COLOR') === 'NUMBER') continue;
           const pp = picks.get(m.id);
           if (pp) { betDriver = m; betPick = pp; break; }
@@ -5348,6 +5373,7 @@ const PATTERN_PAGE_SIZE = 10;
         let bestW = -Infinity;
         for (const m of blEligible) {
           if (ASI_TRIAL_IDS.includes(m.id)) continue;
+          if (DISPLAY_ONLY_IDS.includes(m.id)) continue;
           if ((m.predType || 'COLOR') === 'NUMBER') continue;
           if (!bench.isExcluded(tf, m.id)) continue;
           const pp = picks.get(m.id);
@@ -5359,11 +5385,11 @@ const PATTERN_PAGE_SIZE = 10;
       }
       if (!betDriver) {
         return {
-          gate: { decision: GATE_DECISIONS.NO_PICK, pick: null, prob: null, reason: 'No stageable colour/size pick exists right now — no eligible model has a pick for this round.', exactDisplay, asiTrialNote },
+          gate: { decision: GATE_DECISIONS.NO_PICK, pick: null, prob: null, reason: 'No stageable colour/size pick exists right now — no eligible model has a pick for this round.', exactDisplay, asiTrialNote, displayOnlyNote },
           pick: null,
           inchargeId: incharge.id,
           inchargeType: incharge.predType || null,
-          exactDisplay, asiTrialNote, observerFollow: null,
+          exactDisplay, asiTrialNote, displayOnlyNote, observerFollow: null,
           driverWinRate: null, driverType: null, benchFloor: benchFloorId || null
         };
       }
@@ -5425,7 +5451,7 @@ const PATTERN_PAGE_SIZE = 10;
         pick: betPick ? { target: betPick.target, prob: calibratedProb !== null ? calibratedProb : rawConf } : null,
         inchargeId: betDriver.id,
         inchargeType: betDriver.predType || null,
-        exactDisplay, asiTrialNote, observerFollow,
+        exactDisplay, asiTrialNote, displayOnlyNote, observerFollow,
         // Phase 3E display companions: the bet driver's raw win rate
         // (hero Chance, labelled raw), its type (ledger key + gap
         // bar), and the bench-floor flag when the pick came from a
@@ -5453,6 +5479,7 @@ const PATTERN_PAGE_SIZE = 10;
     // Chance/gap/ledger key) and the bench-floor flag.
     gate.exactDisplay = locked.exactDisplay || null;
     gate.asiTrialNote = locked.asiTrialNote || null;
+    gate.displayOnlyNote = locked.displayOnlyNote || null;
     gate.observerFollow = locked.observerFollow || null;
     gate.driverWinRate = locked.driverWinRate ?? null;
     gate.driverType = locked.driverType || null;
@@ -5634,7 +5661,7 @@ const PATTERN_PAGE_SIZE = 10;
     // produced it — never the native per-type incharge.
     const _driverId = gate.driverId || null;
     const _driverModel = _driverId ? arenaModels().find(m => m && m.id === _driverId) : null;
-    window.__o101Verdict = { decision: view.decision, pick: view.pick, pickType: gate.driverType || null, driverId: _driverId, driverName: _driverModel ? (_driverModel.name || _driverId) : null, confText: view.confText, reason: view.reasonText || '', key: state.verdictKey || null, exactDisplay: gate.exactDisplay || null, asiTrialNote: gate.asiTrialNote || null, chanceText: view.chanceText || '', wilsonText: view.wilsonText || '', gapText: view.gapText || '', qualityTag: view.qualityTag || '', observerLine: view.observerLine || '', ledgerLine: view.ledgerLine || '', wilson: Number.isFinite(gate.wilsonLowerBound) ? gate.wilsonLowerBound : null, benchFloor: gate.benchFloor || null };
+    window.__o101Verdict = { decision: view.decision, pick: view.pick, pickType: gate.driverType || null, driverId: _driverId, driverName: _driverModel ? (_driverModel.name || _driverId) : null, confText: view.confText, reason: view.reasonText || '', key: state.verdictKey || null, exactDisplay: gate.exactDisplay || null, asiTrialNote: gate.asiTrialNote || null, displayOnlyNote: gate.displayOnlyNote || null, chanceText: view.chanceText || '', wilsonText: view.wilsonText || '', gapText: view.gapText || '', qualityTag: view.qualityTag || '', observerLine: view.observerLine || '', ledgerLine: view.ledgerLine || '', wilson: Number.isFinite(gate.wilsonLowerBound) ? gate.wilsonLowerBound : null, benchFloor: gate.benchFloor || null };
     if (state.page !== 'mobile') return;
     const targetEl = $('mobileWebTargetDisplay');
     if (targetEl) {
@@ -5711,6 +5738,8 @@ const PATTERN_PAGE_SIZE = 10;
         exactEl.textContent = `Exact ball ${gate.exactDisplay.digit} (display only — payout unverified).`;
       } else if (gate.asiTrialNote) {
         exactEl.textContent = gate.asiTrialNote;
+      } else if (gate.displayOnlyNote) {
+        exactEl.textContent = gate.displayOnlyNote;
       } else {
         exactEl.textContent = '';
       }
