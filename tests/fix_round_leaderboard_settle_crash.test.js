@@ -134,7 +134,7 @@ describe('settleRoundOutcome must not throw when an early priority resolves targ
       assert.doesNotThrow(() => sandbox.settleRoundOutcome(tf, period, n, size, color, null, null), 'settleRoundOutcome must not throw on a governed settled verdict');
     }
     const map = JSON.parse(localStorage.getItem(`quant_user_model_stats_${tf}`));
-    assert.equal(Object.keys(map).length, 142, 'session map must hold all 142 models');
+    assert.equal(Object.keys(map).length, 143, 'session map must hold all 143 models');
     const scored = Object.values(map).filter((m) => m.totalEvaluated > 0).length;
     assert.ok(scored >= 130, `most models must be scored after 5 rounds (got ${scored})`);
     const top = sandbox.getEffectiveModelList(tf)[0];

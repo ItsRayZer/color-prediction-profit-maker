@@ -1755,6 +1755,14 @@ const ARENA_CANONICAL_MODELS = [
     "arch": "Named repeating-pattern detector: DRAGON / CHOP / DOUBLE / STREAK with fixed identification rules",
     "desc": "System model (owner order 2026-10-30): detects repeating size patterns with clear names (DRAGON_BIG = 4+ BIG in a row, CHOP = alternating, DOUBLE_SMALL = pairs, STREAK_BIG = 2-3 in a row) and predicts the pattern continues. Outputs null (no prediction) when no pattern matches. Governed under the same Wilson bar (53.02%), 2-window blacklist, and bench rules as every model. No proven edge.", "strategy": "Named repeating patterns (DRAGON/CHOP/DOUBLE/STREAK); null if none", "complexity": "medium",
     "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.65, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
+  },
+  {
+    "id": "cold-big-20",
+    "name": "Cold Big 20",
+    "cat": "statistical",
+    "arch": "Windowed-rate rule: last-20 BIG rate below 0.40, bet BIG",
+    "desc": "Edge-search signal (owner order 2026-11-15, edge-report-2026-11-14/15): when BIG has been cold over the last 20 rounds of the timeframe (BIG rate below 0.40), bet BIG. Held-out 3m: 73/109 (67.0%, Wilson 0.577) on 14 Nov and 79/121 (65.3%, Wilson 0.565) on 15 Nov, but train was 45-46% and fresh paper-test data is still collecting, so this model is DISPLAY-ONLY until the paper test passes (100 fired rounds, Wilson at least 53.02%). Outputs null when fewer than 20 rounds are in the window or BIG is not cold. Governed under the same Wilson bar, 2-window blacklist, and bench rules as every model. Never drives a bet while display-only.", "strategy": "Last-20 BIG rate below 0.40, bet BIG; null otherwise", "complexity": "medium",
+    "baseWinRate": 0, "streak": 0, "predColor": "GREEN", "predSize": "BIG", "num": 7, "conf": 0.60, "predType": "SIZE", "predTarget": "BIG", "bestStreak": 0, "dopamine": 0.5, "lossPain": 0, "historyPath": []
   }
 ];
 
@@ -2088,7 +2096,7 @@ const ADAPTIVE_MIN_HISTORY = 25;      // Need 20 for backtest + 5 for trend dete
 
 // ── Adaptive selection cache (perf fix 2026-10-31) ──
 // selectAdaptiveSubStrategy runs 3 sub-strategies × 20 rounds = 60 predictions
-// per model. For 142 models that's ~8,520 predictions per cycle — enough to
+// per model. For 143 models that's ~8,580 predictions per cycle — enough to
 // freeze the UI thread on a phone ("predictions stuck"). The history only
 // changes when a new round settles, so we cache per (modelId, histLen, lastId)
 // and reuse within a cycle. Cache is bounded (Map with simple eviction).
@@ -2392,6 +2400,31 @@ function generateModelNextPrediction(model, history, modelStats, skipAdaptive) {
       sProb = 0.65;  // Fixed honest confidence (not claiming high edge)
       patternInfo = pattern;
       break;
+    }
+    // ── COLD-BIG-20 (owner order 2026-11-15, edge-report-2026-11-14/15) ──
+    // Exact edge-search rule: last-20 BIG rate below 0.40, bet BIG.
+    // Returns the pick directly (like Observer returns null): the
+    // signal is contrarian by design, so the post-switch rewrites
+    // would corrupt it — D2 regime attractor flips a pick that fights
+    // a dragon (and a cold-BIG window usually IS a SMALL dragon),
+    // the streak/pain inversion flips it on a -5 run, and the
+    // adaptive override would replace it with trend/fade. The record
+    // must measure the signal itself, exactly as the paper test does.
+    // Null when the window is shorter than 20 rounds or BIG is not cold.
+    case 'cold-big-20': {
+      const win20 = sizes.slice(-20);
+      if (win20.length < 20) return null;
+      const bigCount = win20.filter(s => s === 'BIG').length;
+      if (bigCount / 20 >= 0.40) return null;
+      return {
+        predType: 'SIZE',
+        predTarget: 'BIG',
+        predColor: 'GREEN',
+        predSize: 'BIG',
+        num: 7,
+        conf: 0.60,  // Fixed honest confidence (not claiming high edge)
+        patternInfo: null
+      };
     }
     // ── 1. FLY BRAIN NEUROMORPHIC (14 Models) ──
     case 'fly-mushroom-body-spiking': {

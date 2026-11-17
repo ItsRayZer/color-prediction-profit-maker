@@ -50,9 +50,9 @@ function sliceFn(src, startMarker, endMarker) {
 }
 
 describe('Round 29: Session auto-start + build stamp (source)', () => {
-  it('build version 14 matches the sw.js cache version', () => {
-    assert.ok(mobileSrc.includes('const O101_BUILD_VERSION = 14'), 'mobile.js must define O101_BUILD_VERSION = 14');
-    assert.ok(swSrc.includes("const CACHE_NAME = '0101-pwa-cache-v14'"), 'sw.js CACHE_NAME must be v14');
+  it('build version 15 matches the sw.js cache version', () => {
+    assert.ok(mobileSrc.includes('const O101_BUILD_VERSION = 15'), 'mobile.js must define O101_BUILD_VERSION = 15');
+    assert.ok(swSrc.includes("const CACHE_NAME = '0101-pwa-cache-v15'"), 'sw.js CACHE_NAME must be v15');
     assert.ok(mobileSrc.includes("window.__o101Build = 'v' + O101_BUILD_VERSION"), 'build must be exposed as window.__o101Build');
   });
 
@@ -169,7 +169,7 @@ describe('Round 29: Session auto-start (behaviour)', () => {
     settleRounds(MobileState, sandbox, 5, 10);
     assert.ok(localStorage.getItem(`quant_user_ai_reset_${tf}`), 'first settle must auto-arm the session flag');
     const map = JSON.parse(localStorage.getItem(`quant_user_model_stats_${tf}`));
-    assert.equal(Object.keys(map).length, 142, 'session map must hold all 142 models');
+    assert.equal(Object.keys(map).length, 143, 'session map must hold all 143 models');
     const scored = Object.values(map).filter((m) => m.totalEvaluated > 0).length;
     assert.ok(scored >= 130, `most models must be scored after 5 rounds with no Reset tap (got ${scored})`);
     const top = sandbox.getEffectiveModelList(tf)[0];

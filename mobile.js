@@ -1550,7 +1550,7 @@ function renderAuthoritativeAIPrediction(list, forceRecompute = false) {
       let bigVotes = 0, smallVotes = 0, confSum = 0;
       top5Pool.forEach(m => {
         try {
-          const pred = window.generateModelNextPrediction(m, list, {
+          const pred = window.generateModelNextPrediction(m, predictionHistoryFor(tf), {
             streak: m.streak || 0,
             dopamine: m.dopamine || 0.5,
             lossPain: m.lossPain || 0.0
@@ -1578,7 +1578,7 @@ function renderAuthoritativeAIPrediction(list, forceRecompute = false) {
   // Direct Execution: Calculate fresh prediction for in-charge champion on latest draw sequence
   if (!target && champModel && typeof window.generateModelNextPrediction === 'function') {
     try {
-      const p = window.generateModelNextPrediction(champModel, list, {
+      const p = window.generateModelNextPrediction(champModel, predictionHistoryFor(tf), {
         streak: champModel.streak || 0,
         dopamine: champModel.dopamine || 0.5,
         lossPain: champModel.lossPain || 0.0
@@ -2547,8 +2547,7 @@ function settleRoundOutcome(tf, period, number, size, color, cloudRow = null, un
         predType = inCharge.predType || predType;
       } else if (typeof window.generateModelNextPrediction === 'function') {
         try {
-          const history = MobileState.historyByTf[tf] || [];
-          const histBefore = history.filter(r => String(r.period) < periodStr);
+          const histBefore = predictionHistoryFor(tf, periodStr);
           const p = window.generateModelNextPrediction(inCharge, histBefore);
           if (p && p.predTarget) {
             target = target || p.predTarget;
@@ -2943,6 +2942,31 @@ window.triggerAITargetBoxAnimation = triggerAITargetBoxAnimation;
 
 // ── 18. Individual Model Settlement (All 53 Models) ───────────────────────────
 
+// Prediction window (cold-big-20, owner order 2026-11-15): live picks and
+// per-model scoring need up to 20 prior rounds, but the live fetch loop
+// only holds the latest ~10 per timeframe. Merge the deep-history tail
+// (warm-up store, up to 600 rounds, persisted) with the live list,
+// deduped by period (live wins), sorted oldest-first, capped at 24.
+// The cap is deliberate: 20 for the signal + gap slack, still under
+// ADAPTIVE_MIN_HISTORY (25), so the per-model adaptive override stays
+// skipped live exactly as today. Settlement, verdict restoration and
+// history display keep the 10-round live list untouched.
+function predictionHistoryFor(tf, beforePeriod) {
+  try {
+    const live = (MobileState.historyByTf && MobileState.historyByTf[tf]) || [];
+    const deep = (MobileState.deepHistoryByTf && MobileState.deepHistoryByTf[tf]) || [];
+    const byPeriod = new Map();
+    for (const r of deep) if (r && r.period) byPeriod.set(String(r.period), r);
+    for (const r of live) if (r && r.period) byPeriod.set(String(r.period), r);
+    let merged = [...byPeriod.values()].sort((a, b) => String(a.period).localeCompare(String(b.period)));
+    if (beforePeriod) merged = merged.filter(r => String(r.period) < String(beforePeriod));
+    return merged.slice(-24);
+  } catch (e) {
+    const live = (MobileState.historyByTf && MobileState.historyByTf[tf]) || [];
+    return beforePeriod ? live.filter(r => String(r.period) < String(beforePeriod)) : live;
+  }
+}
+
 function updateIndividualModelSettlement(tf, periodStr, number, size, color, universalState) {
   // Round 29: arm Session tracking before the map write below, so the
   // first settled round already counts — no Reset tap required.
@@ -2951,7 +2975,13 @@ function updateIndividualModelSettlement(tf, periodStr, number, size, color, uni
   if (!models || models.length === 0) return;
 
   const history = MobileState.historyByTf[tf] || [];
-  const historyBefore = history.filter(r => String(r.period) < periodStr);
+  // Sliced-harness safety: predictionHistoryFor is defined outside
+  // this function, so a test that slices this function alone must
+  // still settle on the live list (old behaviour) instead of throwing
+  // on an undefined helper. Production always has the helper.
+  const historyBefore = (typeof predictionHistoryFor === 'function')
+    ? predictionHistoryFor(tf, periodStr)
+    : history.filter(r => String(r.period) < periodStr);
 
   models.forEach(model => {
     // Observer (system model): its pick is computed by
@@ -3324,7 +3354,7 @@ window.filterModelRoster = filterModelRoster;
 // phone could not be told apart from the new code. O101_BUILD_VERSION
 // is stamped next to the leaderboard title and must match the sw.js
 // CACHE_NAME version on every ship.
-const O101_BUILD_VERSION = 14;
+const O101_BUILD_VERSION = 15;
 if (typeof window !== 'undefined') window.__o101Build = 'v' + O101_BUILD_VERSION;
 
 function ensureSessionTracking(tf) {
@@ -3648,7 +3678,7 @@ function renderModelRosterUI() {
     return;
   }
 
-  const curHist = MobileState.historyByTf[tf] || [];
+  const curHist = predictionHistoryFor(tf);
   displayList.forEach(a => {
     if (a.name === effectiveInCharge && MobileState.activePrediction?.target) {
       a.predTarget = MobileState.activePrediction.target;

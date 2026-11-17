@@ -159,6 +159,16 @@ export const EXACT_BALL_GATE_REASON = 'Exact-ball gated: live payout unverified.
 export const ASI_TRIAL_GATE_REASON = 'ASI trial: evaluated, not bet-driving until harness PASS.';
 export const ASI_TRIAL_IDS = ['ASI', 'ASI_APEX_MASTER'];
 
+// Display-only models (owner order 2026-11-15): scored and ranked like
+// every model, shown on the leaderboard, but NEVER bet-driving until
+// their own verification gate passes. cold-big-20's gate is the fresh
+// paper test: 100 fired rounds with Wilson at least 53.02% on data
+// after the 2026-11-14 edge report. The orb-bridge cycle skips these
+// ids in bet-driver selection (same as ASI trial-gated ids) and rides
+// DISPLAY_ONLY_GATE_REASON when one would have led.
+export const DISPLAY_ONLY_IDS = ['cold-big-20'];
+export const DISPLAY_ONLY_GATE_REASON = 'Display-only until the fresh paper test passes (100 fired rounds, Wilson at least 53.02%).';
+
 /**
  * Phase 3D (owner order 2026-10-27, "no stop no skip"): the streak
  * guard is DELETED — no 3-loss breaker, no HARD_STOP, no re-arm, no
@@ -391,7 +401,7 @@ export class SignalGate {
 export const evaluateGate = evaluateSignalGate;
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { GATE_DECISIONS, DEFAULT_GATE_CONFIG, breakEvenWinRate, evaluateSignalGate, evaluateGate, SignalGate, GateCooldown, MIN_RANK_SAMPLES, sampleStakeFactor, betTypeOfPick, EXACT_BALL_GATE_REASON, ASI_TRIAL_GATE_REASON, ASI_TRIAL_IDS };
+  module.exports = { GATE_DECISIONS, DEFAULT_GATE_CONFIG, breakEvenWinRate, evaluateSignalGate, evaluateGate, SignalGate, GateCooldown, MIN_RANK_SAMPLES, sampleStakeFactor, betTypeOfPick, EXACT_BALL_GATE_REASON, ASI_TRIAL_GATE_REASON, ASI_TRIAL_IDS, DISPLAY_ONLY_IDS, DISPLAY_ONLY_GATE_REASON };
 }
 
 if (typeof self !== "undefined") {
